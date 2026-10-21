@@ -75,7 +75,18 @@ try {
     window.fixture.refresh()
   })
   await page.getByRole('button', { name: '会话进度与输出', exact: true }).waitFor()
-  assert.equal(await card.count(), 0, 'The panel starts closed until explicitly opened')
+  await card.waitFor()
+  assert.equal(await card.count(), 1, 'The panel opens itself when the session already lists tasks')
+  await card.getByRole('button', { name: '关闭进度面板' }).click()
+  assert.equal(await card.count(), 0)
+  await page.evaluate(() => window.fixture.update([
+    { content: '整理需求与界面结构', status: 'completed' },
+    { content: '实现右上角任务面板，并保留任务状态的实时更新', status: 'in_progress' },
+    { content: '检查窗口缩放与浅色、深色主题', status: 'pending' },
+    { content: '完成验证并交付', status: 'pending' },
+  ]))
+  await settled()
+  assert.equal(await card.count(), 0, 'After a manual close, task updates stay quiet for this session')
   await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
   await card.waitFor()
   await page.evaluate(rows => {
@@ -116,7 +127,7 @@ try {
       ])
     })
     await settled()
-    assert.equal(await card.count(), 0, 'Work starting must not automatically open the panel')
+    assert.equal(await card.count(), 0, 'A session auto-opens only once, so later work keeps the manual close')
     assert.ok((await entryButton.innerText()).includes('第 5 步，共 6 步'))
     await entryButton.click()
     assert.equal(await card.locator('.dcb-step').count(), 4)
@@ -222,8 +233,7 @@ try {
     await page.evaluate(rows => window.fixture.records(rows), rows)
     await page.evaluate(() => window.fixture.session('b'))
     await settled()
-    assert.equal(await card.count(), 0, 'An unvisited session also starts closed')
-    await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
+    assert.equal(await card.count(), 1, 'A newly visited session opens itself once its task list appears')
     assert.equal(await card.locator('.dcb-output').count(), 0)
     assert.equal(await card.locator('.dcb-resource').count(), 0)
     assert.ok(await card.getByText('第二个会话的任务', { exact: true }).count())

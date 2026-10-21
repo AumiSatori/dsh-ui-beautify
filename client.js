@@ -319,6 +319,8 @@ window.__ModuleLoader__.load({
       const observed = new Set()
       const summaryOwners = new Map()
       const openedBySession = new Map()
+      // Sessions whose card already auto-opened once, so a manual close stays closed.
+      const autoOpenedSessions = new Set()
       const style = document.createElement('style')
       style.dataset.plugin = NAME
       style.textContent = css
@@ -402,7 +404,7 @@ window.__ModuleLoader__.load({
         const h = React.createElement
         return h('div', { className: 'dcb-settings' },
           h('h2', null, 'Claude 风格 · 任务面板'),
-          h('p', null, '在右上角查看当前会话的进度、输出和已使用的工具。点击入口按钮打开或收起面板，任务状态实时更新。'),
+          h('p', null, '在右上角查看当前会话的进度、输出和已使用的工具。任务清单出现时卡片自动展开一次，之后点击入口按钮打开或收起，任务状态实时更新。'),
           h('label', null, h('input', { type: 'checkbox', checked: settings.enabled,
             onChange: event => update({ enabled: event.target.checked }) }), '启用右上角任务面板'),
           h('label', null, '面板宽度', h('input', { type: 'range', min: 280, max: 480, step: 10,
@@ -442,6 +444,14 @@ window.__ModuleLoader__.load({
         const progress = progressItems(todos, expanded, working)
         const entryLabel = working ? `第 ${progress.step} 步，共 ${progress.total} 步` : activity.files.length || todos.length || activity.resources.length
         React.useEffect(() => { listeners.add(refresh); return () => listeners.delete(refresh) }, [])
+        // Reveal the card once when a task list first appears; after the user closes it,
+        // later task updates stay quiet for the rest of the session.
+        React.useEffect(() => {
+          if (!visible || todos.length === 0 || autoOpenedSessions.has(sessionId)) return
+          autoOpenedSessions.add(sessionId)
+          openedBySession.set(sessionId, true)
+          setOpenState({ sessionId, value: true })
+        }, [sessionId, visible, todos.length])
         React.useEffect(() => {
           if (!visible) return
           summaryOwners.set(sessionId, (summaryOwners.get(sessionId) || 0) + 1)

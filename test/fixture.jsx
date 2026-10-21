@@ -49,12 +49,14 @@ function App() {
   const [, force] = React.useReducer(value => value + 1, 0)
   const [session, setSession] = React.useState('a')
   const [todos, setTodos] = React.useState(examples.a)
+  const [running, setRunning] = React.useState(false)
   const [sidebar, setSidebar] = React.useState(false)
   const [settings, setSettings] = React.useState(false)
   const [detached, setDetached] = React.useState(false)
   window.fixture = {
-    session: id => { setSession(id); setTodos(examples[id]) },
+    session: id => { setSession(id); setTodos(examples[id]); setRunning(false) },
     update: value => setTodos(value),
+    running: value => setRunning(value),
     sidebar: value => setSidebar(value),
     settings: value => setSettings(value),
     detach: value => setDetached(value),
@@ -67,7 +69,7 @@ function App() {
   const source = injected?.hooks.taskActivity
   return <div className={'frame' + (sidebar ? ' sidebar-open' : '')}>
     <aside className="nav"><strong>DeepSeek Harness</strong><small>工作区</small><p>界面优化</p><p>设计与开发</p></aside>
-    <main><header data-slot="conversation.header"><span>界面优化</span><span className="header-utilities">{Header && <Header sessionId={session} useProjection={() => todos}
+    <main><header data-slot="conversation.header"><span>界面优化</span><span className="header-utilities">{Header && <Header sessionId={session} useProjection={() => todos} useSession={selector => selector({ running })}
       useTaskActivity={selector => React.useSyncExternalStore(source.subscribe, () => selector(source.getSnapshot()))} openOutput={injected.openOutput}/>}<span>···</span></span></header>
       {!detached && <div data-conversation-content="" data-conversation-session={session} className="conversation">
         <div data-conversation-scroll="" className="scroll">

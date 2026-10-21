@@ -96,10 +96,12 @@ window.__ModuleLoader__.load({
       }
       return { getSnapshot, subscribe: listener => events?.subscribe(() => { const old = current; if (getSnapshot() !== old) listener() }) || (() => {}) }
     }
-    function progressItems(todos, expanded) {
-      const active = todos.findIndex(item => item.status !== 'completed')
-      const hidden = Math.max(0, (active < 0 ? todos.length - 1 : active) - 1)
-      return { hidden, items: expanded ? todos : todos.slice(hidden) }
+    function progressItems(todos, expanded, working = false) {
+      const active = todos.findIndex(item => item.status === 'in_progress')
+      const pending = todos.findIndex(item => item.status === 'pending')
+      const current = active >= 0 ? active : pending >= 0 ? pending : todos.length - 1
+      const hidden = Math.max(0, current - (working ? 2 : 1))
+      return { hidden, items: expanded ? todos : todos.slice(hidden), step: current + 1, total: todos.length }
     }
     function Icon({ kind, size = 16 }) {
       const paths = {
@@ -207,6 +209,7 @@ window.__ModuleLoader__.load({
       .dcb-anchor { position: relative; display: inline-flex; z-index: 20; -webkit-app-region: no-drag; }
       .dcb-entry { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 42px; height: 32px; padding: 4px 9px; border: 0; border-radius: 9px; background: transparent; color: var(--dsw-alias-label-primary, #343434); font: inherit; cursor: pointer; }
       .dcb-entry[aria-expanded="true"], .dcb-entry:hover { background: var(--dsw-alias-interactive-bg-hover, #f1f0ed); }
+      .dcb-entry[data-working="true"] { background: var(--dsw-alias-interactive-bg-hover, #f1f0ed); white-space: nowrap; font-variant-numeric: tabular-nums; }
       .dcb-summary { box-sizing: border-box; position: absolute; top: calc(100% + 12px); right: 0; width: min(var(--dcb-card-width, 320px), calc(100vw - 24px)); height: 360px; max-height: var(--dcb-card-height, calc(100vh - 100px)); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; border: 1px solid #e4e3df; border-radius: 14px; background: #fff; color: #242424; box-shadow: 0 2px 4px #0000000a; padding: 16px; text-align: left; font: 13px/1.6 system-ui, sans-serif; }
       .dcb-summary section + section { border-top: 1px solid #eeedeb; margin-top: 14px; padding-top: 14px; }
       .dcb-summary h3 { display: flex; align-items: center; justify-content: space-between; font-size: 13px; line-height: 20px; font-weight: 500; margin: 0 0 10px; }
@@ -216,14 +219,19 @@ window.__ModuleLoader__.load({
       .dcb-close:hover { background: #f3f2ef; }
       .dcb-timeline { list-style: none; margin: 0; padding: 0; }
       .dcb-step, .dcb-history { position: relative; display: flex; gap: 10px; align-items: flex-start; min-height: 30px; padding: 4px 0; font-size: 13px; line-height: 21px; color: #66645f; }
-      .dcb-step:not(:last-child)::before, .dcb-history::before { content: ''; position: absolute; width: 2px; background: #e8e7e4; top: 23px; bottom: -4px; left: 9px; }
-      .dcb-step[data-status="pending"] { color: #8b8983; }
+      .dcb-step::before, .dcb-history::before { content: ''; position: absolute; width: 2px; background: #e8e7e4; top: 0; bottom: 0; left: 9px; }
+      .dcb-step[data-status="completed"] { color: #96928b; }
+      .dcb-step[data-status="completed"]::before { background: #c1bfb9; }
+      .dcb-step[data-status="in_progress"] { color: #4d4b46; }
+      .dcb-step[data-status="in_progress"]::before { background: #aaa79f; }
+      .dcb-step[data-status="pending"] { color: #77736c; }
       .dcb-status { position: relative; display: grid; place-items: center; flex: 0 0 20px; width: 20px; height: 21px; }
       .dcb-status-dot { width: 12px; height: 12px; border: 1.5px solid #c4c1b9; border-radius: 50%; display: grid; place-items: center; }
       .dcb-step[data-status="completed"] .dcb-status-dot { color: white; border-color: #5a5b56; background: #5a5b56; }
-      .dcb-step[data-status="in_progress"] .dcb-status-dot { border-color: #b98060; border-top-color: transparent; animation: dcb-spin 1.2s linear infinite; }
+      .dcb-step[data-finished="true"]::before { bottom: 50%; }
       .dcb-step-text { overflow-wrap: anywhere; min-width: 0; }
       .dcb-history { border: 0; background: transparent; width: 100%; text-align: left; color: #95918a; font-size: 12px; padding-top: 0; }
+      .dcb-history::before { background: none; border-left: 2px dotted #dedbd5; width: 0; top: 2px; bottom: 2px; }
       .dcb-history .dcb-status { color: #d8d6d1; }
       .dcb-output { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 2px; background: transparent; border: 0; text-align: left; color: #66645f; border-radius: 6px; font-size: 13px; }
       .dcb-output:hover { background: #f6f5f2; }
@@ -237,13 +245,17 @@ window.__ModuleLoader__.load({
       .dcb-resource-label { flex-shrink: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .dcb-resource-detail { margin-left: auto; min-width: 0; color: #95918a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
       .dcb-note { font-size: 11px; color: #9a9790; margin: 8px 0 0; }
-      @keyframes dcb-spin { to { transform: rotate(360deg); } }
-      @media (prefers-reduced-motion: reduce) { .dcb-step[data-status="in_progress"] .dcb-status-dot { animation: none; } }
       body[data-ds-dark-theme] .dcb-summary { background: #292824; color: #eeeae2; border-color: #45423b; box-shadow: 0 2px 6px #0003; }
       body[data-ds-dark-theme] .dcb-summary section + section { border-color: #45423b; }
       body[data-ds-dark-theme] .dcb-step, body[data-ds-dark-theme] .dcb-output, body[data-ds-dark-theme] .dcb-resource { color: #cec9bd; }
       body[data-ds-dark-theme] .dcb-output:hover, body[data-ds-dark-theme] .dcb-close:hover { background: #37352f; }
-      body[data-ds-dark-theme] .dcb-step:not(:last-child)::before, body[data-ds-dark-theme] .dcb-history::before { background: #48453d; }
+      body[data-ds-dark-theme] .dcb-step::before { background: #48453d; }
+      body[data-ds-dark-theme] .dcb-step[data-status="completed"] { color: #969084; }
+      body[data-ds-dark-theme] .dcb-step[data-status="completed"]::before { background: #615d53; }
+      body[data-ds-dark-theme] .dcb-step[data-status="in_progress"] { color: #eeeae2; }
+      body[data-ds-dark-theme] .dcb-step[data-status="in_progress"]::before { background: #a29b8d; }
+      body[data-ds-dark-theme] .dcb-step[data-status="pending"] { color: #b8b1a3; }
+      body[data-ds-dark-theme] .dcb-history::before { border-color: #615d53; }
       @media (max-width: 600px) { .dcb-summary { padding: 14px; } }
     `
 
@@ -350,9 +362,10 @@ window.__ModuleLoader__.load({
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section', id: NAME, order: 35, label: 'Claude 美化',
       }, Settings))
-      function Summary({ sessionId, useProjection, useTaskActivity, openOutput }) {
+      function Summary({ sessionId, useProjection, useTaskActivity, useSession, openOutput }) {
         const todos = useProjection('todos') || []
         const activity = useTaskActivity(value => value)
+        const running = useSession ? useSession(value => value.running) === true : todos.some(item => item.status === 'in_progress')
         const [openState, setOpenState] = React.useState(() => ({ sessionId, value: openedBySession.get(sessionId) ?? false }))
         const [history, setHistory] = React.useState(null)
         const [usedOpen, setUsedOpen] = React.useState(true)
@@ -363,7 +376,10 @@ window.__ModuleLoader__.load({
         const hasContent = todos.length > 0 || activity.files.length > 0 || activity.resources.length > 0
         const visible = settings.enabled && hasContent
         const expanded = history === sessionId
-        const progress = progressItems(todos, expanded)
+        const working = running && todos.length > 0
+        const finished = !running && todos.length > 0 && todos.every(item => item.status === 'completed')
+        const progress = progressItems(todos, expanded, working)
+        const entryLabel = working ? `第 ${progress.step} 步，共 ${progress.total} 步` : activity.files.length || todos.length || activity.resources.length
         React.useEffect(() => { listeners.add(refresh); return () => listeners.delete(refresh) }, [])
         React.useEffect(() => {
           if (!visible) return
@@ -399,15 +415,15 @@ window.__ModuleLoader__.load({
         const cardId = `${NAME}-summary-${sessionId}`
         return h('div', { className: 'dcb-anchor', ref: anchor, 'data-dcb-summary-for': sessionId,
           onKeyDown: event => { if (event.key === 'Escape' && open) { event.stopPropagation(); close() } } },
-          h('button', { type: 'button', className: 'dcb-entry', ref: button, title: '会话进度与输出', 'aria-label': '会话进度与输出', 'aria-expanded': open, 'aria-controls': cardId, onClick: () => setOpen(!open) },
-            h(Icon, { kind: 'file', size: 16 }), h('span', null, activity.files.length || todos.length || activity.resources.length)),
+          h('button', { type: 'button', className: 'dcb-entry', ref: button, 'data-working': working, title: '会话进度与输出', 'aria-label': '会话进度与输出', 'aria-expanded': open, 'aria-controls': cardId, onClick: () => setOpen(!open) },
+            h(Icon, { kind: 'file', size: 16 }), h('span', { 'aria-live': 'polite', 'aria-atomic': true }, entryLabel)),
           open && h('aside', { className: 'dcb-summary', id: cardId, 'aria-label': '会话进度与输出', 'data-testid': 'dcb-summary' },
             todos.length > 0 && h('section', { 'data-testid': 'dcb-progress' }, h('h3', null, '进度', closeControl),
               h(React.Fragment, null,
-                progress.hidden > 0 && h('button', { type: 'button', className: 'dcb-history', 'aria-expanded': expanded, onClick: () => setHistory(expanded ? null : sessionId) }, h('span', { className: 'dcb-status', 'aria-hidden': true }, '⋮'), expanded ? '收起先前步骤' : `${progress.hidden} 个先前步骤`),
-                h('ol', { className: 'dcb-timeline' }, progress.items.map((item, index) => h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-status': item.status },
+                progress.hidden > 0 && h('button', { type: 'button', className: 'dcb-history', 'aria-expanded': expanded, onClick: () => setHistory(expanded ? null : sessionId) }, h('span', { className: 'dcb-status', 'aria-hidden': true }), expanded ? '收起先前步骤' : `${progress.hidden} 个先前步骤`),
+                h('ol', { className: 'dcb-timeline', 'data-working': working }, progress.items.map((item, index) => h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-status': item.status, 'aria-current': item.status === 'in_progress' ? 'step' : undefined, 'data-finished': finished && index === progress.items.length - 1 ? true : undefined },
                   h('span', { className: 'dcb-status', role: 'img', 'aria-label': { completed: '已完成', in_progress: '进行中', pending: '待处理' }[item.status] || item.status },
-                    h('span', { className: 'dcb-status-dot' }, item.status === 'completed' ? h(Icon, { kind: 'check', size: 12 }) : null)),
+                    finished && index === progress.items.length - 1 ? h('span', { className: 'dcb-status-dot' }, h(Icon, { kind: 'check', size: 12 })) : null),
                   h('span', { className: 'dcb-step-text' }, item.content)))))),
             activity.files.length > 0 && h('section', { 'data-testid': 'dcb-outputs' }, h('h3', null, '输出', todos.length === 0 && closeControl), activity.files.map(file => {
               const name = basename(file.path)

@@ -96,6 +96,50 @@ try {
     await card.getByRole('button', { name: '2 个先前步骤' }).click()
     assert.equal(await card.locator('.dcb-step').count(), 4)
     await card.getByRole('button', { name: '收起先前步骤' }).click()
+    const entryButton = page.getByRole('button', { name: '会话进度与输出', exact: true })
+    await entryButton.click()
+    await page.evaluate(() => {
+      window.fixture.running(true)
+      window.fixture.update([
+        { content: '整理需求', status: 'completed' },
+        { content: '准备工程', status: 'completed' },
+        { content: '制作并渲染动画', status: 'completed' },
+        { content: '检查成片并交付', status: 'completed' },
+        { content: '设计并构建进度面板页面', status: 'in_progress' },
+        { content: '发布并检查页面', status: 'pending' },
+      ])
+    })
+    await settled()
+    assert.equal(await card.count(), 0, 'Work starting must not automatically open the panel')
+    assert.ok((await entryButton.innerText()).includes('第 5 步，共 6 步'))
+    await entryButton.click()
+    assert.equal(await card.locator('.dcb-step').count(), 4)
+    assert.equal(await card.locator('.dcb-status-dot').count(), 0, 'Working steps use a rail instead of spinners or checkboxes')
+    assert.ok(await card.getByRole('button', { name: '2 个先前步骤' }).count())
+    assert.equal(await card.locator('[data-status="in_progress"]').getAttribute('aria-current'), 'step')
+    assert.deepEqual(await card.evaluate(el => el.getAnimations({ subtree: true }).map(animation => animation.animationName)), [])
+    await card.screenshot({ path: resolve(output, 'summary-working.png') })
+    await page.screenshot({ path: resolve(output, 'summary-working-desktop.png') })
+    await entryButton.screenshot({ path: resolve(output, 'summary-working-entry.png') })
+    await page.evaluate(() => {
+      window.fixture.update([
+        { content: '整理需求', status: 'completed' }, { content: '准备工程', status: 'completed' },
+        { content: '制作并渲染动画', status: 'completed' }, { content: '检查成片并交付', status: 'completed' },
+        { content: '设计并构建进度面板页面', status: 'completed' }, { content: '发布并检查页面', status: 'in_progress' },
+      ])
+    })
+    await settled()
+    assert.ok((await entryButton.innerText()).includes('第 6 步，共 6 步'))
+    await page.evaluate(() => {
+      window.fixture.running(false)
+      window.fixture.update([
+        { content: '整理需求', status: 'completed' }, { content: '准备工程', status: 'completed' },
+        { content: '制作并渲染动画', status: 'completed' }, { content: '检查成片并交付', status: 'completed' },
+      ])
+    })
+    await settled()
+    assert.ok(!(await entryButton.innerText()).includes('步'))
+    assert.equal(await card.locator('.dcb-status-dot').count(), 1)
   })
   await check('declared outputs and actual used resources populate separate sections', async () => {
     assert.equal(await card.locator('.dcb-output').count(), 1)

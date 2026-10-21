@@ -64,6 +64,12 @@ test('prior completed steps fold and file addresses remain scoped and correctly 
   assert.equal(exports.__test.progressItems(todos, false).hidden, 2)
   assert.equal(exports.__test.progressItems(todos, false).items.length, 2)
   assert.equal(exports.__test.progressItems(todos, true).items.length, 4)
+  const working = ['completed', 'completed', 'completed', 'completed', 'in_progress', 'pending'].map((status, index) => ({ status, content: `step${index}` }))
+  assert.equal(exports.__test.progressItems(working, false, true).hidden, 2)
+  assert.equal(exports.__test.progressItems(working, false, true).step, 5)
+  assert.equal(exports.__test.progressItems(working, false, true).total, 6)
+  assert.equal(exports.__test.progressItems(working, false, true).items.length, 4)
+  assert.equal(exports.__test.progressItems([], false, true).step, 0)
   assert.equal(exports.__test.fileAddress('a/b', 'out/a b.zip'), 'dsh-resource://file/session/a%2Fb/out/a%20b.zip')
 })
 test('keeps tasks in the conversation column, away from a right sidebar and composer', () => {

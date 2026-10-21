@@ -32,7 +32,7 @@ const SECTION_NEW = `      // dsh-claude-beautify hosts this page inside its own
         try {
           if (window.__dsbHostsClaudeSettings === true) return true;
           const boot = window.__DSH_BOOT__;
-          return !!(boot && Array.isArray(boot.entries) && boot.entries.some((row) => row && row.id === "dsh-claude-beautify"));
+          return !!(boot && Array.isArray(boot.entries) && boot.entries.some((row) => row && (row.id === "dsh-claude-beautify" || row.id === "dsh-claude-beautify/client")));
         } catch (error) {
           return false;
         }

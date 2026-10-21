@@ -395,27 +395,28 @@ window.__ModuleLoader__.load({
         if (!visible) return null
         const setOpen = value => { openedBySession.set(sessionId, value); setOpenState({ sessionId, value }) }
         const close = () => { setOpen(false); button.current?.focus() }
+        const closeControl = h('button', { type: 'button', className: 'dcb-close', 'aria-label': '关闭进度面板', onClick: close }, h(Icon, { kind: 'close', size: 16 }))
         const cardId = `${NAME}-summary-${sessionId}`
         return h('div', { className: 'dcb-anchor', ref: anchor, 'data-dcb-summary-for': sessionId,
           onKeyDown: event => { if (event.key === 'Escape' && open) { event.stopPropagation(); close() } } },
           h('button', { type: 'button', className: 'dcb-entry', ref: button, title: '会话进度与输出', 'aria-label': '会话进度与输出', 'aria-expanded': open, 'aria-controls': cardId, onClick: () => setOpen(!open) },
             h(Icon, { kind: 'file', size: 16 }), h('span', null, activity.files.length || todos.length || activity.resources.length)),
           open && h('aside', { className: 'dcb-summary', id: cardId, 'aria-label': '会话进度与输出', 'data-testid': 'dcb-summary' },
-            h('section', null, h('h3', null, '进度', h('button', { type: 'button', className: 'dcb-close', 'aria-label': '关闭进度面板', onClick: close }, h(Icon, { kind: 'close', size: 16 }))),
-              todos.length ? h(React.Fragment, null,
+            todos.length > 0 && h('section', { 'data-testid': 'dcb-progress' }, h('h3', null, '进度', closeControl),
+              h(React.Fragment, null,
                 progress.hidden > 0 && h('button', { type: 'button', className: 'dcb-history', 'aria-expanded': expanded, onClick: () => setHistory(expanded ? null : sessionId) }, h('span', { className: 'dcb-status', 'aria-hidden': true }, '⋮'), expanded ? '收起先前步骤' : `${progress.hidden} 个先前步骤`),
                 h('ol', { className: 'dcb-timeline' }, progress.items.map((item, index) => h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-status': item.status },
                   h('span', { className: 'dcb-status', role: 'img', 'aria-label': { completed: '已完成', in_progress: '进行中', pending: '待处理' }[item.status] || item.status },
                     h('span', { className: 'dcb-status-dot' }, item.status === 'completed' ? h(Icon, { kind: 'check', size: 12 }) : null)),
-                  h('span', { className: 'dcb-step-text' }, item.content))))) : h('p', { className: 'dcb-note' }, '本次会话尚未创建任务清单')),
-            activity.files.length > 0 && h('section', { 'data-testid': 'dcb-outputs' }, h('h3', null, '输出'), activity.files.map(file => {
+                  h('span', { className: 'dcb-step-text' }, item.content)))))),
+            activity.files.length > 0 && h('section', { 'data-testid': 'dcb-outputs' }, h('h3', null, '输出', todos.length === 0 && closeControl), activity.files.map(file => {
               const name = basename(file.path)
               const extension = /\.([^.]+)$/.exec(name)?.[1] || '文件'
               return h('button', { type: 'button', key: file.path, className: 'dcb-output', title: file.description || name, onClick: () => openOutput(file.path) },
                 h(Icon, { kind: /zip|7z|rar|tar|gz/i.test(extension) ? 'archive' : 'file' }), h('span', { className: 'dcb-file-name' }, name.replace(/\.[^.]+$/, '')), h('span', { className: 'dcb-file-type' }, extension))
             })),
             activity.resources.length > 0 && h('section', { 'data-testid': 'dcb-resources' },
-              h('h3', null, h('button', { type: 'button', className: 'dcb-used-toggle', 'aria-expanded': usedOpen, onClick: () => setUsedOpen(!usedOpen) }, '本次会话中已使用', h(Icon, { kind: 'chevron', size: 16 }))),
+              h('h3', null, h('button', { type: 'button', className: 'dcb-used-toggle', 'aria-expanded': usedOpen, onClick: () => setUsedOpen(!usedOpen) }, '本次会话中已使用', h(Icon, { kind: 'chevron', size: 16 })), todos.length === 0 && activity.files.length === 0 && closeControl),
               usedOpen && activity.resources.map((item, index) => h('div', { className: 'dcb-resource', key: index }, h(Icon, { kind: item.kind }), h('span', { className: 'dcb-resource-label', title: item.label }, item.label), h('span', { className: 'dcb-resource-detail', title: item.detail }, item.detail))),
               activity.hasMore && h('p', { className: 'dcb-note' }, '基于已加载的会话记录'))))
       }

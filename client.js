@@ -3,6 +3,10 @@ window.__ModuleLoader__.load({
   factory: (require) => {
     const React = require('react')
     const NAME = 'dsh-claude-beautify'
+    // Host the reasoning-slider settings page here (see reasoningSliderPage) so the
+    // settings sidebar keeps a single Claude entry; the slider plugin checks this
+    // flag before registering its own section.
+    try { window.__dsbHostsClaudeSettings = true } catch {}
     const KEY = `${NAME}:settings:v1`
     const PANEL = '[data-testid="todo-panel"]'
     const MARK = 'data-dcb-task-panel'
@@ -246,7 +250,9 @@ window.__ModuleLoader__.load({
       body[data-ds-dark-theme] [${MARK}] button > span:first-child { color: #d99c7c !important; }
       body[data-ds-dark-theme] [${MARK}] button > span:nth-child(3),
       body[data-ds-dark-theme] [${MARK}] button > span:last-child { color: #aaa294 !important; }
-      .dcb-settings { padding: 24px; max-width: 560px; color: var(--dsw-alias-label-primary); }
+      .dcb-settings { padding: 24px; max-width: 800px; color: var(--dsw-alias-label-primary); }
+      .dcb-settings-block + .dcb-settings-block { border-top: 1px solid #e7e3db; margin-top: 28px; padding-top: 8px; }
+      body[data-ds-dark-theme] .dcb-settings-block + .dcb-settings-block { border-top-color: #45423b; }
       .dcb-settings h2 { font-size: 18px; margin: 0 0 12px; }
       .dcb-settings p { font-size: 13px; line-height: 1.8; color: var(--dsw-alias-label-secondary); }
       .dcb-settings label { display: flex; align-items: center; gap: 10px; padding: 12px 0; font-size: 14px; }
@@ -398,22 +404,38 @@ window.__ModuleLoader__.load({
       window.addEventListener('storage', onStorage)
       sync()
 
+      // dsh-claude-slider (npm) exports its settings page; render it inside this entry
+      // so the sidebar shows one merged "Claude 美化" section instead of two.
+      let sliderPageCache
+      function reasoningSliderPage() {
+        if (sliderPageCache) return sliderPageCache
+        try { sliderPageCache = require('dsh-claude-slider')?.ClaudeSettingsPage || null }
+        catch { sliderPageCache = null }
+        return sliderPageCache
+      }
+
       function Settings() {
         const [, render] = React.useReducer(value => value + 1, 0)
         React.useEffect(() => { listeners.add(render); return () => listeners.delete(render) }, [])
         const h = React.createElement
+        const SliderPage = reasoningSliderPage()
         return h('div', { className: 'dcb-settings' },
-          h('h2', null, 'Claude 风格 · 任务面板'),
-          h('p', null, '在右上角查看当前会话的进度、输出和已使用的工具。任务清单出现时卡片自动展开一次，之后点击入口按钮打开或收起，任务状态实时更新。'),
-          h('label', null, h('input', { type: 'checkbox', checked: settings.enabled,
-            onChange: event => update({ enabled: event.target.checked }) }), '启用右上角任务面板'),
-          h('label', null, '面板宽度', h('input', { type: 'range', min: 280, max: 480, step: 10,
-            value: settings.width, 'aria-label': '面板宽度',
-            onChange: event => update({ width: Number(event.target.value) }) }), h('span', null, `${settings.width} px`)),
-          h('p', null, '窄屏会自动缩小。关闭后立即恢复 DSH 原来的任务清单位置。设置只保存在当前浏览器。'))
+          h('section', { className: 'dcb-settings-block', 'data-dcb-settings-block': 'slider' },
+            SliderPage
+              ? h(SliderPage)
+              : h('p', null, '推理滑块插件（dsh-claude-slider）未启用，这里只显示任务面板设置。')),
+          h('section', { className: 'dcb-settings-block', 'data-dcb-settings-block': 'panel' },
+            h('h2', null, '任务面板'),
+            h('p', null, '在右上角查看当前会话的进度、输出和已使用的工具。任务清单出现时卡片自动展开一次，之后点击入口按钮打开或收起，任务状态实时更新。'),
+            h('label', null, h('input', { type: 'checkbox', checked: settings.enabled,
+              onChange: event => update({ enabled: event.target.checked }) }), '启用右上角任务面板'),
+            h('label', null, '面板宽度', h('input', { type: 'range', min: 280, max: 480, step: 10,
+              value: settings.width, 'aria-label': '面板宽度',
+              onChange: event => update({ width: Number(event.target.value) }) }), h('span', null, `${settings.width} px`)),
+            h('p', null, '窄屏会自动缩小。关闭后立即恢复 DSH 原来的任务清单位置。设置只保存在当前浏览器。')))
       }
       ctx.slots.inject('settings.section', () => ctx.slots.register({
-        name: 'settings.section', id: NAME, order: 35, label: 'Claude 美化',
+        name: 'settings.section', id: NAME, order: 26, label: 'Claude 美化',
       }, Settings))
       function OutputRow({ file, sessionId, readThumbnail, onOpen }) {
         const name = basename(file.path)

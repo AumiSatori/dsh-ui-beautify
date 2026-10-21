@@ -63,7 +63,7 @@ try {
   await panel.waitFor()
   await page.evaluate(() => {
     window.cleanups = []
-    window.__ModuleLoader__ = { load(spec) { window.plugin = spec.factory(() => window.fixtureReact) } }
+    window.__ModuleLoader__ = { load(spec) { window.plugin = spec.factory(name => (name === 'dsh-claude-slider' && window.fixtureSliderModule) || window.fixtureReact) } }
   })
   await page.addScriptTag({ url: `${url}/client.js` })
   await page.evaluate(() => window.plugin.apply({
@@ -143,6 +143,28 @@ try {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     await page.screenshot({ path: resolve(output, 'mobile.png') })
     await page.setViewportSize({ width: 1440, height: 960 })
+  })
+  await check('settings merge hosts the reasoning-slider page above the panel block', async () => {
+    await page.evaluate(() => window.fixture.settings(true))
+    await page.getByText('推理滑块插件（dsh-claude-slider）未启用').waitFor()
+    await page.evaluate(() => {
+      const h = window.fixtureReact.createElement
+      window.fixtureSliderModule = { ClaudeSettingsPage: () => h('div', { 'data-fake-slider-page': '' }, '推理滑块页面') }
+      window.fixture.settings(false)
+    })
+    await settled()
+    await page.evaluate(() => window.fixture.settings(true))
+    await page.getByText('推理滑块页面').waitFor()
+    assert.equal(await page.locator('[data-dcb-settings-block="slider"]').count(), 1)
+    assert.equal(await page.locator('[data-dcb-settings-block="panel"]').count(), 1)
+    const order = await page.evaluate(() => {
+      const slider = document.querySelector('[data-dcb-settings-block="slider"]')
+      const panel = document.querySelector('[data-dcb-settings-block="panel"]')
+      return slider.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING ? 'slider-first' : 'panel-first'
+    })
+    assert.equal(order, 'slider-first')
+    await page.screenshot({ path: resolve(output, 'settings-merged.png') })
+    await page.evaluate(() => { window.fixtureSliderModule = undefined; window.fixture.settings(false) })
   })
   await check('settings turn it off and on and persist its width', async () => {
     await page.evaluate(() => window.fixture.settings(true))

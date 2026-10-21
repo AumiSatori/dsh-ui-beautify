@@ -1,0 +1,28 @@
+{
+  "name": "dsh-claude-beautify",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Claude-inspired upper-right task panel for DeepSeek Harness.",
+  "license": "MIT",
+  "main": "index.js",
+  "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },
+  "files": ["index.js", "client.js", "cordis.patch.yml", "scripts/profile.mjs", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:browser": "node test/browser.mjs",
+    "install-plugin": "node scripts/profile.mjs install",
+    "uninstall-plugin": "node scripts/profile.mjs uninstall",
+    "check-plugin": "node scripts/profile.mjs check"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "inject": ["@deepseek-ai/dsh-client-ui-conversation", "@deepseek-ai/dsh-client-ui-settings"]
+    }
+  },
+  "engines": { "node": ">=22.13.0" },
+  "devDependencies": { "@playwright/test": "^1.56.1", "react": "^19.2.0", "react-dom": "^19.2.0", "esbuild": "^0.25.11" },
+  "repository": { "type": "git", "url": "https://github.com/AumiSatori/dsh-claude-beautify.git" }
+}

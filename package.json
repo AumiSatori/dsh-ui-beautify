@@ -1,9 +1,9 @@
 {
   "name": "dsh-claude-beautify",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Claude-inspired upper-right task panel for DeepSeek Harness.",
+  "description": "Claude-inspired session progress, outputs and used resources panel for DeepSeek Harness.",
   "license": "MIT",
   "main": "index.js",
   "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },
@@ -11,6 +11,7 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "test:browser": "node test/browser.mjs",
+    "test:summary": "node test/summary-browser.mjs",
     "install-plugin": "node scripts/profile.mjs install",
     "uninstall-plugin": "node scripts/profile.mjs uninstall",
     "check-plugin": "node scripts/profile.mjs check"

@@ -3,6 +3,16 @@ import { createRoot } from 'react-dom/client'
 import * as jsxRuntime from 'react/jsx-runtime'
 
 window.fixtureReact = React
+window.fixtureBindings = new Map()
+window.fixtureBinding = id => {
+  if (!window.fixtureBindings.has(id)) {
+    let snapshot = { entries: [], hasMore: false, change: { kind: 'replace' } }
+    const listeners = new Set()
+    window.fixtureBindings.set(id, { eventSource: { getSnapshot: () => snapshot, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) },
+      replace: (entries, hasMore = false) => { snapshot = { entries, hasMore, change: { kind: 'replace' } }; for (const listener of listeners) listener() } } })
+  }
+  return window.fixtureBindings.get(id)
+}
 const dot = ({ state }) => <span>{state === 'done' ? '✓' : state === 'ongoing' ? '◐' : '○'}</span>
 const NativeTodoPanel = window.nativeTodoFactory?.(React, jsxRuntime,
   { root: 'native-todo', body: 'native-body', header: 'native-header', lead: 'native-lead', title: 'native-title', progress: 'native-progress', chevron: 'native-chevron', list: 'native-list', item: 'native-item', glyph: 'native-glyph', content: 'native-content' },
@@ -36,6 +46,7 @@ function TodoPanel({ todos }) {
   </div></section>
 }
 function App() {
+  const [, force] = React.useReducer(value => value + 1, 0)
   const [session, setSession] = React.useState('a')
   const [todos, setTodos] = React.useState(examples.a)
   const [sidebar, setSidebar] = React.useState(false)
@@ -47,11 +58,17 @@ function App() {
     sidebar: value => setSidebar(value),
     settings: value => setSettings(value),
     detach: value => setDetached(value),
+    records: (entries, hasMore) => window.fixtureBinding(session).eventSource.replace(entries, hasMore),
+    refresh: force,
   }
   const Settings = window.fixtureSettings
+  const Header = window.fixtureHeader
+  const injected = Header ? window.fixtureHeaderSpec.inject(session) : null
+  const source = injected?.hooks.taskActivity
   return <div className={'frame' + (sidebar ? ' sidebar-open' : '')}>
     <aside className="nav"><strong>DeepSeek Harness</strong><small>工作区</small><p>界面优化</p><p>设计与开发</p></aside>
-    <main><header><span>界面优化</span><span>···</span></header>
+    <main><header data-slot="conversation.header"><span>界面优化</span><span className="header-utilities">{Header && <Header sessionId={session} useProjection={() => todos}
+      useTaskActivity={selector => React.useSyncExternalStore(source.subscribe, () => selector(source.getSnapshot()))} openOutput={injected.openOutput}/>}<span>···</span></span></header>
       {!detached && <div data-conversation-content="" data-conversation-session={session} className="conversation">
         <div data-conversation-scroll="" className="scroll">
           <article><p className="eyebrow">ASSISTANT</p><h1>让任务进度，一眼可见。</h1><p>任务清单收在右上角，随时展开查看当前进度。</p><p>暖灰色卡片与细腻的边框，让聊天区域更清爽。</p></article>

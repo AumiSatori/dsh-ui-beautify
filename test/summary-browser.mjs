@@ -68,6 +68,9 @@ try {
     window.plugin.apply(ctx)
     window.fixture.refresh()
   })
+  await page.getByRole('button', { name: '会话进度与输出', exact: true }).waitFor()
+  assert.equal(await card.count(), 0, 'The panel starts closed until explicitly opened')
+  await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
   await card.waitFor()
   await page.evaluate(rows => {
     window.fixture.records(rows)
@@ -149,6 +152,8 @@ try {
     await page.evaluate(rows => window.fixture.records(rows), rows)
     await page.evaluate(() => window.fixture.session('b'))
     await settled()
+    assert.equal(await card.count(), 0, 'An unvisited session also starts closed')
+    await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
     assert.equal(await card.locator('.dcb-output').count(), 0)
     assert.equal(await card.locator('.dcb-resource').count(), 0)
     assert.ok(await card.getByText('第二个会话的任务', { exact: true }).count())

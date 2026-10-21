@@ -353,13 +353,13 @@ window.__ModuleLoader__.load({
       function Summary({ sessionId, useProjection, useTaskActivity, openOutput }) {
         const todos = useProjection('todos') || []
         const activity = useTaskActivity(value => value)
-        const [openState, setOpenState] = React.useState(() => ({ sessionId, value: openedBySession.get(sessionId) ?? true }))
+        const [openState, setOpenState] = React.useState(() => ({ sessionId, value: openedBySession.get(sessionId) ?? false }))
         const [history, setHistory] = React.useState(null)
         const [usedOpen, setUsedOpen] = React.useState(true)
         const [, refresh] = React.useReducer(value => value + 1, 0)
         const anchor = React.useRef(null)
         const button = React.useRef(null)
-        const open = openState.sessionId === sessionId ? openState.value : openedBySession.get(sessionId) ?? true
+        const open = openState.sessionId === sessionId ? openState.value : openedBySession.get(sessionId) ?? false
         const hasContent = todos.length > 0 || activity.files.length > 0 || activity.resources.length > 0
         const visible = settings.enabled && hasContent
         const expanded = history === sessionId

@@ -70,7 +70,7 @@ function App() {
   return <div className={'frame' + (sidebar ? ' sidebar-open' : '')}>
     <aside className="nav"><strong>DeepSeek Harness</strong><small>工作区</small><p>界面优化</p><p>设计与开发</p></aside>
     <main><header data-slot="conversation.header"><span>界面优化</span><span className="header-utilities">{Header && <Header sessionId={session} useProjection={() => todos} useSession={selector => selector({ running })}
-      useTaskActivity={selector => React.useSyncExternalStore(source.subscribe, () => selector(source.getSnapshot()))} openOutput={injected.openOutput}/>}<span>···</span></span></header>
+      useTaskActivity={selector => React.useSyncExternalStore(source.subscribe, () => selector(source.getSnapshot()))} openOutput={injected.openOutput} readThumbnail={injected.readThumbnail}/>}<span>···</span></span></header>
       {!detached && <div data-conversation-content="" data-conversation-session={session} className="conversation">
         <div data-conversation-scroll="" className="scroll">
           <article><p className="eyebrow">ASSISTANT</p><h1>让任务进度，一眼可见。</h1><p>任务清单收在右上角，随时展开查看当前进度。</p><p>暖灰色卡片与细腻的边框，让聊天区域更清爽。</p></article>

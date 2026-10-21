@@ -24,6 +24,53 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const emptyActivity = { files: [], resources: [], hasMore: false }
     const basename = path => path.replaceAll('\\', '/').split('/').filter(Boolean).at(-1) || path
+    const THUMBNAIL_LIMIT = 4 * 1024 * 1024
+    const EXTENSION = /\.([^./\\]+)$/
+    function imageExtension(name) {
+      const extension = EXTENSION.exec(basename(String(name || '')))?.[1]?.toLowerCase() || ''
+      return /^(?:png|jpe?g|webp|gif|avif|bmp)$/.test(extension) ? extension : ''
+    }
+    function tileLabel(name) {
+      const extension = EXTENSION.exec(basename(String(name || '')))?.[1] || ''
+      return (extension || '文件').slice(0, 4).toUpperCase()
+    }
+    function mimeFor(extension) {
+      return `image/${extension === 'jpg' ? 'jpeg' : extension}`
+    }
+    // One blob URL per session+path: the card re-renders often, the bytes must not.
+    const thumbnails = new Map()
+    function thumbnailReader(binding, sessionId) {
+      return async (path, extension, signal) => {
+        const face = binding.current
+        if (!face) return null
+        const stat = await face.stat(sessionId, path, signal)
+        if (!stat?.ok) return null
+        const bytes = Number(stat.value?.bytes)
+        if (Number.isFinite(bytes) && bytes > THUMBNAIL_LIMIT) return null
+        const file = await face.readBytes(sessionId, path, {}, signal)
+        if (!file?.ok || !file.value?.data) return null
+        return { data: file.value.data, type: mimeFor(extension) }
+      }
+    }
+    function useThumbnail(sessionId, path, read) {
+      const extension = imageExtension(path)
+      const key = `${sessionId}\u0000${path}`
+      const [url, setUrl] = React.useState(() => thumbnails.get(key) || '')
+      React.useEffect(() => {
+        if (!extension || !read || thumbnails.has(key)) return undefined
+        let live = true
+        const controller = typeof AbortController === 'function' ? new AbortController() : null
+        Promise.resolve(read(path, extension, controller?.signal)).then(result => {
+          if (!live || !result?.data) return
+          const bytes = result.data instanceof Uint8Array ? result.data : Uint8Array.from(result.data)
+          const blob = URL.createObjectURL(new Blob([bytes], { type: result.type }))
+          thumbnails.set(key, blob)
+          setUrl(blob)
+        }).catch(() => {})
+        return () => { live = false; controller?.abort() }
+      }, [key, extension, read])
+      return url
+    }
     function argumentsOf(value) {
       try { const parsed = typeof value === 'string' ? JSON.parse(value) : value; return parsed && typeof parsed === 'object' ? parsed : {} }
       catch { return {} }
@@ -233,8 +280,11 @@ window.__ModuleLoader__.load({
       .dcb-history { border: 0; background: transparent; width: 100%; text-align: left; color: #95918a; font-size: 12px; padding-top: 0; }
       .dcb-history::before { background: none; border-left: 2px dotted #dedbd5; width: 0; top: 2px; bottom: 2px; }
       .dcb-history .dcb-status { color: #d8d6d1; }
-      .dcb-output { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 2px; background: transparent; border: 0; text-align: left; color: #66645f; border-radius: 6px; font-size: 13px; }
+      .dcb-output { display: flex; align-items: center; gap: 10px; width: 100%; padding: 5px 2px; background: transparent; border: 0; text-align: left; color: #66645f; border-radius: 6px; font-size: 13px; }
       .dcb-output:hover { background: #f6f5f2; }
+      .dcb-tile { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 7px; overflow: hidden; background: #f1f0ec; color: #8b8679; font-size: 9px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+      .dcb-tile > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+      .dcb-tile[data-kind="image"]:not(:has(img)) { color: #a8a294; }
       .dcb-file-name { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .dcb-file-type { flex: none; color: #95918a; font-size: 11px; text-transform: uppercase; }
       .dcb-used-toggle { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: inherit; font-size: 13px; }
@@ -249,6 +299,7 @@ window.__ModuleLoader__.load({
       body[data-ds-dark-theme] .dcb-summary section + section { border-color: #45423b; }
       body[data-ds-dark-theme] .dcb-step, body[data-ds-dark-theme] .dcb-output, body[data-ds-dark-theme] .dcb-resource { color: #cec9bd; }
       body[data-ds-dark-theme] .dcb-output:hover, body[data-ds-dark-theme] .dcb-close:hover { background: #37352f; }
+      body[data-ds-dark-theme] .dcb-tile { background: #37352f; color: #b8b1a3; }
       body[data-ds-dark-theme] .dcb-step::before { background: #48453d; }
       body[data-ds-dark-theme] .dcb-step[data-status="completed"] { color: #969084; }
       body[data-ds-dark-theme] .dcb-step[data-status="completed"]::before { background: #615d53; }
@@ -362,7 +413,17 @@ window.__ModuleLoader__.load({
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section', id: NAME, order: 35, label: 'Claude 美化',
       }, Settings))
-      function Summary({ sessionId, useProjection, useTaskActivity, useSession, openOutput }) {
+      function OutputRow({ file, sessionId, readThumbnail, onOpen }) {
+        const name = basename(file.path)
+        const extension = (/\.([^.]+)$/.exec(name)?.[1] || '').toLowerCase()
+        const image = imageExtension(name)
+        const url = useThumbnail(sessionId, file.path, readThumbnail)
+        return h('button', { type: 'button', className: 'dcb-output', title: file.description || name, 'data-thumbnail': image ? url ? 'image' : 'pending' : undefined, onClick: () => onOpen(file.path) },
+          h('span', { className: 'dcb-tile', 'data-kind': image ? 'image' : 'file', 'aria-hidden': true },
+            url ? h('img', { src: url, alt: '', loading: 'lazy' }) : tileLabel(name)),
+          h('span', { className: 'dcb-file-name' }, name.replace(/\.[^.]+$/, '')), h('span', { className: 'dcb-file-type' }, extension || '文件'))
+      }
+      function Summary({ sessionId, useProjection, useTaskActivity, useSession, openOutput, readThumbnail }) {
         const todos = useProjection('todos') || []
         const activity = useTaskActivity(value => value)
         const running = useSession ? useSession(value => value.running) === true : todos.some(item => item.status === 'in_progress')
@@ -425,12 +486,8 @@ window.__ModuleLoader__.load({
                   h('span', { className: 'dcb-status', role: 'img', 'aria-label': { completed: '已完成', in_progress: '进行中', pending: '待处理' }[item.status] || item.status },
                     finished && index === progress.items.length - 1 ? h('span', { className: 'dcb-status-dot' }, h(Icon, { kind: 'check', size: 12 })) : null),
                   h('span', { className: 'dcb-step-text' }, item.content)))))),
-            activity.files.length > 0 && h('section', { 'data-testid': 'dcb-outputs' }, h('h3', null, '输出', todos.length === 0 && closeControl), activity.files.map(file => {
-              const name = basename(file.path)
-              const extension = /\.([^.]+)$/.exec(name)?.[1] || '文件'
-              return h('button', { type: 'button', key: file.path, className: 'dcb-output', title: file.description || name, onClick: () => openOutput(file.path) },
-                h(Icon, { kind: /zip|7z|rar|tar|gz/i.test(extension) ? 'archive' : 'file' }), h('span', { className: 'dcb-file-name' }, name.replace(/\.[^.]+$/, '')), h('span', { className: 'dcb-file-type' }, extension))
-            })),
+            activity.files.length > 0 && h('section', { 'data-testid': 'dcb-outputs' }, h('h3', null, '输出', todos.length === 0 && closeControl), activity.files.map(file =>
+              h(OutputRow, { key: file.path, file, sessionId, readThumbnail, onOpen: openOutput }))),
             activity.resources.length > 0 && h('section', { 'data-testid': 'dcb-resources' },
               h('h3', null, h('button', { type: 'button', className: 'dcb-used-toggle', 'aria-expanded': usedOpen, onClick: () => setUsedOpen(!usedOpen) }, '本次会话中已使用', h(Icon, { kind: 'chevron', size: 16 })), todos.length === 0 && activity.files.length === 0 && closeControl),
               usedOpen && activity.resources.map((item, index) => h('div', { className: 'dcb-resource', key: index }, h(Icon, { kind: item.kind }), h('span', { className: 'dcb-resource-label', title: item.label }, item.label), h('span', { className: 'dcb-resource-detail', title: item.detail }, item.detail))),
@@ -438,6 +495,20 @@ window.__ModuleLoader__.load({
       }
       if (typeof ctx.inject === 'function') ctx.inject(['sessions', 'sidebarRight'], scope => {
         const sources = new WeakMap()
+        const readers = new Map()
+        // Thumbnails are optional: without the workspace-files Remote the rows keep their type tile.
+        const remote = { current: null }
+        const bind = face => { if (face && typeof face.readBytes === 'function' && typeof face.stat === 'function') remote.current = face }
+        try { bind(scope.get?.('remote')?.workspaceFiles) } catch { /* service not mounted yet */ }
+        try {
+          scope.inject?.(['remote', 'remote.workspaceFiles'], inner => {
+            try { bind(inner.get?.('remote.workspaceFiles') || inner.remote?.workspaceFiles) } catch { /* dereferenced namespace */ }
+          })
+        } catch { /* optional injection unsupported */ }
+        const readerFor = sessionId => {
+          if (!readers.has(sessionId)) readers.set(sessionId, thumbnailReader(remote, sessionId))
+          return readers.get(sessionId)
+        }
         scope.slots.inject('conversation.session.header.utilities', () => scope.slots.register({
           name: 'conversation.session.header.utilities', id: NAME, order: 5,
           inject: sessionId => {
@@ -445,7 +516,7 @@ window.__ModuleLoader__.load({
             if (!binding) throw new Error(`${NAME}: session binding unavailable`)
             let source = sources.get(binding)
             if (!source) { source = activitySource(binding.eventSource); sources.set(binding, source) }
-            return { hooks: { taskActivity: source }, openOutput: path => scope.sidebarRight.openResource(fileAddress(sessionId, path)) }
+            return { hooks: { taskActivity: source }, readThumbnail: readerFor(sessionId), openOutput: path => scope.sidebarRight.openResource(fileAddress(sessionId, path)) }
           },
         }, Summary))
       })
@@ -459,10 +530,12 @@ window.__ModuleLoader__.load({
         document.removeEventListener('scroll', schedule, true)
         for (const panel of [...originals.keys()]) restore(panel)
         for (const panel of document.querySelectorAll('[data-dcb-native-hidden]')) panel.removeAttribute('data-dcb-native-hidden')
+        for (const url of thumbnails.values()) URL.revokeObjectURL(url)
+        thumbnails.clear()
         style.remove()
         listeners.clear()
       }, `${NAME}: presentation`)
     }
-    return { apply, inject: ['slots'], __test: { normalize, placement, activityFrom, activitySource, progressItems, fileAddress } }
+    return { apply, inject: ['slots'], __test: { normalize, placement, activityFrom, activitySource, progressItems, fileAddress, imageExtension, tileLabel, mimeFor } }
   },
 })

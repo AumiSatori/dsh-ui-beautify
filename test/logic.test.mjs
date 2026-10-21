@@ -59,8 +59,7 @@ test('PTC calls de-duplicate start/settlement and activity sources ignore token-
   snapshot = { ...snapshot, change: { kind: 'append', entries: [entry('assistant/live-chunk', {})] } }
   assert.equal(source.getSnapshot(), first)
 })
-test('prior completed steps fold and file addresses remain scoped and correctly encoded', () => {
-  const todos = ['completed', 'completed', 'completed', 'in_progress'].map((status, index) => ({ status, content: `step${index}` }))
+test('prior completed steps fold and file addresses remain scoped and correctly encoded', () => {  const todos = ['completed', 'completed', 'completed', 'in_progress'].map((status, index) => ({ status, content: `step${index}` }))
   assert.equal(exports.__test.progressItems(todos, false).hidden, 2)
   assert.equal(exports.__test.progressItems(todos, false).items.length, 2)
   assert.equal(exports.__test.progressItems(todos, true).items.length, 4)
@@ -83,4 +82,15 @@ test('fits phone widths and releases unusable or hidden columns', () => {
   assert.equal(result.left, 8)
   assert.equal(result.width, 374)
   assert.equal(placement({ left: 0, right: 100, top: 0, bottom: 600 }, { width: 500, height: 600 }, 320), null)
+})
+test('only real raster images earn a thumbnail; everything else falls back to a short type tile', () => {
+  const { imageExtension, tileLabel, mimeFor } = exports.__test
+  assert.equal(imageExtension('outputs/preview.png'), 'png')
+  assert.equal(imageExtension('C:\\work\\Shot.JPG'), 'jpg')
+  assert.equal(imageExtension('outputs/diagram.svg'), '')
+  assert.equal(imageExtension('outputs/preview'), '')
+  assert.equal(tileLabel('outputs/Animation preview.zip'), 'ZIP')
+  assert.equal(tileLabel('outputs/report'), '文件')
+  assert.equal(mimeFor('jpg'), 'image/jpeg')
+  assert.equal(mimeFor('webp'), 'image/webp')
 })

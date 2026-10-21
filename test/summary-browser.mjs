@@ -37,7 +37,7 @@ function call(id, name, args) {
   event('tool/call', { callId: id, name, arguments: JSON.stringify(args) })
   event('tool/result', { message: { source: { callId: id }, isError: false } })
 }
-event('deliverables/presented', { files: [{ path: 'outputs/Animation preview.zip', description: '动画工程' }] })
+event('deliverables/presented', { files: [{ path: 'outputs/Animation preview.zip', description: '动画工程' }, { path: 'outputs/frame.png', description: '抽帧' }, { path: 'outputs/master.png', description: '超大原图' }] })
 call('web', 'web_search', { query: 'animation' })
 call('memory', 'read', { path: '/work/memory/Character Setting.md' })
 call('skill', 'skill', { name: 'remotion-best-practices' })
@@ -51,7 +51,13 @@ try {
   })
   await page.addScriptTag({ url: `${url}/client.js` })
   await page.evaluate(() => {
+    const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII='), character => character.charCodeAt(0))
+    const workspaceFiles = {
+      stat: async (_session, path) => ({ ok: true, value: { absolutePath: path, bytes: path.endsWith('master.png') ? 9 * 1024 * 1024 : 68 } }),
+      readBytes: async (_session, path) => path.endsWith('.png') ? ({ ok: true, value: { data: png } }) : ({ ok: false, error: { code: 'not-text' } }),
+    }
     const ctx = {
+      get(name) { return name === 'remote' || name === 'remote.workspaceFiles' ? { workspaceFiles } : undefined },
       slots: {
         inject(name, callback) { callback() },
         register(spec, component) {
@@ -142,13 +148,33 @@ try {
     assert.equal(await card.locator('.dcb-status-dot').count(), 1)
   })
   await check('declared outputs and actual used resources populate separate sections', async () => {
-    assert.equal(await card.locator('.dcb-output').count(), 1)
+    assert.equal(await card.locator('.dcb-output').count(), 3)
     assert.equal(await card.locator('.dcb-resource').count(), 3)
     assert.ok(await card.getByText('remotion-best-practices', { exact: true }).count())
     assert.ok(await card.getByText('已读取 · Character Setting.md', { exact: true }).count())
     await card.getByRole('button', { name: '本次会话中已使用' }).click()
     assert.equal(await card.locator('.dcb-resource').count(), 0)
     await card.getByRole('button', { name: '本次会话中已使用' }).click()
+  })
+  await check('images load a real preview tile while other files keep a short type tile', async () => {
+    await page.waitForFunction(() => document.querySelectorAll('.dcb-tile img').length === 1)
+    const tiles = await card.locator('.dcb-tile').evaluateAll(nodes => nodes.map(node => ({ label: node.textContent, kind: node.dataset.kind, hasImage: !!node.querySelector('img'), loading: node.querySelector('img')?.getAttribute('loading') })))
+    assert.deepEqual(tiles.map(tile => tile.label), ['ZIP', '', 'PNG'])
+    assert.deepEqual(tiles.map(tile => tile.kind), ['file', 'image', 'image'])
+    assert.deepEqual(tiles.map(tile => tile.hasImage), [false, true, false])
+    assert.equal(tiles[1].loading, 'lazy')
+    const widths = await card.locator('.dcb-tile').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width))
+    assert.deepEqual(widths, [30, 30, 30])
+    const source = await card.locator('.dcb-tile img').getAttribute('src')
+    assert.ok(source.startsWith('blob:'), 'the preview comes from workspace bytes, not a guessed URL')
+    assert.equal(await card.locator('[data-thumbnail="image"]').count(), 1)
+    assert.equal(await card.locator('[data-thumbnail="pending"]').count(), 1, 'a file past the size limit keeps its type tile')
+    await card.screenshot({ path: resolve(output, 'summary-thumbnails.png') })
+    const decoded = await card.locator('.dcb-tile img').evaluate(async image => {
+      const bytes = await (await fetch(image.src)).arrayBuffer()
+      return { ok: image.complete && image.naturalWidth > 0, bytes: bytes.byteLength }
+    })
+    assert.deepEqual(decoded, { ok: true, bytes: 68 })
   })
   await check('long content scrolls inside the same fixed card with no horizontal spill', async () => {
     const long = Array.from({ length: 40 }, (_, index) => ({ content: `步骤 ${index}：验证较长内容可以换行并在固定高度面板中滚动。`, status: 'pending' }))
@@ -161,7 +187,7 @@ try {
     assert.ok(await card.evaluate(el => el.scrollWidth <= el.clientWidth))
   })
   await check('output opens its exact session file address and sidebar resize keeps card in its column', async () => {
-    await card.locator('.dcb-output').click()
+    await card.locator('.dcb-output').first().click()
     assert.equal(await page.evaluate(() => window.openedResources[0]), 'dsh-resource://file/session/a/outputs/Animation%20preview.zip')
     await settled()
     const box = await card.boundingBox()

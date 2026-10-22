@@ -1200,6 +1200,13 @@ void main(){
       .dcb-settings-controls { display: flex; align-items: center; gap: 14px; flex: 0 1 48%; min-width: 150px; }
       .dcb-settings-info { display: flex; align-items: flex-start; gap: 9px; padding: 10px 14px; border: 1px solid #0000000d; border-radius: 10px; background: #00000008; color: var(--dsw-alias-label-secondary, #6f6f6f); font-size: 12px; line-height: 1.6; }
       .dcb-settings-info::before { content: ''; flex: none; width: 7px; height: 7px; margin-top: 6px; border-radius: 50%; background: #6265fa; box-shadow: 0 0 7px #6265fa55; }
+      .dcb-motion-preview { margin-top: 18px; }
+      .dcb-motion-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+      .dcb-motion-preview-head small { color: var(--dsw-alias-label-secondary, #6f6f6f); }
+      .dcb-message-demo { display: grid; gap: 14px; padding: 20px; border: 1px solid var(--dsw-alias-border-l3, #8882); border-radius: 14px; background: #88888808; overflow: hidden; }
+      .dcb-message-demo-row { width: fit-content; max-width: 85%; padding: 9px 14px; border-radius: 13px; font-size: 13px; line-height: 1.7; color: var(--dsw-alias-label-primary, #252631); background: var(--dsw-specific-input-major, #f4f5f7); }
+      .dcb-message-demo-row[data-message-demo="user"] { justify-self: end; background: color-mix(in srgb, var(--dsw-alias-state-business-primary, #777aff) 13%, transparent); border-bottom-right-radius: 4px; }
+      .dcb-message-demo-row[data-message-demo="assistant"] { border-bottom-left-radius: 4px; }
       .dcb-settings-card .dcb-settings-footnote { margin-top: 12px; font-size: 11px; }
       @keyframes dcb-settings-enter { from { opacity: 0; transform: translateY(8px); filter: blur(3px); } to { opacity: 1; transform: translateY(0); filter: blur(0px); } }
       .dcb-settings-row button, .dcb-style-option, .dcb-count-option { font-family: inherit; }
@@ -1557,11 +1564,26 @@ void main(){
       }
     `
 
+    function messageEntrance(kind) {
+      const user = kind === 'user'
+      return {
+        frames: [
+          { opacity: 0, translate: user ? '18px 30px' : '-12px 26px', scale: user ? '.975' : '.985', offset: 0 },
+          { opacity: 1, translate: '0px -1px', scale: '1', offset: .8 },
+          { opacity: 1, translate: '0px 0px', scale: '1', offset: 1 },
+        ],
+        options: { duration: user ? 420 : 480, easing: 'cubic-bezier(.22,.7,.25,1)', id: `dcb-message-${kind}` },
+      }
+    }
+
     // Observe native message seats without replacing React-owned content or
     // driving the host scroll controller. Only new, visible tail messages enter.
     function createMessageMotion(document, window, initiallyEnabled = true) {
-      const FLOW = '[data-chat-flow]'
-      const ROW = '[data-chat-flow-kind="user"], [data-chat-flow-kind="steering"], [data-chat-flow-kind="assistant"], [data-submission-echo], [data-pending-steering]'
+      // Process groups expose a nested flow too. Its first streaming children
+      // are live arrivals, not a newly loaded conversation to seed as history.
+      const FLOW = '[data-chat-flow]:not([data-step-process-content])'
+      const ASSISTANT = '[data-chat-flow-kind="assistant-step"], [data-chat-flow-kind="assistant"]'
+      const ROW = `[data-chat-flow-kind="user"], [data-chat-flow-kind="steering"], ${ASSISTANT}, [data-submission-echo], [data-pending-steering]`
       const preference = window.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
       const states = new WeakMap(), pending = new Set(), waiting = new Set(), active = new Map(), echoCredits = new WeakMap(), arriving = new Map()
       let enabled = initiallyEnabled, disposed = false, frame = 0, intent = null, intentTimer = 0
@@ -1570,7 +1592,7 @@ void main(){
       const sessionOf = root => containerOf(root)?.getAttribute('data-conversation-session') || ''
       const rowsOf = root => [...root.querySelectorAll(ROW)].filter(row => row.parentElement.closest(ROW) === null)
       const echo = row => row.matches('[data-submission-echo], [data-pending-steering]')
-      const kindOf = row => row.getAttribute('data-chat-flow-kind') === 'assistant' ? 'assistant' : 'user'
+      const kindOf = row => row.matches(ASSISTANT) ? 'assistant' : 'user'
       const keyOf = row => row.getAttribute('data-chat-flow-key') || row.getAttribute('data-chat-node-key')
       const turnOf = row => {
         const value = row.getAttribute('data-chat-turn')
@@ -1650,10 +1672,8 @@ void main(){
         // Factory slot wrappers may be display:contents and cannot be painted.
         while (target !== row && window.getComputedStyle(target).display === 'contents') target = target.firstElementChild || row
         if (typeof target.animate !== 'function') return
-        const animation = target.animate([
-          { opacity: .12, translate: kind === 'user' ? '7px 14px' : '-4px 11px' },
-          { opacity: 1, translate: '0px 0px' },
-        ], { duration: kind === 'user' ? 260 : 320, easing: 'cubic-bezier(.2,.8,.2,1)', id: `dcb-message-${kind}` })
+        const effect = messageEntrance(kind)
+        const animation = target.animate(effect.frames, effect.options)
         const record = { target, root, animation, session: sessionOf(root) }
         active.set(target, record)
         const finish = () => { if (active.get(target) === record) cancel(record) }
@@ -2066,6 +2086,34 @@ void main(){
               h('span', { className: 'dcb-style-name' }, name), h('small', null, description)))))
       }
 
+      function MessageMotionPreview({ enabled }) {
+        const user = React.useRef(null), assistant = React.useRef(null), animations = React.useRef([])
+        const stop = () => { for (const animation of animations.current) animation.cancel(); animations.current = [] }
+        React.useEffect(() => {
+          const preference = window.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
+          preference.addEventListener('change', stop)
+          return () => { preference.removeEventListener('change', stop); stop() }
+        }, [])
+        React.useEffect(() => stop(), [enabled])
+        const play = () => {
+          stop()
+          if (window.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)').matches) return
+          animations.current = [[user, 'user', 0], [assistant, 'assistant', 110]].map(([ref, kind, delay]) => {
+            const effect = messageEntrance(kind)
+            const animation = ref.current.animate(effect.frames, { ...effect.options, delay, fill: 'both' })
+            animation.finished.then(() => {
+              animation.cancel(); animations.current = animations.current.filter(item => item !== animation)
+            }).catch(() => {})
+            return animation
+          })
+        }
+        return h('div', { className: 'dcb-motion-preview' },
+          h('div', { className: 'dcb-motion-preview-head' }, h('small', null, '仅预览，不发送消息'),
+            h('button', { type: 'button', className: 'dcb-count-button', onClick: play, 'aria-label': '播放消息动效预览' }, '↻ 播放预览')),
+          h('div', { className: 'dcb-message-demo', 'aria-label': '消息动效预览' },
+            h('div', { ref: user, className: 'dcb-message-demo-row', 'data-message-demo': 'user' }, '刚发送的消息'),
+            h('div', { ref: assistant, className: 'dcb-message-demo-row', 'data-message-demo': 'assistant' }, '模型的新回复会这样出现。')))
+      }
       function Settings() {
         const [, render] = React.useReducer(value => value + 1, 0)
         React.useEffect(() => { listeners.add(render); return () => listeners.delete(render) }, [])
@@ -2112,7 +2160,8 @@ void main(){
             h('div', { className: 'dcb-settings-row' },
               h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '新消息入场动效'), h('p', { className: 'dcb-settings-row-desc' }, '新消息轻微上滑、淡入；流式文字持续显示，不重复入场。')),
               h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '新消息入场动效', 'aria-checked': settings.messageMotion,
-                onClick: () => update({ messageMotion: !settings.messageMotion }) }))))
+                onClick: () => update({ messageMotion: !settings.messageMotion }) })),
+            h(MessageMotionPreview, { enabled: settings.messageMotion })))
       }
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section', id: NAME, order: 26, label: DISPLAY_NAME,

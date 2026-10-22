@@ -3,11 +3,14 @@ import {readFileSync, mkdirSync, openSync, readSync, closeSync} from 'node:fs'
 import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {chromium} from '@playwright/test'
+import {build} from 'esbuild'
 
 const project=fileURLToPath(new URL('..',import.meta.url))
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','.scratch','claude-beautify'),'message-motion')
 mkdirSync(output,{recursive:true})
 let source='synthetic native public-marker fixture'
+let assistantKind='assistant-step'
+let nativeAssistant=''
 if(process.env.DSH_ASAR){
  const fd=openSync(process.env.DSH_ASAR,'r')
  try{
@@ -18,9 +21,17 @@ if(process.env.DSH_ASAR){
   const bytes=Buffer.alloc(entry.size);readSync(fd,bytes,0,bytes.length,8+head.readUInt32LE(4)+Number(entry.offset))
   const host=bytes.toString('utf8')
   for(const marker of ['data-chat-flow','data-chat-flow-key','data-chat-flow-kind','data-chat-turn','data-submission-echo','data-chat-following-tail'])assert.ok(host.includes(`"${marker}"`),`Installed chat exposes ${marker}`)
+  const nativeKind=host.match(/const assistantDefinition = \{\s*kind: "([^"]+)"/)
+  assert.ok(nativeKind,'Read the assistant kind from the installed native chat definition')
+  assistantKind=nativeKind[1]
+  assert.ok(host.includes(`key: "${assistantKind}"`),'The same kind owns the native assistant renderer')
+  const assistantStart=host.indexOf('const AssistantMarkdown = '),assistantEnd=host.indexOf('function ProcessReasoning(',assistantStart)
+  assert.ok(assistantStart>=0&&assistantEnd>assistantStart,'Read the actual installed assistant Markdown component')
+  nativeAssistant=host.slice(assistantStart,assistantEnd)
   source='installed DSH chat public markers; synthetic content, streaming and submission acknowledgements'
  }finally{closeSync(fd)}
 }
+const nativeBundle=nativeAssistant?await build({stdin:{contents:`import React from 'react'; import * as jsxRuntime from 'react/jsx-runtime'; import {createRoot} from 'react-dom/client'; import {flushSync} from 'react-dom'; const react=React,react_jsx_runtime=jsxRuntime; const AssistantMarkdown_module_css_default={root:'native_assistant_root',body:'native_assistant_body',stopped:'native_assistant_stopped'}; const markdownLabels=()=>({}),localPathMediaUrl=()=>undefined; const _deepseek_ai_dsh_client_ui_primitives={MarkdownText:({text})=>React.createElement('div',{'data-native-markdown':''},...text.split('\\n\\n').map((text,i)=>React.createElement('p',{key:i},text)))}; ${nativeAssistant}\nconst roots=new WeakMap(); window.renderNativeAssistant=(seat,text)=>{let root=roots.get(seat);if(!root){root=createRoot(seat);roots.set(seat,root)}flushSync(()=>root.render(React.createElement(AssistantMarkdown,{blocks:[{kind:'text',text}],streaming:true,t:value=>value})));};`,resolveDir:project},bundle:true,write:false,format:'iife'}):null
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'})
 const page=await browser.newPage({viewport:{width:1000,height:820}})
 const errors=[];page.on('pageerror',error=>errors.push(error.message))
@@ -39,9 +50,11 @@ async function boot({empty=false,late=false}={}){
   const original=Element.prototype.animate
   Element.prototype.animate=function(frames,options){const a=original.call(this,frames,options);if(options?.id?.startsWith('dcb-message-')){window.calls.push({id:options.id,frames,options,element:this});window.animationObjects.push(a)}return a}
   window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(()=>({}))}
-  window.row=(kind,key,turn,text='',pending=false)=>{const row=document.createElement('article');if(pending)row.setAttribute('data-submission-echo','true');else{row.dataset.chatFlowKind=kind;row.dataset.chatFlowKey=key;row.dataset.chatTurn=turn}const node=document.createElement('div');node.dataset.slot='conversation.chat.node';if(text){const p=document.createElement('p');p.textContent=text;node.append(p)}row.append(node);return row}
+  window.row=(kind,key,turn,text='',pending=false)=>{const row=document.createElement('article');if(pending)row.setAttribute('data-submission-echo','true');else{row.dataset.chatFlowKind=kind==='assistant'?window.nativeAssistantKind:kind;row.dataset.chatFlowKey=key;row.dataset.chatTurn=turn}const node=document.createElement('div');node.dataset.slot='conversation.chat.node';if(text){const p=document.createElement('p');p.textContent=text;node.append(p)}row.append(node);return row}
   window.append=(kind,key,turn,text,pending=false)=>{const row=window.row(kind,key,turn,text,pending);document.querySelector('[data-chat-flow]').append(row);return row}
  })
+ await page.evaluate(kind=>window.nativeAssistantKind=kind,assistantKind)
+ if(nativeBundle)await page.addScriptTag({content:nativeBundle.outputFiles[0].text})
  if(!empty&&!late)await page.evaluate(()=>{window.append('user','old-u',1,'已有的提问');window.append('assistant','old-a',1,'打开会话时，历史消息保持原样。')})
  await page.addScriptTag({content:client})
  await page.evaluate(()=>window.motion=window.plugin.__test.createMessageMotion(document,window))
@@ -60,7 +73,7 @@ try{
   await page.getByRole('textbox').fill('这是一条刚发送的新消息。');await page.getByRole('textbox').press('Enter');await tick()
   assert.equal(await count(),1)
   const middle=await page.evaluate(()=>{const a=window.animationObjects[0];a.pause();a.currentTime=100;const target=window.pendingRow.firstElementChild,s=getComputedStyle(target);return{opacity:Number(s.opacity),translate:s.translate,height:target.offsetHeight,scroll:document.querySelector('[data-conversation-scroll]').scrollTop,focus:document.activeElement===document.querySelector('textarea'),options:window.calls[0].options}})
-  assert.ok(middle.opacity>.12&&middle.opacity<1);assert.notEqual(middle.translate,'0px');assert.equal(middle.scroll,0);assert.equal(middle.focus,true);assert.equal(middle.options.duration,260)
+  assert.ok(middle.opacity>0&&middle.opacity<1);assert.notEqual(middle.translate,'0px');assert.equal(middle.scroll,0);assert.equal(middle.focus,true);assert.equal(middle.options.duration,420)
   await page.screenshot({path:resolve(output,'message-user-enter-middle.png')})
   await page.evaluate(()=>window.animationObjects[0].play());await finish()
  })
@@ -86,6 +99,23 @@ try{
   assert.equal(await count(),3)
   assert.equal(await page.evaluate(()=>window.calls.at(-1).element.tagName),'P')
   assert.equal(await page.evaluate(()=>getComputedStyle(window.calls.at(-1).element).transform),'matrix(1, 0, 0, 1, 1, 0)');await finish()
+ })
+ await check('a native assistant-step in a newly created process flow enters as a reply, not history',async()=>{
+  await boot()
+  await page.evaluate(()=>{
+   const group=document.createElement('section'),flow=document.createElement('div');flow.setAttribute('data-step-process-content','true');flow.setAttribute('data-chat-flow','');group.append(flow)
+   window.nativeReply=window.row('assistant','native-step-2',2,'')
+   if(window.renderNativeAssistant)window.renderNativeAssistant(window.nativeReply.firstElementChild,'原生模型回复的首段。')
+   else window.nativeReply.firstElementChild.textContent='原生模型回复的首段。'
+   flow.append(window.nativeReply);document.querySelector('[data-chat-flow]').append(group)
+  });await tick();assert.equal(await count(),1)
+  assert.equal(await page.evaluate(()=>window.calls.at(-1).id),'dcb-message-assistant')
+  if(nativeBundle){
+   assert.equal(await page.locator('[data-chat-flow-kind="assistant-step"] .native_assistant_root[data-streaming="true"]').count(),1)
+   await page.evaluate(()=>window.renderNativeAssistant(window.nativeReply.firstElementChild,'原生模型回复的首段。\n\n继续流式生成的第二段。'));await tick();assert.equal(await count(),1)
+   assert.equal(await page.locator('[data-native-markdown] p').count(),2)
+  }
+  await finish()
  })
  await check('a first message also animates when an empty hero becomes a new session',async()=>{
   await boot({empty:true});await page.evaluate(()=>document.querySelector('textarea').addEventListener('keydown',event=>{if(event.key!=='Enter'||event.shiftKey||event.isComposing)return;event.preventDefault();const flow=document.querySelector('[data-chat-flow]');flow.remove();document.querySelector('main').dataset.conversationSession='new-session';const fresh=document.createElement('div');fresh.dataset.chatFlow='';fresh.append(window.row('user','first-u',1,'第一个新会话消息'));document.querySelector('[data-chat-following-tail]').append(fresh)}))

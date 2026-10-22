@@ -272,19 +272,17 @@ window.__ModuleLoader__.load({
       .dcb-close:hover { background: #f3f2ef; }
       .dcb-timeline { list-style: none; margin: 0; padding: 0; }
       .dcb-step, .dcb-history { position: relative; display: flex; gap: 10px; align-items: flex-start; min-height: 30px; padding: 4px 0; font-size: 13px; line-height: 21px; color: #66645f; }
-      .dcb-step::before, .dcb-history::before { content: ''; position: absolute; width: 2px; background: #e8e7e4; top: 0; bottom: 0; left: 9px; }
       .dcb-step[data-status="completed"] { color: #96928b; }
-      .dcb-step[data-status="completed"]::before { background: #c1bfb9; }
       .dcb-step[data-status="in_progress"] { color: #4d4b46; }
-      .dcb-step[data-status="in_progress"]::before { background: #aaa79f; }
       .dcb-step[data-status="pending"] { color: #77736c; }
       .dcb-status { position: relative; display: grid; place-items: center; flex: 0 0 20px; width: 20px; height: 21px; }
-      .dcb-status-dot { width: 12px; height: 12px; border: 1.5px solid #c4c1b9; border-radius: 50%; display: grid; place-items: center; }
-      .dcb-step[data-status="completed"] .dcb-status-dot { color: white; border-color: #5a5b56; background: #5a5b56; }
-      .dcb-step[data-finished="true"]::before { bottom: 50%; }
+      .dcb-status-dot { box-sizing: border-box; flex: none; width: 7px; height: 7px; border: 1px solid #c4c1b9; border-radius: 50% !important; display: grid; place-items: center; }
+      .dcb-step[data-status="completed"] .dcb-status-dot { border-color: #a29d93; background: #a29d93; }
+      .dcb-step[data-status="in_progress"] .dcb-status-dot { width: 8px; height: 8px; border-color: #9a8d78; background: #9a8d78; }
+      .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot { animation: dcb-breathe 1.6s ease-in-out infinite; }
+      .dcb-step[data-finished="true"] .dcb-status-dot { width: 11px; height: 11px; color: white; border-color: #6f7068; background: #6f7068; }
       .dcb-step-text { overflow-wrap: anywhere; min-width: 0; }
       .dcb-history { border: 0; background: transparent; width: 100%; text-align: left; color: #95918a; font-size: 12px; padding-top: 0; }
-      .dcb-history::before { background: none; border-left: 2px dotted #dedbd5; width: 0; top: 2px; bottom: 2px; }
       .dcb-history .dcb-status { color: #d8d6d1; }
       .dcb-output { display: flex; align-items: center; gap: 10px; width: 100%; padding: 5px 2px; background: transparent; border: 0; text-align: left; color: #66645f; border-radius: 6px; font-size: 13px; }
       .dcb-output:hover { background: #f6f5f2; }
@@ -301,18 +299,17 @@ window.__ModuleLoader__.load({
       .dcb-resource-label { flex-shrink: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .dcb-resource-detail { margin-left: auto; min-width: 0; color: #95918a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
       .dcb-note { font-size: 11px; color: #9a9790; margin: 8px 0 0; }
+      @keyframes dcb-breathe { 0%, 100% { box-shadow: 0 0 0 0 #9a8d782b; opacity: .75; } 50% { box-shadow: 0 0 0 3px #9a8d7814; opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot { animation: none; } }
       body[data-ds-dark-theme] .dcb-summary { background: #292824; color: #eeeae2; border-color: #45423b; box-shadow: 0 2px 6px #0003; }
       body[data-ds-dark-theme] .dcb-summary section + section { border-color: #45423b; }
       body[data-ds-dark-theme] .dcb-step, body[data-ds-dark-theme] .dcb-output, body[data-ds-dark-theme] .dcb-resource { color: #cec9bd; }
       body[data-ds-dark-theme] .dcb-output:hover, body[data-ds-dark-theme] .dcb-close:hover { background: #37352f; }
       body[data-ds-dark-theme] .dcb-tile { background: #37352f; color: #b8b1a3; }
-      body[data-ds-dark-theme] .dcb-step::before { background: #48453d; }
       body[data-ds-dark-theme] .dcb-step[data-status="completed"] { color: #969084; }
-      body[data-ds-dark-theme] .dcb-step[data-status="completed"]::before { background: #615d53; }
       body[data-ds-dark-theme] .dcb-step[data-status="in_progress"] { color: #eeeae2; }
-      body[data-ds-dark-theme] .dcb-step[data-status="in_progress"]::before { background: #a29b8d; }
+      body[data-ds-dark-theme] .dcb-step[data-status="in_progress"] .dcb-status-dot { border-color: #d0bc9a; background: #d0bc9a; }
       body[data-ds-dark-theme] .dcb-step[data-status="pending"] { color: #b8b1a3; }
-      body[data-ds-dark-theme] .dcb-history::before { border-color: #615d53; }
       @media (max-width: 600px) { .dcb-summary { padding: 14px; } }
     `
 
@@ -326,7 +323,7 @@ window.__ModuleLoader__.load({
       const summaryOwners = new Map()
       const openedBySession = new Map()
       // Sessions whose card already auto-opened once, so a manual close stays closed.
-      const autoOpenedSessions = new Set()
+      const inferenceRuns = new Map()
       const style = document.createElement('style')
       style.dataset.plugin = NAME
       style.textContent = css
@@ -426,7 +423,7 @@ window.__ModuleLoader__.load({
               : h('p', null, '推理滑块插件（dsh-claude-slider）未启用，这里只显示任务面板设置。')),
           h('section', { className: 'dcb-settings-block', 'data-dcb-settings-block': 'panel' },
             h('h2', null, '任务面板'),
-            h('p', null, '在右上角查看当前会话的进度、输出和已使用的工具。任务清单出现时卡片自动展开一次，之后点击入口按钮打开或收起，任务状态实时更新。'),
+            h('p', null, '在右上角查看当前会话的进度、输出和已使用的工具。每轮推理开始时卡片自动下拉展开，本轮手动收起后不再反复弹出，下一轮重新展开。'),
             h('label', null, h('input', { type: 'checkbox', checked: settings.enabled,
               onChange: event => update({ enabled: event.target.checked }) }), '启用右上角任务面板'),
             h('label', null, '面板宽度', h('input', { type: 'range', min: 280, max: 480, step: 10,
@@ -454,9 +451,11 @@ window.__ModuleLoader__.load({
         const [openState, setOpenState] = React.useState(() => ({ sessionId, value: openedBySession.get(sessionId) ?? false }))
         const [history, setHistory] = React.useState(null)
         const [usedOpen, setUsedOpen] = React.useState(true)
+        const [reveal, setReveal] = React.useState(0)
         const [, refresh] = React.useReducer(value => value + 1, 0)
         const anchor = React.useRef(null)
         const button = React.useRef(null)
+        const card = React.useRef(null)
         const open = openState.sessionId === sessionId ? openState.value : openedBySession.get(sessionId) ?? false
         const hasContent = todos.length > 0 || activity.files.length > 0 || activity.resources.length > 0
         const visible = settings.enabled && hasContent
@@ -466,14 +465,28 @@ window.__ModuleLoader__.load({
         const progress = progressItems(todos, expanded, working)
         const entryLabel = working ? `第 ${progress.step} 步，共 ${progress.total} 步` : activity.files.length || todos.length || activity.resources.length
         React.useEffect(() => { listeners.add(refresh); return () => listeners.delete(refresh) }, [])
-        // Reveal the card once when a task list first appears; after the user closes it,
-        // later task updates stay quiet for the rest of the session.
+        // Open once per inference run, never again after a manual close in that run.
+        // Keep a pending reveal when the run starts before any real panel content arrives.
         React.useEffect(() => {
-          if (!visible || todos.length === 0 || autoOpenedSessions.has(sessionId)) return
-          autoOpenedSessions.add(sessionId)
+          let run = inferenceRuns.get(sessionId)
+          if (!run || run.running !== running) {
+            run = { running, revealed: false }
+            inferenceRuns.set(sessionId, run)
+          }
+          if (!running || !visible || run.revealed) return
+          run.revealed = true
           openedBySession.set(sessionId, true)
           setOpenState({ sessionId, value: true })
-        }, [sessionId, visible, todos.length])
+          setReveal(value => value + 1)
+        }, [sessionId, visible, running])
+        React.useLayoutEffect(() => {
+          if (!open || !visible || !card.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+          const animation = card.current.animate([
+            { opacity: 0, transform: 'translateY(-6px)', clipPath: 'inset(0 0 100% 0 round 14px)' },
+            { opacity: 1, transform: 'translateY(0)', clipPath: 'inset(0 0 0 0 round 14px)' },
+          ], { id: 'dcb-dropdown', duration: 240, easing: 'cubic-bezier(.2,.7,.25,1)' })
+          return () => animation.cancel()
+        }, [sessionId, open, visible, reveal])
         React.useEffect(() => {
           if (!visible) return
           summaryOwners.set(sessionId, (summaryOwners.get(sessionId) || 0) + 1)
@@ -510,13 +523,13 @@ window.__ModuleLoader__.load({
           onKeyDown: event => { if (event.key === 'Escape' && open) { event.stopPropagation(); close() } } },
           h('button', { type: 'button', className: 'dcb-entry', ref: button, 'data-working': working, title: '会话进度与输出', 'aria-label': '会话进度与输出', 'aria-expanded': open, 'aria-controls': cardId, onClick: () => setOpen(!open) },
             h(Icon, { kind: 'file', size: 16 }), h('span', { 'aria-live': 'polite', 'aria-atomic': true }, entryLabel)),
-          open && h('aside', { className: 'dcb-summary', id: cardId, 'aria-label': '会话进度与输出', 'data-testid': 'dcb-summary' },
+          open && h('aside', { className: 'dcb-summary', ref: card, id: cardId, 'aria-label': '会话进度与输出', 'data-testid': 'dcb-summary' },
             todos.length > 0 && h('section', { 'data-testid': 'dcb-progress' }, h('h3', null, '进度', closeControl),
               h(React.Fragment, null,
-                progress.hidden > 0 && h('button', { type: 'button', className: 'dcb-history', 'aria-expanded': expanded, onClick: () => setHistory(expanded ? null : sessionId) }, h('span', { className: 'dcb-status', 'aria-hidden': true }), expanded ? '收起先前步骤' : `${progress.hidden} 个先前步骤`),
+                progress.hidden > 0 && h('button', { type: 'button', className: 'dcb-history', 'aria-expanded': expanded, onClick: () => setHistory(expanded ? null : sessionId) }, h('span', { className: 'dcb-status', 'aria-hidden': true }, '⋮'), expanded ? '收起先前步骤' : `${progress.hidden} 个先前步骤`),
                 h('ol', { className: 'dcb-timeline', 'data-working': working }, progress.items.map((item, index) => h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-status': item.status, 'aria-current': item.status === 'in_progress' ? 'step' : undefined, 'data-finished': finished && index === progress.items.length - 1 ? true : undefined },
                   h('span', { className: 'dcb-status', role: 'img', 'aria-label': { completed: '已完成', in_progress: '进行中', pending: '待处理' }[item.status] || item.status },
-                    finished && index === progress.items.length - 1 ? h('span', { className: 'dcb-status-dot' }, h(Icon, { kind: 'check', size: 12 })) : null),
+                    h('span', { className: 'dcb-status-dot' }, finished && index === progress.items.length - 1 ? h(Icon, { kind: 'check', size: 8 }) : null)),
                   h('span', { className: 'dcb-step-text' }, item.content)))))),
             activity.files.length > 0 && h('section', { 'data-testid': 'dcb-outputs' }, h('h3', null, '输出', todos.length === 0 && closeControl), activity.files.map(file =>
               h(OutputRow, { key: file.path, file, sessionId, readThumbnail, onOpen: openOutput }))),

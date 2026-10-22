@@ -26,10 +26,21 @@ const browser = await chromium.launch({ headless: true, channel: process.env.PLA
 const page = await browser.newPage({ viewport: { width: 1706, height: 1018 }, deviceScaleFactor: 1.5 })
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
+await page.addInitScript(() => {
+  window.dropdownReveals = []
+  const animate = Element.prototype.animate
+  Element.prototype.animate = function(frames, options) {
+    if (options?.id === 'dcb-dropdown') window.dropdownReveals.push({ target: this.id, frames, duration: options.duration })
+    return animate.call(this, frames, options)
+  }
+})
 const card = page.getByTestId('dcb-summary')
 let passed = 0
 async function check(name, run) { await run(); passed++; console.log(`PASS ${name}`) }
-async function settled() { await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))) }
+async function settled() {
+  await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))))
+  await page.evaluate(() => Promise.all(document.getAnimations().filter(animation => animation.id === 'dcb-dropdown').map(animation => animation.finished.catch(() => {}))))
+}
 const rows = []
 let seq = 1
 const event = (type, data) => rows.push({ event: { type, data, seq: seq++ } })
@@ -75,10 +86,8 @@ try {
     window.fixture.refresh()
   })
   await page.getByRole('button', { name: '会话进度与输出', exact: true }).waitFor()
-  await card.waitFor()
-  assert.equal(await card.count(), 1, 'The panel opens itself when the session already lists tasks')
-  await card.getByRole('button', { name: '关闭进度面板' }).click()
-  assert.equal(await card.count(), 0)
+  await settled()
+  assert.equal(await card.count(), 0, 'Idle history does not automatically open the panel')
   await page.evaluate(() => window.fixture.update([
     { content: '整理需求与界面结构', status: 'completed' },
     { content: '实现右上角任务面板，并保留任务状态的实时更新', status: 'in_progress' },
@@ -86,7 +95,7 @@ try {
     { content: '完成验证并交付', status: 'pending' },
   ]))
   await settled()
-  assert.equal(await card.count(), 0, 'After a manual close, task updates stay quiet for this session')
+  assert.equal(await card.count(), 0, 'Idle task updates do not automatically open the panel')
   await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
   await card.waitFor()
   await page.evaluate(rows => {
@@ -115,6 +124,7 @@ try {
     await card.getByRole('button', { name: '收起先前步骤' }).click()
     const entryButton = page.getByRole('button', { name: '会话进度与输出', exact: true })
     await entryButton.click()
+    const beforeStart = await page.evaluate(() => window.dropdownReveals.length)
     await page.evaluate(() => {
       window.fixture.running(true)
       window.fixture.update([
@@ -127,17 +137,24 @@ try {
       ])
     })
     await settled()
-    assert.equal(await card.count(), 0, 'A session auto-opens only once, so later work keeps the manual close')
+    assert.equal(await card.count(), 1, 'A new inference run automatically reveals the panel')
+    assert.equal(await page.evaluate(() => window.dropdownReveals.length), beforeStart + 1)
     assert.ok((await entryButton.innerText()).includes('第 5 步，共 6 步'))
-    await entryButton.click()
     assert.equal(await card.locator('.dcb-step').count(), 4)
-    assert.equal(await card.locator('.dcb-status-dot').count(), 0, 'Working steps use a rail instead of spinners or checkboxes')
+    assert.equal(await card.locator('.dcb-status-dot').count(), 4, 'Each working step uses a small round status dot')
+    const activeDot = card.locator('[data-status="in_progress"] .dcb-status-dot')
+    assert.equal(await activeDot.evaluate(el => getComputedStyle(el).borderRadius), '50%')
+    assert.equal(await activeDot.evaluate(el => getComputedStyle(el).animationName), 'dcb-breathe')
     assert.ok(await card.getByRole('button', { name: '2 个先前步骤' }).count())
     assert.equal(await card.locator('[data-status="in_progress"]').getAttribute('aria-current'), 'step')
-    assert.deepEqual(await card.evaluate(el => el.getAnimations({ subtree: true }).map(animation => animation.animationName)), [])
+    assert.ok((await card.evaluate(el => el.getAnimations({ subtree: true }).map(animation => animation.animationName))).every(name => name === 'dcb-breathe'))
+    const reveal = await page.evaluate(() => window.dropdownReveals.at(-1))
+    assert.equal(reveal.duration, 240)
+    assert.ok(reveal.frames[0].clipPath.includes('100%') && reveal.frames[1].transform === 'translateY(0)')
     await card.screenshot({ path: resolve(output, 'summary-working.png') })
     await page.screenshot({ path: resolve(output, 'summary-working-desktop.png') })
     await entryButton.screenshot({ path: resolve(output, 'summary-working-entry.png') })
+    await card.getByRole('button', { name: '关闭进度面板' }).click()
     await page.evaluate(() => {
       window.fixture.update([
         { content: '整理需求', status: 'completed' }, { content: '准备工程', status: 'completed' },
@@ -146,7 +163,9 @@ try {
       ])
     })
     await settled()
+    assert.equal(await card.count(), 0, 'Task progress does not reopen a panel manually closed during the same run')
     assert.ok((await entryButton.innerText()).includes('第 6 步，共 6 步'))
+    await entryButton.click()
     await page.evaluate(() => {
       window.fixture.running(false)
       window.fixture.update([
@@ -156,7 +175,31 @@ try {
     })
     await settled()
     assert.ok(!(await entryButton.innerText()).includes('步'))
-    assert.equal(await card.locator('.dcb-status-dot').count(), 1)
+    assert.equal(await card.locator('[data-finished="true"] .dcb-status-dot svg').count(), 1)
+    await card.getByRole('button', { name: '关闭进度面板' }).click()
+    const beforeNextRun = await page.evaluate(() => window.dropdownReveals.length)
+    await page.evaluate(() => window.fixture.running(true))
+    await settled()
+    assert.equal(await card.count(), 1, 'The next inference run reveals again even after the previous run was closed')
+    assert.equal(await page.evaluate(() => window.dropdownReveals.length), beforeNextRun + 1)
+    const whileOpen = await page.evaluate(() => window.dropdownReveals.length)
+    await page.evaluate(() => window.fixture.running(false))
+    await settled()
+    await page.evaluate(() => window.fixture.running(true))
+    await settled()
+    assert.equal(await page.evaluate(() => window.dropdownReveals.length), whileOpen + 1, 'An already-open panel replays its dropdown on a new inference')
+    await page.evaluate(() => window.fixture.running(false))
+    await settled()
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await card.getByRole('button', { name: '关闭进度面板' }).click()
+    const beforeReducedMotion = await page.evaluate(() => window.dropdownReveals.length)
+    await page.evaluate(() => window.fixture.running(true))
+    await settled()
+    assert.equal(await card.count(), 1)
+    assert.equal(await page.evaluate(() => window.dropdownReveals.length), beforeReducedMotion, 'Reduced motion opens without a dropdown animation')
+    await page.evaluate(() => window.fixture.running(false))
+    await settled()
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
   })
   await check('declared outputs and actual used resources populate separate sections', async () => {
     assert.equal(await card.locator('.dcb-output').count(), 3)
@@ -233,13 +276,21 @@ try {
     await page.evaluate(rows => window.fixture.records(rows), rows)
     await page.evaluate(() => window.fixture.session('b'))
     await settled()
-    assert.equal(await card.count(), 1, 'A newly visited session opens itself once its task list appears')
+    assert.equal(await card.count(), 0, 'A newly visited idle session stays closed')
+    await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
     assert.equal(await card.locator('.dcb-output').count(), 0)
     assert.equal(await card.locator('.dcb-resource').count(), 0)
     assert.ok(await card.getByText('第二个会话的任务', { exact: true }).count())
     await page.evaluate(() => window.fixture.session('empty'))
     await settled()
     assert.equal(await card.count(), 0)
+    await page.evaluate(() => window.fixture.running(true))
+    await settled()
+    assert.equal(await card.count(), 0, 'A run with no real content waits rather than revealing an empty card')
+    await page.evaluate(rows => window.fixture.records(rows), rows)
+    await settled()
+    assert.equal(await card.count(), 1, 'Content arriving after the run starts triggers the pending reveal')
+    assert.equal(await card.getByTestId('dcb-progress').count(), 0)
     await page.evaluate(() => window.fixture.session('a'))
     await settled()
   })

@@ -5,6 +5,7 @@ import React from 'react'
 export function ComposerFixture() {
   const editor = React.useRef(null), fileInput = React.useRef(null), composing = React.useRef(false)
   const [files, setFiles] = React.useState([]), [menu, setMenu] = React.useState(false), [hasText, setHasText] = React.useState(false)
+  const [recording, setRecording] = React.useState(false), [voice, setVoice] = React.useState(false)
   const sent = React.useRef([])
   window.composerTest = { sent: sent.current }
   const addFiles = incoming => setFiles(current => [...current, ...Array.from(incoming, file => file.name)])
@@ -28,6 +29,10 @@ export function ComposerFixture() {
       <button className="cf_add" aria-label="合成添加附件" onClick={() => fileInput.current.click()}>＋</button>
       <input ref={fileInput} type="file" hidden multiple aria-label="合成文件选择" onChange={event => addFiles(event.currentTarget.files)}/>
       <button className="cf_select" aria-label="合成模型选择" onClick={() => setMenu(value => !value)}>DeepSeek</button>
-    </div><div className="cf_trailing"><button className="cf_primary" aria-label="合成发送" onClick={send}>↑</button></div></div>
+    </div><div className="cf_trailing">
+      <button className="vf_trigger" aria-label="合成麦克风" aria-pressed={recording} onClick={() => setRecording(value => !value)}><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v7m-3-5v4a3 3 0 0 0 6 0V4M8 11v3m-3 0h6" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg></button>
+      <button className="vf_voice" aria-label="合成语音" aria-pressed={voice} onClick={() => setVoice(value => !value)}><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 7v4m3-7v10m3-12v14m3-12v10m3-7v4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg></button>
+      <button className="cf_primary" aria-label="合成发送" onClick={send}>↑</button>
+    </div></div>
   </section><div className="cf_dock" data-composer-dock="true"/></div>
 }

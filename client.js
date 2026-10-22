@@ -14,9 +14,12 @@ window.__ModuleLoader__.load({
     const COMPOSER_CARD = '[data-composer-seat] [data-composer-card]'
     const COMPOSER_MARK = 'data-dcb-composer-style'
     const COMPOSER_GLASS = `body[${COMPOSER_FLAG}] [${COMPOSER_MARK}]`
-    const MATERIAL_SURFACE = `:is(.dcb-summary, [${MARK}], .dcb-style-swatch, [${COMPOSER_MARK}])`
-    const MATERIAL_BASE = `${MATERIAL_SURFACE}:is([data-card-style], [${COMPOSER_MARK}])`
-    const material = value => `${MATERIAL_SURFACE}:is([data-card-style="${value}"], [${COMPOSER_MARK}="${value}"])`
+    const COMPOSER_ACTION_MARK = 'data-dcb-composer-action'
+    const COMPOSER_ACTION_KIND = 'data-dcb-composer-action-kind'
+    const COMPOSER_ACTION_SURFACE = `${COMPOSER_GLASS} button[${COMPOSER_ACTION_MARK}]`
+    const MATERIAL_SURFACE = `:is(.dcb-summary, [${MARK}], .dcb-style-swatch, [${COMPOSER_MARK}], [${COMPOSER_ACTION_MARK}])`
+    const MATERIAL_BASE = `${MATERIAL_SURFACE}:is([data-card-style], [${COMPOSER_MARK}], [${COMPOSER_ACTION_MARK}])`
+    const material = value => `${MATERIAL_SURFACE}:is([data-card-style="${value}"], [${COMPOSER_MARK}="${value}"], [${COMPOSER_ACTION_MARK}="${value}"])`
     const CARD_STYLES = ['milk', 'clear', 'css', 'glass']
     const MATERIALS = [['milk', '默认', '保留原始配色与样式'], ['clear', '透明玻璃', '液态折射，通透亮边'], ['css', '轻量玻璃', '柔和亮边，轻微模糊'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮']]
     const DEFAULTS = { enabled: true, composerStyle: 'milk', chatUnderComposer: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
@@ -40,6 +43,24 @@ window.__ModuleLoader__.load({
     function readSettings() {
       try { return normalize(JSON.parse(window.localStorage.getItem(KEY))) }
       catch { return normalize(null) }
+    }
+
+    function composerActionKind(button) {
+      if (button.closest('[data-composer-overlay], [data-composer-input], [role="menu"], [role="listbox"]')) return null
+      const classes = [...button.classList]
+      // Module-local suffixes survive host build hashes; text selectors and menus
+      // are excluded. Voice providers may instead expose a labelled SVG button.
+      if (classes.some(name => /_primary$/.test(name))) return 'accent'
+      if (classes.some(name => /_(add|roundButton)$/.test(name))) return 'neutral'
+      const iconOnly = button.querySelector('svg') && !button.textContent.trim()
+      if (iconOnly && (classes.some(name => /_trigger$/.test(name)) || /语音|麦克风|录音|voice|microphone|dictation|speech/i.test(button.getAttribute('aria-label') || ''))) {
+        // Sample an unfamiliar voice provider before styling it, so a filled
+        // control keeps its accent and white glyph. Later syncs reuse that kind.
+        if (button.hasAttribute(COMPOSER_ACTION_MARK)) return button.getAttribute(COMPOSER_ACTION_KIND) === 'accent' ? 'accent' : 'neutral'
+        const fill = window.getComputedStyle(button).backgroundColor.match(/[\d.]+/g)?.map(Number) || [0, 0, 0, 0]
+        return (fill[3] ?? 1) > .25 && Math.max(...fill.slice(0, 3)) - Math.min(...fill.slice(0, 3)) > 40 ? 'accent' : 'neutral'
+      }
+      return null
     }
 
     const h = React.createElement
@@ -767,14 +788,14 @@ window.__ModuleLoader__.load({
         tick(record)
       }
       const moveLight = (record, event) => {
-        if (reduced.matches || forced.matches || !record.live || record.target !== 12) return
+        if (reduced.matches || forced.matches || !record.live || record.target <= 0) return
         record.pendingPointer = { x: event.clientX, y: event.clientY, pressed: event.type === 'pointerdown' || event.buttons > 0 }
         if (record.inputFrame) return
         // Coalesce pointer bursts; never rerasterize the map, move the card, or
         // prevent touch scrolling. CSS interpolates only the optical properties.
         record.inputFrame = window.requestAnimationFrame(() => {
           record.inputFrame = 0
-          if (!record.live || !eligible(record.element) || reduced.matches || record.target !== 12) return
+          if (!record.live || !eligible(record.element) || reduced.matches || record.target <= 0) return
           const pointer = record.pendingPointer, bounds = record.element.getBoundingClientRect()
           if (!pointer || !bounds.width || !bounds.height) return
           const x = Math.max(0, Math.min(100, (pointer.x - bounds.left) / bounds.width * 100))
@@ -837,7 +858,7 @@ window.__ModuleLoader__.load({
         if (forced.matches) return
         for (const element of lastElements) {
           if (!eligible(element)) continue
-          const target = (element.getAttribute(COMPOSER_MARK) || element.getAttribute('data-card-style')) === 'clear' ? 12 : 0
+          const target = (element.getAttribute(COMPOSER_ACTION_MARK) || element.getAttribute(COMPOSER_MARK) || element.getAttribute('data-card-style')) === 'clear' ? element.hasAttribute(COMPOSER_ACTION_MARK) ? 4 : 12 : 0
           let record = records.get(element)
           if (!target && !record) continue
           if (!record) {
@@ -1225,6 +1246,20 @@ window.__ModuleLoader__.load({
         --dcb-surface-background: rgba(160,174,190,.26); --dcb-surface-border: rgba(255,255,255,.34); --dcb-sheen-opacity: .32;
         --dcb-surface-shadow: 0 12px 32px #0005, inset 0 1px 0 #ffffff52, inset 1px 0 0 #ffffff24, inset -1px -1px 0 #ffffff14;
       }
+      ${COMPOSER_ACTION_SURFACE} {
+        /* Each small lens owns its filter; do not inherit the whole input map. */
+        --dcb-liquid-filter: initial;
+        --dcb-surface-shadow: 0 2px 6px #00000016, inset 0 1px 1px #ffffff9c, inset 0 -1px 1px #00000012;
+        outline: 1px solid var(--dcb-surface-border); outline-offset: -1px;
+      }
+      ${COMPOSER_ACTION_SURFACE}[${COMPOSER_ACTION_MARK}="clear"] { --dcb-refraction-scale: 4; }
+      ${COMPOSER_ACTION_SURFACE}[${COMPOSER_ACTION_KIND}="accent"] {
+        --dcb-surface-background: color-mix(in srgb, var(--dsw-alias-button-info-fill, #4d6bfe) 84%, transparent);
+      }
+      ${COMPOSER_ACTION_SURFACE}[${COMPOSER_ACTION_KIND}="accent"]:hover:not(:disabled) {
+        --dcb-surface-background: color-mix(in srgb, var(--dsw-alias-button-info-hover, #3b53d8) 90%, transparent);
+      }
+      ${COMPOSER_ACTION_SURFACE}:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #777aff); outline-offset: 2px; }
       /* Glass needs its own foreground palette; the default material keeps its original colors. */
       body ${GLASS_PANEL} {
         --dcb-ink-primary: #20242a; --dcb-ink-body: #414852; --dcb-ink-muted: #59616d; --dcb-ink-active: #16191d;
@@ -1280,6 +1315,8 @@ window.__ModuleLoader__.load({
       @media (forced-colors: active) {
         ${COMPOSER_GLASS} { background: Canvas !important; color: CanvasText !important; box-shadow: none !important; outline-color: CanvasText; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         ${CHAT_UNDER_COMPOSER} { background: Canvas !important; }
+        ${COMPOSER_ACTION_SURFACE} { background: ButtonFace !important; color: ButtonText !important; outline-color: ButtonText; }
+        ${COMPOSER_ACTION_SURFACE}:focus-visible { outline-color: Highlight; }
         body ${MATERIAL_BASE} { background: Canvas !important; border-color: CanvasText !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         body ${GLASS_PANEL}, body[data-ds-dark-theme] ${GLASS_PANEL} {
           --dcb-ink-primary: CanvasText; --dcb-ink-body: CanvasText; --dcb-ink-muted: CanvasText; --dcb-ink-active: CanvasText;
@@ -1306,6 +1343,7 @@ window.__ModuleLoader__.load({
       const originalComposerFlag = document.body.getAttribute(COMPOSER_FLAG)
       const originalChatUnderComposerFlag = document.body.getAttribute(CHAT_UNDER_COMPOSER_FLAG)
       const composerOriginals = new Map()
+      const composerActionOriginals = new Map()
       const style = document.createElement('style')
       style.dataset.plugin = NAME
       style.textContent = css
@@ -1334,6 +1372,13 @@ window.__ModuleLoader__.load({
         else element.setAttribute(COMPOSER_MARK, previous)
         composerOriginals.delete(element)
       }
+      function restoreComposerAction(element) {
+        for (const [name, value] of composerActionOriginals.get(element) || []) {
+          if (value === null) element.removeAttribute(name)
+          else element.setAttribute(name, value)
+        }
+        composerActionOriginals.delete(element)
+      }
       function sync() {
         frame = 0
         if (disposed) return
@@ -1345,6 +1390,17 @@ window.__ModuleLoader__.load({
         for (const element of composers) {
           if (!composerOriginals.has(element)) composerOriginals.set(element, element.getAttribute(COMPOSER_MARK))
           if (element.getAttribute(COMPOSER_MARK) !== settings.composerStyle) element.setAttribute(COMPOSER_MARK, settings.composerStyle)
+        }
+        const actions = new Map()
+        for (const composer of composers) for (const button of composer.querySelectorAll('button')) {
+          const kind = composerActionKind(button)
+          if (kind) actions.set(button, kind)
+        }
+        for (const element of composerActionOriginals.keys()) if (!actions.has(element)) restoreComposerAction(element)
+        for (const [element, kind] of actions) {
+          if (!composerActionOriginals.has(element)) composerActionOriginals.set(element, [COMPOSER_ACTION_MARK, COMPOSER_ACTION_KIND].map(name => [name, element.getAttribute(name)]))
+          if (element.getAttribute(COMPOSER_ACTION_MARK) !== settings.composerStyle) element.setAttribute(COMPOSER_ACTION_MARK, settings.composerStyle)
+          if (element.getAttribute(COMPOSER_ACTION_KIND) !== kind) element.setAttribute(COMPOSER_ACTION_KIND, kind)
         }
         const panels = settings.enabled ? [...document.querySelectorAll(PANEL)] : []
         for (const panel of document.querySelectorAll('[data-dcb-native-hidden]')) {
@@ -1383,7 +1439,7 @@ window.__ModuleLoader__.load({
         }
         for (const container of observed) if (!containers.has(container)) { resize.unobserve(container); observed.delete(container) }
         for (const container of containers) if (!observed.has(container)) { resize.observe(container); observed.add(container) }
-        liquid.sync([...document.querySelectorAll(`.dcb-summary[data-card-style], [${MARK}][data-card-style], .dcb-style-swatch[data-card-style], [${COMPOSER_MARK}]`)])
+        liquid.sync([...document.querySelectorAll(`.dcb-summary[data-card-style], [${MARK}][data-card-style], .dcb-style-swatch[data-card-style], [${COMPOSER_MARK}], [${COMPOSER_ACTION_MARK}]`)])
       }
       function schedule() { if (!frame && !disposed) frame = window.requestAnimationFrame(sync) }
       function update(patch, persist = true) {
@@ -1397,7 +1453,7 @@ window.__ModuleLoader__.load({
       const onStorage = event => { if (event.key === KEY || event.key === null) update(readSettings(), false) }
       const observer = new MutationObserver(schedule)
       observer.observe(document.body, { childList: true, subtree: true, attributes: true,
-        attributeFilter: ['data-conversation-session', 'data-card-style', 'data-composer-card', 'hidden', 'class'] })
+        attributeFilter: ['data-conversation-session', 'data-card-style', 'data-composer-card', 'aria-label', 'hidden', 'class'] })
       window.addEventListener('resize', schedule)
       // Capture scroll also handles embedded conversation columns and moved panes.
       document.addEventListener('scroll', schedule, true)
@@ -1531,7 +1587,7 @@ window.__ModuleLoader__.load({
         const composer = scope === 'composer'
         const label = composer ? '输入栏样式' : '卡片样式'
         return h('fieldset', { className: 'dcb-style-picker', 'data-dcb-card-style-picker': composer ? undefined : '', 'data-dcb-composer-style-picker': composer ? '' : undefined },
-          h('legend', null, label), h('p', null, composer ? '独立预览底部输入栏；默认选项恢复原来的外观。' : '选择后实时预览当前任务卡片；当前轮次没有内容时保持隐藏。'),
+          h('legend', null, label), h('p', null, composer ? '输入栏与附件、语音等圆形按钮同步预览；默认恢复原样。' : '选择后实时预览当前任务卡片；当前轮次没有内容时保持隐藏。'),
           h('div', { className: 'dcb-style-options', role: 'radiogroup', 'aria-label': label }, MATERIALS.map(([style, name, description], index) =>
             h('button', { type: 'button', role: 'radio', className: 'dcb-style-option', key: style, 'aria-label': composer ? `输入栏：${name}` : name, 'aria-checked': value === style,
               tabIndex: value === style ? 0 : -1, onClick: () => onChange(style),
@@ -1928,6 +1984,7 @@ window.__ModuleLoader__.load({
         observer.disconnect()
         resize.disconnect()
         liquid.dispose()
+        for (const element of composerActionOriginals.keys()) restoreComposerAction(element)
         for (const element of composerOriginals.keys()) restoreComposer(element)
         if (originalComposerFlag === null) document.body.removeAttribute(COMPOSER_FLAG)
         else document.body.setAttribute(COMPOSER_FLAG, originalComposerFlag)

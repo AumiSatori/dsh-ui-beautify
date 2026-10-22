@@ -30,7 +30,7 @@ const errors = []
 page.on('pageerror', error => errors.push(error.message))
 const card = page.getByTestId('dcb-summary')
 const key = 'dsh-claude-beautify:settings:v1'
-const labels = { clear: '透明玻璃', glass: '毛玻璃', milk: '默认' }
+const labels = { clear: '透明玻璃', css: '轻量玻璃', glass: '毛玻璃', milk: '默认' }
 const todos = [
   { content: '确认界面与主题需求', status: 'completed' },
   { content: '梳理模块与信息层级', status: 'completed' },
@@ -162,7 +162,7 @@ try {
       document.body.style.setProperty('--theme-palette-background', dark ? 'radial-gradient(ellipse at 70% 30%,#24343d90,transparent 65%),#141414' : 'radial-gradient(ellipse at 70% 30%,#bed3e090,transparent 65%),#e4e7ec')
     }, dark)
     await settled()
-    for (const value of ['clear', 'glass', 'milk']) {
+    for (const value of Object.keys(labels)) {
       await material(value)
       await check(`${theme} ${value} keeps task, resource and secondary text legible`, async () => {
         const data = await capture(theme, value)
@@ -198,7 +198,7 @@ try {
     }
   }
   await check('transparent and frosted glass use independent foreground palettes in light and dark themes', async () => {
-    for (const value of ['clear', 'glass']) for (const field of ['heading', 'completed', 'current', 'detail', 'fileType', 'category']) {
+    for (const value of ['clear', 'css', 'glass']) for (const field of ['heading', 'completed', 'current', 'detail', 'fileType', 'category']) {
       assert.notEqual(results[`dark-${value}`].elements[field].color, results[`light-${value}`].elements[field].color, `${value} ${field} must be theme-specific`)
     }
   })
@@ -208,7 +208,7 @@ try {
   })
   assert.deepEqual(errors, [])
   writeFileSync(resolve(output, 'results.json'), `${JSON.stringify(results, null, 2)}\n`)
-  const comparison = await browser.newPage({ viewport: { width: 1120, height: 1300 }, deviceScaleFactor: 1 })
+  const comparison = await browser.newPage({ viewport: { width: 1480, height: 1300 }, deviceScaleFactor: 1 })
   const row = theme => `<section class="${theme}"><p>${theme === 'dark' ? '深色' : '浅色'} · 独立文字与次要信息配色</p><div>${Object.entries(labels).map(([value, label]) => `<figure><figcaption>${label}</figcaption><img src="data:image/png;base64,${readFileSync(resolve(output, `${theme}-${value}.png`)).toString('base64')}"/></figure>`).join('')}</div></section>`
   await comparison.setContent(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;font:14px system-ui,sans-serif}section{padding:22px 40px 24px}section.dark{background:#141414;color:#eee}section.light{background:#e4e7ec;color:#242424}p{margin:0 0 14px;font-size:13px;opacity:.75}section>div{display:flex;gap:30px}figure{margin:0;width:320px}figcaption{margin-bottom:12px}img{display:block;width:320px}</style>${row('dark')}${row('light')}</html>`)
   await comparison.screenshot({ path: resolve(output, 'theme-comparison.png'), fullPage: true })

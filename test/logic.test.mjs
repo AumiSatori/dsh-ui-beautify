@@ -29,10 +29,11 @@ test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize({ toolDetails: true }).toolDetails, true)
 })
 
-test('card styles migrate to milk by default and retain all three supported presentation values', () => {
+test('card styles migrate to milk by default and retain all four supported presentation values', () => {
   for (const value of [null, {}, { cardStyle: 'unknown' }, { cardStyle: true }, { cardStyle: { kind: 'glass' } }]) assert.equal(normalize(value).cardStyle, 'milk')
   assert.equal(normalize({ cardStyle: 'milk' }).cardStyle, 'milk')
   assert.equal(normalize({ cardStyle: 'clear' }).cardStyle, 'clear')
+  assert.equal(normalize({ cardStyle: 'css' }).cardStyle, 'css')
   assert.equal(normalize({ cardStyle: 'glass' }).cardStyle, 'glass', 'Existing frosted-glass preferences preserve their material')
   const migrated = normalize({ width: 400, modules: { resources: false }, toolDetails: true })
   assert.equal(migrated.cardStyle, 'milk')

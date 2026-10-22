@@ -30,7 +30,7 @@ const errors = []
 page.on('pageerror', error => errors.push(error.message))
 const card = page.getByTestId('dcb-summary')
 const key = 'dsh-claude-beautify:settings:v1'
-const labels = { clear: '透明玻璃', glass: '毛玻璃', milk: '默认' }
+const labels = { clear: '透明玻璃', css: '轻量玻璃', glass: '毛玻璃', milk: '默认' }
 const records = [
   { event: { type: 'tool/call', seq: 1, data: { callId: 'synthetic-command', name: 'exec_command', arguments: '{"command":"synthetic preview"}' } } },
   { event: { type: 'tool/result', seq: 2, data: { message: { source: { callId: 'synthetic-command' }, isError: false } } } },
@@ -138,8 +138,8 @@ try {
     }, dark)
     await settled()
     const flat = {}, styles = {}, patterned = {}
-    await check(`${theme} tools-only card has three visible materials on a flat chat background`, async () => {
-      for (const value of ['clear', 'glass', 'milk']) {
+    await check(`${theme} tools-only card retains all four materials on a flat chat background`, async () => {
+      for (const value of Object.keys(labels)) {
         await material(value)
         styles[value] = await readMaterial()
         flat[value] = await capture(`${theme}-flat-${value}`)
@@ -152,6 +152,9 @@ try {
       assert.equal(styles.milk.alpha, 1)
       assert.equal(styles.milk.background, dark ? 'rgb(41, 40, 36)' : 'rgb(255, 253, 249)', 'Renaming the default material preserves its original surface color')
       assert.equal(styles.clear.blur, 0)
+      assert.equal(styles.css.blur, 2)
+      assert.equal(styles.css.alpha, dark ? .78 : .56)
+      assert.doesNotMatch(styles.css.filter, /url\(/)
       assert.equal(styles.glass.blur, 22)
       assert.equal(styles.milk.blur, 0)
       for (const [first, second] of [['clear', 'glass'], ['clear', 'milk'], ['glass', 'milk']]) {
@@ -160,7 +163,7 @@ try {
       }
     })
     await check(`${theme} hovering the tool summary keeps the chosen material visible`, async () => {
-      for (const value of ['clear', 'glass', 'milk']) {
+      for (const value of Object.keys(labels)) {
         await material(value)
         await card.getByRole('button', { name: '展开工具明细', exact: true }).hover()
         await settled()
@@ -176,7 +179,7 @@ try {
     })
     await check(`${theme} clear glass preserves background texture, frost blurs it and milk masks it`, async () => {
       await page.evaluate(() => document.body.style.setProperty('--material-test-background', 'repeating-linear-gradient(90deg,#222 0 4px,#bbb 4px 8px)'))
-      for (const value of ['clear', 'glass', 'milk']) {
+      for (const value of Object.keys(labels)) {
         await material(value)
         patterned[value] = await capture(`${theme}-pattern-${value}`)
       }
@@ -203,6 +206,43 @@ try {
     })
     results[theme] = { flat, styles, patterned }
   }
+  await check('the independent CSS material preserves content and controls while releasing SVG optics and ignoring pointer bursts', async () => {
+    await material('clear')
+    await card.evaluate(element => { window.cssCard = element; window.cssTool = element.querySelector('.dcb-tool-summary') })
+    await material('css')
+    const before = await card.evaluate(element => {
+      window.cssStyleWrites = 0
+      window.cssObserver = new MutationObserver(entries => { window.cssStyleWrites += entries.length })
+      window.cssObserver.observe(element, { attributes: true, attributeFilter: ['style'] })
+      const bounds = element.getBoundingClientRect()
+      for (let index = 0; index < 40; index++) element.dispatchEvent(new PointerEvent('pointermove', { clientX: bounds.x + index + 30, clientY: bounds.y + 20, pointerType: 'mouse', bubbles: true }))
+      return { width: bounds.width, height: bounds.height, pseudo: getComputedStyle(element, '::after').content }
+    })
+    await settled()
+    assert.equal(await page.evaluate(() => window.cssStyleWrites), 0, 'CSS material has no per-pointer optical style updates')
+    await page.evaluate(() => window.cssObserver.disconnect())
+    assert.equal(await page.locator('[data-dcb-liquid-defs]').count(), 0, 'Leaving SVG glass removes the displacement definitions')
+    assert.equal(await card.getAttribute('data-dcb-liquid'), null)
+    assert.equal(before.pseudo, 'none', 'No decorative layer covers the controls')
+    assert.equal(await card.evaluate(element => element === window.cssCard && element.querySelector('.dcb-tool-summary') === window.cssTool), true)
+    const toggle = card.locator('.dcb-module-toggle').first()
+    await toggle.click()
+    await settled()
+    assert.equal(await toggle.getAttribute('aria-expanded'), 'false', 'The real section button remains clickable')
+    await toggle.click()
+    await settled()
+    const after = await card.boundingBox()
+    assert.deepEqual([after.width, after.height], [before.width, before.height])
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await material('clear')
+    await material('css')
+    assert.equal(await card.getAttribute('data-dcb-liquid'), null, 'Reduced-motion SVG-to-CSS changes release the lens immediately')
+    await page.emulateMedia({ forcedColors: 'active' })
+    await settled()
+    assert.equal((await readMaterial()).alpha, 1)
+    assert.equal((await readMaterial()).blur, 0)
+    await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'none' })
+  })
   const optical = () => card.evaluate(element => {
     const style = getComputedStyle(element), id = style.getPropertyValue('--dcb-liquid-filter').match(/#([^)'"\s]+)/)?.[1]
     return { x: parseFloat(style.getPropertyValue('--dcb-glint-x')), y: parseFloat(style.getPropertyValue('--dcb-glint-y')),
@@ -298,7 +338,7 @@ try {
   })
   assert.deepEqual(errors, [])
   writeFileSync(resolve(output, 'results.json'), `${JSON.stringify(results, null, 2)}\n`)
-  const comparison = await browser.newPage({ viewport: { width: 1100, height: 640 }, deviceScaleFactor: 1 })
+  const comparison = await browser.newPage({ viewport: { width: 1460, height: 640 }, deviceScaleFactor: 1 })
   const row = (theme, kind, description) => `<section class="${theme}"><p>${description}</p><div>${Object.entries(labels).map(([value, label]) => `<figure><figcaption>${label}</figcaption><img src="data:image/png;base64,${readFileSync(resolve(output, `${theme}-${kind}-${value}.png`)).toString('base64')}"/></figure>`).join('')}</div></section>`
   await comparison.setContent(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;font:14px system-ui,sans-serif;background:#e4e7ec}section{padding:18px 34px 22px}section.dark{background:#141414;color:#e8e8e8}section.light{background:#e4e7ec;color:#242424}p{margin:0 0 13px;font-size:13px;opacity:.7}section>div{display:flex;gap:28px}figure{margin:0;width:320px}figcaption{margin-bottom:10px;font-size:14px}img{display:block;width:320px;height:96px}</style>${row('dark', 'hover', '深色 · 与用户截图相同的工具摘要悬浮状态')}${row('light', 'hover', '浅色 · 相同内容，相同位置')}${row('dark', 'pattern', '背景纹理 · 透明保留，毛玻璃模糊，默认遮挡')}</html>`)
   await comparison.screenshot({ path: resolve(output, 'material-comparison.png'), fullPage: true })

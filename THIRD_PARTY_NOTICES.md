@@ -19,6 +19,14 @@ transparent-highlight fallback where SVG backdrop filtering is unavailable.
 This independently maintained plugin is distributed under the MIT license in
 LICENSE; the upstream notices follow in full.
 
+## Lightweight CSS surface
+
+The separate lightweight CSS material is independently authored using the
+plugin's own material properties, gradients and inset highlights. Its visual
+inspiration includes greyd097/yzrt's public CSS glass demonstration:
+https://gitee.com/greyd097/yzrt/tree/master/
+No source code from that project is included in this distribution.
+
 ## Liquid Glass React
 
 Copyright 2025 MAX ROVENSKY

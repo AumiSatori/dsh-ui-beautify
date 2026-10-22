@@ -7,6 +7,7 @@ window.__ModuleLoader__.load({
     const KEY = `${NAME}:settings:v1`
     const PANEL = '[data-testid="todo-panel"]'
     const MARK = 'data-dcb-task-panel'
+    const CARD_STYLES = ['clear', 'css', 'glass', 'milk']
     const DEFAULTS = { enabled: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
     const VARIABLES = ['--dcb-left', '--dcb-top', '--dcb-width', '--dcb-list-height']
 
@@ -15,7 +16,7 @@ window.__ModuleLoader__.load({
         enabled: typeof value?.enabled === 'boolean' ? value.enabled : true,
         width: Number.isFinite(value?.width) ? Math.round(Math.max(280, Math.min(480, value.width))) : 320,
         // Keep the existing glass value for the frosted material when upgrading.
-        cardStyle: ['clear', 'glass', 'milk'].includes(value?.cardStyle) ? value.cardStyle : 'milk',
+        cardStyle: CARD_STYLES.includes(value?.cardStyle) ? value.cardStyle : 'milk',
         modules: Object.fromEntries(Object.keys(DEFAULTS.modules).map(key => [key, typeof value?.modules?.[key] === 'boolean' ? value.modules[key] : true])),
         progressView: { count: value?.progressView?.count === 2 ? 2 : 3, previous: value?.progressView?.previous === true, future: value?.progressView?.future === true },
         toolDetails: value?.toolDetails === true,
@@ -869,7 +870,7 @@ window.__ModuleLoader__.load({
       return { sync, dispose }
     }
 
-    const GLASS_PANEL = `:is(.dcb-summary, [${MARK}]):is([data-card-style="clear"], [data-card-style="glass"])`
+    const GLASS_PANEL = `:is(.dcb-summary, [${MARK}]):is([data-card-style="clear"], [data-card-style="css"], [data-card-style="glass"])`
     const css = `
       [${MARK}] {
         position: fixed !important;
@@ -1109,7 +1110,7 @@ window.__ModuleLoader__.load({
       @media (max-width: 600px) { .dcb-summary { padding: 14px; } }
       .dcb-style-picker { border: 0; padding: 0; margin: 0 0 18px; min-width: 0; }
       .dcb-settings-card .dcb-style-picker > p { margin: -3px 0 12px; font-size: 11px; }
-      .dcb-style-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+      .dcb-style-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
       .dcb-settings .dcb-style-option { position: relative; display: grid; grid-template-rows: 66px auto 1fr; justify-items: center; gap: 8px; min-width: 0; padding: 14px 12px 13px; border: 1.5px solid #00000014; border-radius: 14px; background: #00000008; text-align: center; cursor: pointer; transition: border-color 220ms cubic-bezier(.4,0,.2,1), background-color 220ms cubic-bezier(.4,0,.2,1), box-shadow 220ms cubic-bezier(.4,0,.2,1); }
       .dcb-settings .dcb-style-option:hover { background: #ffffffb3; border-color: #00000026; }
       .dcb-settings .dcb-style-option[aria-checked="true"] { background: #ffffffd9; border-color: #4d6bfe; box-shadow: 0 4px 16px #4d6bfe38; }
@@ -1132,6 +1133,9 @@ window.__ModuleLoader__.load({
       body[data-ds-dark-theme] .dcb-style-option small { color: var(--dsw-alias-label-secondary, #a6a8b2); }
       body[data-ds-dark-theme] .dcb-style-scene { background: linear-gradient(125deg, transparent 38%, #ffffff40 38% 44%, transparent 44%), radial-gradient(ellipse at 15% 30%, #416b72, transparent 60%), radial-gradient(ellipse at 85% 80%, #7b5540, transparent 60%), #302e29; }
       body[data-ds-dark-theme] .dcb-style-swatch i { background: #e3ddd4; }
+      @media (min-width: 601px) and (max-width: 900px) {
+        .dcb-style-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
       @media (max-width: 600px) {
         .dcb-settings { padding: 12px; }
         .dcb-settings-card { padding: 18px 16px 20px; }
@@ -1180,6 +1184,17 @@ window.__ModuleLoader__.load({
         --dcb-surface-background: rgba(24,28,36,.22); --dcb-surface-border: rgba(255,255,255,.4); --dcb-sheen-opacity: .52;
         --dcb-surface-shadow: 0 2px 6px #00000014, 0 10px 28px #00000042, inset 0 1px 0 #ffffff42, inset 1px 0 0 #ffffff1a, inset -1px -1px 0 #ffffff0c;
       }
+      /* A separate CSS surface: no displacement map, pointer light, or overlay
+         over the content. Its subtle rim uses the existing material properties. */
+      body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"] {
+        --dcb-surface-background: rgba(255,255,255,.56); --dcb-surface-border: rgba(255,255,255,.6);
+        --dcb-backdrop-blur: 2px; --dcb-backdrop-saturation: 1.15; --dcb-sheen-opacity: .6;
+        --dcb-surface-shadow: 0 5px 18px rgba(26,34,46,.1), inset 0 1px 1px rgba(255,255,255,.92), inset 1px 0 1px rgba(255,255,255,.52), inset 0 -1px 1px rgba(255,255,255,.45), inset 0 0 2px rgba(10,20,40,.16);
+      }
+      body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"] {
+        --dcb-surface-background: rgba(24,28,36,.78); --dcb-surface-border: rgba(255,255,255,.35); --dcb-sheen-opacity: .14;
+        --dcb-surface-shadow: 0 5px 18px #00000052, inset 0 1px 1px #ffffff8f, inset 1px 0 1px #ffffff33, inset 0 -1px 1px #ffffff20, inset 0 0 2px #00000029;
+      }
       body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] {
         --dcb-surface-background: rgba(236,242,248,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-backdrop-blur: 22px; --dcb-backdrop-saturation: 1.45; --dcb-sheen-opacity: .22;
         --dcb-surface-shadow: 0 12px 32px rgba(28,32,40,.1), inset 0 1px 0 rgba(255,255,255,.9), inset 1px 0 0 rgba(255,255,255,.45), inset -1px -1px 0 rgba(255,255,255,.2);
@@ -1219,16 +1234,18 @@ window.__ModuleLoader__.load({
         transition: color 180ms cubic-bezier(.4,0,.2,1), background-color 180ms cubic-bezier(.4,0,.2,1);
       }
       body ${GLASS_PANEL} :focus-visible { outline-color: var(--dcb-ink-muted); }
-      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) button > span { color: var(--dcb-ink-body) !important; }
-      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) button > span:first-child { color: var(--dcb-ink-body) !important; }
-      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) button > :is(span:nth-child(3), span:last-child) { color: var(--dcb-ink-muted) !important; }
-      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) li { color: var(--dcb-ink-muted); }
-      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) li[data-status="in_progress"] { color: var(--dcb-ink-active); font-weight: 700; }
-      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) li > span:last-child { color: inherit !important; }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="css"], [data-card-style="glass"]) button > span { color: var(--dcb-ink-body) !important; }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="css"], [data-card-style="glass"]) button > span:first-child { color: var(--dcb-ink-body) !important; }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="css"], [data-card-style="glass"]) button > :is(span:nth-child(3), span:last-child) { color: var(--dcb-ink-muted) !important; }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="css"], [data-card-style="glass"]) li { color: var(--dcb-ink-muted); }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="css"], [data-card-style="glass"]) li[data-status="in_progress"] { color: var(--dcb-ink-active); font-weight: 700; }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="css"], [data-card-style="glass"]) li > span:last-child { color: inherit !important; }
       body .dcb-style-swatch[data-card-style] { transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-blur 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-saturation 240ms cubic-bezier(.4,0,.2,1), --dcb-refraction-scale 240ms cubic-bezier(.4,0,.2,1), --dcb-sheen-opacity 240ms cubic-bezier(.4,0,.2,1), --dcb-glint-x 180ms ease-out, --dcb-glint-y 180ms ease-out, --dcb-glint-strength 240ms ease-out, --dcb-interaction-depth 240ms ease-out, transform 240ms cubic-bezier(.22,.8,.26,1); }
       .dcb-summary :is(.dcb-tool-summary, .dcb-output, .dcb-close) { transition: background-color 180ms cubic-bezier(.4,0,.2,1); }
       body ${GLASS_PANEL} :is(.dcb-tool-summary, .dcb-output, .dcb-close):hover { background: var(--dcb-content-hover); }
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"] { --dcb-surface-background: rgba(255,255,255,.96); }
+        body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"] { --dcb-surface-background: rgba(24,28,36,.96); }
         body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(236,242,248,.96); }
         body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(65,72,81,.96); }
       }
@@ -1471,7 +1488,7 @@ window.__ModuleLoader__.load({
         React.useEffect(() => { listeners.add(render); return () => listeners.delete(render) }, [])
         React.useEffect(() => () => previewStyle(false), [])
         const h = React.createElement
-        const materials = [['clear', '透明玻璃', '液态折射，通透亮边'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '默认', '保留原始配色与样式']]
+        const materials = [['clear', '透明玻璃', '液态折射，通透亮边'], ['css', '轻量玻璃', '柔和亮边，轻微模糊'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '默认', '保留原始配色与样式']]
         const materialName = materials.find(([value]) => value === settings.cardStyle)?.[1] || '默认'
         return h('div', { className: 'dcb-settings' },
           h('section', { className: 'dcb-settings-block dcb-settings-card', 'data-dcb-settings-block': 'panel' },
@@ -1493,10 +1510,11 @@ window.__ModuleLoader__.load({
                 h('button', { type: 'button', role: 'radio', className: 'dcb-style-option', key: value, 'aria-label': label, 'aria-checked': settings.cardStyle === value,
                   tabIndex: settings.cardStyle === value ? 0 : -1, onClick: () => { update({ cardStyle: value }); previewStyle(true) },
                   onKeyDown: event => {
-                    const next = { ArrowRight: (index + 1) % 3, ArrowDown: (index + 1) % 3, ArrowLeft: (index + 2) % 3, ArrowUp: (index + 2) % 3, Home: 0, End: 2 }[event.key]
+                    const count = materials.length
+                    const next = { ArrowRight: (index + 1) % count, ArrowDown: (index + 1) % count, ArrowLeft: (index + count - 1) % count, ArrowUp: (index + count - 1) % count, Home: 0, End: count - 1 }[event.key]
                     if (next === undefined) return
                     event.preventDefault()
-                    update({ cardStyle: ['clear', 'glass', 'milk'][next] })
+                    update({ cardStyle: materials[next][0] })
                     previewStyle(true)
                     event.currentTarget.parentElement.children[next]?.focus()
                   } },

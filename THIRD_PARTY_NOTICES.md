@@ -27,8 +27,6 @@ inspiration includes greyd097/yzrt's public CSS glass demonstration:
 https://gitee.com/greyd097/yzrt/tree/master/
 No source code from that project is included in this distribution.
 
-## Lens button optics
-
 ## Smooth option switching reference
 
 The sidebar material selector and navigation highlight independently adapt the

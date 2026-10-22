@@ -19,6 +19,7 @@
     "test:theme-palette": "node test/theme-palette-browser.mjs",
     "test:composer": "node test/composer-browser.mjs",
     "test:sidebar": "node test/sidebar-browser.mjs",
+    "test:messages": "node test/message-motion-browser.mjs",
     "install-plugin": "node scripts/profile.mjs install",
     "uninstall-plugin": "node scripts/profile.mjs uninstall",
     "check-plugin": "node scripts/profile.mjs check",

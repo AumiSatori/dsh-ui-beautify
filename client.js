@@ -2,6 +2,218 @@ window.__ModuleLoader__.load({
   id: 'dsh-claude-beautify',
   factory: (require) => {
     const React = require('react')
+    /* DCB_LENS_BUNDLE_START */
+    var DcbLens=(()=>{var L=Object.defineProperty;var X=Object.getOwnPropertyDescriptor;var W=Object.getOwnPropertyNames;var q=Object.prototype.hasOwnProperty;var Y=(o,e)=>{for(var r in e)L(o,r,{get:e[r],enumerable:!0})},V=(o,e,r,i)=>{if(e&&typeof e=="object"||typeof e=="function")for(let t of W(e))!q.call(o,t)&&t!==r&&L(o,t,{get:()=>e[t],enumerable:!(i=X(e,t))||i.enumerable});return o};var H=o=>V(L({},"__esModule",{value:!0}),o);var ie={};Y(ie,{createLensActions:()=>te});var U=o=>{for(let e of Object.values(o))e&&typeof e=="object"&&U(e);return Object.freeze(o)},P=U({version:"1.1.0-showcase.1",color:{text:"#22252b",muted:"#6b7079",accent:"#2875ed",focus:"#2576e8",page:"#f7f8fa",success:"#236442"},type:{family:'-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif',body:16,control:14,caption:12},space:{xs:4,sm:8,md:16,lg:24,xl:32},radius:{chrome:14,panel:34,lens:60,pill:999},surface:{fallback:"rgba(245,250,255,.30)",solid:"#eef2f8",shadow:"inset 0 1px 0 #fff9,inset 1px 0 0 #fff3,0 12px 24px -12px #2135524d"},motion:{elasticity:.7,spring:"cubic-bezier(.2,.9,.25,1.22)",fast:160,normal:240,feedback:520},optics:{gold:"#e2b54e",green:"#52bb83",light:"#90e8fa",flowDuration:1100,settleDuration:280,magnification:1.8},audio:{enabled:!0,volume:.28,maxVoices:6,cooldown:70,storageKey:"lens.sound.v1"},materials:{clear:{refraction:.65,blur:.12,dispersion:.35},soft:{refraction:.38,blur:.64,dispersion:.12},thick:{refraction:.9,blur:.24,dispersion:.65}}}),oe=P.materials;var K=new WeakMap,G=(o,e=0,r=1)=>Math.max(e,Math.min(r,o));function j(o,e,r=!1){let i=o.duration||0,t=r||!i?1:G((e-o.start)/i),l=1-(1-t)**3,f={...o.to};for(let h of["fill","complete","selected","hover"]){let d=o.to[h]||0,s=o.from[h]||0,v=h==="complete"&&d>s?G((t-.12)/.88):l;f[h]=v===1?d:s+(d-s)*v}typeof o.to.opacity=="number"&&(f.opacity=t===1?o.to.opacity:(o.from.opacity??o.to.opacity)+(o.to.opacity-(o.from.opacity??o.to.opacity))*l);let b=e-o.flowStart;return f.flow=!r&&o.flowStart!==null&&b>=0&&b<P.optics.flowDuration?b/P.optics.flowDuration:-1,f}function _(o,e=performance.now(),r=!1){let i=K.get(o);return i?j(i,e,r&&!i.to.forceMotion):null}var O=class{constructor(e=6){this.limit=e,this.clients=new Set}add(e){let r={...e,active:!1};return this.clients.add(r),r.destroy=()=>{this.clients.delete(r),r.active&&(r.active=!1,r.suspend())},r}update(){let e=[...this.clients].map(i=>({entry:i,rank:i.priority()})).filter(({rank:i})=>Number.isFinite(i)).sort((i,t)=>t.rank-i.rank),r=new Set(e.slice(0,this.limit).map(({entry:i})=>i));for(let i of this.clients)i.active&&!r.has(i)&&(i.active=!1,i.suspend());for(let i of r)i.active||(i.active=!0,i.activate())}};function $(o){let e=o.ownerDocument,r=e.defaultView;if(!o.isConnected||e.hidden||!o.getClientRects().length||r.getComputedStyle(o).visibility==="hidden")return-1/0;let t=o.getBoundingClientRect(),l=Math.max(0,t.left),f=Math.max(0,t.top),b=Math.min(r.innerWidth,t.right),h=Math.min(r.innerHeight,t.bottom);if(b<=l||h<=f)return-1/0;for(let d=r;d.frameElement;d=d.parent){let s=d.frameElement,v=s.getBoundingClientRect();if(!s.getClientRects().length||d.parent.document.hidden||v.bottom<=0||v.top>=d.parent.innerHeight||v.right<=0||v.left>=d.parent.innerWidth)return-1/0}return(b-l)*(h-f)/Math.max(1,t.width*t.height)-Math.abs((f+h)/2-r.innerHeight/2)/Math.max(1,r.innerHeight)*.01}function z(o,e,r){let i=o.ownerDocument.defaultView,t=i;try{for(;t.parent!==t&&t.parent.document;)t=t.parent}catch{}let l=Symbol.for("lens.viewport-gpu-budget.v1");if(!t[l]){let y=new O(6),a=new Map,u=0,c=()=>{u||(u=t.requestAnimationFrame(()=>{u=0,y.update()}))};t[l]={budget:y,documents:a,schedule:c}}let f=t[l],b=o.ownerDocument;if(!f.documents.has(b)){let y=new i.AbortController,a=y.signal;b.addEventListener("scroll",f.schedule,{capture:!0,passive:!0,signal:a}),b.addEventListener("visibilitychange",f.schedule,{signal:a}),i.addEventListener("resize",f.schedule,{passive:!0,signal:a}),f.documents.set(b,{count:0,abort:y})}let h=f.documents.get(b);h.count++;let d=f.budget.add({priority:()=>$(o),activate:e,suspend:r}),s=new i.ResizeObserver(f.schedule);s.observe(o);let v=new i.IntersectionObserver(f.schedule);v.observe(o);let R=!1,x=()=>{R||(R=!0,s.disconnect(),v.disconnect(),d.destroy(),i.removeEventListener("pagehide",T),--h.count||(h.abort.abort(),f.documents.delete(b)),f.schedule())},T=y=>{y.persisted||x()};return i.addEventListener("pagehide",T),f.schedule(),{get active(){return d.active},destroy:x,update:f.schedule}}var Q=`#version 300 es
+in vec2 aPosition;
+uniform vec2 uResolution;
+uniform vec4 uQuad;
+out vec2 vPixel;
+void main(){
+  vPixel = uQuad.xy + (aPosition * .5 + .5) * uQuad.zw;
+  gl_Position = vec4(vPixel / uResolution * 2. - 1., 0., 1.);
+}`,Z=`#version 300 es
+precision highp float;
+in vec2 vPixel;
+out vec4 outColor;
+uniform sampler2D uArtwork;
+uniform vec2 uResolution;
+uniform float uTime;
+uniform float uAnimate;
+uniform float uBrightness;
+uniform float uGrid;
+void main(){
+  vec2 uv = vPixel / uResolution;
+  float movement = uAnimate * (1. - uGrid);
+  uv.x += sin(uv.y * 5.8 + uTime * .21) * .012 * movement;
+  uv.y += sin(uv.x * 5. + uTime * .16) * .010 * movement;
+  vec3 c = texture(uArtwork, clamp(uv, .001, .999)).rgb;
+  c *= uBrightness;
+  outColor = vec4(c, 1.);
+}`,J=`#version 300 es
+precision highp float;
+in vec2 vPixel;
+out vec4 outColor;
+uniform sampler2D uScene;
+uniform vec2 uResolution;
+void main(){ outColor = texture(uScene, vPixel / uResolution); }
+`,ee=`#version 300 es
+precision highp float;
+in vec2 vPixel;
+out vec4 outColor;
+uniform sampler2D uScene;
+uniform vec2 uResolution;
+uniform vec4 uBox;
+uniform vec2 uLocalSize;
+uniform mat2 uInverse;
+uniform vec2 uBend;
+uniform float uPressure;
+uniform float uEnergy;
+uniform vec2 uPointer;
+uniform float uRadius;
+uniform float uScale;
+uniform float uRefraction;
+uniform float uBlur;
+uniform float uDispersion;
+uniform float uTint;
+uniform float uDark;
+uniform float uCompare;
+uniform float uHover;
+uniform vec4 uAccent;
+uniform float uOpacity;
+uniform float uOpticKind;
+uniform vec4 uOptic;
+uniform vec3 uEmission;
+uniform float uFlow;
+uniform float uZoom;
+uniform float uWaveTime;
+
+float roundedBox(vec2 p, vec2 b, float r){
+  vec2 q = abs(p) - b + r;
+  return min(max(q.x,q.y),0.) + length(max(q,0.)) - r;
+}
+float surfaceDistance(vec2 world){
+  vec2 p=uInverse*world;
+  vec2 halfSize=uLocalSize*.5;
+  vec2 q=clamp(p/max(halfSize,vec2(1.)),vec2(-1.3),vec2(1.3));
+  // A dragged surface bows between its corners, then settles with the spring.
+  // This same shape drives silhouette, refraction normals and specular light.
+  p -= uBend * vec2(1.-q.y*q.y,1.-q.x*q.x)*.7;
+  float r=min(uRadius*(1.+uPressure*.15),min(halfSize.x,halfSize.y));
+  return roundedBox(p,halfSize,r);
+}
+vec3 sampleScene(vec2 px){
+  return texture(uScene,clamp(px/uResolution,vec2(.001),vec2(.999))).rgb;
+}
+vec3 blurred(vec2 px, float blur){
+  vec3 c = sampleScene(px) * .24;
+  c += sampleScene(px + vec2(blur,0.)) * .12;
+  c += sampleScene(px - vec2(blur,0.)) * .12;
+  c += sampleScene(px + vec2(0.,blur)) * .12;
+  c += sampleScene(px - vec2(0.,blur)) * .12;
+  c += sampleScene(px + vec2(blur,blur)*.707) * .07;
+  c += sampleScene(px - vec2(blur,blur)*.707) * .07;
+  c += sampleScene(px + vec2(blur,-blur)*.707) * .07;
+  c += sampleScene(px + vec2(-blur,blur)*.707) * .07;
+  return c;
+}
+void main(){
+  vec2 center = uBox.xy + uBox.zw * .5;
+  vec2 p = vPixel - center;
+  vec2 b = uLocalSize * .5;
+  vec2 local = uInverse*p;
+  vec2 opticalUV = clamp(local/max(uLocalSize,vec2(1.))+.5,0.,1.);
+  float d = surfaceDistance(p);
+  vec3 base = sampleScene(vPixel);
+  bool progressGlass = uOpticKind > .5 && uOpticKind < 1.5;
+  bool wellGlass = uOpticKind > 1.5 && uOpticKind < 2.5;
+  bool fieldGlass = uOpticKind > 2.5 && uOpticKind < 3.5;
+  bool magnifier = uOpticKind > 3.5;
+  float filled = progressGlass ? (1.-smoothstep(uOptic.x-.007,uOptic.x+.007,opticalUV.x))*step(.0001,uOptic.x) : 0.;
+  vec3 sourceColor = mix(vec3(.42,.86,1.),uEmission,uOptic.y);
+  vec2 emitter = vec2(-b.x+uLocalSize.x*uOptic.x,0.);
+  float sourceGlow = exp(-length((local-emitter)/vec2(23.,15.)/uScale)*1.6)*step(.0001,uOptic.x);
+  float halo = exp(-max(d,0.)/(7.*uScale));
+  if(progressGlass) base += sourceColor*(sourceGlow*.23+halo*uOptic.y*.075)*uOpacity;
+  if(wellGlass) base += vec3(.37,.8,1.)*halo*uOptic.w*.14*uOpacity;
+  if(uOptic.z>0.) base += uEmission*halo*uOptic.z*.055*uOpacity;
+  float shadowD = surfaceDistance(p+vec2(0.,(5.+uPressure*3.)*uScale));
+  float shadow = exp(-max(shadowD,0.)/((7.+uPressure*2.)*uScale))*.078;
+  base *= 1. - shadow * uOpacity * smoothstep(-.5*uScale,1.5*uScale,d);
+  if(d > 1.5*uScale){outColor=vec4(base,1.);return;}
+
+  float e = .7 * uScale;
+  vec2 n2 = normalize(vec2(
+    surfaceDistance(p+vec2(e,0.))-surfaceDistance(p-vec2(e,0.)),
+    surfaceDistance(p+vec2(0.,e))-surfaceDistance(p-vec2(0.,e))
+  )+vec2(.00001));
+  float bevel = min(min(b.x,b.y)*.48,19.*uScale);
+  float edge = clamp(1.+d/bevel,0.,1.);
+  float slope = pow(edge,1.65)*.94;
+  vec2 faceNormal=clamp(p/max(b,vec2(1.)),vec2(-1.),vec2(1.))*.045*(1.-edge);
+  vec2 normalXY=n2*slope+faceNormal;
+  if(wellGlass) normalXY *= mix(-1.,1.,uOptic.z);
+  vec3 normal = vec3(normalXY,sqrt(max(1.-dot(normalXY,normalXY),.001)));
+  // Snell's law: air (1.0) -> a glass-like medium (1.45).
+  vec3 ray = refract(vec3(0.,0.,-1.),normal,1./1.45);
+  float thickness = (18.+uRefraction*57.)*uScale*(1.+uPressure*.13+uEnergy*.12);
+  vec2 offset = ray.xy/max(-ray.z,.05)*thickness*uRefraction;
+  offset -= p * .016 * uRefraction;
+  offset *= 1.+filled*.85;
+  if(progressGlass) offset.y += sin(opticalUV.x*24.-uWaveTime*2.2)*filled*2.4*uScale;
+  offset *= 1.-uCompare;
+  vec2 at = vPixel + offset;
+  if(magnifier) at = center+p/max(uZoom,1.)+offset*.18;
+  float blur = uBlur * 10. * uScale + uCompare * 5. * uScale;
+  blur *= magnifier ? .12 : 1.-filled*.65;
+  vec3 c = blurred(at,blur);
+  vec2 split = n2*pow(edge,2.8)*uDispersion*2.6*uScale*(1.-uCompare);
+  c.r += (sampleScene(at+split).r-sampleScene(at).r)*.8;
+  c.b += (sampleScene(at-split).b-sampleScene(at).b)*.8;
+  // Very slight saturation lift plus an adaptive, readable material tint.
+  float luma = dot(c,vec3(.2126,.7152,.0722));
+  c = mix(vec3(luma),c,1.035);
+  vec3 tint = mix(vec3(.97,.985,1.),vec3(.16,.24,.34),uDark);
+  c = mix(c,tint,uTint+uBlur*.12+uCompare*.11+uDark*.10);
+  c = mix(c,uAccent.rgb,uAccent.a);
+  if(fieldGlass){
+    vec2 q=clamp((local+b-vec2(40.*uScale))/max(uLocalSize-vec2(80.*uScale),vec2(1.)),0.,1.);
+    vec3 low=mix(vec3(.50,.66,.82),vec3(.89,.69,.47),q.x);
+    vec3 high=mix(vec3(.60,.55,.69),vec3(.83,.58,.59),q.x);
+    c=mix(low,high,q.y);
+    vec2 lines=abs(fract(q*8.+.5)-.5)/max(fwidth(q*8.),vec2(.001));
+    float grid=1.-smoothstep(.2,.9,min(lines.x,lines.y));
+    float axes=1.-smoothstep(.002,.006,min(abs(q.x-.5),abs(q.y-.5)));
+    c=mix(c,vec3(.97),grid*.18+axes*.26);
+  }
+
+  vec2 light = normalize(uPointer-center+vec2(-80.,150.)*uScale);
+  float directional = pow(max(dot(n2,light),0.),7.);
+  float opposite = pow(max(dot(n2,-light),0.),7.)*.52;
+  float fresnel = .04+.96*pow(1.-normal.z,5.);
+  float outline = 1.-smoothstep(.12*uScale,1.1*uScale,abs(d+.65*uScale));
+  float edgeLight = (directional+opposite)*pow(edge,4.);
+  float spec = edgeLight*.065 + outline*(.018+directional*.35+opposite*.15);
+  spec += fresnel*.035;
+  spec *= 1.-uCompare;
+  vec3 environment=sampleScene(vPixel+n2*34.*uScale);
+  c=mix(c,environment,fresnel*.12*(1.-uCompare));
+  c += mix(vec3(1.),environment,.18)*spec;
+  float caustic=exp(-pow((d+3.*uScale)/(1.65*uScale),2.));
+  c += caustic*opposite*.038*(1.-uCompare);
+  // A broad, quiet reflection follows the pointer inside the material.
+  float glint = exp(-length((vPixel-uPointer)/vec2(180.,150.)/uScale)*2.);
+  c += glint*.024*(.4+uHover)*(1.-uCompare);
+  vec2 face=p/max(b,vec2(1.));
+  float broadReflection=exp(-pow((face.x*.55+face.y*.8-light.x*.4)*1.6,2.));
+  vec3 ambient=sampleScene(center+vec2(-b.x*.6,b.y*.55));
+  c=mix(c,clamp(ambient+vec3(.15),0.,1.),broadReflection*(.045+uPressure*.035)*(1.-uCompare));
+  c -= pow(edge,8.)*max(dot(n2,vec2(.45,-.89)),0.)*.085*(1.-uCompare);
+  if(wellGlass){
+    // Reverse the bevel and occlusion: the receiver sits below the glass plane.
+    c -= pow(edge,2.)*max(dot(n2,normalize(vec2(-.4,.9))),0.)*.24*(1.-uOptic.z);
+    c += pow(edge,4.)*max(dot(n2,normalize(vec2(.4,-.9))),0.)*.19*(1.-uOptic.z);
+    c += vec3(.3,.76,1.)*uOptic.w*(pow(edge,3.)*.35+.04);
+    c=mix(c,c*vec3(.89,1.04,.95)+uEmission*.045,uOptic.z*.55);
+  }
+  float phase=fract(atan(local.y/max(b.y,1.),local.x/max(b.x,1.))/6.2831853+.5);
+  float travel=fract(phase-uFlow*1.15+1.);
+  float flow=uFlow>=0. ? exp(-pow(travel/.105,2.))*sin(3.14159265*clamp(uFlow,0.,1.)) : 0.;
+  float lightEdge=exp(-pow((d+1.4*uScale)/(1.25*uScale),2.));
+  float innerEdge=exp(-pow((d+4.*uScale)/(3.*uScale),2.));
+  if(progressGlass){
+    float fiberY=local.y/uScale-sin(opticalUV.x*16.-uWaveTime*2.8)*1.5-sin(opticalUV.x*31.-uWaveTime*4.1)*.35;
+    float fiber=exp(-pow(fiberY/1.0,2.))*.24+exp(-pow((fiberY-5.)/.65,2.))*.11;
+    float spark=exp(-pow((fract(opticalUV.x-uWaveTime*.12)-.08)/.065,2.));
+    c += sourceColor*(filled*(fiber*(1.+spark*.42)+innerEdge*.10)+sourceGlow*.42+lightEdge*uOptic.y*.26);
+    c += mix(vec3(.8,.98,1.),uEmission,uOptic.y)*(lightEdge*.75+innerEdge*.15)*flow;
+  }
+  c += uEmission*uOptic.z*(lightEdge*.28+innerEdge*.045);
+  if(!progressGlass) c += mix(uEmission,vec3(1.),.45)*uOptic.z*(lightEdge*.8+innerEdge*.18)*flow;
+  float aa=max(fwidth(d)*.7,.5*uScale);
+  float mask = 1.-smoothstep(-aa,aa,d);
+  outColor=vec4(mix(base,c,mask*uOpacity),1.);
+}`;function I(o,e,r){let i=o.createShader(e);if(o.shaderSource(i,r),o.compileShader(i),!o.getShaderParameter(i,o.COMPILE_STATUS)){let t=o.getShaderInfoLog(i);throw o.deleteShader(i),new Error(t)}return i}function D(o,e){let r=o.createProgram(),i=I(o,o.VERTEX_SHADER,Q),t=I(o,o.FRAGMENT_SHADER,e);if(o.attachShader(r,i),o.attachShader(r,t),o.linkProgram(r),o.deleteShader(i),o.deleteShader(t),!o.getProgramParameter(r,o.LINK_STATUS))throw new Error(o.getProgramInfoLog(r));let l={};for(let f=0;f<o.getProgramParameter(r,o.ACTIVE_UNIFORMS);f++){let b=o.getActiveUniform(r,f);l[b.name]=o.getUniformLocation(r,b.name)}return{p:r,uniforms:l}}var k=class{constructor(e,r,i={}){this.canvas=e,this.stage=r,this.artwork=typeof i.artwork=="function"?i.artwork:null,this.settings={...P.materials.thick,brightness:.95,motion:!0,opaque:!1,compare:!1,scene:"aurora",...i},this.pointer={x:0,y:0},this.smoothPointer={x:0,y:0},this.time=0,this.lastTime=0,this.frame=0,this.dirty=!0,this.rectDirty=!0,this.geometry=[],this.visible=!0,this.destroyed=!1,this.animatingUntil=0,this.reducedMotion=matchMedia("(prefers-reduced-motion: reduce)").matches,this.gl=null,this.suspended=!0,this.width=0,this.height=0,this.dpr=1,this.onState=i.onState,e.hidden=!0,e.dataset.gpuState="idle",r.classList.add("fallback"),this.resizeObserver=new ResizeObserver(()=>{this.resize(),this.invalidate(150)}),this.resizeObserver.observe(r),this.mutationObserver=new MutationObserver(()=>this.invalidate(600)),this.mutationObserver.observe(r,{subtree:!0,childList:!0,attributes:!0,attributeFilter:["class","style","hidden","aria-selected","aria-pressed","aria-checked"]}),this.intersectionObserver=new IntersectionObserver(l=>{this.visible=l[0].isIntersecting,this.visible&&this.invalidate()}),this.intersectionObserver.observe(r),this.abort=new AbortController;let t=this.abort.signal;r.addEventListener("pointermove",l=>{let f=r.getBoundingClientRect();this.pointer.x=(l.clientX-f.left)*this.dpr,this.pointer.y=(f.height-l.clientY+f.top)*this.dpr,this.invalidate(this.reducedMotion?0:220,!1)},{signal:t,passive:!0}),r.addEventListener("pointerdown",()=>this.invalidate(650),{signal:t,passive:!0}),r.addEventListener("pointerup",()=>this.invalidate(650),{signal:t,passive:!0}),r.addEventListener("lg:optics",l=>this.invalidate(l.detail.duration,!1),{signal:t}),r.addEventListener("scroll",()=>this.invalidate(),{capture:!0,signal:t,passive:!0}),window.addEventListener("resize",()=>this.invalidate(300),{signal:t,passive:!0}),document.addEventListener("visibilitychange",()=>{this.lastTime=0,document.hidden||this.invalidate()},{signal:t}),e.addEventListener("webglcontextlost",l=>{l.preventDefault(),this.lossObserved=!0,this.lost=!0,cancelAnimationFrame(this.frame),this.frame=0,e.hidden=!0,r.classList.remove("webgl-ready"),r.classList.add("fallback"),this.suspended||i.onState?.("lost"),this.gpuLease?.active&&this.resumeGPU()},{signal:t}),e.addEventListener("webglcontextrestored",()=>{if(this.lossObserved=!1,this.destroyed||!this.gpuLease?.active){this.contextExtension?.loseContext();return}this.startGPU()},{signal:t}),this.gpuLease=z(r,()=>this.resumeGPU(),()=>this.suspendGPU())}resumeGPU(){if(!this.destroyed){if(this.gl?.isContextLost()){this.lossObserved&&(this.canvas.dataset.gpuState="restoring",this.contextExtension?.restoreContext());return}this.startGPU()}}startGPU(){try{if(this.gl||=this.canvas.getContext("webgl2",{alpha:!1,antialias:!1,preserveDrawingBuffer:!0,powerPreference:"low-power"}),!this.gl)throw new Error("WebGL2 unavailable");this.contextExtension=this.gl.getExtension("WEBGL_lose_context"),this.suspended=!1,this.lost=!1,this.initGL(),this.resize(),this.hasPointer||(this.pointer={x:this.width*.25,y:this.height*.85},this.smoothPointer={...this.pointer},this.hasPointer=!0),this.canvas.hidden=!1,this.canvas.dataset.gpuState="active",this.stage.classList.add("webgl-ready"),this.stage.classList.remove("fallback"),this.onState?.("ready"),this.lastTime=0,this.invalidate(150)}catch(e){this.suspendGPU(),this.onState?.("lost"),console.warn("Glass initialization failed",e)}}suspendGPU(){this.suspended=!0,cancelAnimationFrame(this.frame),this.frame=0,this.canvas.hidden=!0,this.canvas.dataset.gpuState="suspended",this.stage.classList.remove("webgl-ready"),this.stage.classList.add("fallback"),this.gl&&!this.gl.isContextLost()&&this.contextExtension?.loseContext()}initGL(){let e=this.gl;this.programs={background:D(e,Z),copy:D(e,J),lens:D(e,ee)},this.buffer=e.createBuffer(),e.bindBuffer(e.ARRAY_BUFFER,this.buffer),e.bufferData(e.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),e.STATIC_DRAW),this.vao=e.createVertexArray(),e.bindVertexArray(this.vao),this.textures={art:this.makeTexture(),scene:this.makeTexture(),composite:this.makeTexture()},this.targets=["scene","composite"].map(r=>{let i=e.createFramebuffer();return e.bindFramebuffer(e.FRAMEBUFFER,i),e.framebufferTexture2D(e.FRAMEBUFFER,e.COLOR_ATTACHMENT0,e.TEXTURE_2D,this.textures[r],0),{framebuffer:i,texture:this.textures[r]}}),e.bindFramebuffer(e.FRAMEBUFFER,null),e.disable(e.DEPTH_TEST),e.disable(e.BLEND),this.width=0,this.height=0}makeTexture(){let e=this.gl,r=e.createTexture();return e.bindTexture(e.TEXTURE_2D,r),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_MIN_FILTER,e.LINEAR),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_MAG_FILTER,e.LINEAR),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_WRAP_S,e.CLAMP_TO_EDGE),e.texParameteri(e.TEXTURE_2D,e.TEXTURE_WRAP_T,e.CLAMP_TO_EDGE),r}resize(){if(this.destroyed||this.suspended||this.lost||!this.gl||this.gl.isContextLost?.())return;let e=this.stage.getBoundingClientRect();this.dpr=Math.min(devicePixelRatio||1,1.75);let r=Math.max(1,Math.round(e.width*this.dpr)),i=Math.max(1,Math.round(e.height*this.dpr));if(r===this.width&&i===this.height)return;this.width=r,this.height=i,this.canvas.width=r,this.canvas.height=i;let t=this.gl;for(let l of this.targets)if(t.bindTexture(t.TEXTURE_2D,l.texture),t.texImage2D(t.TEXTURE_2D,0,t.RGBA,r,i,0,t.RGBA,t.UNSIGNED_BYTE,null),t.bindFramebuffer(t.FRAMEBUFFER,l.framebuffer),t.checkFramebufferStatus(t.FRAMEBUFFER)!==t.FRAMEBUFFER_COMPLETE)throw new Error("Incomplete scene framebuffer");t.bindFramebuffer(t.FRAMEBUFFER,null),this.setScene(this.settings.scene),this.rectDirty=!0}setScene(e){if(this.settings.scene=e,this.suspended||!this.gl||this.gl.isContextLost?.())return;let r=document.createElement("canvas");r.width=this.width,r.height=this.height;let i=r.getContext("2d"),t=r.width,l=r.height;if(this.artwork)this.artwork(i,{width:t,height:l,dpr:this.dpr,scene:e});else{let b={aurora:["#d3e8e3","#badde8","#9db7dc","#929ee0","#d3b4d2","#eccbc1"],sunset:["#f2dfbd","#f5cdaf","#e7a59c","#c387a2","#9f89b2","#dcb9c3"],ocean:["#326975","#286d85","#225879","#293e68","#4a5486","#7184a3"]};if(e==="grid"){i.fillStyle="#e8ebef",i.fillRect(0,0,t,l),i.lineWidth=this.dpr;let d=34*this.dpr;for(let s=0;s<t;s+=d)i.strokeStyle=Math.round(s/d)%4===0?"#a1acbb":"#c4cbd5",i.beginPath(),i.moveTo(s,0),i.lineTo(s,l),i.stroke();for(let s=0;s<l;s+=d)i.strokeStyle=Math.round(s/d)%4===0?"#a1acbb":"#c4cbd5",i.beginPath(),i.moveTo(0,s),i.lineTo(t,s),i.stroke()}else{let d=b[e]||b.aurora,s=i.createLinearGradient(0,0,t,l);s.addColorStop(0,d[0]),s.addColorStop(.5,d[1]),s.addColorStop(1,d[5]),i.fillStyle=s,i.fillRect(0,0,t,l);let v=(x,T,y)=>{let a=new Path2D;a.moveTo(-t*.1,l*(.98+x)),a.bezierCurveTo(t*.13,l*(.39+x),t*.48,l*(.86+x),t*1.1,l*(-.32+x));let u=new Path2D(a);u.lineTo(t*1.15,l*1.4),u.lineTo(-t*.1,l*1.4),u.closePath();let c=i.createLinearGradient(t*.05,l*.1,t*.87,l*.92);c.addColorStop(0,T),c.addColorStop(.48,y),c.addColorStop(1,d[5]),i.save(),i.shadowColor=e==="ocean"?"#0b23484a":"#38486830",i.shadowBlur=27*this.dpr,i.shadowOffsetY=-7*this.dpr,i.fillStyle=c,i.fill(u),i.restore(),i.save(),i.clip(u),i.filter=`blur(${15*this.dpr}px)`,i.strokeStyle=e==="ocean"?"#bce9ff24":"#ffffff45",i.lineWidth=37*this.dpr,i.stroke(a),i.filter="none",i.strokeStyle="#ffffff25",i.lineWidth=1.2*this.dpr,i.stroke(a);let n=i.createLinearGradient(0,l*(.25+x),t*.7,l*(1.08+x));n.addColorStop(0,"#ffffff00"),n.addColorStop(.45,"#ffffff00"),n.addColorStop(.72,"#324e7e13"),n.addColorStop(1,"#ffffff1c"),i.fillStyle=n,i.fill(u),i.restore()};v(-.31,d[1],d[2]),v(-.1,d[2],d[3]),v(.18,d[3],d[4]),v(.44,d[4],d[5]);let R=i.createRadialGradient(t*.12,l*.08,0,t*.12,l*.08,t*.85);R.addColorStop(0,"#ffffff55"),R.addColorStop(1,"#ffffff00"),i.fillStyle=R,i.fillRect(0,0,t,l)}let h=Math.min(t*.265,l*.3);i.textAlign="center",i.textBaseline="middle",i.font=`300 ${h}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`,i.fillStyle=e==="grid"?"#596578":"#ffffff75",i.fillText("hello.",t*.47,l*.49)}let f=this.gl;f.bindTexture(f.TEXTURE_2D,this.textures.art),f.pixelStorei(f.UNPACK_FLIP_Y_WEBGL,!0),f.texImage2D(f.TEXTURE_2D,0,f.RGBA,f.RGBA,f.UNSIGNED_BYTE,r),f.pixelStorei(f.UNPACK_FLIP_Y_WEBGL,!1),this.invalidate()}set(e){let r=this.settings.scene;Object.assign(this.settings,e),e.scene&&(e.scene!==r||this.artwork)&&this.setScene(e.scene),this.invalidate(400)}setMotionSource(e){this.motionSource=e,this.invalidate()}invalidate(e=0,r=!0){this.destroyed||this.suspended||this.lost||(this.dirty=!0,r&&(this.rectDirty=!0),this.animatingUntil=Math.max(this.animatingUntil,performance.now()+e),this.frame||(this.frame=requestAnimationFrame(i=>this.render(i))))}readGeometry(){let e=this.stage.getBoundingClientRect(),r=this.dpr,i=new Map,t=h=>{if(!h||h===this.stage)return new DOMMatrix;if(i.has(h))return i.get(h);let d=getComputedStyle(h).transform,s=d==="none"?new DOMMatrix:new DOMMatrix(d);s.e=0,s.f=0;let v=t(h.parentElement).multiply(s);return i.set(h,v),v},l={"xy-field":-1,"optical-well":0,tab:0,note:1,panel:2,dock:3,small:4,"switch-track":4,thumb:5,"slider-thumb":5,selected:6,free:7,"optical-lens":7,menu:8},f=h=>{let d=0;for(let s=h.parentElement;s&&s!==this.stage;s=s.parentElement)s.dataset.glass&&d++;return d},b=h=>{let d=e.left,s=e.top,v=e.right,R=e.bottom;for(let x=h.parentElement;x&&x!==this.stage;x=x.parentElement){let T=getComputedStyle(x),y=x.dataset.lgClip==="true",a=y||/^(auto|scroll|hidden|clip)$/.test(T.overflowX),u=y||/^(auto|scroll|hidden|clip)$/.test(T.overflowY);if(!a&&!u)continue;let c=x.getBoundingClientRect(),n=c.left+x.clientLeft,p=c.top+x.clientTop;a&&(d=Math.max(d,n),v=Math.min(v,n+x.clientWidth)),u&&(s=Math.max(s,p),R=Math.min(R,p+x.clientHeight))}return{left:(d-e.left)*r,right:(v-e.left)*r,bottom:(e.bottom-R)*r,top:(e.bottom-s)*r}};this.geometry=[...this.stage.querySelectorAll("[data-glass]")].filter(h=>h.getClientRects().length&&getComputedStyle(h).visibility!=="hidden").sort((h,d)=>f(h)-f(d)||(l[h.dataset.glass]??0)-(l[d.dataset.glass]??0)).map(h=>{let d=h.getBoundingClientRect(),s=getComputedStyle(h),v=h.dataset.glass,R=h.offsetWidth,x=h.offsetHeight,T=Math.min(parseFloat(s.borderTopLeftRadius)||24,R/2,x/2)*r,y=t(h),a=y.a*y.d-y.b*y.c,u=Math.abs(a)>.001?[y.d/a,y.b/a,y.c/a,y.a/a]:[1,0,0,1],c=1;for(let p=h;p&&p!==this.stage;p=p.parentElement)c*=Number(getComputedStyle(p).opacity);let n=Number(s.getPropertyValue("--glass-selection"))||0;return{el:h,kind:v,opacity:c,selected:n,x:(d.left-e.left)*r,y:(e.bottom-d.bottom)*r,w:d.width*r,h:d.height*r,r:T,localW:R*r,localH:x*r,inverse:u,clip:b(h)}}),this.rectDirty=!1}use(e,r=[0,0,this.width,this.height]){let i=this.gl;i.useProgram(e.p),i.bindVertexArray(this.vao),i.bindBuffer(i.ARRAY_BUFFER,this.buffer);let t=i.getAttribLocation(e.p,"aPosition");i.enableVertexAttribArray(t),i.vertexAttribPointer(t,2,i.FLOAT,!1,0,0),i.uniform2f(e.uniforms.uResolution,this.width,this.height),i.uniform4fv(e.uniforms.uQuad,r)}render(e){if(this.frame=0,this.destroyed||this.suspended||this.lost||!this.gl||document.hidden||!this.visible)return;let r=this.lastTime?Math.min((e-this.lastTime)/1e3,.05):.016;this.lastTime=e,this.settings.motion&&!this.reducedMotion&&(this.time+=r);let i=this.reducedMotion?1:1-Math.exp(-r*13);this.smoothPointer.x+=(this.pointer.x-this.smoothPointer.x)*i,this.smoothPointer.y+=(this.pointer.y-this.smoothPointer.y)*i,(this.rectDirty||e<this.animatingUntil)&&this.readGeometry();let t=this.gl,l=this.programs,f=!1;t.viewport(0,0,this.width,this.height),t.activeTexture(t.TEXTURE0);let b=this.targets[0],h=this.targets[1];if(t.bindFramebuffer(t.FRAMEBUFFER,b.framebuffer),t.bindTexture(t.TEXTURE_2D,this.textures.art),this.use(l.background),t.uniform1i(l.background.uniforms.uArtwork,0),t.uniform1f(l.background.uniforms.uTime,this.time),t.uniform1f(l.background.uniforms.uAnimate,this.reducedMotion?0:1),t.uniform1f(l.background.uniforms.uGrid,this.settings.scene==="grid"?1:0),t.uniform1f(l.background.uniforms.uBrightness,this.settings.brightness),t.drawArrays(t.TRIANGLES,0,6),!this.settings.opaque)for(let s of this.geometry){let v=36*this.dpr,R=Math.max(0,s.clip.left,Math.floor(s.x-v)),x=Math.max(0,s.clip.bottom,Math.floor(s.y-v)),T=Math.min(this.width,s.clip.right,Math.ceil(s.x+s.w+v)),y=Math.min(this.height,s.clip.top,Math.ceil(s.y+s.h+v)),a=T-R,u=y-x;if(a<=0||u<=0)continue;t.bindFramebuffer(t.READ_FRAMEBUFFER,b.framebuffer),t.bindFramebuffer(t.DRAW_FRAMEBUFFER,h.framebuffer),t.blitFramebuffer(0,0,this.width,this.height,0,0,this.width,this.height,t.COLOR_BUFFER_BIT,t.NEAREST),t.bindFramebuffer(t.FRAMEBUFFER,h.framebuffer),t.bindTexture(t.TEXTURE_2D,b.texture),this.use(l.lens,[R,x,a,u]);let c=l.lens.uniforms;t.uniform1i(c.uScene,0),t.uniform4f(c.uBox,s.x,s.y,s.w,s.h),t.uniform1f(c.uRadius,s.r),t.uniform1f(c.uScale,this.dpr),t.uniform2f(c.uLocalSize,s.localW,s.localH),t.uniformMatrix2fv(c.uInverse,!1,s.inverse);let n=_(s.el,e,this.reducedMotion),p=n?.deformation||this.motionSource?.optics(s.el)||{bend:[0,0],pressure:0,energy:0};t.uniform2f(c.uBend,p.bend[0]*this.dpr,-p.bend[1]*this.dpr),t.uniform1f(c.uPressure,p.pressure),t.uniform1f(c.uEnergy,p.energy),t.uniform2f(c.uPointer,this.smoothPointer.x,this.smoothPointer.y);let w=s.kind==="switch-track",g=s.kind==="thumb";t.uniform1f(c.uRefraction,this.settings.refraction*(w?.12:g?.45:1)),t.uniform1f(c.uBlur,this.settings.blur),t.uniform1f(c.uDispersion,this.settings.dispersion*(w||g?.2:1));let E={panel:.14,dock:.095,small:.12,thumb:.83,"switch-track":.06,"slider-thumb":.18,selected:.19,tab:.18,note:.09,free:.012,menu:.6,"optical-lens":.012,"optical-well":.055}[s.kind]??.13;t.uniform1f(c.uTint,E),t.uniform1f(c.uDark,this.settings.scene==="ocean"&&!g?1:0);let m=w&&this.motionSource?.toggleProgress(s.el.parentElement)||0;t.uniform4f(c.uAccent,w?.38-m*.22:.25,w?.45+m*.17:.51,w?.54-m*.17:.87,w?.48+m*.34:s.selected*.17),t.uniform1f(c.uOpacity,s.opacity*(n?.opacity??1));let S=n?.kind===1&&n.wave&&n.fill>0&&(!this.reducedMotion||n.forceMotion);f||=!!S,t.uniform1f(c.uOpticKind,n?.kind||0),t.uniform4f(c.uOptic,n?.fill||0,n?.complete||0,n?.selected||0,n?.hover||0),t.uniform3fv(c.uEmission,n?.color||[.32,.73,.51]),t.uniform1f(c.uFlow,n?.flow??-1),t.uniform1f(c.uZoom,n?.zoom||1),t.uniform1f(c.uWaveTime,S?e*.001:0),t.uniform1f(c.uCompare,this.settings.compare?1:0),t.uniform1f(c.uHover,s.el.matches(":hover")?1:0),t.drawArrays(t.TRIANGLES,0,6),[b,h]=[h,b]}t.bindFramebuffer(t.FRAMEBUFFER,null),t.bindTexture(t.TEXTURE_2D,b.texture),this.use(l.copy),t.uniform1i(l.copy.uniforms.uScene,0),t.drawArrays(t.TRIANGLES,0,6),this.dirty=!1,(this.settings.motion&&!this.reducedMotion&&this.settings.scene!=="grid"||f||e<this.animatingUntil)&&(this.frame=requestAnimationFrame(s=>this.render(s)))}destroy(){this.destroyed=!0,cancelAnimationFrame(this.frame),this.abort.abort(),this.resizeObserver.disconnect(),this.mutationObserver.disconnect(),this.intersectionObserver.disconnect(),this.gpuLease?.destroy();let e=this.gl;e&&(Object.values(this.programs||{}).forEach(r=>e.deleteProgram(r.p)),Object.values(this.textures||{}).forEach(r=>e.deleteTexture(r)),(this.targets||[]).forEach(r=>e.deleteFramebuffer(r.framebuffer)),e.deleteBuffer(this.buffer),e.deleteVertexArray(this.vao),e.getExtension("WEBGL_lose_context")?.loseContext())}};var N="data-dcb-lens-canvas";function te(o,e){let r=new Map,i=e.matchMedia("(forced-colors: active)"),t=!1,l=[],f=a=>a.isConnected&&a.getClientRects().length&&e.getComputedStyle(a).visibility!=="hidden",b=(a,u,c)=>{a.style[u]!==c&&(a.style[u]=c)},h=a=>{let u=a.match(/[\d.]+/g)?.map(Number);return u?.length>=3?[u[0],u[1],u[2],u[3]??1]:[0,0,0,0]};function d(a){let u=a.getBoundingClientRect(),c=o.elementsFromPoint(u.left+u.width/2,u.top+u.height/2),n=o.body.hasAttribute("data-ds-dark-theme")?[24,28,36]:[247,248,250];for(let p of c.reverse()){if(p===a||a.contains(p)||p.hasAttribute(N)||p.closest("[data-dcb-lens-stage]"))continue;let w=h(e.getComputedStyle(p).backgroundColor);n=n.map((g,E)=>g*(1-w[3])+w[E]*w[3])}return n}function s(a){a.destroyed=!0,e.cancelAnimationFrame(a.frame),a.resize.disconnect(),a.state.disconnect(),a.composer.removeEventListener("pointermove",a.pointer),a.composer.removeEventListener("pointerdown",a.press),a.renderer.destroy(),a.stage.remove();for(let[u,c]of a.tiles)c.remove(),u.removeAttribute("data-dcb-lens-ready")}function v(a){let u=o.createElement("div"),c=o.createElement("canvas");u.setAttribute("data-dcb-lens-stage",""),u.setAttribute("aria-hidden","true"),u.append(c),o.body.append(u);let n={composer:a,stage:u,canvas:c,tiles:new Map,buttons:[],frame:0,destroyed:!1,colors:[]},p=(g,{width:E,height:m,dpr:S})=>{let M=o.body.hasAttribute("data-ds-dark-theme"),A=u.getBoundingClientRect();g.fillStyle=M?"#181c24":"#f7f8fa",g.fillRect(0,0,E,m);for(let{rect:C,color:F}of n.colors)g.fillStyle=`rgb(${F.join(",")})`,g.fillRect((C.left-A.left-24)*S,0,(C.width+48)*S,m)};n.renderer=new k(c,u,{scene:"grid",artwork:p,motion:!1,brightness:1,refraction:.65,blur:.06,dispersion:.35}),n.renderer.readGeometry=()=>{let g=u.getBoundingClientRect(),E=n.renderer.dpr;n.renderer.geometry=n.buttons.filter(f).map(m=>{let S=m.getBoundingClientRect(),M=e.getComputedStyle(m);return{el:m,kind:"free",opacity:1,selected:0,x:(S.left-g.left)*E,y:(g.bottom-S.bottom)*E,w:S.width*E,h:S.height*E,r:Math.min(parseFloat(M.borderTopLeftRadius)||S.width/2,S.width/2,S.height/2)*E,localW:S.width*E,localH:S.height*E,inverse:[1,0,0,1],clip:{left:0,bottom:0,right:g.width*E,top:g.height*E}}}),n.renderer.rectDirty=!1};let w=n.renderer.render.bind(n.renderer);return n.renderer.render=g=>{if(w(g),c.dataset.gpuState!=="active")return;let E=u.getBoundingClientRect(),m=n.renderer.dpr;for(let[S,M]of n.tiles){if(!f(S))continue;let A=S.getBoundingClientRect(),C=Math.max(1,Math.round(A.width*m)),F=Math.max(1,Math.round(A.height*m));(M.width!==C||M.height!==F)&&(M.width=C,M.height=F);let B=M.getContext("2d");B.clearRect(0,0,C,F),B.drawImage(c,(A.left-E.left)*m,(A.top-E.top)*m,A.width*m,A.height*m,0,0,C,F),S.setAttribute("data-dcb-lens-ready","")}},n.pointer=g=>{let E=u.getBoundingClientRect(),m=n.renderer.dpr;n.renderer.pointer={x:(g.clientX-E.left)*m,y:(E.bottom-g.clientY)*m},n.renderer.invalidate(180,!1)},n.press=()=>n.renderer.invalidate(180,!1),a.addEventListener("pointermove",n.pointer,{passive:!0}),a.addEventListener("pointerdown",n.press,{passive:!0}),n.resize=new e.ResizeObserver(()=>x(n)),n.resize.observe(a),n.state=new e.MutationObserver(()=>{if(c.dataset.gpuState!=="active")for(let g of n.tiles.keys())g.removeAttribute("data-dcb-lens-ready")}),n.state.observe(c,{attributes:!0,attributeFilter:["data-gpu-state"]}),n}function R(a){if(a.frame=0,t||a.destroyed)return;let u=a.buttons.filter(f);if(!u.length)return;let c=u.map(m=>m.getBoundingClientRect()),n=10,p=Math.max(0,Math.min(...c.map(m=>m.left))-n),w=Math.max(0,Math.min(...c.map(m=>m.top))-n),g=Math.min(e.innerWidth,Math.max(...c.map(m=>m.right))+n),E=Math.min(e.innerHeight,Math.max(...c.map(m=>m.bottom))+n);for(let[m,S]of Object.entries({left:p,top:w,width:Math.max(1,g-p),height:Math.max(1,E-w)}))b(a.stage,m,`${S}px`);a.colors=u.map(m=>({rect:m.getBoundingClientRect(),color:d(m)})),a.renderer.resize(),a.renderer.setScene("grid"),a.renderer.invalidate(100)}function x(a){!a.frame&&!a.destroyed&&(a.frame=e.requestAnimationFrame(()=>R(a)))}function T(a){if(t)return;l=[...a];let u=new Map;if(!i.matches)for(let c of l){let n=c.closest("[data-composer-card]");n&&f(c)&&(u.has(n)||u.set(n,[]),u.get(n).push(c))}for(let[c,n]of r)u.has(c)||(s(n),r.delete(c));for(let[c,n]of u){let p=r.get(c);p||(p=v(c),r.set(c,p)),p.buttons=n;for(let[w,g]of p.tiles)n.includes(w)||(g.remove(),w.removeAttribute("data-dcb-lens-ready"),p.tiles.delete(w));for(let w of n){let g=p.tiles.get(w);g||(g=o.createElement("canvas"),g.setAttribute(N,""),g.setAttribute("aria-hidden","true"),p.tiles.set(w,g)),g.parentElement!==w&&w.prepend(g)}x(p)}}let y=()=>T(l);return i.addEventListener("change",y),{sync:T,dispose(){t=!0,i.removeEventListener("change",y);for(let a of r.values())s(a);r.clear()}}}return H(ie);})();
+    /* DCB_LENS_BUNDLE_END */
     const { FishLogo } = require('@deepseek-ai/dsh-client-ui-primitives')
     const NAME = 'dsh-claude-beautify'
     const DISPLAY_NAME = 'dsh-UI美化'
@@ -17,6 +229,7 @@ window.__ModuleLoader__.load({
     const COMPOSER_ACTION_MARK = 'data-dcb-composer-action'
     const COMPOSER_ACTION_KIND = 'data-dcb-composer-action-kind'
     const COMPOSER_ACTION_SURFACE = `${COMPOSER_GLASS} button[${COMPOSER_ACTION_MARK}]`
+    const COMPOSER_ACTION_DARK = COMPOSER_ACTION_SURFACE.replace('body', 'body[data-ds-dark-theme]')
     const MATERIAL_SURFACE = `:is(.dcb-summary, [${MARK}], .dcb-style-swatch, [${COMPOSER_MARK}], [${COMPOSER_ACTION_MARK}])`
     const MATERIAL_BASE = `${MATERIAL_SURFACE}:is([data-card-style], [${COMPOSER_MARK}], [${COMPOSER_ACTION_MARK}])`
     const material = value => `${MATERIAL_SURFACE}:is([data-card-style="${value}"], [${COMPOSER_MARK}="${value}"], [${COMPOSER_ACTION_MARK}="${value}"])`
@@ -1247,24 +1460,33 @@ window.__ModuleLoader__.load({
         --dcb-surface-shadow: 0 12px 32px #0005, inset 0 1px 0 #ffffff52, inset 1px 0 0 #ffffff24, inset -1px -1px 0 #ffffff14;
       }
       ${COMPOSER_ACTION_SURFACE} {
-        /* Each small lens owns its filter; do not inherit the whole input map. */
+        /* The center is the real browser backdrop; Lens only paints the rim. */
         --dcb-liquid-filter: initial;
-        --dcb-glyph-shadow: rgba(24,32,48,.24);
-        --dcb-surface-shadow: 0 2px 6px #00000016, inset 0 1px 1px #ffffffd9, inset 0 3px 3px #ffffff36, inset 0 -3px 3px #1820301c;
-        outline: 1px solid var(--dcb-surface-border); outline-offset: -1px;
-        text-shadow: 0 4px 1.4px var(--dcb-glyph-shadow);
+        position: relative; isolation: isolate;
+        background: transparent !important;
+        border-color: transparent !important;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        box-shadow: 0 2px 5px #18203012, inset 0 1px .7px #ffffffb8, inset 0 -1px .7px #18203035 !important;
+        color: var(--dsw-alias-label-primary, #20242a) !important;
+        outline: 1px solid #ffffff70; outline-offset: -1px;
+        text-shadow: none;
       }
-      /* A small projected glyph, scaled for native 28–34px controls. The
-         foreground stays sharp; the filter never touches the input or button. */
-      ${COMPOSER_ACTION_SURFACE} svg { filter: drop-shadow(0 4px 1.4px var(--dcb-glyph-shadow)); }
-      body[data-ds-dark-theme] ${COMPOSER_ACTION_SURFACE} { --dcb-glyph-shadow: rgba(0,0,0,.64); }
-      ${COMPOSER_ACTION_SURFACE}[${COMPOSER_ACTION_MARK}="clear"] { --dcb-refraction-scale: 4; }
-      ${COMPOSER_ACTION_SURFACE}[${COMPOSER_ACTION_KIND}="accent"] {
-        --dcb-surface-background: color-mix(in srgb, var(--dsw-alias-button-info-fill, #4d6bfe) 84%, transparent);
+      ${COMPOSER_ACTION_SURFACE} svg { filter: none; }
+      ${COMPOSER_ACTION_DARK} { outline-color: #ffffff42; box-shadow: 0 2px 5px #0002, inset 0 1px .7px #ffffff70, inset 0 -1px .7px #0008 !important; }
+      ${COMPOSER_ACTION_SURFACE}:hover:not(:disabled) { outline-color: #ffffffb3; box-shadow: 0 3px 8px #18203014, inset 0 1px .7px #fffffff0, inset 0 -1px .7px #18203042 !important; }
+      ${COMPOSER_ACTION_DARK}:hover:not(:disabled) { outline-color: #ffffff66; box-shadow: 0 3px 8px #0003, inset 0 1px .7px #ffffffa6, inset 0 -1px .7px #0009 !important; }
+      ${COMPOSER_ACTION_SURFACE}:active:not(:disabled) { box-shadow: 0 1px 3px #18203012, inset 0 2px 3px #18203028, inset 0 -1px .7px #ffffff9c !important; }
+      ${COMPOSER_ACTION_DARK}:active:not(:disabled) { box-shadow: 0 1px 3px #0002, inset 0 2px 3px #0007, inset 0 -1px .7px #ffffff52 !important; }
+      ${COMPOSER_ACTION_SURFACE}[aria-pressed="true"] { color: var(--dsw-alias-state-business-primary, #777aff) !important; }
+      [data-dcb-lens-stage] { position: fixed; width: 1px; height: 1px; pointer-events: none; opacity: 0; overflow: hidden; contain: strict; }
+      [data-dcb-lens-stage] > canvas { display: block; width: 100%; height: 100%; }
+      ${COMPOSER_ACTION_SURFACE} > [data-dcb-lens-canvas] {
+        display: none; position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit;
+        pointer-events: none; z-index: -1;
+        mask-image: radial-gradient(ellipse, transparent 62%, #0005 88%, #000a 100%);
+        -webkit-mask-image: radial-gradient(ellipse, transparent 62%, #0005 88%, #000a 100%);
       }
-      ${COMPOSER_ACTION_SURFACE}[${COMPOSER_ACTION_KIND}="accent"]:hover:not(:disabled) {
-        --dcb-surface-background: color-mix(in srgb, var(--dsw-alias-button-info-hover, #3b53d8) 90%, transparent);
-      }
+      ${COMPOSER_ACTION_SURFACE}[data-dcb-lens-ready] > [data-dcb-lens-canvas] { display: block; }
       ${COMPOSER_ACTION_SURFACE}:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #777aff); outline-offset: 2px; }
       /* Glass needs its own foreground palette; the default material keeps its original colors. */
       body ${GLASS_PANEL} {
@@ -1319,6 +1541,7 @@ window.__ModuleLoader__.load({
           .dcb-resource-detail, .dcb-file-type, .dcb-tool-count, .dcb-tool-category, .dcb-note, .dcb-context-empty) { transition: none; }
       }
       @media (forced-colors: active) {
+        [data-dcb-lens-stage], [data-dcb-lens-canvas] { display: none !important; }
         ${COMPOSER_GLASS} { background: Canvas !important; color: CanvasText !important; box-shadow: none !important; outline-color: CanvasText; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         ${CHAT_UNDER_COMPOSER} { background: Canvas !important; }
         ${COMPOSER_ACTION_SURFACE} { background: ButtonFace !important; color: ButtonText !important; outline-color: ButtonText; }
@@ -1356,6 +1579,7 @@ window.__ModuleLoader__.load({
       style.textContent = css
       document.head.appendChild(style)
       const liquid = createLiquidGlassManager(document, window)
+      const lensActions = DcbLens.createLensActions(document, window)
 
       function restore(panel) {
         panel.removeAttribute('data-dcb-native-hidden')
@@ -1406,7 +1630,7 @@ window.__ModuleLoader__.load({
         for (const element of composerActionOriginals.keys()) if (!actions.has(element)) restoreComposerAction(element)
         for (const [element, kind] of actions) {
           if (!composerActionOriginals.has(element)) composerActionOriginals.set(element, [COMPOSER_ACTION_MARK, COMPOSER_ACTION_KIND].map(name => [name, element.getAttribute(name)]))
-          if (element.getAttribute(COMPOSER_ACTION_MARK) !== settings.composerStyle) element.setAttribute(COMPOSER_ACTION_MARK, settings.composerStyle)
+          if (element.getAttribute(COMPOSER_ACTION_MARK) !== 'lens') element.setAttribute(COMPOSER_ACTION_MARK, 'lens')
           if (element.getAttribute(COMPOSER_ACTION_KIND) !== kind) element.setAttribute(COMPOSER_ACTION_KIND, kind)
         }
         const panels = settings.enabled ? [...document.querySelectorAll(PANEL)] : []
@@ -1446,7 +1670,8 @@ window.__ModuleLoader__.load({
         }
         for (const container of observed) if (!containers.has(container)) { resize.unobserve(container); observed.delete(container) }
         for (const container of containers) if (!observed.has(container)) { resize.observe(container); observed.add(container) }
-        liquid.sync([...document.querySelectorAll(`.dcb-summary[data-card-style], [${MARK}][data-card-style], .dcb-style-swatch[data-card-style], [${COMPOSER_MARK}], [${COMPOSER_ACTION_MARK}]`)])
+        liquid.sync([...document.querySelectorAll(`.dcb-summary[data-card-style], [${MARK}][data-card-style], .dcb-style-swatch[data-card-style], [${COMPOSER_MARK}]`)])
+        lensActions.sync(actions.keys())
       }
       function schedule() { if (!frame && !disposed) frame = window.requestAnimationFrame(sync) }
       function update(patch, persist = true) {
@@ -1460,7 +1685,7 @@ window.__ModuleLoader__.load({
       const onStorage = event => { if (event.key === KEY || event.key === null) update(readSettings(), false) }
       const observer = new MutationObserver(schedule)
       observer.observe(document.body, { childList: true, subtree: true, attributes: true,
-        attributeFilter: ['data-conversation-session', 'data-card-style', 'data-composer-card', 'aria-label', 'hidden', 'class'] })
+        attributeFilter: ['data-conversation-session', 'data-card-style', 'data-composer-card', 'aria-label', 'aria-pressed', 'disabled', 'data-ds-dark-theme', 'hidden', 'class'] })
       window.addEventListener('resize', schedule)
       // Capture scroll also handles embedded conversation columns and moved panes.
       document.addEventListener('scroll', schedule, true)
@@ -1594,7 +1819,7 @@ window.__ModuleLoader__.load({
         const composer = scope === 'composer'
         const label = composer ? '输入栏样式' : '卡片样式'
         return h('fieldset', { className: 'dcb-style-picker', 'data-dcb-card-style-picker': composer ? undefined : '', 'data-dcb-composer-style-picker': composer ? '' : undefined },
-          h('legend', null, label), h('p', null, composer ? '输入栏与附件、语音等圆形按钮同步预览；默认恢复原样。' : '选择后实时预览当前任务卡片；当前轮次没有内容时保持隐藏。'),
+          h('legend', null, label), h('p', null, composer ? '输入栏独立选择材质；附件、语音等小按钮统一使用清透 Lens。默认恢复原样。' : '选择后实时预览当前任务卡片；当前轮次没有内容时保持隐藏。'),
           h('div', { className: 'dcb-style-options', role: 'radiogroup', 'aria-label': label }, MATERIALS.map(([style, name, description], index) =>
             h('button', { type: 'button', role: 'radio', className: 'dcb-style-option', key: style, 'aria-label': composer ? `输入栏：${name}` : name, 'aria-checked': value === style,
               tabIndex: value === style ? 0 : -1, onClick: () => onChange(style),
@@ -1991,6 +2216,7 @@ window.__ModuleLoader__.load({
         observer.disconnect()
         resize.disconnect()
         liquid.dispose()
+        lensActions.dispose()
         for (const element of composerActionOriginals.keys()) restoreComposerAction(element)
         for (const element of composerOriginals.keys()) restoreComposer(element)
         if (originalComposerFlag === null) document.body.removeAttribute(COMPOSER_FLAG)

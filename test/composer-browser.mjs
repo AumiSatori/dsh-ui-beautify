@@ -183,7 +183,7 @@ try{
   await page.getByRole('button',{name:'合成发送',exact:true}).click()
   assert.equal(await page.evaluate(()=>window.composerTest.sent.at(-1).files.length),2)
  })
- await check('attachment, microphone, voice and send lenses follow each material without changing native geometry, colors or actions',async()=>{
+ await check('attachment, microphone, voice and send use clear Lens rims with a truly transparent center and native geometry',async()=>{
   const names=['合成添加附件','合成麦克风','合成语音','合成发送']
   const read=()=>Promise.all(names.map(name=>page.getByRole('button',{name,exact:true}).evaluate(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return{width:r.width,height:r.height,radius:s.borderRadius,transform:s.transform,color:s.color,background:s.backgroundColor,image:s.backgroundImage,backdrop:s.backdropFilter,outline:s.outlineWidth,filter:s.filter,mark:el.getAttribute('data-dcb-composer-action')}})))
   await input.fill('按钮材质不影响编辑内容');await input.evaluate(el=>window.actionEditor=el)
@@ -192,29 +192,37 @@ try{
    await patch({composerStyle:'milk'});const native=await read()
    for(const material of['css','glass','clear']){
     await patch({composerStyle:material})
-    if(material==='clear')await page.waitForFunction(()=>[...document.querySelectorAll('[data-dcb-composer-action="clear"]')].every(el=>el.getAttribute('data-dcb-liquid')==='active'&&el.style.getPropertyValue('--dcb-liquid-filter')))
+    await page.waitForFunction(()=>document.querySelectorAll('[data-dcb-composer-action="lens"][data-dcb-lens-ready]').length===4)
     const current=await read()
     for(let i=0;i<current.length;i++){
-     assert.equal(current[i].mark,material)
-     for(const key of['width','height','radius','transform','color'])assert.equal(current[i][key],native[i][key],`${names[i]} retains native ${key}`)
+     assert.equal(current[i].mark,'lens')
+     for(const key of['width','height','radius','transform'])assert.equal(current[i][key],native[i][key],`${names[i]} retains native ${key}`)
+     assert.equal(current[i].color,dark?'rgb(242, 244, 248)':'rgb(32, 33, 36)','Clear buttons use readable host foreground instead of white-on-white accent glyphs')
      assert.equal(current[i].outline,'1px')
      assert.equal(current[i].filter,native[i].filter,'Do not filter foreground glyphs')
-     assert.equal(Number(current[i].backdrop.match(/blur\(([\d.]+)px\)/)?.[1]||0),material==='glass'?22:material==='css'?2:0)
-     assert.notEqual(current[i].image,'none')
+     assert.equal(current[i].backdrop,'none','No inherited SVG filter or frosted button backdrop')
+     assert.equal(current[i].background,'rgba(0, 0, 0, 0)')
+     assert.equal(current[i].image,'none','Remove the old painted accent and material layers')
     }
     assert.equal(await page.getByRole('button',{name:'合成模型选择',exact:true}).getAttribute('data-dcb-composer-action'),null)
     assert.equal(await page.getByRole('button',{name:'合成语音',exact:true}).getAttribute('data-dcb-composer-action-kind'),'accent','Recognize a filled voice provider without relying on its CSS class')
-    if(material==='clear'){
-     const maps=await page.locator('[data-dcb-composer-action]').evaluateAll(nodes=>nodes.map(el=>{const id=el.style.getPropertyValue('--dcb-liquid-filter').match(/#([^"\)]+)/)[1];return{id,scale:Number(document.getElementById(id).querySelector('feDisplacementMap').getAttribute('scale'))}}))
-     const root=await card.evaluate(el=>el.style.getPropertyValue('--dcb-liquid-filter'))
-     assert.ok(maps.every(map=>!root.includes('#'+map.id+'"')&&map.scale<=5.34),'Small buttons own bounded maps instead of inheriting the entire input map')
-     assert.equal(new Set(maps.map(map=>map.id)).size,4)
-    }
+    assert.equal(await page.locator('[data-dcb-lens-stage]').count(),1,'All four buttons share one bounded GPU scene')
+    assert.equal(await page.locator('[data-dcb-lens-stage] canvas').getAttribute('data-gpu-state'),'active')
+    const tiles=await page.locator('[data-dcb-lens-canvas]').evaluateAll(nodes=>nodes.map(el=>({mask:getComputedStyle(el).maskImage,width:el.width,height:el.height,alpha:el.getContext('2d').getImageData(Math.floor(el.width/2),Math.floor(el.height/2),1,1).data[3]})))
+    assert.ok(tiles.every(el=>/radial-gradient.*rgba\(0, 0, 0, 0\)/.test(el.mask)&&el.width>0&&el.width<=80&&el.height<=80&&el.alpha===255),JSON.stringify(tiles))
+    assert.equal(await page.locator('[data-dcb-composer-action][data-dcb-liquid]').count(),0,'Small buttons do not create old SVG maps')
     await card.screenshot({path:resolve(output,`composer-actions-${material}-${dark?'dark':'light'}.png`)})
    }
   }
   await patch({composerStyle:'css'})
   const mic=page.getByRole('button',{name:'合成麦克风',exact:true}),voice=page.getByRole('button',{name:'合成语音',exact:true})
+  for(const dark of[false,true]){
+   await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
+   await page.mouse.move(10,10);await page.mouse.click(10,10);await mic.hover();await settled()
+   assert.equal(await mic.evaluate(el=>getComputedStyle(el).outlineColor),dark?'rgba(255, 255, 255, 0.4)':'rgba(255, 255, 255, 0.7)','Mouse hover uses a neutral rim, never a blue frame')
+   assert.equal(await mic.evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)')
+   await card.screenshot({path:resolve(output,`composer-lens-hover-${dark?'dark':'light'}.png`)})
+  }
   await mic.click();assert.equal(await mic.getAttribute('aria-pressed'),'true')
   await voice.click();assert.equal(await voice.getAttribute('aria-pressed'),'true')
   await voice.evaluate(el=>el.disabled=true)
@@ -228,7 +236,9 @@ try{
   assert.equal(await page.getByRole('menuitem',{name:'合成模型选项'}).getAttribute('data-dcb-composer-action'),null)
   await page.getByRole('menuitem',{name:'合成模型选项'}).click()
   await patch({composerStyle:'milk'})
+  assert.equal(await page.locator('[data-dcb-lens-stage], [data-dcb-lens-canvas], [data-dcb-lens-ready]').count(),0,'Default releases every GPU stage and button canvas')
   assert.equal(await page.locator('[data-dcb-composer-action], [data-dcb-composer-action-kind]').count(),0)
+  assert.equal(await page.locator('[data-dcb-lens-stage], [data-dcb-lens-canvas], [data-dcb-lens-ready]').count(),0)
   assert.ok((await read()).every(control=>!control.backdrop.includes('url(')))
   assert.equal(await input.evaluate(el=>el===window.actionEditor&&el.textContent==='按钮材质不影响编辑内容'),true)
   await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))

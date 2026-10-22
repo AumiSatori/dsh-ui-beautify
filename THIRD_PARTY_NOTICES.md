@@ -27,6 +27,18 @@ inspiration includes greyd097/yzrt's public CSS glass demonstration:
 https://gitee.com/greyd097/yzrt/tree/master/
 No source code from that project is included in this distribution.
 
+## Lens button optics
+
+Lens WebGL2 rendering modules are vendored unmodified from
+https://github.com/ruiqichenbiec/design-systems at revision
+`7a424c93b9be13cf835b91ea67495fec2ec0584e` (MIT).
+The local adapter uses their clear optical surface only on input action rims.
+Its scene samples local computed background colors; the center stays transparent.
+It does not capture chat text, drafts, images, video or arbitrary DOM pixels.
+`src/lens-actions.js` and these modules are bundled into `client.js` by
+`scripts/build-lens.mjs`. Full license: `vendor/lens/LICENSE`, included in the
+distributed package. Copyright (c) 2026 DayDreamInAReverie.
+
 ## Liquid Glass React
 
 Copyright 2025 MAX ROVENSKY

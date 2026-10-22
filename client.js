@@ -1211,7 +1211,6 @@ window.__ModuleLoader__.load({
       ${COMPOSER_GLASS} {
         outline: 1px solid var(--dcb-surface-border); outline-offset: -1px;
       }
-      ${COMPOSER_GLASS}:focus-within { outline-color: var(--dsw-alias-state-business-primary, #777aff); }
       body ${material('glass')} {
         --dcb-surface-background: rgba(236,242,248,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-backdrop-blur: 22px; --dcb-backdrop-saturation: 1.45; --dcb-sheen-opacity: .22;
         --dcb-surface-shadow: 0 12px 32px rgba(28,32,40,.1), inset 0 1px 0 rgba(255,255,255,.9), inset 1px 0 0 rgba(255,255,255,.45), inset -1px -1px 0 rgba(255,255,255,.2);

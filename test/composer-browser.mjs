@@ -103,6 +103,27 @@ try{
   await group.getByRole('radio',{name:'输入栏：轻量玻璃',exact:true}).click()
   await page.evaluate(()=>{document.body.removeAttribute('data-ds-dark-theme');window.fixture.settings(false)});await settled()
  })
+ await check('clicking or focusing the composer preserves its neutral glass rim and native caret in both themes',async()=>{
+  const appearance=()=>card.evaluate(el=>{const s=getComputedStyle(el),input=el.querySelector('[data-composer-input]');return{outline:s.outlineColor,width:s.outlineWidth,shadow:s.boxShadow,caret:getComputedStyle(input).caretColor,focused:el.contains(document.activeElement)}})
+  for(const dark of[false,true])for(const composerStyle of['css','clear','glass']){
+   await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
+   await patch({composerStyle})
+   await input.evaluate(el=>el.blur());await settled()
+   const before=await appearance()
+   assert.equal(before.focused,false)
+   await input.click();await settled()
+   const clicked=await appearance()
+   assert.equal(clicked.focused,true)
+   assert.equal(clicked.outline,before.outline);assert.equal(clicked.width,before.width)
+   assert.equal(clicked.shadow,before.shadow);assert.equal(clicked.caret,before.caret)
+   assert.notEqual(clicked.outline,clicked.caret)
+   await input.evaluate(el=>el.blur());await input.focus();await settled()
+   assert.equal((await appearance()).outline,before.outline)
+   await card.screenshot({path:resolve(output,`composer-focus-${composerStyle}-${dark?'dark':'light'}.png`)})
+  }
+  await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
+  await patch({composerStyle:'css'});await input.evaluate(el=>el.blur());await page.mouse.move(10,500)
+ })
  await check('transparent input glass tracks the pointer without moving the editor, then releases optics when returning to CSS',async()=>{
   await input.fill('输入栏样式保持编辑内容')
   await input.focus();await input.evaluate(el=>{window.inputBeforeOptics=el;window.inputBeforeText=el.textContent})

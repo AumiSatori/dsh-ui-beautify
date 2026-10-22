@@ -1,9 +1,10 @@
 {
   "name": "dsh-claude-beautify",
-  "version": "0.3.21",
+  "displayName": "dsh-UI美化",
+  "version": "0.3.22",
   "private": true,
   "type": "module",
-  "description": "Claude-inspired session panel and lightweight composer glass for DeepSeek Harness.",
+  "description": "dsh-UI美化：独立配置任务卡片与输入栏的玻璃样式、进度与输出展示。",
   "license": "MIT",
   "main": "index.js",
   "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },

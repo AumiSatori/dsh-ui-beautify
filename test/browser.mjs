@@ -152,7 +152,7 @@ try {
   await check('task-panel settings have an independent entry without loading or hosting the reasoning slider', async () => {
     await page.evaluate(() => window.fixture.settings(true))
     await settled()
-    assert.deepEqual(await page.evaluate(() => window.fixtureSettingsEntries), [{ id: 'dsh-claude-beautify', label: 'Claude 美化' }])
+    assert.deepEqual(await page.evaluate(() => window.fixtureSettingsEntries), [{ id: 'dsh-claude-beautify', label: 'dsh-UI美化' }])
     assert.equal(await page.evaluate(() => window.fixtureDependencies.includes('dsh-claude-slider')), false)
     assert.equal(await page.evaluate(() => Object.hasOwn(window, '__dsbHostsClaudeSettings')), false)
     assert.equal(await page.locator('[data-dcb-settings-block="slider"], .dcs-settings-card').count(), 0)
@@ -242,7 +242,7 @@ try {
     assert.equal(layout.padding, '20px 24px 24px')
     assert.equal(layout.filter, 'none', 'The entrance releases its blur rather than leaving a permanent backdrop root')
     assert.equal(layout.transform, 'none', 'The entrance releases its transform after settling')
-    assert.equal(layout.header, '任务面板')
+    assert.equal(layout.header, 'dsh-UI美化')
     assert.ok(layout.groups >= 2, 'The card separates its controls into named visual groups')
     assert.match(layout.info, /默认/)
     assert.match(layout.info, /400/)

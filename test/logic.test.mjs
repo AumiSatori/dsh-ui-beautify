@@ -31,6 +31,10 @@ test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize({ composerGlass: 'false' }).composerGlass, true)
   assert.equal(normalize({ composerGlass: false, enabled: true }).composerGlass, false)
   assert.equal(normalize({ composerGlass: true, enabled: false }).composerGlass, true, 'Composer appearance is independent of the task-panel switch')
+  assert.equal(normalize({ composerGlass: false, cardStyle: 'clear' }).composerStyle, 'css', 'Existing off preferences retain their prior CSS choice when the selector is introduced')
+  assert.equal(normalize({ composerStyle: 'unknown' }).composerStyle, 'css')
+  assert.equal(normalize({ composerStyle: 'milk' }).composerStyle, 'milk')
+  assert.equal(normalize({ composerStyle: 'glass', cardStyle: 'css' }).composerStyle, 'glass')
 })
 
 test('card styles migrate to milk by default and retain all four supported presentation values', () => {

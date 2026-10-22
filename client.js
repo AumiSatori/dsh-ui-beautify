@@ -4,20 +4,27 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const { FishLogo } = require('@deepseek-ai/dsh-client-ui-primitives')
     const NAME = 'dsh-claude-beautify'
+    const DISPLAY_NAME = 'dsh-UI美化'
     const KEY = `${NAME}:settings:v1`
     const PANEL = '[data-testid="todo-panel"]'
     const MARK = 'data-dcb-task-panel'
     const COMPOSER_FLAG = 'data-dcb-composer-glass'
     const COMPOSER_CARD = '[data-composer-seat] [data-composer-card]'
-    const COMPOSER_GLASS = `body[${COMPOSER_FLAG}] ${COMPOSER_CARD}`
+    const COMPOSER_MARK = 'data-dcb-composer-style'
+    const COMPOSER_GLASS = `body[${COMPOSER_FLAG}] [${COMPOSER_MARK}]`
+    const MATERIAL_SURFACE = `:is(.dcb-summary, [${MARK}], .dcb-style-swatch, [${COMPOSER_MARK}])`
+    const MATERIAL_BASE = `${MATERIAL_SURFACE}:is([data-card-style], [${COMPOSER_MARK}])`
+    const material = value => `${MATERIAL_SURFACE}:is([data-card-style="${value}"], [${COMPOSER_MARK}="${value}"])`
     const CARD_STYLES = ['clear', 'css', 'glass', 'milk']
-    const DEFAULTS = { enabled: true, composerGlass: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
+    const MATERIALS = [['clear', '透明玻璃', '液态折射，通透亮边'], ['css', '轻量玻璃', '柔和亮边，轻微模糊'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '默认', '保留原始配色与样式']]
+    const DEFAULTS = { enabled: true, composerGlass: true, composerStyle: 'css', width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
     const VARIABLES = ['--dcb-left', '--dcb-top', '--dcb-width', '--dcb-list-height']
 
     function normalize(value) {
       return {
         enabled: typeof value?.enabled === 'boolean' ? value.enabled : true,
         composerGlass: typeof value?.composerGlass === 'boolean' ? value.composerGlass : DEFAULTS.composerGlass,
+        composerStyle: CARD_STYLES.includes(value?.composerStyle) ? value.composerStyle : DEFAULTS.composerStyle,
         width: Number.isFinite(value?.width) ? Math.round(Math.max(280, Math.min(480, value.width))) : 320,
         // Keep the existing glass value for the frosted material when upgrading.
         cardStyle: CARD_STYLES.includes(value?.cardStyle) ? value.cardStyle : 'milk',
@@ -827,7 +834,7 @@ window.__ModuleLoader__.load({
         if (forced.matches) return
         for (const element of lastElements) {
           if (!eligible(element)) continue
-          const target = element.getAttribute('data-card-style') === 'clear' ? 12 : 0
+          const target = (element.getAttribute(COMPOSER_MARK) || element.getAttribute('data-card-style')) === 'clear' ? 12 : 0
           let record = records.get(element)
           if (!target && !record) continue
           if (!record) {
@@ -936,6 +943,7 @@ window.__ModuleLoader__.load({
       body[data-ds-dark-theme] [${MARK}] button > span:nth-child(3),
       body[data-ds-dark-theme] [${MARK}] button > span:last-child { color: #aaa294 !important; }
       .dcb-settings { padding: 16px 20px; max-width: 800px; color: var(--dsw-alias-label-primary, #202124); }
+      .dcb-settings-card + .dcb-settings-card { margin-top: 20px; }
       .dcb-settings-card { box-sizing: border-box; position: relative; width: 100%; padding: 20px 24px 24px; border: 1px solid #ffffffcc; border-radius: 20px; background: #ffffffeb; box-shadow: 0 16px 42px #00000012, 0 2px 8px #0000000a, inset 0 1px 1px #ffffffbf; animation: dcb-settings-enter 260ms cubic-bezier(.22,.8,.26,1); }
       .dcb-settings-header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid #0000000f; }
       .dcb-settings-header > div { min-width: 0; }
@@ -1126,6 +1134,7 @@ window.__ModuleLoader__.load({
       .dcb-style-option[aria-checked="true"] .dcb-style-swatch { transform: translateY(-6px); }
       .dcb-style-swatch i { width: 45px; height: 3px; border-radius: 3px; background: #847b72; opacity: .5; }
       .dcb-style-swatch i:last-child { width: 30px; opacity: .3; }
+      [data-dcb-composer-style-picker] .dcb-style-swatch[data-card-style="milk"] { background: var(--dsw-specific-input-major, #f4f5f7) !important; border-color: var(--dsw-alias-border-l2, #d9dde5) !important; box-shadow: var(--dsw-elevation-soft, 0 1px 5px #0002) !important; }
       .dcb-style-name { font-size: 14px; font-weight: 600; color: var(--dsw-alias-label-primary, #343434); line-height: 1.4; }
       .dcb-style-option small { color: var(--dsw-alias-label-secondary, #6f6f6f); font-size: 11px; line-height: 1.45; }
       body[data-ds-dark-theme] .dcb-settings .dcb-style-option { background: #ffffff08; border-color: #ffffff1f; }
@@ -1168,7 +1177,7 @@ window.__ModuleLoader__.load({
       @property --dcb-glint-y { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
       @property --dcb-glint-strength { syntax: "<number>"; inherits: false; initial-value: 0; }
       @property --dcb-interaction-depth { syntax: "<number>"; inherits: false; initial-value: 0; }
-      body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] {
+      body ${MATERIAL_BASE} {
         --dcb-surface-background: #fffdf9; --dcb-surface-border: #e8e4dc; --dcb-surface-shadow: 0 4px 14px rgba(38,32,24,.07);
         --dcb-backdrop-blur: 0px; --dcb-backdrop-saturation: 1; --dcb-refraction-scale: 0; --dcb-sheen-opacity: 0;
         background-color: var(--dcb-surface-background) !important;
@@ -1179,41 +1188,35 @@ window.__ModuleLoader__.load({
         -webkit-backdrop-filter: var(--dcb-liquid-filter,) blur(var(--dcb-backdrop-blur)) saturate(var(--dcb-backdrop-saturation)) !important;
         transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-blur 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-saturation 240ms cubic-bezier(.4,0,.2,1), --dcb-refraction-scale 240ms cubic-bezier(.4,0,.2,1), --dcb-sheen-opacity 240ms cubic-bezier(.4,0,.2,1), --dcb-glint-x 180ms ease-out, --dcb-glint-y 180ms ease-out, --dcb-glint-strength 240ms ease-out, --dcb-interaction-depth 240ms ease-out;
       }
-      body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] { --dcb-surface-background: #292824; --dcb-surface-border: #45423b; --dcb-surface-shadow: 0 4px 16px #00000038; }
-      body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="clear"] {
+      body[data-ds-dark-theme] ${MATERIAL_BASE} { --dcb-surface-background: #292824; --dcb-surface-border: #45423b; --dcb-surface-shadow: 0 4px 16px #00000038; }
+      body ${material('clear')} {
         --dcb-surface-background: rgba(255,255,255,.56); --dcb-surface-border: rgba(255,255,255,.74); --dcb-backdrop-saturation: 1.15; --dcb-refraction-scale: 12; --dcb-sheen-opacity: 1;
         --dcb-surface-shadow: 0 2px 6px rgba(28,32,40,.035), 0 10px 28px rgba(28,32,40,.09), inset 0 1px 0 rgba(255,255,255,.92), inset 1px 0 0 rgba(255,255,255,.42), inset -1px -1px 0 rgba(255,255,255,.18);
       }
-      body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="clear"] {
+      body[data-ds-dark-theme] ${material('clear')} {
         --dcb-surface-background: rgba(24,28,36,.22); --dcb-surface-border: rgba(255,255,255,.4); --dcb-sheen-opacity: .52;
         --dcb-surface-shadow: 0 2px 6px #00000014, 0 10px 28px #00000042, inset 0 1px 0 #ffffff42, inset 1px 0 0 #ffffff1a, inset -1px -1px 0 #ffffff0c;
       }
       /* A separate CSS surface: no displacement map, pointer light, or overlay
          over the content. Its subtle rim uses the existing material properties. */
-      body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"], ${COMPOSER_GLASS} {
+      body ${material('css')} {
         --dcb-surface-background: rgba(255,255,255,.56); --dcb-surface-border: rgba(255,255,255,.6);
         --dcb-backdrop-blur: 2px; --dcb-backdrop-saturation: 1.15; --dcb-sheen-opacity: .6;
         --dcb-surface-shadow: 0 5px 18px rgba(26,34,46,.1), inset 0 1px 1px rgba(255,255,255,.92), inset 1px 0 1px rgba(255,255,255,.52), inset 0 -1px 1px rgba(255,255,255,.45), inset 0 0 2px rgba(10,20,40,.16);
       }
-      body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"], body[data-ds-dark-theme][${COMPOSER_FLAG}] ${COMPOSER_CARD} {
+      body[data-ds-dark-theme] ${material('css')} {
         --dcb-surface-background: rgba(24,28,36,.78); --dcb-surface-border: rgba(255,255,255,.35); --dcb-sheen-opacity: .14;
         --dcb-surface-shadow: 0 5px 18px #00000052, inset 0 1px 1px #ffffff8f, inset 1px 0 1px #ffffff33, inset 0 -1px 1px #ffffff20, inset 0 0 2px #00000029;
       }
       ${COMPOSER_GLASS} {
-        background-color: var(--dcb-surface-background) !important;
-        background-image: radial-gradient(ellipse at 8% 0%, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .28)), transparent 56%), linear-gradient(123deg, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .1)), transparent 28% 72%, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .08))) !important;
-        box-shadow: var(--dcb-surface-shadow) !important;
         outline: 1px solid var(--dcb-surface-border); outline-offset: -1px;
-        backdrop-filter: blur(2px) saturate(1.15) !important;
-        -webkit-backdrop-filter: blur(2px) saturate(1.15) !important;
-        transition: background-color 240ms ease-out, box-shadow 240ms ease-out;
       }
       ${COMPOSER_GLASS}:focus-within { outline-color: var(--dsw-alias-state-business-primary, #777aff); }
-      body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] {
+      body ${material('glass')} {
         --dcb-surface-background: rgba(236,242,248,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-backdrop-blur: 22px; --dcb-backdrop-saturation: 1.45; --dcb-sheen-opacity: .22;
         --dcb-surface-shadow: 0 12px 32px rgba(28,32,40,.1), inset 0 1px 0 rgba(255,255,255,.9), inset 1px 0 0 rgba(255,255,255,.45), inset -1px -1px 0 rgba(255,255,255,.2);
       }
-      body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] {
+      body[data-ds-dark-theme] ${material('glass')} {
         --dcb-surface-background: rgba(160,174,190,.26); --dcb-surface-border: rgba(255,255,255,.34); --dcb-sheen-opacity: .32;
         --dcb-surface-shadow: 0 12px 32px #0005, inset 0 1px 0 #ffffff52, inset 1px 0 0 #ffffff24, inset -1px -1px 0 #ffffff14;
       }
@@ -1258,20 +1261,20 @@ window.__ModuleLoader__.load({
       .dcb-summary :is(.dcb-tool-summary, .dcb-output, .dcb-close) { transition: background-color 180ms cubic-bezier(.4,0,.2,1); }
       body ${GLASS_PANEL} :is(.dcb-tool-summary, .dcb-output, .dcb-close):hover { background: var(--dcb-content-hover); }
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"], ${COMPOSER_GLASS} { --dcb-surface-background: rgba(255,255,255,.96); }
-        body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"], body[data-ds-dark-theme][${COMPOSER_FLAG}] ${COMPOSER_CARD} { --dcb-surface-background: rgba(24,28,36,.96); }
-        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(236,242,248,.96); }
-        body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(65,72,81,.96); }
+        body ${material('css')} { --dcb-surface-background: rgba(255,255,255,.96); }
+        body[data-ds-dark-theme] ${material('css')} { --dcb-surface-background: rgba(24,28,36,.96); }
+        body ${material('glass')} { --dcb-surface-background: rgba(236,242,248,.96); }
+        body[data-ds-dark-theme] ${material('glass')} { --dcb-surface-background: rgba(65,72,81,.96); }
       }
       @media (prefers-reduced-motion: reduce), (forced-colors: active) {
         ${COMPOSER_GLASS} { transition: none; }
-        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style], .dcb-settings .dcb-style-option, .dcb-summary :is(.dcb-tool-summary, .dcb-output, .dcb-close) { transition: none; }
+        body ${MATERIAL_BASE}, .dcb-settings .dcb-style-option, .dcb-summary :is(.dcb-tool-summary, .dcb-output, .dcb-close) { transition: none; }
         body ${GLASS_PANEL} :is(.dcb-step, .dcb-history, .dcb-follow, .dcb-output, .dcb-resource, .dcb-tool-summary,
           .dcb-resource-detail, .dcb-file-type, .dcb-tool-count, .dcb-tool-category, .dcb-note, .dcb-context-empty) { transition: none; }
       }
       @media (forced-colors: active) {
         ${COMPOSER_GLASS} { background: Canvas !important; color: CanvasText !important; box-shadow: none !important; outline-color: CanvasText; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] { background: Canvas !important; border-color: CanvasText !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+        body ${MATERIAL_BASE} { background: Canvas !important; border-color: CanvasText !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         body ${GLASS_PANEL}, body[data-ds-dark-theme] ${GLASS_PANEL} {
           --dcb-ink-primary: CanvasText; --dcb-ink-body: CanvasText; --dcb-ink-muted: CanvasText; --dcb-ink-active: CanvasText;
           --dcb-ink-failure: CanvasText; --dcb-timeline-line: GrayText; --dcb-content-separator: GrayText; --dcb-content-hover: ButtonFace; --dcb-content-tile: ButtonFace;
@@ -1295,6 +1298,7 @@ window.__ModuleLoader__.load({
       // Track real plan changes separately from tool/output activity and hover previews.
       const planRuns = new Map()
       const originalComposerFlag = document.body.getAttribute(COMPOSER_FLAG)
+      const composerOriginals = new Map()
       const style = document.createElement('style')
       style.dataset.plugin = NAME
       style.textContent = css
@@ -1316,10 +1320,24 @@ window.__ModuleLoader__.load({
       }
 
       const resize = new ResizeObserver(() => schedule())
+      function restoreComposer(element) {
+        if (!composerOriginals.has(element)) return
+        const previous = composerOriginals.get(element)
+        if (previous === null) element.removeAttribute(COMPOSER_MARK)
+        else element.setAttribute(COMPOSER_MARK, previous)
+        composerOriginals.delete(element)
+      }
       function sync() {
         frame = 0
         if (disposed) return
-        document.body.toggleAttribute(COMPOSER_FLAG, settings.composerGlass)
+        const composerEnabled = settings.composerGlass && settings.composerStyle !== 'milk'
+        document.body.toggleAttribute(COMPOSER_FLAG, composerEnabled)
+        const composers = new Set(composerEnabled ? document.querySelectorAll(COMPOSER_CARD) : [])
+        for (const element of composerOriginals.keys()) if (!composers.has(element)) restoreComposer(element)
+        for (const element of composers) {
+          if (!composerOriginals.has(element)) composerOriginals.set(element, element.getAttribute(COMPOSER_MARK))
+          if (element.getAttribute(COMPOSER_MARK) !== settings.composerStyle) element.setAttribute(COMPOSER_MARK, settings.composerStyle)
+        }
         const panels = settings.enabled ? [...document.querySelectorAll(PANEL)] : []
         for (const panel of document.querySelectorAll('[data-dcb-native-hidden]')) {
           if (!settings.enabled || !summaryOwners.has(panel.closest('[data-conversation-content]')?.dataset.conversationSession)) panel.removeAttribute('data-dcb-native-hidden')
@@ -1357,7 +1375,7 @@ window.__ModuleLoader__.load({
         }
         for (const container of observed) if (!containers.has(container)) { resize.unobserve(container); observed.delete(container) }
         for (const container of containers) if (!observed.has(container)) { resize.observe(container); observed.add(container) }
-        liquid.sync([...document.querySelectorAll(`.dcb-summary[data-card-style], [${MARK}][data-card-style], .dcb-style-swatch[data-card-style]`)])
+        liquid.sync([...document.querySelectorAll(`.dcb-summary[data-card-style], [${MARK}][data-card-style], .dcb-style-swatch[data-card-style], [${COMPOSER_MARK}]`)])
       }
       function schedule() { if (!frame && !disposed) frame = window.requestAnimationFrame(sync) }
       function update(patch, persist = true) {
@@ -1371,7 +1389,7 @@ window.__ModuleLoader__.load({
       const onStorage = event => { if (event.key === KEY || event.key === null) update(readSettings(), false) }
       const observer = new MutationObserver(schedule)
       observer.observe(document.body, { childList: true, subtree: true, attributes: true,
-        attributeFilter: ['data-conversation-session', 'data-card-style', 'hidden', 'class'] })
+        attributeFilter: ['data-conversation-session', 'data-card-style', 'data-composer-card', 'hidden', 'class'] })
       window.addEventListener('resize', schedule)
       // Capture scroll also handles embedded conversation columns and moved panes.
       document.addEventListener('scroll', schedule, true)
@@ -1501,18 +1519,37 @@ window.__ModuleLoader__.load({
               onClick: () => { update({ progressView: { ...settings.progressView, count: value } }); dismiss(true) } }, `${value} 个步骤`, h('span', { 'aria-hidden': true }, settings.progressView.count === value ? '✓' : '')))))
       }
 
+      function StylePicker({ scope, value, onChange }) {
+        const composer = scope === 'composer'
+        const label = composer ? '输入栏样式' : '卡片样式'
+        return h('fieldset', { className: 'dcb-style-picker', 'data-dcb-card-style-picker': composer ? undefined : '', 'data-dcb-composer-style-picker': composer ? '' : undefined },
+          h('legend', null, label), h('p', null, composer ? '独立预览底部输入栏；默认选项恢复原来的外观。' : '选择后实时预览当前任务卡片；当前轮次没有内容时保持隐藏。'),
+          h('div', { className: 'dcb-style-options', role: 'radiogroup', 'aria-label': label }, MATERIALS.map(([style, name, description], index) =>
+            h('button', { type: 'button', role: 'radio', className: 'dcb-style-option', key: style, 'aria-label': composer ? `输入栏：${name}` : name, 'aria-checked': value === style,
+              tabIndex: value === style ? 0 : -1, onClick: () => onChange(style),
+              onKeyDown: event => {
+                const count = MATERIALS.length
+                const next = { ArrowRight: (index + 1) % count, ArrowDown: (index + 1) % count, ArrowLeft: (index + count - 1) % count, ArrowUp: (index + count - 1) % count, Home: 0, End: count - 1 }[event.key]
+                if (next === undefined) return
+                event.preventDefault(); onChange(MATERIALS[next][0])
+                event.currentTarget.parentElement.children[next]?.focus()
+              } },
+              h('span', { className: 'dcb-style-scene', 'aria-hidden': true }, h('span', { className: 'dcb-style-swatch', 'data-card-style': style }, h('i'), h('i'))),
+              h('span', { className: 'dcb-style-name' }, name), h('small', null, description)))))
+      }
+
       function Settings() {
         const [, render] = React.useReducer(value => value + 1, 0)
         React.useEffect(() => { listeners.add(render); return () => listeners.delete(render) }, [])
         React.useEffect(() => () => previewStyle(false), [])
         const h = React.createElement
-        const materials = [['clear', '透明玻璃', '液态折射，通透亮边'], ['css', '轻量玻璃', '柔和亮边，轻微模糊'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '默认', '保留原始配色与样式']]
-        const materialName = materials.find(([value]) => value === settings.cardStyle)?.[1] || '默认'
+        const materialName = MATERIALS.find(([value]) => value === settings.cardStyle)?.[1] || '默认'
+        const composerName = MATERIALS.find(([value]) => value === settings.composerStyle)?.[1] || '轻量玻璃'
         return h('div', { className: 'dcb-settings' },
           h('section', { className: 'dcb-settings-block dcb-settings-card', 'data-dcb-settings-block': 'panel' },
             h('div', { className: 'dcb-settings-header' },
-              h('div', null, h('h2', null, '任务面板'), h('p', null, '任务卡片与底部输入栏的外观、材质与进度布局')),
-              h('span', { className: 'dcb-settings-badge' }, 'Task Panel')),
+              h('div', null, h('h2', null, DISPLAY_NAME), h('p', null, '右上角任务卡片的外观、材质与进度布局')),
+              h('span', { className: 'dcb-settings-badge' }, 'UI Style')),
             h('div', { className: 'dcb-settings-section' },
               h('div', { className: 'dcb-settings-section-title' }, '面板开关'),
               h('div', { className: 'dcb-settings-row dcb-panel-toggle' },
@@ -1522,22 +1559,7 @@ window.__ModuleLoader__.load({
                   h('p', { className: 'dcb-settings-row-desc' }, settings.enabled ? '悬浮预览；点击入口或安排新步骤时保持展开。' : '开启后，在右上角查看当前轮次的任务进度与输出。')),
                 h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '启用右上角任务面板', 'aria-checked': settings.enabled,
                   onClick: () => update({ enabled: !settings.enabled }) }))),
-            h('fieldset', { className: 'dcb-style-picker', 'data-dcb-card-style-picker': '' }, h('legend', null, '卡片样式'),
-              h('p', null, '选择后实时预览当前任务卡片；当前轮次没有内容时保持隐藏。'),
-              h('div', { className: 'dcb-style-options', role: 'radiogroup', 'aria-label': '卡片样式' }, materials.map(([value, label, description], index) =>
-                h('button', { type: 'button', role: 'radio', className: 'dcb-style-option', key: value, 'aria-label': label, 'aria-checked': settings.cardStyle === value,
-                  tabIndex: settings.cardStyle === value ? 0 : -1, onClick: () => { update({ cardStyle: value }); previewStyle(true) },
-                  onKeyDown: event => {
-                    const count = materials.length
-                    const next = { ArrowRight: (index + 1) % count, ArrowDown: (index + 1) % count, ArrowLeft: (index + count - 1) % count, ArrowUp: (index + count - 1) % count, Home: 0, End: count - 1 }[event.key]
-                    if (next === undefined) return
-                    event.preventDefault()
-                    update({ cardStyle: materials[next][0] })
-                    previewStyle(true)
-                    event.currentTarget.parentElement.children[next]?.focus()
-                  } },
-                  h('span', { className: 'dcb-style-scene', 'aria-hidden': true }, h('span', { className: 'dcb-style-swatch', 'data-card-style': value }, h('i'), h('i'))),
-                  h('span', { className: 'dcb-style-name' }, label), h('small', null, description))))),
+            h(StylePicker, { scope: 'card', value: settings.cardStyle, onChange: cardStyle => { update({ cardStyle }); previewStyle(true) } }),
             h('div', { className: 'dcb-settings-section' },
               h('div', { className: 'dcb-settings-section-title' }, '布局与显示'),
               h('div', { className: 'dcb-settings-row', 'data-setting': 'width' },
@@ -1546,17 +1568,20 @@ window.__ModuleLoader__.load({
               h('div', { className: 'dcb-settings-row' },
                 h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '进度默认显示'), h('p', { className: 'dcb-settings-row-desc' }, '显示当前步骤附近的任务，支持上下滚动。')),
                 h(StepCountPicker))),
-            h('div', { className: 'dcb-settings-section' },
-              h('div', { className: 'dcb-settings-section-title' }, '输入栏外观'),
-              h('div', { className: 'dcb-settings-row' },
-                h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '输入栏轻量玻璃'), h('p', { className: 'dcb-settings-row-desc' }, '底部输入框使用柔和亮边与轻微模糊，独立于任务卡片样式。')),
-                h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '启用输入栏轻量玻璃', 'aria-checked': settings.composerGlass,
-                  onClick: () => update({ composerGlass: !settings.composerGlass }) }))),
             h('div', { className: 'dcb-settings-info', role: 'status' }, `${settings.enabled ? '当前生效' : '面板已关闭'}：${materialName} · ${settings.width} px · ${settings.progressView.count} 个步骤`),
-            h('p', { className: 'dcb-settings-footnote' }, '展开偏好会自动记住。自动展开的面板仅点 X 收起，手动打开可点外部收起；普通推理或工具调用不会自动展开。设置保存在当前浏览器。')))
+            h('p', { className: 'dcb-settings-footnote' }, '展开偏好会自动记住。自动展开的面板仅点 X 收起，手动打开可点外部收起；普通推理或工具调用不会自动展开。设置保存在当前浏览器。')),
+          h('section', { className: 'dcb-settings-block dcb-settings-card', 'data-dcb-settings-block': 'composer' },
+            h('div', { className: 'dcb-settings-header' }, h('div', null, h('h2', null, '输入栏外观'), h('p', null, '底部输入框的样式独立保存，切换即时生效'))),
+            h('div', { className: 'dcb-settings-section' },
+              h('div', { className: 'dcb-settings-row' },
+                h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '输入栏美化'), h('p', { className: 'dcb-settings-row-desc' }, '关闭后恢复原来的外观，并保留已选样式。')),
+                h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '启用输入栏美化', 'aria-checked': settings.composerGlass,
+                  onClick: () => update({ composerGlass: !settings.composerGlass }) }))),
+            h(StylePicker, { scope: 'composer', value: settings.composerStyle, onChange: composerStyle => update({ composerStyle }) }),
+            h('div', { className: 'dcb-settings-info', role: 'status' }, `${settings.composerGlass ? '输入栏样式' : '输入栏美化已关闭'}：${composerName}`)))
       }
       ctx.slots.inject('settings.section', () => ctx.slots.register({
-        name: 'settings.section', id: NAME, order: 26, label: 'Claude 美化',
+        name: 'settings.section', id: NAME, order: 26, label: DISPLAY_NAME,
       }, Settings))
       function OutputRow({ file, sessionId, readThumbnail, onOpen }) {
         const name = basename(file.path)
@@ -1895,6 +1920,7 @@ window.__ModuleLoader__.load({
         observer.disconnect()
         resize.disconnect()
         liquid.dispose()
+        for (const element of composerOriginals.keys()) restoreComposer(element)
         if (originalComposerFlag === null) document.body.removeAttribute(COMPOSER_FLAG)
         else document.body.setAttribute(COMPOSER_FLAG, originalComposerFlag)
         if (frame) window.cancelAnimationFrame(frame)

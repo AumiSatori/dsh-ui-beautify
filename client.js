@@ -275,11 +275,13 @@ window.__ModuleLoader__.load({
       .dcb-step[data-status="completed"], .dcb-step[data-status="pending"] { color: #9a9a9a; }
       .dcb-step[data-status="in_progress"] { color: #202020; font-weight: 500; }
       .dcb-status { position: relative; display: grid; place-items: center; flex: 0 0 20px; width: 20px; height: 21px; }
-      .dcb-status-dot { box-sizing: border-box; flex: none; width: 8px; height: 8px; border: 1px solid currentColor; border-radius: 50% !important; display: grid; place-items: center; }
+      .dcb-status-dot { position: relative; box-sizing: border-box; flex: none; width: 8px; height: 8px; border: 1px solid currentColor; border-radius: 50% !important; display: grid; place-items: center; }
       .dcb-step[data-status="completed"] .dcb-status-dot, .dcb-step[data-status="in_progress"] .dcb-status-dot { background: currentColor; }
-      .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot { animation: dcb-breathe 1.6s ease-in-out infinite; }
       .dcb-step-text { overflow-wrap: anywhere; min-width: 0; }
       @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+        .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot::before, .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; }
+        .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot::before { inset: -5px; background: conic-gradient(transparent 30%, color-mix(in srgb, currentColor 15%, transparent) 55%, currentColor 92%, transparent 94%); mask: radial-gradient(farthest-side, transparent calc(100% - 1.4px), #000 calc(100% - 1.2px)); animation: dcb-orbit 1.35s linear infinite; }
+        .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot::after { inset: -3px; border: 1px solid currentColor; animation: dcb-ripple 1.9s cubic-bezier(.15,.6,.3,1) infinite; }
         .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-step-text { background-image: linear-gradient(100deg, var(--dcb-shimmer-base, currentColor) 38%, #c5c5c5 46%, #fff 50%, #c5c5c5 54%, var(--dcb-shimmer-base, currentColor) 62%); background-size: 250% 100%; background-repeat: no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: dcb-text-shimmer 2.4s linear infinite; }
       }
       @media (forced-colors: active) { .dcb-step-text { -webkit-text-fill-color: CanvasText; } }
@@ -308,9 +310,10 @@ window.__ModuleLoader__.load({
       .dcb-resource-label { flex-shrink: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .dcb-resource-detail { margin-left: auto; min-width: 0; color: #95918a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
       .dcb-note { font-size: 11px; color: #9a9790; margin: 8px 0 0; }
-      @keyframes dcb-breathe { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 12%, transparent); } 50% { box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 6%, transparent); } }
+      @keyframes dcb-orbit { to { transform: rotate(360deg); } }
+      @keyframes dcb-ripple { 0% { transform: scale(.85); opacity: .35; } 75%, 100% { transform: scale(1.8); opacity: 0; } }
       @keyframes dcb-text-shimmer { 0% { background-position: 100% 0; } 70%, 100% { background-position: 0% 0; } }
-      @media (prefers-reduced-motion: reduce) { .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot { animation: none; } .dcb-collapse, .dcb-module-toggle svg, .dcb-history-label svg { transition: none; } }
+      @media (prefers-reduced-motion: reduce) { .dcb-collapse, .dcb-module-toggle svg, .dcb-history-label svg { transition: none; } }
       body[data-ds-dark-theme] .dcb-summary { background: #292824; color: #eeeae2; border-color: #45423b; box-shadow: 0 2px 6px #0003; }
       body[data-ds-dark-theme] .dcb-summary section + section { border-color: #45423b; }
       body[data-ds-dark-theme] .dcb-step, body[data-ds-dark-theme] .dcb-output, body[data-ds-dark-theme] .dcb-resource { color: #cec9bd; }

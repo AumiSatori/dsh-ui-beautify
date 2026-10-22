@@ -283,7 +283,11 @@ window.__ModuleLoader__.load({
       .dcb-step[data-finished="true"] .dcb-status-dot { width: 11px; height: 11px; color: white; border-color: #6f7068; background: #6f7068; }
       .dcb-step-text { overflow-wrap: anywhere; min-width: 0; }
       .dcb-history { border: 0; background: transparent; width: 100%; text-align: left; color: #95918a; font-size: 12px; padding-top: 0; }
+      .dcb-summary .dcb-history:focus-visible { outline-offset: -2px; border-radius: 5px; }
       .dcb-history .dcb-status { color: #d8d6d1; }
+      .dcb-history-label { display: inline-flex; align-items: center; gap: 5px; }
+      .dcb-history-label svg { transition: transform 280ms cubic-bezier(.22,.8,.25,1); }
+      .dcb-history[aria-expanded="true"] svg { transform: rotate(180deg); }
       .dcb-output { display: flex; align-items: center; gap: 10px; width: 100%; padding: 5px 2px; background: transparent; border: 0; text-align: left; color: #66645f; border-radius: 6px; font-size: 13px; }
       .dcb-output:hover { background: #f6f5f2; }
       .dcb-tile { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border-radius: 7px; overflow: hidden; background: #f1f0ec; color: #8b8679; font-size: 9px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
@@ -294,9 +298,9 @@ window.__ModuleLoader__.load({
       .dcb-module-toggle { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: inherit; font-size: 13px; }
       .dcb-module-toggle svg { color: #9a9790; transition: transform 280ms cubic-bezier(.22,.8,.25,1); }
       .dcb-module-toggle[aria-expanded="false"] svg { transform: rotate(-90deg); }
-      .dcb-module-content { display: grid; grid-template-rows: 1fr; opacity: 1; overflow: hidden; transition: grid-template-rows 280ms cubic-bezier(.22,.8,.25,1), opacity 200ms ease; }
-      .dcb-module-content[aria-hidden="true"] { grid-template-rows: 0fr; opacity: 0; }
-      .dcb-module-inner { min-height: 0; overflow: hidden; }
+      .dcb-collapse { display: grid; grid-template-rows: 1fr; opacity: 1; overflow: hidden; transition: grid-template-rows 280ms cubic-bezier(.22,.8,.25,1), opacity 200ms ease; }
+      .dcb-collapse[aria-hidden="true"] { grid-template-rows: 0fr; opacity: 0; }
+      .dcb-collapse-inner { min-height: 0; overflow: hidden; }
       .dcb-module-body { padding-top: 10px; }
       .dcb-resource { display: flex; align-items: center; gap: 10px; padding: 7px 2px; color: #66645f; font-size: 13px; }
       .dcb-resource > svg, .dcb-output > svg { flex: 0 0 18px; }
@@ -304,7 +308,7 @@ window.__ModuleLoader__.load({
       .dcb-resource-detail { margin-left: auto; min-width: 0; color: #95918a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
       .dcb-note { font-size: 11px; color: #9a9790; margin: 8px 0 0; }
       @keyframes dcb-breathe { 0%, 100% { box-shadow: 0 0 0 0 #9a8d782b; opacity: .75; } 50% { box-shadow: 0 0 0 3px #9a8d7814; opacity: 1; } }
-      @media (prefers-reduced-motion: reduce) { .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot { animation: none; } .dcb-module-content, .dcb-module-toggle svg { transition: none; } }
+      @media (prefers-reduced-motion: reduce) { .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot { animation: none; } .dcb-collapse, .dcb-module-toggle svg, .dcb-history-label svg { transition: none; } }
       body[data-ds-dark-theme] .dcb-summary { background: #292824; color: #eeeae2; border-color: #45423b; box-shadow: 0 2px 6px #0003; }
       body[data-ds-dark-theme] .dcb-summary section + section { border-color: #45423b; }
       body[data-ds-dark-theme] .dcb-step, body[data-ds-dark-theme] .dcb-output, body[data-ds-dark-theme] .dcb-resource { color: #cec9bd; }
@@ -468,7 +472,7 @@ window.__ModuleLoader__.load({
         const expanded = history === sessionId
         const working = running && todos.length > 0
         const finished = !running && todos.length > 0 && todos.every(item => item.status === 'completed')
-        const progress = progressItems(todos, expanded, working)
+        const progress = progressItems(todos, false, working)
         const entryLabel = working ? `第 ${progress.step} 步，共 ${progress.total} 步` : activity.files.length || todos.length || activity.resources.length
         React.useEffect(() => { listeners.add(refresh); return () => listeners.delete(refresh) }, [])
         // Open once per inference run, never again after a manual close in that run.
@@ -525,6 +529,14 @@ window.__ModuleLoader__.load({
         const close = () => { setOpen(false); button.current?.focus() }
         const closeControl = h('button', { type: 'button', className: 'dcb-close', 'aria-label': '关闭进度面板', onClick: close }, h(Icon, { kind: 'close', size: 16 }))
         const cardId = `${NAME}-summary-${sessionId}`
+        const historyId = `${cardId}-history`
+        const collapsible = (id, expanded, children, className) =>
+          h('div', { id, className: `dcb-collapse ${className}`, 'aria-hidden': !expanded, inert: !expanded },
+            h('div', { className: 'dcb-collapse-inner' }, children))
+        const step = (item, index) => h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-status': item.status, 'aria-current': item.status === 'in_progress' ? 'step' : undefined, 'data-finished': finished && index === todos.length - 1 ? true : undefined },
+          h('span', { className: 'dcb-status', role: 'img', 'aria-label': { completed: '已完成', in_progress: '进行中', pending: '待处理' }[item.status] || item.status },
+            h('span', { className: 'dcb-status-dot' }, finished && index === todos.length - 1 ? h(Icon, { kind: 'check', size: 8 }) : null)),
+          h('span', { className: 'dcb-step-text' }, item.content))
         const section = (kind, label, children, withClose) => {
           const expanded = modules[kind]
           const contentId = `${cardId}-${kind}`
@@ -535,8 +547,7 @@ window.__ModuleLoader__.load({
           }
           return h('section', { key: kind, 'data-testid': `dcb-${kind}`, 'data-collapsed': !expanded },
             h('h3', null, h('button', { type: 'button', className: 'dcb-module-toggle', 'aria-expanded': expanded, 'aria-controls': contentId, onClick: toggle }, label, h(Icon, { kind: 'chevron', size: 14 })), withClose && closeControl),
-            h('div', { id: contentId, className: 'dcb-module-content', 'aria-hidden': !expanded, inert: !expanded },
-              h('div', { className: 'dcb-module-inner' }, h('div', { className: 'dcb-module-body' }, children))))
+            collapsible(contentId, expanded, h('div', { className: 'dcb-module-body' }, children), 'dcb-module-content'))
         }
         return h('div', { className: 'dcb-anchor', ref: anchor, 'data-dcb-summary-for': sessionId,
           onKeyDown: event => { if (event.key === 'Escape' && open) { event.stopPropagation(); close() } } },
@@ -545,11 +556,11 @@ window.__ModuleLoader__.load({
           open && h('aside', { className: 'dcb-summary', ref: card, id: cardId, 'aria-label': '会话进度与输出', 'data-testid': 'dcb-summary' },
             todos.length > 0 && section('progress', '进度',
               h(React.Fragment, null,
-                progress.hidden > 0 && h('button', { type: 'button', className: 'dcb-history', 'aria-expanded': expanded, onClick: () => setHistory(expanded ? null : sessionId) }, h('span', { className: 'dcb-status', 'aria-hidden': true }, '⋮'), expanded ? '收起先前步骤' : `${progress.hidden} 个先前步骤`),
-                h('ol', { className: 'dcb-timeline', 'data-working': working }, progress.items.map((item, index) => h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-status': item.status, 'aria-current': item.status === 'in_progress' ? 'step' : undefined, 'data-finished': finished && index === progress.items.length - 1 ? true : undefined },
-                  h('span', { className: 'dcb-status', role: 'img', 'aria-label': { completed: '已完成', in_progress: '进行中', pending: '待处理' }[item.status] || item.status },
-                    h('span', { className: 'dcb-status-dot' }, finished && index === progress.items.length - 1 ? h(Icon, { kind: 'check', size: 8 }) : null)),
-                  h('span', { className: 'dcb-step-text' }, item.content))))), true),
+                progress.hidden > 0 && h(React.Fragment, null,
+                  h('button', { type: 'button', className: 'dcb-history', 'aria-expanded': expanded, 'aria-controls': historyId, onClick: () => setHistory(expanded ? null : sessionId) },
+                    h('span', { className: 'dcb-status', 'aria-hidden': true }, '⋮'), h('span', { className: 'dcb-history-label' }, expanded ? '收起先前步骤' : `${progress.hidden} 个先前步骤`, h(Icon, { kind: 'chevron', size: 12 }))),
+                  collapsible(historyId, expanded, h('ol', { className: 'dcb-timeline' }, todos.slice(0, progress.hidden).map(step)), 'dcb-history-content')),
+                h('ol', { className: 'dcb-timeline dcb-recent-steps', 'data-working': working, start: progress.hidden + 1 }, progress.items.map((item, index) => step(item, index + progress.hidden)))), true),
             activity.files.length > 0 && section('outputs', '输出', activity.files.map(file =>
               h(OutputRow, { key: file.path, file, sessionId, readThumbnail, onOpen: openOutput })), todos.length === 0),
             activity.resources.length > 0 && section('resources', '本次会话中已使用', h(React.Fragment, null,

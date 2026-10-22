@@ -144,6 +144,24 @@ test('empty tool summaries contain no fabricated calls or active tools', () => {
   for (const key of ['count', 'calls', 'failed']) assert.equal(summary[key], 0)
 })
 
+test('tool categories distinguish actual tool aliases and namespaced leaves without guessing from substrings', () => {
+  const categories = [
+    ['command', '命令', 'terminal', ['ops_bash', 'BASH', 'exec_command', 'mcp__runner__ops_bash', 'functions.exec_command']],
+    ['edit', '编辑', 'file-edit', ['write', 'edit', 'apply_patch', 'functions.write_file']],
+    ['read', '读取', 'file-read', ['read', 'read_file', 'mcp__workspace__read_file']],
+    ['image', '图像', 'image', ['read_image', 'view_image', 'mcp__assets__view_image']],
+    ['process', '进程', 'process', ['job_kill', 'job_output']],
+    ['interaction', '交互', 'message', ['ask_user', 'ask_user_question', 'request_user_input']],
+    ['search', '检索', 'search', ['grep', 'rg', 'glob', 'search_files']],
+    ['agent', '协作', 'network', ['spawn_agent']],
+    ['plan', '计划', 'checklist', ['todo_write', 'update_plan']],
+    ['other', '其他', 'tool', ['unknown_tool', 'rewrite_metric', 'readiness_probe', '', null]],
+  ]
+  for (const [id, label, icon, names] of categories) for (const name of names) {
+    assert.deepEqual({ ...exports.__test.toolCategory(name) }, { id, label, icon }, String(name))
+  }
+})
+
 test('grouped tool counts and failures stay scoped to the turn being viewed', () => {
   const activity = exports.__test.turnActivityFrom([
     entry('turn/start', { turn: 1 }),

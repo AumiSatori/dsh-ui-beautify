@@ -1399,6 +1399,7 @@ try {
     assert.equal(await toolsToggle().getAttribute('aria-expanded'), 'false')
     assert.equal(await toolsToggle().getAttribute('data-working'), 'true')
     assert.equal(await toolsToggle().locator('.dcb-tool-name').innerText(), 'ops_bash')
+    assert.equal(await toolsToggle().locator(':scope > svg').getAttribute('data-icon'), 'terminal', 'The active tool summary uses its category icon')
     assert.ok((await toolsToggle().getAttribute('title')).includes('3 种 · 36 次'))
     assert.equal(await toolDetails().evaluate(el => el.hidden && el.inert && el.getBoundingClientRect().height === 0), true)
     assert.equal(await current.locator('.dcb-resource:visible').count(), 0)
@@ -1435,6 +1436,7 @@ try {
     await finishTools()
     await settled()
     assert.deepEqual(await current.locator('.dcb-tool-row .dcb-resource-detail').allTextContents(), ['12 次 · 已使用', '12 次 · 调用中', '12 次 · 已使用'])
+    assert.deepEqual(await current.locator('.dcb-tool-row').evaluateAll(nodes => nodes.map(node => [node.dataset.toolCategory, node.querySelector('svg').dataset.icon, node.querySelector('.dcb-tool-category').textContent])), [['edit', 'file-edit', '编辑'], ['command', 'terminal', '命令'], ['process', 'process', '进程']])
     assert.equal(await toolDetails().evaluate(el => el.style.height + el.style.willChange), '')
     await card.screenshot({ path: resolve(output, 'summary-tools-expanded.png') })
     await toolsToggle().click()
@@ -1464,6 +1466,7 @@ try {
     await page.evaluate(toolRows => { window.fixture.records(toolRows); window.fixture.running(false) }, toolRows)
     await settled()
     assert.equal(await toolsToggle().getAttribute('data-working'), 'false')
+    assert.equal(await toolsToggle().locator(':scope > svg').getAttribute('data-icon'), 'toolbox', 'An idle summary returns to the shared toolbox icon')
     assert.equal(await toolsToggle().locator('.dcb-tool-failed').innerText(), '失败 1')
     assert.ok((await toolsToggle().innerText()).includes('未返回'))
     assert.equal(await current.locator('.dcb-resource:visible').count(), 2, 'Skills and memory remain independently visible')
@@ -1865,6 +1868,105 @@ try {
     await page.getByRole('button', { name: '关闭设置', exact: true }).click()
     await settled()
     assert.equal(await card.count(), 0)
+  })
+
+  await check('tool category icons distinguish the screenshot tools and unknown tools across materials and dark narrow layouts', async () => {
+    await page.evaluate(() => localStorage.removeItem('dsh-claude-beautify:settings:v1'))
+    await page.reload()
+    await mountPlugin()
+    const cases = [
+      ['ops_bash', 'command', 'terminal', '命令'],
+      ['write', 'edit', 'file-edit', '编辑'],
+      ['read_image', 'image', 'image', '图像'],
+      ['job_kill', 'process', 'process', '进程'],
+      ['ask_user', 'interaction', 'message', '交互'],
+      ['ask_user_question', 'interaction', 'message', '交互'],
+      ['edit', 'edit', 'file-edit', '编辑'],
+      ['unknown_tool', 'other', 'tool', '其他'],
+    ]
+    const iconRows = cases.flatMap(([name], index) => [
+      { event: { type: 'tool/call', data: { callId: `icon-${index}`, name, arguments: '{}' }, seq: index * 2 + 1 } },
+      { event: { type: 'tool/result', data: { callId: `icon-${index}` }, seq: index * 2 + 2 } },
+    ])
+    await page.evaluate(iconRows => { window.fixture.update([]); window.fixture.running(false); window.fixture.records(iconRows) }, iconRows)
+    await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
+    await settled()
+    const summary = card.locator('.dcb-tool-summary')
+    assert.equal(await summary.locator(':scope > svg').getAttribute('data-icon'), 'toolbox')
+    assert.ok((await summary.getAttribute('title')).includes('8 种 · 8 次'))
+    await summary.click()
+    await settled()
+    const detailRows = card.locator('.dcb-tool-row')
+    const readIcons = () => detailRows.evaluateAll(nodes => nodes.map(node => ({
+      name: node.querySelector('.dcb-resource-label').textContent,
+      category: node.dataset.toolCategory, label: node.querySelector('.dcb-tool-category').textContent,
+      icon: node.querySelector('svg').dataset.icon, title: node.title,
+      path: node.querySelector('svg path')?.getAttribute('d'),
+      width: node.querySelector('svg').getBoundingClientRect().width,
+      height: node.querySelector('svg').getBoundingClientRect().height,
+      color: getComputedStyle(node.querySelector('svg')).color,
+      linecap: node.querySelector('svg').getAttribute('stroke-linecap'),
+    })))
+    const icons = await readIcons()
+    assert.deepEqual(icons.map(item => [item.name, item.category, item.icon, item.label]), cases)
+    assert.equal(new Set(icons.map(item => item.path)).size, 6, 'Different categories use different SVG geometry while related tools share an icon')
+    for (const item of icons) {
+      assert.ok(item.path && item.path !== 'M9 3H5v18h4 M15 3h4v18h-4 M8 12h8', 'The old bracket icon is replaced')
+      assert.ok(item.width >= 16 && item.height >= 16, 'Tool icons stay readable instead of shrinking in flex rows')
+      assert.equal(item.linecap, 'round')
+      assert.ok(item.title.includes(item.label), 'Category names are also available in the hover description')
+    }
+    for (const cardStyle of ['milk', 'clear', 'glass']) {
+      await page.evaluate(cardStyle => {
+        const key = 'dsh-claude-beautify:settings:v1'
+        const value = JSON.stringify({ ...JSON.parse(localStorage.getItem(key)), cardStyle })
+        localStorage.setItem(key, value)
+        window.dispatchEvent(new StorageEvent('storage', { key, newValue: value }))
+      }, cardStyle)
+      await settled()
+      assert.deepEqual((await readIcons()).map(item => item.icon), cases.map(item => item[2]))
+      assert.equal(await card.evaluate(el => el.scrollWidth <= el.clientWidth), true)
+      await card.screenshot({ path: resolve(output, `summary-tool-icons-${cardStyle}.png`) })
+    }
+    const light = (await readIcons())[0].color
+    await page.evaluate(() => document.body.setAttribute('data-ds-dark-theme', ''))
+    await page.setViewportSize({ width: 390, height: 700 })
+    await settled()
+    const dark = await readIcons()
+    assert.notEqual(dark[0].color, light, 'Category icons inherit the dark-theme foreground')
+    assert.ok(dark.every(item => Number(item.color.match(/[\d.]+/g)[0]) > 150))
+    assert.equal(await card.evaluate(el => el.scrollWidth <= el.clientWidth), true)
+    assert.equal(await detailRows.evaluateAll(nodes => nodes.every(node => node.scrollWidth <= node.clientWidth)), true)
+    await card.screenshot({ path: resolve(output, 'summary-tool-icons-dark-narrow.png') })
+    await page.evaluate(() => document.body.removeAttribute('data-ds-dark-theme'))
+    await page.setViewportSize({ width: 1706, height: 1018 })
+    const executing = [...iconRows, { event: { type: 'tool/call', data: { callId: 'icon-process-live', name: 'job_output', arguments: '{}' }, seq: 17 } }]
+    await page.evaluate(records => { window.fixture.running(true); window.fixture.records(records) }, executing)
+    await page.waitForFunction(() => document.querySelector('.dcb-tool-summary > svg')?.dataset.icon === 'process')
+    assert.equal(await summary.locator('.dcb-tool-name').innerText(), 'job_output')
+    assert.ok((await summary.getAttribute('title')).includes('9 种 · 9 次'))
+    executing.push({ event: { type: 'tool/call', data: { callId: 'icon-edit-live', name: 'write', arguments: '{}' }, seq: 18 } })
+    await page.evaluate(records => window.fixture.records(records), executing)
+    await page.waitForFunction(() => document.querySelector('.dcb-tool-summary > svg')?.dataset.icon === 'file-edit')
+    assert.equal(await summary.locator('.dcb-tool-name').innerText(), 'write +1', 'The newest active tool selects the category icon while preserving concurrent-tool count')
+    assert.ok((await summary.getAttribute('title')).includes('9 种 · 10 次'))
+    const handoff = await summary.locator(':scope > svg').evaluate(el => {
+      const animation = el.getAnimations().find(item => item.animationName === 'dcb-tool-icon-in')
+      animation.pause()
+      animation.currentTime = 110
+      const style = getComputedStyle(el)
+      const frame = { opacity: Number(style.opacity), y: new DOMMatrix(style.transform).m42, blur: Number(style.filter.match(/blur\(([\d.]+)px\)/)?.[1] || 0) }
+      animation.finish()
+      return frame
+    })
+    assert.ok(handoff.opacity > 0 && handoff.opacity < 1 && handoff.y > 0 && handoff.y < 6 && handoff.blur > 0 && handoff.blur < 2, 'Changing the active category produces a real fade, slide and blur intermediate frame')
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    executing.push({ event: { type: 'tool/call', data: { callId: 'icon-command-live', name: 'ops_bash', arguments: '{}' }, seq: 19 } })
+    await page.evaluate(records => window.fixture.records(records), executing)
+    await page.waitForFunction(() => document.querySelector('.dcb-tool-summary > svg')?.dataset.icon === 'terminal')
+    assert.equal(await summary.locator(':scope > svg').evaluate(el => getComputedStyle(el).animationName), 'none')
+    assert.ok((await summary.getAttribute('title')).includes('9 种 · 11 次'))
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
   })
 
   const fastTasks = Array.from({ length: 90 }, (_, index) => ({ content: `连续滚动步骤 ${index + 1}`, status: index < 40 ? 'completed' : index === 40 ? 'in_progress' : 'pending' }))

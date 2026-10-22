@@ -150,6 +150,33 @@ window.__ModuleLoader__.load({
       }
       return { files: [...files.values()], resources: [...resources.values()], hasMore }
     }
+    const TOOL_CATEGORIES = {
+      command: { id: 'command', label: '命令', icon: 'terminal' },
+      edit: { id: 'edit', label: '编辑', icon: 'file-edit' },
+      read: { id: 'read', label: '读取', icon: 'file-read' },
+      image: { id: 'image', label: '图像', icon: 'image' },
+      process: { id: 'process', label: '进程', icon: 'process' },
+      interaction: { id: 'interaction', label: '交互', icon: 'message' },
+      search: { id: 'search', label: '检索', icon: 'search' },
+      agent: { id: 'agent', label: '协作', icon: 'network' },
+      plan: { id: 'plan', label: '计划', icon: 'checklist' },
+      other: { id: 'other', label: '其他', icon: 'tool' },
+    }
+    function toolCategory(name) {
+      const normalized = typeof name === 'string' ? name.trim().toLowerCase() : ''
+      const leaf = normalized.split(/__|[./:]/).filter(Boolean).at(-1)?.replace(/[\s-]+/g, '_') || ''
+      // Match tool identifiers, not arbitrary substrings inside a provider's name.
+      if (/^(?:todo[/_.-](?:write|read)|todo)$/.test(normalized) || /^(?:todo_(?:write|read)|write_todos|read_todos|update_plan|set_plan|plan)$/.test(leaf)) return TOOL_CATEGORIES.plan
+      if (/^(?:ops_bash|bash|shell|terminal|exec|exec_command|run_command|execute_command|run_shell|execute_code|run_code|powershell|cmd)$/.test(leaf)) return TOOL_CATEGORIES.command
+      if (/^(?:write|write_file|writefile|edit|edit_file|editfile|apply_patch|replace_in_file|multi_edit|str_replace|str_replace_editor|create_file|delete_file|move_file|rename_file|append_file)$/.test(leaf)) return TOOL_CATEGORIES.edit
+      if (/^(?:read|read_file|readfile|read_text_file|cat|view_file|list_files|list_directory|directory_tree|get_file_info|ls)$/.test(leaf)) return TOOL_CATEGORIES.read
+      if (/^(?:read_image|view_image|open_image|imagegen|image_gen|generate_image|edit_image)$/.test(leaf)) return TOOL_CATEGORIES.image
+      if (/^(?:(?:job|process|background)_(?:kill|cancel|stop|terminate|output|status|list|wait|poll)|kill_process|list_processes|write_stdin)$/.test(leaf)) return TOOL_CATEGORIES.process
+      if (/^(?:ask_user(?:_question)?|request_user_input(?:_async)?|ask_followup_question|ask_question|question)$/.test(leaf)) return TOOL_CATEGORIES.interaction
+      if (/^(?:search|search_files|search_code|file_search|rg|grep|glob|find_files)$/.test(leaf)) return TOOL_CATEGORIES.search
+      if (/^(?:(?:spawn|delegate|handoff|send_message_to|wait|list|interrupt|followup)_agents?|spawn_subagent|send_message_to_thread|create_thread)$/.test(leaf)) return TOOL_CATEGORIES.agent
+      return TOOL_CATEGORIES.other
+    }
     function toolSummary(resources) {
       const tools = resources.filter(item => item.kind === 'tool')
       return {
@@ -556,7 +583,7 @@ window.__ModuleLoader__.load({
       }, [active, sessionId, plan, count])
       return { cancel: () => cancelInput.current() }
     }
-    function Icon({ kind, size = 16 }) {
+    function Icon({ kind, size = 16, className }) {
       const paths = {
         file: 'M6 3h8l4 4v14H6z M14 3v5h4',
         archive: 'M4 4h16v5H4z M6 9v12h12V9 M10 13h4',
@@ -564,11 +591,21 @@ window.__ModuleLoader__.load({
         memory: 'M4 8a9 9 0 1 1-1 7 M4 3v5h5 M8 12h.01 M12 14c2 0 3-1 4-2',
         skill: 'M4 4h10v12H4z M10 16v4h10V10h-6',
         github: 'M8 20v-3c-4 1-4-2-5-2 M16 20v-4c0-1-.3-2-1-2 4-.5 5-2 5-5 0-1-.3-2-1-3V3l-4 2c-2-.5-4-.5-6 0L5 3v3C4 7 4 8 4 9c0 3 1 4.5 5 5-.7 0-1 1-1 2',
-        tool: 'M9 3H5v18h4 M15 3h4v18h-4 M8 12h8',
+        toolbox: 'M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2 M4 7h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1 M3 12h7 M14 12h7 M10 11h4v3h-4z',
+        terminal: 'M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1 M7 9l3 3-3 3 M13 15h4',
+        'file-edit': 'M13 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h6 M13 3v5h5V8l-5-5 M14 17l5.5-5.5a1.4 1.4 0 0 1 2 2L16 19l-3 1z M18 13l2 2',
+        'file-read': 'M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8l-5-5 M14 3v5h5 M9 12h6 M9 16h6',
+        image: 'M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1 M3 16l5-5 4 4 3-3 6 6 M16 8a1 1 0 1 0 0 .01',
+        process: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0 M9 9h6v6H9z',
+        message: 'M21 11a8 8 0 0 1-8 8H8l-5 3V7a4 4 0 0 1 4-4h6a8 8 0 0 1 8 8 M9.5 8a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4 M12 15h.01',
+        search: 'M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0 M15 15l6 6',
+        network: 'M12 8v5 M6 17v-4h12v4 M15 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0 M9 20a3 3 0 1 1-6 0 3 3 0 0 1 6 0 M21 20a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
+        checklist: 'm3 6 2 2 3-4 M11 6h10 m-18 8 2 2 3-4 M11 14h10 M4 21h3 M11 21h10',
+        tool: 'M14 6a5 5 0 0 0-6 6L3.5 16.5a2.8 2.8 0 0 0 4 4L12 16a5 5 0 0 0 6-6l-3 3-4-4z',
         close: 'M6 6l12 12 M18 6 6 18',
         chevron: 'm7 10 5 5 5-5',
       }
-      return h('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }, h('path', { d: paths[kind] || paths.tool }))
+      return h('svg', { key: kind, className, 'data-icon': kind, width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true }, h('path', { d: paths[kind] || paths.tool }))
     }
 
     // Anchor to the conversation column, so an open right sidebar stays clear.
@@ -743,11 +780,16 @@ window.__ModuleLoader__.load({
       .dcb-tools-disclosure { overflow: hidden; }
       .dcb-tools-body { padding-top: 4px; }
       .dcb-tools-body .dcb-resource { padding-block: 5px; }
+      .dcb-tool-row .dcb-resource-label { flex: 1; min-width: 0; max-width: none; }
+      .dcb-tool-category { flex: none; color: #95918a; font-size: 10px; line-height: 16px; }
+      .dcb-tool-row .dcb-resource-detail { flex: 0 1 auto; }
+      .dcb-tool-symbol { animation: dcb-tool-icon-in 220ms cubic-bezier(.22,.8,.26,1); }
+      @keyframes dcb-tool-icon-in { from { opacity: 0; transform: translateY(6px) scale(.9); filter: blur(2px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
       .dcb-tool-summary[data-working="true"], .dcb-tool-row[data-working="true"] { color: #202020; --dcb-shimmer-base: #202020; }
       @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
         .dcb-tool-summary[data-working="true"] .dcb-tool-name { background-image: linear-gradient(100deg, var(--dcb-shimmer-base) 44%, var(--dcb-tool-sheen, #767676) 50%, var(--dcb-shimmer-base) 56%); background-size: 250% 100%; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: dcb-text-shimmer 2.4s linear infinite; }
       }
-      @media (prefers-reduced-motion: reduce), (forced-colors: active) { .dcb-tool-chevron { transition: none; } }
+      @media (prefers-reduced-motion: reduce), (forced-colors: active) { .dcb-tool-chevron { transition: none; } .dcb-tool-symbol { animation: none; } }
       .dcb-note { font-size: 11px; color: #9a9790; margin: 8px 0 0; }
       @keyframes dcb-orbit { to { transform: rotate(360deg); } }
       @keyframes dcb-ripple { 0% { transform: scale(.85); opacity: .35; } 75%, 100% { transform: scale(1.8); opacity: 0; } }
@@ -757,6 +799,7 @@ window.__ModuleLoader__.load({
       body[data-ds-dark-theme] .dcb-summary section + section { border-color: #45423b; }
       body[data-ds-dark-theme] .dcb-step, body[data-ds-dark-theme] .dcb-output, body[data-ds-dark-theme] .dcb-resource { color: #cec9bd; }
       body[data-ds-dark-theme] .dcb-tool-summary { color: #cec9bd; }
+      body[data-ds-dark-theme] .dcb-tool-category { color: #aaa294; }
       body[data-ds-dark-theme] .dcb-tool-summary:hover { background: #37352f; }
       body[data-ds-dark-theme] .dcb-tool-summary[data-working="true"], body[data-ds-dark-theme] .dcb-tool-row[data-working="true"] { color: #f2f2f2; --dcb-shimmer-base: #d2d2d2; --dcb-tool-sheen: #fff; }
       body[data-ds-dark-theme] .dcb-tool-failed { color: #e9b0a9; }
@@ -976,13 +1019,14 @@ window.__ModuleLoader__.load({
         const working = active.length > 0
         const unresolved = summary.active.reduce((sum, item) => sum + item.running, 0)
         const name = working ? `${active[0].label}${active.length > 1 ? ` +${active.length - 1}` : ''}` : '工具调用'
+        const currentCategory = working ? toolCategory(active[0].label) : null
         const count = `${summary.count} 种 · ${summary.calls} 次`
         const status = working ? `调用中 · ${summary.count} 种` : unresolved ? `未返回 · ${summary.count} 种` : count
         const title = `${working ? `正在调用 ${active.map(item => item.label).join('、')}，` : ''}${count}${summary.failed ? `，${summary.failed} 次失败` : ''}，${expanded ? '收起' : '展开'}工具明细`
         return h('div', { className: 'dcb-tools' },
           h('button', { type: 'button', className: 'dcb-tool-summary', 'aria-label': expanded ? '收起工具明细' : '展开工具明细', 'aria-expanded': expanded, 'aria-controls': id, 'data-working': working, title,
             onClick: () => update({ toolDetails: !settings.toolDetails }) },
-            h(Icon, { kind: 'tool' }), h('span', { className: 'dcb-tool-name' }, name),
+            h(Icon, { kind: currentCategory?.icon || 'toolbox', className: 'dcb-tool-symbol' }), h('span', { className: 'dcb-tool-name' }, name),
             h('span', { className: 'dcb-tool-count' }, status),
             summary.failed > 0 && h('span', { className: 'dcb-tool-failed' }, `失败 ${summary.failed}`),
             h('span', { className: 'dcb-tool-chevron', 'aria-hidden': true }, h(Icon, { kind: 'chevron', size: 12 }))),
@@ -990,7 +1034,8 @@ window.__ModuleLoader__.load({
             h('div', { className: 'dcb-tools-body', ref: disclosure.body }, summary.tools.map(item => {
               const state = item.running > 0 ? running ? `调用中${item.running > 1 ? ` ${item.running}` : ''}` : '未返回' : item.failed ? `失败 ${item.failed}` : '已使用'
               const detail = `${item.count} 次 · ${state}${item.running > 0 && item.failed ? ` · 失败 ${item.failed}` : ''}`
-              return h('div', { className: 'dcb-resource dcb-tool-row', key: item.label, 'data-working': running && item.running > 0 }, h(Icon, { kind: 'tool' }), h('span', { className: 'dcb-resource-label', title: item.label }, item.label), h('span', { className: 'dcb-resource-detail', title: detail }, detail))
+              const category = toolCategory(item.label)
+              return h('div', { className: 'dcb-resource dcb-tool-row', key: item.label, 'data-tool-category': category.id, 'data-working': running && item.running > 0, title: `${category.label} · ${item.label}` }, h(Icon, { kind: category.icon, className: 'dcb-tool-symbol' }), h('span', { className: 'dcb-resource-label', title: item.label }, item.label), h('span', { className: 'dcb-tool-category' }, category.label), h('span', { className: 'dcb-resource-detail', title: detail }, detail))
             }))))
       }
       function Summary({ sessionId, useProjection, useTaskActivity, useSession, openOutput, readThumbnail }) {
@@ -1296,6 +1341,6 @@ window.__ModuleLoader__.load({
         stylePreviewListeners.clear()
       }, `${NAME}: presentation`)
     }
-    return { apply, inject: ['slots'], __test: { normalize, placement, activityFrom, activitySource, turnActivityFrom, toolSummary, progressItems, fileAddress, imageExtension, tileLabel, mimeFor } }
+    return { apply, inject: ['slots'], __test: { normalize, placement, activityFrom, activitySource, turnActivityFrom, toolSummary, toolCategory, progressItems, fileAddress, imageExtension, tileLabel, mimeFor } }
   },
 })

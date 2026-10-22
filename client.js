@@ -10,19 +10,20 @@ window.__ModuleLoader__.load({
     const KEY = `${NAME}:settings:v1`
     const PANEL = '[data-testid="todo-panel"]'
     const MARK = 'data-dcb-task-panel'
-    const DEFAULTS = { enabled: true, width: 320 }
+    const DEFAULTS = { enabled: true, width: 320, modules: { progress: true, outputs: true, resources: true } }
     const VARIABLES = ['--dcb-left', '--dcb-top', '--dcb-width', '--dcb-list-height']
 
     function normalize(value) {
       return {
         enabled: typeof value?.enabled === 'boolean' ? value.enabled : true,
         width: Number.isFinite(value?.width) ? Math.round(Math.max(280, Math.min(480, value.width))) : 320,
+        modules: Object.fromEntries(Object.keys(DEFAULTS.modules).map(key => [key, typeof value?.modules?.[key] === 'boolean' ? value.modules[key] : true])),
       }
     }
 
     function readSettings() {
       try { return normalize(JSON.parse(window.localStorage.getItem(KEY))) }
-      catch { return { ...DEFAULTS } }
+      catch { return normalize(null) }
     }
 
     const h = React.createElement
@@ -329,7 +330,6 @@ window.__ModuleLoader__.load({
       const observed = new Set()
       const summaryOwners = new Map()
       const openedBySession = new Map()
-      const modulesBySession = new Map()
       // Sessions whose card already auto-opened once, so a manual close stays closed.
       const inferenceRuns = new Map()
       const style = document.createElement('style')
@@ -431,7 +431,7 @@ window.__ModuleLoader__.load({
               : h('p', null, '推理滑块插件（dsh-claude-slider）未启用，这里只显示任务面板设置。')),
           h('section', { className: 'dcb-settings-block', 'data-dcb-settings-block': 'panel' },
             h('h2', null, '任务面板'),
-            h('p', null, '鼠标移到右上角入口即可查看当前会话的进度、输出和已使用的工具，点击入口可固定展开。点击各栏目标题可分别展开或收起。每轮推理开始时卡片自动下拉展开，本轮手动收起后不再反复弹出，下一轮重新展开。'),
+            h('p', null, '鼠标移到右上角入口即可查看当前会话的进度、输出和已使用的工具，点击入口可固定展开。点击各栏目标题可分别展开或收起，下次打开会记住各栏目的选择。每轮推理开始时卡片自动下拉展开，本轮手动收起后不再反复弹出，下一轮重新展开。'),
             h('label', null, h('input', { type: 'checkbox', checked: settings.enabled,
               onChange: event => update({ enabled: event.target.checked }) }), '启用右上角任务面板'),
             h('label', null, '面板宽度', h('input', { type: 'range', min: 280, max: 480, step: 10,
@@ -458,17 +458,19 @@ window.__ModuleLoader__.load({
         const running = useSession ? useSession(value => value.running) === true : todos.some(item => item.status === 'in_progress')
         const [openState, setOpenState] = React.useState(() => ({ sessionId, value: openedBySession.get(sessionId) ?? false }))
         const [hoverSession, setHoverSession] = React.useState(null)
+        const [exitingSession, setExitingSession] = React.useState(null)
         const [history, setHistory] = React.useState(null)
-        const [moduleState, setModuleState] = React.useState(() => ({ sessionId, values: modulesBySession.get(sessionId) || { progress: true, outputs: true, resources: true } }))
         const [reveal, setReveal] = React.useState(0)
         const [, refresh] = React.useReducer(value => value + 1, 0)
         const anchor = React.useRef(null)
         const button = React.useRef(null)
         const card = React.useRef(null)
         const hoverTimer = React.useRef(null)
+        const dropdown = React.useRef(null)
         const pinned = openState.sessionId === sessionId ? openState.value : openedBySession.get(sessionId) ?? false
         const open = pinned || hoverSession === sessionId
-        const modules = moduleState.sessionId === sessionId ? moduleState.values : modulesBySession.get(sessionId) || { progress: true, outputs: true, resources: true }
+        const present = open || exitingSession === sessionId
+        const modules = settings.modules
         const hasContent = todos.length > 0 || activity.files.length > 0 || activity.resources.length > 0
         const visible = settings.enabled && hasContent
         const expanded = history === sessionId
@@ -479,7 +481,12 @@ window.__ModuleLoader__.load({
         // Hover previews must not overwrite the persistent per-session open state.
         React.useEffect(() => {
           setHoverSession(null)
+          setExitingSession(null)
           return () => window.clearTimeout(hoverTimer.current)
+        }, [sessionId, visible])
+        React.useLayoutEffect(() => () => {
+          dropdown.current?.cancel()
+          dropdown.current = null
         }, [sessionId, visible])
         // Open once per inference run, never again after a manual close in that run.
         // Keep a pending reveal when the run starts before any real panel content arrives.
@@ -493,16 +500,38 @@ window.__ModuleLoader__.load({
           run.revealed = true
           openedBySession.set(sessionId, true)
           setOpenState({ sessionId, value: true })
+          setExitingSession(null)
           setReveal(value => value + 1)
         }, [sessionId, visible, running])
         React.useLayoutEffect(() => {
-          if (!open || !visible || !card.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-          const animation = card.current.animate([
-            { opacity: 0, transform: 'translateY(-6px)', clipPath: 'inset(0 0 100% 0 round 14px)' },
-            { opacity: 1, transform: 'translateY(0)', clipPath: 'inset(0 0 0 0 round 14px)' },
-          ], { id: 'dcb-dropdown', duration: 240, easing: 'cubic-bezier(.2,.7,.25,1)' })
-          return () => animation.cancel()
-        }, [sessionId, open, visible, reveal])
+          const node = card.current
+          const previous = dropdown.current
+          const hidden = { opacity: 0, transform: 'translateY(-6px)', clipPath: 'inset(0 0 100% 0 round 14px)' }
+          const shown = { opacity: 1, transform: 'translateY(0)', clipPath: 'inset(0 0 0 0 round 14px)' }
+          let from = open ? hidden : shown
+          // Read the current animated frame before canceling so rapid re-entry is continuous.
+          if (previous?.effect?.target === node && node) {
+            const style = getComputedStyle(node)
+            from = { opacity: style.opacity, transform: style.transform, clipPath: style.clipPath }
+          }
+          previous?.cancel()
+          dropdown.current = null
+          if (!present || !visible || !node) return
+          if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            if (!open) setExitingSession(null)
+            return
+          }
+          const animation = node.animate([from, open ? shown : hidden], {
+            id: open ? 'dcb-dropdown' : 'dcb-hover-dismiss', duration: open ? 240 : 180,
+            easing: open ? 'cubic-bezier(.2,.7,.25,1)' : 'cubic-bezier(.4,0,.7,1)', fill: 'forwards',
+          })
+          dropdown.current = animation
+          animation.finished.then(() => {
+            if (dropdown.current !== animation) return
+            if (open) { dropdown.current = null; animation.cancel() }
+            else setExitingSession(null)
+          }).catch(() => {})
+        }, [sessionId, open, present, visible, reveal])
         React.useEffect(() => {
           if (!visible) return
           summaryOwners.set(sessionId, (summaryOwners.get(sessionId) || 0) + 1)
@@ -531,7 +560,7 @@ window.__ModuleLoader__.load({
           return () => { observer.disconnect(); window.removeEventListener('resize', size) }
         }, [sessionId, visible, settings.width])
         if (!visible) return null
-        const setOpen = value => { window.clearTimeout(hoverTimer.current); setHoverSession(null); openedBySession.set(sessionId, value); setOpenState({ sessionId, value }) }
+        const setOpen = value => { window.clearTimeout(hoverTimer.current); setHoverSession(null); setExitingSession(null); openedBySession.set(sessionId, value); setOpenState({ sessionId, value }) }
         const close = () => { setOpen(false); button.current?.focus() }
         const closeControl = h('button', { type: 'button', className: 'dcb-close', 'aria-label': '关闭进度面板', onClick: close }, h(Icon, { kind: 'close', size: 16 }))
         const cardId = `${NAME}-summary-${sessionId}`
@@ -547,27 +576,33 @@ window.__ModuleLoader__.load({
           const expanded = modules[kind]
           const contentId = `${cardId}-${kind}`
           const toggle = () => {
-            const values = { ...modules, [kind]: !expanded }
-            modulesBySession.set(sessionId, values)
-            setModuleState({ sessionId, values })
+            update({ modules: { ...settings.modules, [kind]: !settings.modules[kind] } })
           }
           return h('section', { key: kind, 'data-testid': `dcb-${kind}`, 'data-collapsed': !expanded },
             h('h3', null, h('button', { type: 'button', className: 'dcb-module-toggle', 'aria-expanded': expanded, 'aria-controls': contentId, onClick: toggle }, label, h(Icon, { kind: 'chevron', size: 14 })), withClose && closeControl),
             collapsible(contentId, expanded, h('div', { className: 'dcb-module-body' }, children), 'dcb-module-content'))
         }
         return h('div', { className: 'dcb-anchor', ref: anchor, 'data-dcb-summary-for': sessionId,
-          onPointerEnter: event => { if (event.pointerType === 'mouse') { window.clearTimeout(hoverTimer.current); setHoverSession(sessionId) } },
-          onPointerLeave: event => {
+          onPointerEnter: event => {
             if (event.pointerType !== 'mouse') return
             window.clearTimeout(hoverTimer.current)
+            setExitingSession(null)
+            if (!pinned) setHoverSession(sessionId)
+          },
+          onPointerLeave: event => {
+            if (event.pointerType !== 'mouse' || hoverSession !== sessionId || pinned) return
+            window.clearTimeout(hoverTimer.current)
             hoverTimer.current = window.setTimeout(() => {
-              if (!card.current?.contains(document.activeElement)) setHoverSession(value => value === sessionId ? null : value)
+              if (!openedBySession.get(sessionId) && !card.current?.contains(document.activeElement)) {
+                setExitingSession(sessionId)
+                setHoverSession(null)
+              }
             }, 220)
           },
           onKeyDown: event => { if (event.key === 'Escape' && open) { event.stopPropagation(); close() } } },
           h('button', { type: 'button', className: 'dcb-entry', ref: button, 'data-working': working, title: '会话进度与输出', 'aria-label': '会话进度与输出', 'aria-expanded': open, 'aria-controls': cardId, onClick: () => setOpen(!pinned) },
             h(Icon, { kind: 'file', size: 16 }), h('span', { 'aria-live': 'polite', 'aria-atomic': true }, entryLabel)),
-          open && h('aside', { className: 'dcb-summary', ref: card, id: cardId, 'aria-label': '会话进度与输出', 'data-testid': 'dcb-summary' },
+          present && h('aside', { key: sessionId, className: 'dcb-summary', ref: card, id: cardId, 'aria-label': '会话进度与输出', 'aria-hidden': !open, inert: !open, 'data-state': open ? 'open' : 'closing', 'data-testid': 'dcb-summary' },
             todos.length > 0 && section('progress', '进度',
               h(React.Fragment, null,
                 progress.hidden > 0 && h(React.Fragment, null,

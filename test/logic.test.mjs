@@ -19,6 +19,9 @@ test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize({ width: Infinity }).width, 320)
   assert.equal(normalize({ width: 999 }).width, 480)
   assert.equal(normalize({ width: -1, enabled: false }).width, 280)
+  const modules = normalize({ width: 400, modules: { progress: false, outputs: 'false', unrelated: false } }).modules
+  assert.deepEqual(Object.entries(modules), [['progress', false], ['outputs', true], ['resources', true]])
+  assert.equal(normalize({ enabled: false, width: 400 }).modules.progress, true, 'Existing preferences without module fields retain the expanded defaults')
 })
 
 const entry = (type, data, seq = 1) => ({ event: { type, data, seq } })

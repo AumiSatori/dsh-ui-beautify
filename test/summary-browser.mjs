@@ -23,14 +23,17 @@ const server = createServer((req, res) => {
 await new Promise(done => server.listen(0, '127.0.0.1', done))
 const url = `http://127.0.0.1:${server.address().port}`
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome' })
-const page = await browser.newPage({ viewport: { width: 1706, height: 1018 }, deviceScaleFactor: 1.5 })
+const context = await browser.newContext({ viewport: { width: 1706, height: 1018 }, deviceScaleFactor: 1.5 })
+const page = await context.newPage()
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 await page.addInitScript(() => {
   window.dropdownReveals = []
+  window.hoverDismissals = []
   const animate = Element.prototype.animate
   Element.prototype.animate = function(frames, options) {
     if (options?.id === 'dcb-dropdown') window.dropdownReveals.push({ target: this.id, frames, duration: options.duration })
+    if (options?.id === 'dcb-hover-dismiss') window.hoverDismissals.push({ target: this.id, frames, duration: options.duration })
     return animate.call(this, frames, options)
   }
 })
@@ -52,16 +55,15 @@ event('deliverables/presented', { files: [{ path: 'outputs/Animation preview.zip
 call('web', 'web_search', { query: 'animation' })
 call('memory', 'read', { path: '/work/memory/Character Setting.md' })
 call('skill', 'skill', { name: 'remotion-best-practices' })
-try {
-  await page.goto(url)
-  await page.getByTestId('todo-panel').waitFor()
-  await page.evaluate(() => {
+async function mountPlugin(target = page) {
+  await target.getByTestId('todo-panel').waitFor()
+  await target.evaluate(() => {
     window.openedResources = []
     window.cleanups = []
     window.__ModuleLoader__ = { load(spec) { window.plugin = spec.factory(() => window.fixtureReact) } }
   })
-  await page.addScriptTag({ url: `${url}/client.js` })
-  await page.evaluate(() => {
+  await target.addScriptTag({ url: `${url}/client.js` })
+  await target.evaluate(() => {
     const png = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII='), character => character.charCodeAt(0))
     const workspaceFiles = {
       stat: async (_session, path) => ({ ok: true, value: { absolutePath: path, bytes: path.endsWith('master.png') ? 9 * 1024 * 1024 : 68 } }),
@@ -85,7 +87,11 @@ try {
     window.plugin.apply(ctx)
     window.fixture.refresh()
   })
-  await page.getByRole('button', { name: '会话进度与输出', exact: true }).waitFor()
+  await target.getByRole('button', { name: '会话进度与输出', exact: true }).waitFor()
+}
+try {
+  await page.goto(url)
+  await mountPlugin()
   await settled()
   assert.equal(await card.count(), 0, 'Idle history does not automatically open the panel')
   await page.evaluate(() => window.fixture.update([
@@ -145,6 +151,92 @@ try {
     await settled()
     assert.equal(await card.count(), 0, 'Hover previews are not persisted when returning to a session')
     await outside()
+  })
+  await check('hover dismissal fades and retracts before unmounting, and re-entry reverses the current frame', async () => {
+    const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
+    const outside = () => page.mouse.move(40, 400)
+    const waitClosing = () => page.waitForFunction(() => document.querySelector('.dcb-summary')?.dataset.state === 'closing')
+    await entry.hover()
+    await settled()
+    await outside()
+    await waitClosing()
+    const samples = await page.evaluate(async () => {
+      const node = document.querySelector('.dcb-summary')
+      const frames = []
+      await new Promise(done => {
+        const sample = () => {
+          if (!node.isConnected) { done(); return }
+          const style = getComputedStyle(node)
+          frames.push({ opacity: Number(style.opacity), top: node.getBoundingClientRect().top, clip: style.clipPath })
+          requestAnimationFrame(sample)
+        }
+        sample()
+      })
+      return frames
+    })
+    assert.ok(samples.length >= 4, 'The card stays mounted through multiple exit frames')
+    assert.ok(samples.some(frame => frame.opacity > 0 && frame.opacity < 1))
+    assert.ok(samples.slice(1).every((frame, index) => frame.opacity <= samples[index].opacity + .001))
+    assert.ok(samples.at(-1).top < samples[0].top, 'The card retracts upward as it fades')
+    assert.notEqual(samples.at(-1).clip, samples[0].clip)
+    assert.equal(await card.count(), 0)
+    assert.equal(await page.evaluate(() => window.hoverDismissals.at(-1).duration), 180)
+    await entry.hover()
+    await settled()
+    await outside()
+    await waitClosing()
+    const before = await card.evaluate(el => {
+      window.hoverCardNode = el
+      const animation = el.getAnimations().find(value => value.id === 'dcb-hover-dismiss')
+      animation.pause()
+      animation.currentTime = 80
+      const style = getComputedStyle(el)
+      return { opacity: Number(style.opacity), clip: style.clipPath }
+    })
+    assert.ok(before.opacity > 0 && before.opacity < 1)
+    assert.equal(await card.getAttribute('aria-hidden'), 'true')
+    assert.equal(await card.evaluate(el => el.inert), true, 'Exiting content is excluded from keyboard and assistive interaction')
+    await card.screenshot({ path: resolve(output, 'summary-hover-exit-midway.png') })
+    await entry.hover()
+    const resumed = await card.evaluate(el => {
+      const frame = el.getAnimations().find(value => value.id === 'dcb-dropdown').effect.getKeyframes()[0]
+      return { opacity: Number(frame.opacity), clip: frame.clipPath, sameNode: el === window.hoverCardNode }
+    })
+    assert.ok(Math.abs(resumed.opacity - before.opacity) < .001, 'Re-entry continues from the exit opacity instead of jumping')
+    assert.equal(resumed.clip, before.clip)
+    assert.equal(resumed.sameNode, true, 'Re-entry retains the card and its thumbnails')
+    await settled()
+    await page.waitForTimeout(220)
+    assert.equal(await card.getAttribute('aria-hidden'), 'false')
+    assert.equal(await card.evaluate(el => el.inert), false)
+    await outside()
+    await waitClosing()
+    await page.evaluate(() => window.fixture.running(true))
+    await settled()
+    await page.waitForTimeout(220)
+    assert.equal(await card.getAttribute('data-state'), 'open', 'A new inference cancels an in-flight hover dismissal')
+    await page.evaluate(() => window.fixture.running(false))
+    await card.getByRole('button', { name: '关闭进度面板' }).click()
+    await outside()
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    const beforeReduced = await page.evaluate(() => window.hoverDismissals.length)
+    await entry.hover()
+    await settled()
+    await outside()
+    await card.waitFor({ state: 'hidden' })
+    assert.equal(await page.evaluate(() => window.hoverDismissals.length), beforeReduced, 'Reduced motion skips the exit animation')
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await entry.hover()
+    await settled()
+    await outside()
+    await waitClosing()
+    await page.evaluate(() => window.fixture.session('b'))
+    await settled()
+    await page.waitForTimeout(220)
+    assert.equal(await card.count(), 0, 'Session switches remove the old card and cancel its exit completion')
+    await page.evaluate(() => window.fixture.session('a'))
+    await settled()
+    assert.equal(await card.count(), 0)
   })
   await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
   await card.waitFor()
@@ -560,7 +652,7 @@ try {
     assert.equal(await card.locator('.dcb-output').count(), 0)
     assert.equal(await card.locator('.dcb-resource').count(), 0)
     assert.ok(await card.getByText('第二个会话的任务', { exact: true }).count())
-    assert.equal(await card.getByRole('button', { name: '进度', exact: true }).getAttribute('aria-expanded'), 'true', 'A new session does not inherit collapsed modules')
+    assert.equal(await card.getByRole('button', { name: '进度', exact: true }).getAttribute('aria-expanded'), 'true', 'A new session uses the saved module preferences')
     await card.getByRole('button', { name: '进度', exact: true }).click()
     await settled()
     await page.evaluate(() => window.fixture.session('empty'))
@@ -575,12 +667,15 @@ try {
     assert.equal(await card.getByTestId('dcb-progress').count(), 0)
     await page.evaluate(() => window.fixture.session('a'))
     await settled()
-    assert.equal(await card.getByRole('button', { name: '本次会话中已使用' }).getAttribute('aria-expanded'), 'false', 'Returning restores only this session\'s module choices')
+    assert.equal(await card.getByRole('button', { name: '本次会话中已使用' }).getAttribute('aria-expanded'), 'false', 'A saved collapsed module remains collapsed across sessions')
     await card.getByRole('button', { name: '本次会话中已使用' }).click()
     await page.evaluate(() => window.fixture.update([
       { content: '整理需求', status: 'completed' }, { content: '准备工程', status: 'completed' },
       { content: '制作并渲染动画', status: 'completed' }, { content: '检查成片并交付', status: 'completed' },
     ]))
+    await settled()
+    assert.equal(await card.getByRole('button', { name: '进度', exact: true }).getAttribute('aria-expanded'), 'false', 'Display preferences follow the user while task data stays session-scoped')
+    await card.getByRole('button', { name: '进度', exact: true }).click()
     await settled()
   })
   await check('dark theme and phone view preserve compact fonts and natural height', async () => {
@@ -611,6 +706,55 @@ try {
     const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
     assert.ok(!stored.includes('Character') && !stored.includes('Animation'))
     await page.evaluate(() => window.fixture.settings(false))
+  })
+  await check('module choices survive reopening and reload, synchronize across windows, and persist no task data', async () => {
+    const toggles = panel => panel.locator('.dcb-module-toggle').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-expanded')))
+    await card.getByRole('button', { name: '进度', exact: true }).click()
+    await card.getByRole('button', { name: '输出', exact: true }).click()
+    await settled()
+    assert.deepEqual(await toggles(card), ['false', 'false', 'true'])
+    await card.getByRole('button', { name: '关闭进度面板' }).click()
+    await page.mouse.move(40, 400)
+    await page.getByRole('button', { name: '会话进度与输出', exact: true }).hover()
+    await card.waitFor()
+    assert.deepEqual(await toggles(card), ['false', 'false', 'true'], 'Hover opening preserves saved folds')
+    await page.evaluate(() => window.fixture.running(true))
+    await settled()
+    assert.deepEqual(await toggles(card), ['false', 'false', 'true'], 'Inference opening preserves saved folds')
+    await page.mouse.move(40, 400)
+    await page.reload()
+    await mountPlugin()
+    await settled()
+    assert.equal(await card.count(), 0, 'Saving module preferences does not force idle cards to open after reload')
+    await page.evaluate(rows => window.fixture.records(rows), rows)
+    await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
+    await settled()
+    assert.deepEqual(await toggles(card), ['false', 'false', 'true'], 'A fresh plugin instance restores the saved folds')
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))
+    assert.deepEqual(Object.keys(stored).sort(), ['enabled', 'modules', 'width'])
+    assert.deepEqual(stored.modules, { progress: false, outputs: false, resources: true })
+    const other = await page.context().newPage()
+    other.on('pageerror', error => errors.push(error.message))
+    try {
+      await other.goto(url)
+      await mountPlugin(other)
+      await other.evaluate(rows => window.fixture.records(rows), rows)
+      await other.getByRole('button', { name: '会话进度与输出', exact: true }).click()
+      const otherCard = other.getByTestId('dcb-summary')
+      assert.deepEqual(await toggles(otherCard), ['false', 'false', 'true'], 'Another window restores the same preferences')
+      await otherCard.getByRole('button', { name: '进度', exact: true }).click()
+      await page.waitForFunction(() => document.querySelector('[data-testid="dcb-progress"] .dcb-module-toggle').getAttribute('aria-expanded') === 'true')
+      await settled()
+      assert.deepEqual(await toggles(card), ['true', 'false', 'true'], 'A change in another window updates only the shared presentation preference')
+      await card.screenshot({ path: resolve(output, 'summary-remembered-folds.png') })
+    } finally { await other.close() }
+    await page.mouse.move(40, 400)
+    await page.reload()
+    await mountPlugin()
+    await page.evaluate(rows => window.fixture.records(rows), rows)
+    await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
+    await settled()
+    assert.deepEqual(await toggles(card), ['true', 'false', 'true'], 'Re-expanding a module also survives reload')
   })
   assert.deepEqual(errors, [])
   console.log(JSON.stringify({ passed, output }))

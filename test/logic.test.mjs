@@ -41,6 +41,35 @@ test('card styles migrate to milk by default and retain all three supported pres
   assert.equal(migrated.toolDetails, true)
 })
 
+test('liquid normal maps keep the center neutral and bend opposing edges smoothly in opposite directions', () => {
+  const map = exports.__test.createLiquidNormalMap(320, 220, 14)
+  const pixel = (x, y) => Array.from(map.data.slice((y * map.width + x) * 4, (y * map.width + x) * 4 + 4))
+  assert.deepEqual([map.width, map.height, map.data.length], [320, 220, 320 * 220 * 4])
+  for (const [x, y] of [[80, 60], [160, 110], [240, 160]]) assert.deepEqual(pixel(x, y), [128, 128, 128, 255], 'Interior pixels displace neither axis')
+  const left = pixel(4, 110), right = pixel(315, 110), top = pixel(160, 4), bottom = pixel(160, 215)
+  assert.ok((left[0] - 128) * (right[0] - 128) < 0, 'Opposite vertical rims refract in opposite horizontal directions')
+  assert.ok((top[1] - 128) * (bottom[1] - 128) < 0, 'Opposite horizontal rims refract in opposite vertical directions')
+  assert.equal(left[1], 128)
+  assert.equal(top[0], 128)
+  const edgeRamp = Array.from({ length: 25 }, (_, x) => pixel(x, 110)[0])
+  assert.ok(new Set(edgeRamp).size >= 10, 'The curved edge has a graded normal instead of one hard displacement step')
+  assert.ok(edgeRamp.slice(1).every((value, index) => Math.abs(value - edgeRamp[index]) < 40), 'Adjacent edge pixels avoid angular jumps')
+  for (let index = 3; index < map.data.length; index += 4) assert.equal(map.data[index], 255)
+})
+
+test('liquid normal maps bound raster memory for large cards and retain a neutral center on small cards', () => {
+  for (const [width, height] of [[4000, 12000], [10000, 20], [20, 10000]]) {
+    const map = exports.__test.createLiquidNormalMap(width, height, 14)
+    assert.ok(map.width > 0 && map.width <= 1024)
+    assert.ok(map.height > 0 && map.height <= 2048)
+    assert.ok(map.width * map.height <= 1048576)
+    assert.equal(map.data.length, map.width * map.height * 4)
+  }
+  const small = exports.__test.createLiquidNormalMap(24, 18, 14)
+  const center = (Math.floor(small.height / 2) * small.width + Math.floor(small.width / 2)) * 4
+  assert.deepEqual(Array.from(small.data.slice(center, center + 4)), [128, 128, 128, 255])
+})
+
 const entry = (type, data, seq = 1) => ({ event: { type, data, seq } })
 const call = (id, name, args) => entry('tool/call', { callId: id, name, arguments: JSON.stringify(args) })
 const result = (id, isError = false) => entry('tool/result', { message: { source: { callId: id }, isError } })

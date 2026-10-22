@@ -628,6 +628,199 @@ window.__ModuleLoader__.load({
       }
     }
 
+    function createLiquidNormalMap(width, height, radius = 14) {
+      const requestedWidth = Number.isFinite(Number(width)) ? Math.max(1, Math.round(Number(width))) : 1
+      const requestedHeight = Number.isFinite(Number(height)) ? Math.max(1, Math.round(Number(height))) : 1
+      const ratio = Math.min(1, 1024 / requestedWidth, 2048 / requestedHeight, Math.sqrt(1048576 / (requestedWidth * requestedHeight)))
+      width = Math.max(1, Math.floor(requestedWidth * ratio))
+      height = Math.max(1, Math.floor(requestedHeight * ratio))
+      radius = Math.max(0, Math.min((Number.isFinite(Number(radius)) ? Number(radius) : 0) * ratio, width / 2, height / 2))
+      const band = Math.max(.5, Math.min(24 * ratio, width / 3, height / 3))
+      const data = new Uint8ClampedArray(width * height * 4)
+      for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+        const px = x + .5 - width / 2, py = y + .5 - height / 2
+        const qx = Math.abs(px) - (width / 2 - radius), qy = Math.abs(py) - (height / 2 - radius)
+        const ox = Math.max(qx, 0), oy = Math.max(qy, 0), outside = Math.hypot(ox, oy)
+        const distance = -(outside + Math.min(Math.max(qx, qy), 0) - radius)
+        let nx = 0, ny = 0
+        if (outside > 0) { nx = ox / outside * Math.sign(px); ny = oy / outside * Math.sign(py) }
+        else if (qx > qy) nx = Math.sign(px)
+        else ny = Math.sign(py)
+        const weight = distance >= 0 && distance < band ? Math.cos(distance / band * Math.PI / 2) ** 2 : 0
+        const offset = (y * width + x) * 4
+        data[offset] = Math.round(128 + nx * 127 * weight)
+        data[offset + 1] = Math.round(128 + ny * 127 * weight)
+        data[offset + 2] = 128
+        data[offset + 3] = 255
+      }
+      return { width, height, data }
+    }
+
+    function createLiquidGlassManager(document, window) {
+      const supported = /(?:Chrome|Chromium)\//.test(window.navigator?.userAgent || '') &&
+        window.CSS?.supports?.('backdrop-filter', 'url("#dcb-liquid-probe")') && typeof window.ResizeObserver === 'function'
+      if (!supported) return { sync() {}, dispose() {} }
+      const namespace = 'http://www.w3.org/2000/svg'
+      const prefix = `dcb-liquid-${Math.random().toString(36).slice(2, 10)}`
+      const records = new Map(), cache = new Map()
+      const forced = window.matchMedia('(forced-colors: active)')
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)')
+      let disposed = false, svg = null, defs = null, serial = 0, lastElements = []
+      const create = (name, attributes = {}) => {
+        const node = document.createElementNS(namespace, name)
+        for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, String(value))
+        return node
+      }
+      const geometry = element => {
+        const width = Math.round(element.offsetWidth), height = Math.round(element.offsetHeight)
+        if (!width || !height || !element.getClientRects().length) return null
+        const value = window.getComputedStyle(element).borderTopLeftRadius
+        const radius = parseFloat(value) * (value.endsWith('%') ? Math.min(width, height) / 100 : 1) || 0
+        return { width, height, radius, key: `${width}:${height}:${radius}` }
+      }
+      const ensureDefs = () => {
+        if (defs) return
+        svg = create('svg', { width: 0, height: 0, 'aria-hidden': true, focusable: false, 'data-dcb-liquid-defs': '' })
+        svg.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none'
+        defs = create('defs'); svg.append(defs); document.body.append(svg)
+      }
+      const cachedMap = shape => {
+        if (cache.has(shape.key)) {
+          const value = cache.get(shape.key); cache.delete(shape.key); cache.set(shape.key, value); return value
+        }
+        const map = createLiquidNormalMap(shape.width, shape.height, shape.radius)
+        const canvas = document.createElement('canvas'); canvas.width = map.width; canvas.height = map.height
+        const context = canvas.getContext('2d')
+        if (!context) throw new Error('Canvas is unavailable')
+        const image = context.createImageData(map.width, map.height); image.data.set(map.data); context.putImageData(image, 0, 0)
+        const url = canvas.toDataURL('image/png')
+        // Decode before exposing the SVG filter, so an empty map cannot shift the
+        // whole backdrop while its image is still loading.
+        const bitmap = new window.Image(); bitmap.src = url
+        const ready = typeof bitmap.decode === 'function' ? bitmap.decode() : Promise.resolve()
+        const value = { url, ready }; cache.set(shape.key, value)
+        while (cache.size > 8) cache.delete(cache.keys().next().value)
+        return value
+      }
+      const setScale = (record, scale) => {
+        const value = String(Math.round(Math.max(0, Math.min(12, scale)) * 1000) / 1000)
+        if (record.displacement.getAttribute('scale') !== value) record.displacement.setAttribute('scale', value)
+      }
+      const remove = record => {
+        if (records.get(record.element) !== record) return
+        records.delete(record.element); record.live = false
+        resize.unobserve(record.element)
+        if (record.frame) window.cancelAnimationFrame(record.frame)
+        if (record.resizeTimer) window.clearTimeout(record.resizeTimer)
+        record.filter.remove()
+        if (record.previousFilter) record.element.style.setProperty('--dcb-liquid-filter', record.previousFilter, record.previousPriority)
+        else record.element.style.removeProperty('--dcb-liquid-filter')
+        for (const name of ['data-dcb-liquid', 'data-dcb-liquid-map', 'data-dcb-liquid-generation']) record.element.removeAttribute(name)
+        if (!records.size) { svg?.remove(); svg = defs = null }
+      }
+      const eligible = element => element?.isConnected && element.getClientRects().length > 0
+      const tick = record => {
+        if (record.frame) window.cancelAnimationFrame(record.frame)
+        record.frame = 0
+        if (disposed || !record.live || forced.matches || !eligible(record.element)) { remove(record); return }
+        if (!record.ready) return
+        const style = window.getComputedStyle(record.element)
+        const parsed = Number.parseFloat(style.getPropertyValue('--dcb-refraction-scale'))
+        const scale = reduced.matches || !Number.isFinite(parsed) ? record.target : parsed
+        setScale(record, scale)
+        const transitions = record.element.getAnimations().filter(animation => animation.transitionProperty === '--dcb-refraction-scale' && !['finished', 'idle'].includes(animation.playState))
+        for (const animation of transitions) if (!record.watched.has(animation)) {
+          record.watched.add(animation)
+          animation.finished.then(() => { if (record.live && !disposed) tick(record) }).catch(() => {})
+        }
+        if (!record.target && scale < .01 && !transitions.length) { remove(record); return }
+        // Sampling is finite and runs only during a material handoff. A paused
+        // test transition keeps its sampled value; its finish promise settles it.
+        if (!reduced.matches && window.performance.now() < record.deadline && (transitions.length || Math.abs(scale - record.target) > .01)) record.frame = window.requestAnimationFrame(() => tick(record))
+      }
+      const applyGeometry = (record, shape) => {
+        if (!shape || !record.live || shape.key === record.key) return
+        let map
+        try { map = cachedMap(shape) } catch { dispose(); return }
+        record.key = shape.key; record.generation++; record.ready = false
+        record.element.setAttribute('data-dcb-liquid-map', `${shape.width}x${shape.height}`)
+        record.element.setAttribute('data-dcb-liquid-generation', String(record.generation))
+        map.ready.then(() => {
+          if (disposed || !record.live || record.key !== shape.key || !eligible(record.element)) return
+          record.image.setAttribute('width', shape.width); record.image.setAttribute('height', shape.height)
+          record.image.setAttribute('href', map.url)
+          record.ready = true
+          record.element.style.setProperty('--dcb-liquid-filter', `url("#${record.id}")`)
+          tick(record)
+        }, dispose)
+      }
+      const queueGeometry = record => {
+        if (!record?.live) return
+        if (record.resizeTimer) window.clearTimeout(record.resizeTimer)
+        record.resizeTimer = window.setTimeout(() => {
+          record.resizeTimer = 0
+          if (!record.live || disposed) return
+          if (!eligible(record.element)) { remove(record); return }
+          applyGeometry(record, geometry(record.element))
+        }, 100)
+      }
+      const resize = new window.ResizeObserver(entries => {
+        for (const { target } of entries) {
+          const record = records.get(target)
+          if (record && geometry(target)?.key !== record.key) queueGeometry(record)
+        }
+      })
+      const sync = elements => {
+        if (disposed) return
+        lastElements = Array.from(elements || [])
+        const incoming = new Set(lastElements)
+        for (const record of records.values()) if (forced.matches || !incoming.has(record.element) || !eligible(record.element)) remove(record)
+        if (forced.matches) return
+        for (const element of lastElements) {
+          if (!eligible(element)) continue
+          const target = element.getAttribute('data-card-style') === 'clear' ? 12 : 0
+          let record = records.get(element)
+          if (!target && !record) continue
+          if (!record) {
+            const shape = geometry(element)
+            if (!shape) continue
+            ensureDefs()
+            const id = `${prefix}-${++serial}`
+            const filter = create('filter', { id, x: 0, y: 0, width: '100%', height: '100%', 'color-interpolation-filters': 'sRGB' })
+            const image = create('feImage', { x: 0, y: 0, preserveAspectRatio: 'none', result: 'normal' })
+            const displacement = create('feDisplacementMap', { in: 'SourceGraphic', in2: 'normal', scale: 0, xChannelSelector: 'R', yChannelSelector: 'G' })
+            filter.append(image, displacement); defs.append(filter)
+            record = { element, id, filter, image, displacement, target: null, key: null, generation: 0, frame: 0, resizeTimer: 0, ready: false, live: true, watched: new WeakSet(), previousFilter: element.style.getPropertyValue('--dcb-liquid-filter'), previousPriority: element.style.getPropertyPriority('--dcb-liquid-filter') }
+            records.set(element, record); resize.observe(element); applyGeometry(record, shape)
+            if (disposed) return
+          } else if (geometry(element)?.key !== record.key) queueGeometry(record)
+          if (record.target !== target) {
+            record.target = target; record.deadline = window.performance.now() + 400
+            element.setAttribute('data-dcb-liquid', target ? 'active' : 'settling')
+            if (record.frame) window.cancelAnimationFrame(record.frame)
+            tick(record)
+          }
+        }
+      }
+      const preferences = () => {
+        if (disposed) return
+        if (forced.matches) { for (const record of [...records.values()]) remove(record) }
+        else {
+          sync(lastElements)
+          if (reduced.matches) for (const record of [...records.values()]) { if (record.frame) window.cancelAnimationFrame(record.frame); tick(record) }
+        }
+      }
+      forced.addEventListener('change', preferences); reduced.addEventListener('change', preferences)
+      function dispose() {
+        if (disposed) return
+        disposed = true
+        forced.removeEventListener('change', preferences); reduced.removeEventListener('change', preferences)
+        for (const record of [...records.values()]) remove(record)
+        resize.disconnect(); cache.clear(); lastElements = []
+      }
+      return { sync, dispose }
+    }
+
     const css = `
       [${MARK}] {
         position: fixed !important;
@@ -693,8 +886,40 @@ window.__ModuleLoader__.load({
       body[data-ds-dark-theme] .dcb-settings-block + .dcb-settings-block { border-top-color: #45423b; }
       .dcb-settings h2 { font-size: 18px; margin: 0 0 12px; }
       .dcb-settings p { font-size: 13px; line-height: 1.8; color: var(--dsw-alias-label-secondary); }
-      .dcb-settings label { display: flex; align-items: center; gap: 10px; padding: 12px 0; font-size: 14px; }
-      .dcb-settings input[type="range"] { flex: 1; accent-color: #a46950; }
+      .dcb-settings-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; font-size: 14px; }
+      .dcb-settings-row > span:first-child { flex: 1; }
+      .dcb-settings-row button, .dcb-style-option, .dcb-count-option { font-family: inherit; }
+      .dcb-switch { position: relative; flex: none; width: 36px; height: 22px; padding: 0; border: 1px solid #c9c9c9; border-radius: 12px; background: #dedede; cursor: pointer; transition: background-color 220ms cubic-bezier(.4,0,.2,1), border-color 220ms cubic-bezier(.4,0,.2,1); }
+      .dcb-switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0002; transform: translateX(0); transition: transform 220ms cubic-bezier(.22,.8,.26,1); }
+      .dcb-switch[aria-checked="true"] { background: #494949; border-color: #494949; }
+      .dcb-switch[aria-checked="true"]::after { transform: translateX(14px); }
+      .dcb-settings :is(.dcb-switch, .dcb-width-slider, .dcb-count-button, .dcb-count-option):focus-visible { outline: 2px solid #777; outline-offset: 3px; }
+      .dcb-width-slider { position: relative; flex: 1; min-width: 80px; height: 28px; cursor: ew-resize; touch-action: none; user-select: none; border-radius: 6px; }
+      .dcb-settings-row > .dcb-width-label { flex: none; }
+      .dcb-width-track, .dcb-width-fill { position: absolute; top: 12px; left: 0; height: 4px; border-radius: 4px; background: #dedede; width: 100%; }
+      .dcb-width-fill { width: var(--dcb-width-percent); background: #555; transition: width 180ms cubic-bezier(.22,.8,.26,1); }
+      .dcb-width-thumb { position: absolute; left: var(--dcb-width-percent); top: 6px; width: 16px; height: 16px; border: 1px solid #bbb; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #0002; transform: translateX(-50%); transition: left 180ms cubic-bezier(.22,.8,.26,1), box-shadow 180ms cubic-bezier(.4,0,.2,1); }
+      .dcb-width-slider[data-dragging="true"] :is(.dcb-width-fill, .dcb-width-thumb) { transition-duration: 0ms; }
+      .dcb-width-slider:hover .dcb-width-thumb { box-shadow: 0 0 0 4px #8882, 0 1px 4px #0002; }
+      .dcb-width-value { min-width: 47px; color: var(--dsw-alias-label-secondary, #777); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+      .dcb-count-picker { position: relative; flex: none; }
+      .dcb-count-button { display: flex; align-items: center; gap: 20px; min-width: 116px; height: 32px; padding: 0 10px; border: 1px solid #cfcfcf; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-primary, #343434); font-size: 13px; cursor: pointer; transition: border-color 180ms cubic-bezier(.4,0,.2,1), box-shadow 180ms cubic-bezier(.4,0,.2,1); }
+      .dcb-count-button:hover, .dcb-count-button[aria-expanded="true"] { border-color: #999; box-shadow: 0 0 0 2px #8881; }
+      .dcb-count-caret { width: 6px; height: 6px; margin: -3px 2px 0 auto; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); transition: transform 200ms cubic-bezier(.22,.8,.26,1); }
+      .dcb-count-button[aria-expanded="true"] .dcb-count-caret { transform: translateY(3px) rotate(225deg); }
+      .dcb-count-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 12; display: grid; gap: 2px; min-width: 132px; padding: 4px; border: 1px solid #ddd; border-radius: 8px; background: var(--dsw-alias-bg-layer-1, #fff); box-shadow: 0 8px 24px #0002; transform-origin: top right; }
+      .dcb-count-option { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 8px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--dsw-alias-label-primary, #343434); font-size: 13px; text-align: left; cursor: pointer; transition: background-color 180ms cubic-bezier(.4,0,.2,1); }
+      .dcb-count-option:hover, .dcb-count-option[aria-selected="true"] { background: #8882; }
+      body[data-ds-dark-theme] .dcb-switch { background: #444; border-color: #555; }
+      body[data-ds-dark-theme] .dcb-switch[aria-checked="true"] { background: #bbb; border-color: #bbb; }
+      body[data-ds-dark-theme] .dcb-switch[aria-checked="true"]::after { background: #333; }
+      body[data-ds-dark-theme] .dcb-width-track { background: #555; }
+      body[data-ds-dark-theme] .dcb-width-fill { background: #bbb; }
+      body[data-ds-dark-theme] .dcb-count-button, body[data-ds-dark-theme] .dcb-count-menu { border-color: #555; }
+      body[data-ds-dark-theme] .dcb-count-menu { background: var(--dsw-alias-bg-layer-1, #292929); box-shadow: 0 8px 24px #0005; }
+      @media (prefers-reduced-motion: reduce) {
+        .dcb-settings :is(.dcb-switch, .dcb-width-fill, .dcb-width-thumb, .dcb-count-button, .dcb-count-caret, .dcb-count-option, .dcb-style-option), .dcb-settings .dcb-switch::after, .dcb-settings .dcb-style-option::after { transition: none; }
+      }
       [data-dcb-native-hidden] { display: none !important; }
       [data-slot="conversation.header"]:has(.dcb-anchor) { position: relative; z-index: 20; }
       .dcb-anchor { position: relative; display: inline-flex; z-index: 20; -webkit-app-region: no-drag; }
@@ -811,46 +1036,58 @@ window.__ModuleLoader__.load({
       .dcb-style-picker { border: 0; padding: 0; margin: 10px 0 18px; min-width: 0; }
       .dcb-style-picker legend { padding: 0; margin-bottom: 10px; font-size: 14px; }
       .dcb-style-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 12px; }
-      .dcb-settings .dcb-style-option { position: relative; display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid #e4e0d8; border-radius: 10px; cursor: pointer; transition: border-color 220ms cubic-bezier(.4,0,.2,1), background-color 220ms cubic-bezier(.4,0,.2,1), box-shadow 220ms cubic-bezier(.4,0,.2,1); }
-      .dcb-style-option:has(input:checked) { background: #f7f4ef; border-color: #b8a08c; box-shadow: 0 0 0 1px #a4695018; }
-      .dcb-style-option:has(input:focus-visible) { outline: 2px solid #a46950; outline-offset: 3px; }
-      .dcb-style-option input { position: absolute; top: 12px; right: 12px; margin: 0; z-index: 1; accent-color: #a46950; }
+      .dcb-settings .dcb-style-option { position: relative; display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid #ddd; border-radius: 10px; background: transparent; text-align: left; cursor: pointer; transition: border-color 220ms cubic-bezier(.4,0,.2,1), background-color 220ms cubic-bezier(.4,0,.2,1), box-shadow 220ms cubic-bezier(.4,0,.2,1); }
+      .dcb-style-option[aria-checked="true"] { background: #8881; border-color: #888; box-shadow: 0 0 0 1px #8882; }
+      .dcb-style-option:focus-visible { outline: 2px solid #777; outline-offset: 3px; }
+      .dcb-style-option::after { content: ''; position: absolute; top: 18px; right: 18px; width: 10px; height: 10px; border: 1px solid #7778; border-radius: 50%; background: #fff9; box-shadow: inset 0 0 0 3px #fff; transition: background-color 220ms cubic-bezier(.4,0,.2,1), border-color 220ms cubic-bezier(.4,0,.2,1); }
+      .dcb-style-option[aria-checked="true"]::after { background: #555; border-color: #555; }
       .dcb-style-scene { display: grid; place-items: center; height: 76px; overflow: hidden; border-radius: 6px; background: linear-gradient(125deg, transparent 38%, #ffffffb3 38% 44%, transparent 44%), radial-gradient(ellipse at 15% 30%, #a6cbd0, transparent 60%), radial-gradient(ellipse at 85% 80%, #d9b59b, transparent 60%), #e8e4dc; }
       .dcb-style-swatch { position: relative; display: grid; align-content: center; justify-items: start; gap: 6px; width: 82px; height: 44px; padding: 13px; border: 1px solid; border-radius: 12px; opacity: 1; transform: translateY(0); transition: transform 240ms cubic-bezier(.22,.8,.26,1); }
-      .dcb-style-option:has(input:checked) .dcb-style-swatch { transform: translateY(-6px); }
+      .dcb-style-option[aria-checked="true"] .dcb-style-swatch { transform: translateY(-6px); }
       .dcb-style-swatch i { width: 45px; height: 3px; border-radius: 3px; background: #847b72; opacity: .5; }
       .dcb-style-swatch i:last-child { width: 30px; opacity: .3; }
       .dcb-style-name { font-size: 13px; color: var(--dsw-alias-label-primary, #343434); }
       .dcb-style-option small { color: var(--dsw-alias-label-secondary, #817b71); font-size: 11px; }
       body[data-ds-dark-theme] .dcb-style-option { border-color: #504b42; }
-      body[data-ds-dark-theme] .dcb-style-option:has(input:checked) { background: #35312c; border-color: #b8a08c; }
+      body[data-ds-dark-theme] .dcb-style-option[aria-checked="true"] { background: #8882; border-color: #999; }
+      body[data-ds-dark-theme] .dcb-style-option::after { background: #555; box-shadow: inset 0 0 0 3px #292929; }
+      body[data-ds-dark-theme] .dcb-style-option[aria-checked="true"]::after { background: #ddd; border-color: #aaa; }
       body[data-ds-dark-theme] .dcb-style-name { color: #eeeae2; }
       body[data-ds-dark-theme] .dcb-style-scene { background: linear-gradient(125deg, transparent 38%, #ffffff40 38% 44%, transparent 44%), radial-gradient(ellipse at 15% 30%, #416b72, transparent 60%), radial-gradient(ellipse at 85% 80%, #7b5540, transparent 60%), #302e29; }
       body[data-ds-dark-theme] .dcb-style-swatch i { background: #e3ddd4; }
+      @property --dcb-backdrop-blur { syntax: "<length>"; inherits: false; initial-value: 0px; }
+      @property --dcb-backdrop-saturation { syntax: "<number>"; inherits: false; initial-value: 1; }
+      @property --dcb-refraction-scale { syntax: "<number>"; inherits: false; initial-value: 0; }
+      @property --dcb-sheen-opacity { syntax: "<number>"; inherits: false; initial-value: 0; }
       body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] {
-        --dcb-surface-background: #fffdf9; --dcb-surface-border: #e8e4dc; --dcb-surface-shadow: 0 4px 14px rgba(38,32,24,.07); --dcb-surface-filter: blur(0px) saturate(1);
-        background: var(--dcb-surface-background) !important; border-color: var(--dcb-surface-border) !important; box-shadow: var(--dcb-surface-shadow) !important;
-        backdrop-filter: var(--dcb-surface-filter) !important; -webkit-backdrop-filter: var(--dcb-surface-filter) !important;
-        transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), backdrop-filter 240ms cubic-bezier(.4,0,.2,1), -webkit-backdrop-filter 240ms cubic-bezier(.4,0,.2,1);
+        --dcb-surface-background: #fffdf9; --dcb-surface-border: #e8e4dc; --dcb-surface-shadow: 0 4px 14px rgba(38,32,24,.07);
+        --dcb-backdrop-blur: 0px; --dcb-backdrop-saturation: 1; --dcb-refraction-scale: 0; --dcb-sheen-opacity: 0;
+        background-color: var(--dcb-surface-background) !important;
+        background-image: radial-gradient(ellipse at 8% 0%, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .28)), transparent 56%), linear-gradient(123deg, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .1)), transparent 28% 72%, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .08))) !important;
+        background-origin: border-box; border-color: var(--dcb-surface-border) !important; box-shadow: var(--dcb-surface-shadow) !important;
+        /* A URL makes ordinary filter transitions discrete. Typed values retain smooth interpolation. */
+        backdrop-filter: var(--dcb-liquid-filter,) blur(var(--dcb-backdrop-blur)) saturate(var(--dcb-backdrop-saturation)) !important;
+        -webkit-backdrop-filter: var(--dcb-liquid-filter,) blur(var(--dcb-backdrop-blur)) saturate(var(--dcb-backdrop-saturation)) !important;
+        transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-blur 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-saturation 240ms cubic-bezier(.4,0,.2,1), --dcb-refraction-scale 240ms cubic-bezier(.4,0,.2,1), --dcb-sheen-opacity 240ms cubic-bezier(.4,0,.2,1);
       }
       body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] { --dcb-surface-background: #292824; --dcb-surface-border: #45423b; --dcb-surface-shadow: 0 4px 16px #00000038; }
       body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="clear"] {
-        --dcb-surface-background: rgba(255,255,255,.56); --dcb-surface-border: rgba(255,255,255,.74); --dcb-surface-filter: blur(0px) saturate(1.15);
-        --dcb-surface-shadow: 0 8px 24px rgba(28,32,40,.08), inset 0 1px 0 rgba(255,255,255,.88), inset 1px 0 0 rgba(255,255,255,.32), inset -1px -1px 0 rgba(255,255,255,.16);
+        --dcb-surface-background: rgba(255,255,255,.56); --dcb-surface-border: rgba(255,255,255,.74); --dcb-backdrop-saturation: 1.15; --dcb-refraction-scale: 12; --dcb-sheen-opacity: 1;
+        --dcb-surface-shadow: 0 2px 6px rgba(28,32,40,.035), 0 10px 28px rgba(28,32,40,.09), inset 0 1px 0 rgba(255,255,255,.92), inset 1px 0 0 rgba(255,255,255,.42), inset -1px -1px 0 rgba(255,255,255,.18);
       }
       body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="clear"] {
-        --dcb-surface-background: rgba(28,29,33,.62); --dcb-surface-border: rgba(255,255,255,.28);
-        --dcb-surface-shadow: 0 8px 24px #00000042, inset 0 1px 0 #ffffff38, inset 1px 0 0 #ffffff14, inset -1px -1px 0 #ffffff0a;
+        --dcb-surface-background: rgba(28,29,33,.62); --dcb-surface-border: rgba(255,255,255,.28); --dcb-sheen-opacity: .45;
+        --dcb-surface-shadow: 0 2px 6px #00000014, 0 10px 28px #00000042, inset 0 1px 0 #ffffff42, inset 1px 0 0 #ffffff1a, inset -1px -1px 0 #ffffff0c;
       }
       body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] {
-        --dcb-surface-background: rgba(255,255,255,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-surface-filter: blur(22px) saturate(1.45);
+        --dcb-surface-background: rgba(255,255,255,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-backdrop-blur: 22px; --dcb-backdrop-saturation: 1.45;
         --dcb-surface-shadow: 0 12px 32px rgba(28,32,40,.1), inset 0 1px 0 rgba(255,255,255,.9), inset 1px 0 0 rgba(255,255,255,.45), inset -1px -1px 0 rgba(255,255,255,.2);
       }
       body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] {
         --dcb-surface-background: rgba(41,40,36,.68); --dcb-surface-border: rgba(255,255,255,.18);
         --dcb-surface-shadow: 0 12px 32px #0005, inset 0 1px 0 #ffffff26, inset 1px 0 0 #ffffff14, inset -1px -1px 0 #ffffff0a;
       }
-      body .dcb-style-swatch[data-card-style] { transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), backdrop-filter 240ms cubic-bezier(.4,0,.2,1), transform 240ms cubic-bezier(.22,.8,.26,1); }
+      body .dcb-style-swatch[data-card-style] { transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-blur 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-saturation 240ms cubic-bezier(.4,0,.2,1), --dcb-refraction-scale 240ms cubic-bezier(.4,0,.2,1), --dcb-sheen-opacity 240ms cubic-bezier(.4,0,.2,1), transform 240ms cubic-bezier(.22,.8,.26,1); }
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
         body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(255,255,255,.96); }
         body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(41,40,36,.96); }
@@ -880,6 +1117,7 @@ window.__ModuleLoader__.load({
       style.dataset.plugin = NAME
       style.textContent = css
       document.head.appendChild(style)
+      const liquid = createLiquidGlassManager(document, window)
 
       function restore(panel) {
         panel.removeAttribute('data-dcb-native-hidden')
@@ -936,6 +1174,7 @@ window.__ModuleLoader__.load({
         }
         for (const container of observed) if (!containers.has(container)) { resize.unobserve(container); observed.delete(container) }
         for (const container of containers) if (!observed.has(container)) { resize.observe(container); observed.add(container) }
+        liquid.sync([...document.querySelectorAll(`.dcb-summary[data-card-style], [${MARK}][data-card-style], .dcb-style-swatch[data-card-style]`)])
       }
       function schedule() { if (!frame && !disposed) frame = window.requestAnimationFrame(sync) }
       function update(patch, persist = true) {
@@ -949,7 +1188,7 @@ window.__ModuleLoader__.load({
       const onStorage = event => { if (event.key === KEY || event.key === null) update(readSettings(), false) }
       const observer = new MutationObserver(schedule)
       observer.observe(document.body, { childList: true, subtree: true, attributes: true,
-        attributeFilter: ['data-conversation-session', 'hidden', 'class'] })
+        attributeFilter: ['data-conversation-session', 'data-card-style', 'hidden', 'class'] })
       window.addEventListener('resize', schedule)
       // Capture scroll also handles embedded conversation columns and moved panes.
       document.addEventListener('scroll', schedule, true)
@@ -964,6 +1203,129 @@ window.__ModuleLoader__.load({
         try { sliderPageCache = require('dsh-claude-slider')?.ClaudeSettingsPage || null }
         catch { sliderPageCache = null }
         return sliderPageCache
+      }
+
+      function WidthSlider() {
+        const [dragging, setDragging] = React.useState(false)
+        const setWidth = value => {
+          const width = Math.max(280, Math.min(480, Math.round(value / 10) * 10))
+          if (settings.width !== width) update({ width })
+        }
+        const move = event => {
+          const box = event.currentTarget.getBoundingClientRect()
+          if (box.width) setWidth(280 + Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) * 200)
+        }
+        const stop = event => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+          setDragging(false)
+        }
+        return h('div', { className: 'dcb-width-slider', role: 'slider', tabIndex: 0, 'aria-label': '面板宽度',
+          'aria-valuemin': 280, 'aria-valuemax': 480, 'aria-valuenow': settings.width, 'aria-valuetext': `${settings.width} 像素`,
+          'data-dragging': dragging, style: { '--dcb-width-percent': `${(settings.width - 280) / 2}%` },
+          onPointerDown: event => {
+            if (event.button !== 0) return
+            event.preventDefault()
+            event.currentTarget.focus()
+            event.currentTarget.setPointerCapture(event.pointerId)
+            setDragging(true)
+            move(event)
+          },
+          onPointerMove: event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) move(event) },
+          onPointerUp: stop, onPointerCancel: stop, onLostPointerCapture: () => setDragging(false),
+          onKeyDown: event => {
+            const value = { Home: 280, End: 480, ArrowRight: settings.width + 10, ArrowUp: settings.width + 10,
+              ArrowLeft: settings.width - 10, ArrowDown: settings.width - 10, PageUp: settings.width + 50, PageDown: settings.width - 50 }[event.key]
+            if (value === undefined) return
+            event.preventDefault()
+            setWidth(value)
+          } }, h('span', { className: 'dcb-width-track', 'aria-hidden': true }), h('span', { className: 'dcb-width-fill', 'aria-hidden': true }), h('span', { className: 'dcb-width-thumb', 'aria-hidden': true }))
+      }
+
+      function StepCountPicker() {
+        const [open, setOpen] = React.useState(false)
+        const [present, setPresent] = React.useState(false)
+        const box = React.useRef(null)
+        const menu = React.useRef(null)
+        const button = React.useRef(null)
+        const focusIndex = React.useRef(null)
+        const motion = React.useRef(null)
+        const id = React.useId()
+        const values = [2, 3]
+        const show = index => {
+          focusIndex.current = index
+          if (open && index !== null) {
+            menu.current?.querySelectorAll('[role="option"]')[index]?.focus()
+            focusIndex.current = null
+          }
+          setPresent(true)
+          setOpen(true)
+        }
+        const dismiss = restore => { setOpen(false); if (restore) button.current?.focus() }
+        React.useLayoutEffect(() => () => { motion.current?.cancel(); motion.current = null }, [])
+        React.useLayoutEffect(() => {
+          const node = menu.current
+          const previous = motion.current
+          const hidden = { opacity: 0, transform: 'translateY(-8px) scale(.94)', filter: 'blur(3px)' }
+          const visible = { opacity: 1, transform: 'translateY(0) scale(1)', filter: 'blur(0px)' }
+          let from = open ? hidden : visible
+          if (node && previous?.effect?.target === node) {
+            const style = getComputedStyle(node)
+            from = { opacity: style.opacity, transform: style.transform, filter: style.filter }
+          }
+          previous?.cancel()
+          motion.current = null
+          if (!present || !node) return
+          const animation = node.animate([from, open ? visible : hidden], {
+            duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : open ? 220 : 180,
+            easing: open ? 'cubic-bezier(.22,.8,.26,1)' : 'cubic-bezier(.4,0,.2,1)', fill: 'both',
+          })
+          motion.current = animation
+          if (open && focusIndex.current !== null) {
+            node.querySelectorAll('[role="option"]')[focusIndex.current]?.focus()
+            focusIndex.current = null
+          }
+          animation.finished.then(() => {
+            if (motion.current !== animation) return
+            if (open) { motion.current = null; animation.cancel() }
+            else setPresent(false)
+          }).catch(() => {})
+        }, [open, present])
+        React.useEffect(() => {
+          if (!open) return
+          const away = event => { if (!box.current?.contains(event.target)) dismiss(false) }
+          const escape = event => { if (event.key === 'Escape') { event.preventDefault(); dismiss(true) } }
+          document.addEventListener('pointerdown', away)
+          document.addEventListener('keydown', escape)
+          return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', escape) }
+        }, [open])
+        return h('div', { className: 'dcb-count-picker', ref: box,
+          onKeyDown: event => { if (open && event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); dismiss(true) } },
+          onBlur: event => { if (!event.currentTarget.contains(event.relatedTarget)) dismiss(false) } },
+          h('button', { type: 'button', className: 'dcb-count-button', ref: button, 'aria-label': '默认显示步骤数',
+            'aria-haspopup': 'listbox', 'aria-expanded': open, 'aria-controls': present ? id : undefined,
+            onClick: () => open ? dismiss(false) : show(null),
+            onKeyDown: event => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                if (open) dismiss(false)
+                else show(values.indexOf(settings.progressView.count))
+                return
+              }
+              if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+              event.preventDefault()
+              show(event.key === 'Home' ? 0 : event.key === 'End' ? 1 : values.indexOf(settings.progressView.count))
+            } }, `${settings.progressView.count} 个步骤`, h('span', { className: 'dcb-count-caret', 'aria-hidden': true })),
+          present && h('div', { id, className: 'dcb-count-menu', ref: menu, role: 'listbox', 'aria-label': '默认显示步骤数选项', 'aria-hidden': !open, inert: !open, 'data-state': open ? 'open' : 'closing',
+            onKeyDown: event => {
+              const options = [...event.currentTarget.querySelectorAll('[role="option"]')]
+              const index = options.indexOf(document.activeElement)
+              const next = { ArrowDown: (index + 1) % 2, ArrowUp: (index + 1) % 2, Home: 0, End: 1 }[event.key]
+              if (next === undefined) return
+              event.preventDefault()
+              options[next]?.focus()
+            } }, values.map(value => h('button', { type: 'button', role: 'option', className: 'dcb-count-option', key: value,
+              'aria-selected': settings.progressView.count === value, tabIndex: open ? 0 : -1,
+              onClick: () => { update({ progressView: { ...settings.progressView, count: value } }); dismiss(true) } }, `${value} 个步骤`, h('span', { 'aria-hidden': true }, settings.progressView.count === value ? '✓' : '')))))
       }
 
       function Settings() {
@@ -982,21 +1344,26 @@ window.__ModuleLoader__.load({
           h('section', { className: 'dcb-settings-block', 'data-dcb-settings-block': 'panel' },
             h('h2', null, '任务面板'),
             h('p', null, '鼠标移到右上角入口即可预览，移开后收起；点击入口或安排新的任务步骤时会保持展开。普通推理、调用工具、输出文件和更新完成状态不会触发自动展开。本轮手动收起后不再反复弹出。默认显示当前步骤附近的 3 步，可改为 2 步；先前步骤、后续步骤和各栏目的开合选择都会自动记住。'),
-            h('label', null, h('input', { type: 'checkbox', checked: settings.enabled,
-              onChange: event => update({ enabled: event.target.checked }) }), '启用右上角任务面板'),
+            h('div', { className: 'dcb-settings-row' }, h('span', null, '启用右上角任务面板'),
+              h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '启用右上角任务面板', 'aria-checked': settings.enabled,
+                onClick: () => update({ enabled: !settings.enabled }) })),
             h('fieldset', { className: 'dcb-style-picker', 'data-dcb-card-style-picker': '' }, h('legend', null, '卡片样式'),
               h('p', null, '仅影响右上角任务卡片。选择时临时展开当前卡片供预览，关闭设置后结束预览；当前轮次没有内容时保持隐藏。'),
-              h('div', { className: 'dcb-style-options' }, [['clear', '透明玻璃', '清透无磨砂，轻盈亮边'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '奶白块', '温润奶白，柔软浅影']].map(([value, label, description]) =>
-                h('label', { className: 'dcb-style-option', key: value },
-                  h('input', { type: 'radio', name: `${NAME}-card-style`, value, checked: settings.cardStyle === value, 'aria-label': label, onClick: () => previewStyle(true), onChange: () => { update({ cardStyle: value }); previewStyle(true) } }),
+              h('div', { className: 'dcb-style-options', role: 'radiogroup', 'aria-label': '卡片样式' }, [['clear', '透明玻璃', 'iPhone 式液态折射，通透亮边'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '奶白块', '温润奶白，柔软浅影']].map(([value, label, description], index) =>
+                h('button', { type: 'button', role: 'radio', className: 'dcb-style-option', key: value, 'aria-label': label, 'aria-checked': settings.cardStyle === value,
+                  tabIndex: settings.cardStyle === value ? 0 : -1, onClick: () => { update({ cardStyle: value }); previewStyle(true) },
+                  onKeyDown: event => {
+                    const next = { ArrowRight: (index + 1) % 3, ArrowDown: (index + 1) % 3, ArrowLeft: (index + 2) % 3, ArrowUp: (index + 2) % 3, Home: 0, End: 2 }[event.key]
+                    if (next === undefined) return
+                    event.preventDefault()
+                    update({ cardStyle: ['clear', 'glass', 'milk'][next] })
+                    previewStyle(true)
+                    event.currentTarget.parentElement.children[next]?.focus()
+                  } },
                   h('span', { className: 'dcb-style-scene', 'aria-hidden': true }, h('span', { className: 'dcb-style-swatch', 'data-card-style': value }, h('i'), h('i'))),
                   h('span', { className: 'dcb-style-name' }, label), h('small', null, description))))),
-            h('label', null, '面板宽度', h('input', { type: 'range', min: 280, max: 480, step: 10,
-              value: settings.width, 'aria-label': '面板宽度',
-              onChange: event => update({ width: Number(event.target.value) }) }), h('span', null, `${settings.width} px`)),
-            h('label', null, '进度默认显示', h('select', { value: settings.progressView.count, 'aria-label': '默认显示步骤数',
-              onChange: event => update({ progressView: { ...settings.progressView, count: Number(event.target.value) } }) },
-              h('option', { value: 2 }, '2 个步骤'), h('option', { value: 3 }, '3 个步骤'))),
+            h('div', { className: 'dcb-settings-row' }, h('span', { className: 'dcb-width-label' }, '面板宽度'), h(WidthSlider), h('span', { className: 'dcb-width-value' }, `${settings.width} px`)),
+            h('div', { className: 'dcb-settings-row' }, h('span', null, '进度默认显示'), h(StepCountPicker)),
             h('p', null, '点击面板外部即可带动画收起，无需点关闭按钮。窄屏会自动缩小。关闭插件后立即恢复 DSH 原来的任务清单位置。设置只保存在当前浏览器。')))
       }
       ctx.slots.inject('settings.section', () => ctx.slots.register({
@@ -1330,6 +1697,7 @@ window.__ModuleLoader__.load({
         disposed = true
         observer.disconnect()
         resize.disconnect()
+        liquid.dispose()
         if (frame) window.cancelAnimationFrame(frame)
         window.removeEventListener('resize', schedule)
         window.removeEventListener('storage', onStorage)
@@ -1343,6 +1711,6 @@ window.__ModuleLoader__.load({
         stylePreviewListeners.clear()
       }, `${NAME}: presentation`)
     }
-    return { apply, inject: ['slots'], __test: { normalize, placement, activityFrom, activitySource, turnActivityFrom, toolSummary, toolCategory, progressItems, fileAddress, imageExtension, tileLabel, mimeFor } }
+    return { apply, inject: ['slots'], __test: { normalize, placement, activityFrom, activitySource, turnActivityFrom, toolSummary, toolCategory, createLiquidNormalMap, progressItems, fileAddress, imageExtension, tileLabel, mimeFor } }
   },
 })

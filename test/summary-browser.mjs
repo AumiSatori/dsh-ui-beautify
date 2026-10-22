@@ -96,8 +96,8 @@ await page.addInitScript(() => {
 const card = page.getByTestId('dcb-summary')
 let passed = 0
 // Checks share state: filters must retain the selected group's setup check.
-// The four material checks form a complete group beginning with "card material radios".
-// Each "fast wheel" check resets its own fixture and may also run on its own.
+// The material checks form a complete group beginning with "card material radios".
+// Each "fast wheel" and "liquid glass" check resets its own fixture and may run on its own.
 const selectedChecks = process.env.DSH_SUMMARY_FILTER ? new RegExp(process.env.DSH_SUMMARY_FILTER) : null
 async function check(name, run) { if (selectedChecks && !selectedChecks.test(name)) return; await run(); passed++; console.log(`PASS ${name}`) }
 async function settled() {
@@ -957,12 +957,12 @@ try {
   })
   await check('disabling restores the original dock; re-enabling hides it only after the card is mounted', async () => {
     await page.evaluate(() => window.fixture.settings(true))
-    await page.getByRole('checkbox').uncheck()
+    await page.getByRole('switch', { name: '启用右上角任务面板' }).click()
     await settled()
     assert.equal(await card.count(), 0)
     assert.equal(await page.locator('[data-dcb-native-hidden]').count(), 0)
     assert.ok(await page.getByTestId('todo-panel').isVisible())
-    await page.getByRole('checkbox').check()
+    await page.getByRole('switch', { name: '启用右上角任务面板' }).click()
     await settled()
     assert.equal(await page.locator('[data-dcb-native-hidden]').count(), 1)
     assert.equal(await card.count(), 0, 'Clicking settings outside the panel dismissed its pinned state')
@@ -1060,7 +1060,8 @@ try {
     await card.getByRole('button', { name: '收起后续步骤' }).click()
     await settled()
     await page.evaluate(() => window.fixture.settings(true))
-    await page.getByRole('combobox', { name: '默认显示步骤数' }).selectOption('2')
+    await page.getByRole('button', { name: '默认显示步骤数', exact: true }).click()
+    await page.getByRole('option', { name: '2 个步骤', exact: true }).click()
     await page.evaluate(() => window.fixture.settings(false))
     const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
     // A real settings interaction can dismiss the card through the outside handler.
@@ -1526,14 +1527,14 @@ try {
   })
   const pauseMaterialChange = async name => {
     const count = await page.evaluate(async name => {
-      document.querySelector(`input[type="radio"][aria-label="${name}"]`).click()
+      document.querySelector(`[role="radio"][aria-label="${name}"]`).click()
       await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))
       window.cardMaterialTransitions = document.querySelector('.dcb-summary').getAnimations().filter(animation => 'transitionProperty' in animation)
       for (const animation of window.cardMaterialTransitions) { animation.pause(); animation.currentTime = 0 }
       return window.cardMaterialTransitions.map(animation => animation.transitionProperty)
     }, name)
     assert.ok(count.includes('background-color'), 'The real background color interpolates between materials')
-    assert.ok(count.some(property => property.includes('backdrop-filter')), 'The real backdrop blur participates in the material transition')
+    assert.ok(count.some(property => property.includes('backdrop-filter') || property === '--dcb-backdrop-blur'), 'The real backdrop blur participates in the material transition')
   }
   const seekMaterial = time => page.evaluate(time => { for (const animation of window.cardMaterialTransitions) animation.currentTime = Math.min(time, animation.effect.getComputedTiming().endTime) }, time)
   const finishMaterial = () => page.evaluate(() => { for (const animation of window.cardMaterialTransitions) animation.finish() })
@@ -1570,10 +1571,11 @@ try {
     })
     const group = page.getByRole('group', { name: '卡片样式', exact: true })
     assert.equal(await group.getByRole('radio').count(), 3)
+    assert.equal(await page.getByRole('dialog').locator('select,input[type="checkbox"],input[type="radio"],input[type="range"]').count(), 0, 'Settings use themed custom controls instead of native pickers, switches and sliders')
     assert.ok(await group.locator('.dcb-style-swatch').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).opacity === '1')), 'Swatches keep full element opacity so Chromium can render their backdrop blur; transparency comes from the surface color')
-    assert.equal(await group.getByRole('radio', { name: '奶白块', exact: true }).isChecked(), true)
+    assert.equal(await group.getByRole('radio', { name: '奶白块', exact: true }).getAttribute('aria-checked'), 'true')
     await page.getByRole('dialog').screenshot({ path: resolve(output, 'settings-card-style.png') })
-    await group.getByRole('radio', { name: '透明玻璃', exact: true }).check()
+    await group.getByRole('radio', { name: '透明玻璃', exact: true }).click()
     await settled()
     assert.equal(await card.getAttribute('data-card-style'), 'clear')
     const clear = await readMaterial()
@@ -1584,15 +1586,15 @@ try {
     assert.equal(clear.height, milk.height)
     assert.equal(clear.width, milk.width)
     await card.screenshot({ path: resolve(output, 'summary-style-clear.png'), style: '.settings-dialog { visibility: hidden !important; }' })
-    await group.getByRole('radio', { name: '毛玻璃', exact: true }).check()
+    await group.getByRole('radio', { name: '毛玻璃', exact: true }).click()
     await settled()
     assert.equal(await card.getAttribute('data-state'), 'open', 'Mouse selection in the material picker preserves the open live preview')
     assert.equal(await card.getAttribute('data-card-style'), 'glass')
-    await group.getByRole('radio', { name: '奶白块', exact: true }).check()
+    await group.getByRole('radio', { name: '奶白块', exact: true }).click()
     await settled()
     await group.getByRole('radio', { name: '奶白块', exact: true }).focus()
     await page.keyboard.press('ArrowLeft')
-    assert.equal(await group.getByRole('radio', { name: '毛玻璃', exact: true }).isChecked(), true, 'Native radio keyboard navigation changes the style')
+    assert.equal(await group.getByRole('radio', { name: '毛玻璃', exact: true }).getAttribute('aria-checked'), 'true', 'Custom radio keyboard navigation changes the style')
     await settled()
     assert.equal(await card.getAttribute('data-card-style'), 'glass')
     const glass = await readMaterial()
@@ -1653,7 +1655,7 @@ try {
     await settled()
     assert.equal((await readMaterial()).alpha, .56)
     assert.equal((await readMaterial()).blur, 0)
-    await page.getByRole('radio', { name: '毛玻璃', exact: true }).check()
+    await page.getByRole('radio', { name: '毛玻璃', exact: true }).click()
     await settled()
   })
   await check('the selected card material survives reload and synchronizes across windows without persisting chat or file data', async () => {
@@ -1671,8 +1673,8 @@ try {
       await mountPlugin(other)
       await other.evaluate(rows => { window.fixture.records(rows); window.fixture.settings(true) }, rows)
       const milk = other.getByRole('radio', { name: '奶白块', exact: true })
-      assert.equal(await other.getByRole('radio', { name: '毛玻璃', exact: true }).isChecked(), true)
-      await other.getByRole('radio', { name: '透明玻璃', exact: true }).check()
+      assert.equal(await other.getByRole('radio', { name: '毛玻璃', exact: true }).getAttribute('aria-checked'), 'true')
+      await other.getByRole('radio', { name: '透明玻璃', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.dcb-summary')?.dataset.cardStyle === 'clear')
       await settled()
       assert.equal((await readMaterial()).alpha, .56)
@@ -1683,7 +1685,7 @@ try {
       await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
       await settled()
       assert.equal(await card.getAttribute('data-card-style'), 'clear', 'The new transparent-glass preference survives a real reload')
-      await milk.check()
+      await milk.click()
       await page.waitForFunction(() => document.querySelector('.dcb-summary')?.dataset.cardStyle === 'milk')
       await settled()
       assert.equal((await readMaterial()).alpha, 1)
@@ -1694,7 +1696,7 @@ try {
     await page.evaluate(rows => { window.fixture.records(rows); window.fixture.settings(true) }, rows)
     await page.getByRole('button', { name: '会话进度与输出', exact: true }).evaluate(el => el.click())
     await settled()
-    assert.equal(await page.getByRole('radio', { name: '奶白块', exact: true }).isChecked(), true)
+    assert.equal(await page.getByRole('radio', { name: '奶白块', exact: true }).getAttribute('aria-checked'), 'true')
     assert.equal(await card.getAttribute('data-card-style'), 'milk')
     const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
     assert.equal(JSON.parse(stored).cardStyle, 'milk')
@@ -1755,15 +1757,17 @@ try {
     const native = page.getByTestId('todo-panel')
     assert.equal(await native.getAttribute('data-card-style'), 'clear')
     assert.equal(await native.getAttribute('data-dcb-task-panel'), '')
-    assert.equal(await native.evaluate(el => getComputedStyle(el).backdropFilter), 'blur(0px) saturate(1.15)')
-    await page.getByRole('radio', { name: '毛玻璃', exact: true }).check()
+    const nativeClearFilter = await native.evaluate(el => getComputedStyle(el).backdropFilter)
+    assert.match(nativeClearFilter, /saturate\(1\.15\)/)
+    assert.ok([...nativeClearFilter.matchAll(/blur\(([\d.]+)px\)/g)].every(match => Number(match[1]) === 0))
+    await page.getByRole('radio', { name: '毛玻璃', exact: true }).click()
     await settled()
     assert.equal(await native.getAttribute('data-card-style'), 'glass')
     assert.match(await native.evaluate(el => getComputedStyle(el).backdropFilter), /blur\(22px\)/)
-    await page.getByRole('radio', { name: '奶白块', exact: true }).check()
+    await page.getByRole('radio', { name: '奶白块', exact: true }).click()
     await settled()
     assert.equal(await native.getAttribute('data-card-style'), 'milk')
-    await page.getByRole('checkbox', { name: '启用右上角任务面板' }).uncheck()
+    await page.getByRole('switch', { name: '启用右上角任务面板' }).click()
     await settled()
     assert.equal(await native.getAttribute('data-card-style'), null)
     assert.equal(await native.getAttribute('data-dcb-task-panel'), null)
@@ -1781,7 +1785,7 @@ try {
     assert.equal(await entry.getAttribute('aria-expanded'), 'false', 'The normal outside press still dismisses the card')
     const glass = page.getByRole('radio', { name: '毛玻璃', exact: true })
     await page.evaluate(() => { window.pauseDropdownReveals = true })
-    await glass.locator('..').click()
+    await glass.click()
     const middle = await card.evaluate(el => {
       const animation = el.getAnimations().find(animation => animation.id === 'dcb-dropdown')
       animation.currentTime = 90
@@ -1810,7 +1814,7 @@ try {
     assert.equal(await card.count(), 0)
     assert.equal(await entry.getAttribute('aria-expanded'), 'false', 'Temporary appearance previews do not pin the card')
     await page.getByRole('button', { name: '打开设置', exact: true }).click()
-    await page.getByRole('radio', { name: '奶白块', exact: true }).locator('..').click()
+    await page.getByRole('radio', { name: '奶白块', exact: true }).click()
     await settled()
     assert.equal(await card.count(), 1, 'Selecting the already-selected style can preview it again')
     await page.evaluate(() => window.fixture.settings(false))
@@ -1820,7 +1824,7 @@ try {
     await entry.click()
     await settled()
     await page.evaluate(() => window.fixture.settings(true))
-    await page.getByRole('radio', { name: '毛玻璃', exact: true }).check()
+    await page.getByRole('radio', { name: '毛玻璃', exact: true }).click()
     await settled()
     await page.evaluate(() => window.fixture.settings(false))
     await settled()
@@ -1828,7 +1832,7 @@ try {
     await card.getByRole('button', { name: '关闭进度面板', exact: true }).click()
     await page.evaluate(() => window.fixture.session('empty'))
     await page.getByRole('button', { name: '打开设置', exact: true }).click()
-    await page.getByRole('radio', { name: '奶白块', exact: true }).check()
+    await page.getByRole('radio', { name: '奶白块', exact: true }).click()
     await settled()
     assert.equal(await card.count(), 0, 'No-content conversations keep their task card hidden')
     await page.evaluate(() => window.fixture.settings(false))
@@ -1853,7 +1857,7 @@ try {
     assert.deepEqual(await page.evaluate(() => window.sliderSettingsEntries), [], 'The installed slider does not duplicate its settings entry while beautify hosts it')
     await page.getByRole('button', { name: '打开设置', exact: true }).click()
     await page.getByRole('heading', { name: 'Claude 风格推理滑块', exact: true }).waitFor()
-    await page.getByRole('radio', { name: '毛玻璃', exact: true }).locator('..').click()
+    await page.getByRole('radio', { name: '毛玻璃', exact: true }).click()
     await settled()
     const before = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
     for (const mode of ['深色模式', '浅色模式', '跟随系统']) {
@@ -2250,6 +2254,203 @@ try {
     await settled()
     assert.deepEqual(await card.getByRole('listitem').allTextContents(), ['第二个会话的任务'])
     assert.equal(await card.locator('.dcb-step-ghost > *').count(), 0)
+  })
+
+  const liquidState = () => card.evaluate(el => {
+    const style = getComputedStyle(el)
+    const filter = style.getPropertyValue('--dcb-liquid-filter').trim()
+    const id = filter.match(/#([^)'"\s]+)/)?.[1]
+    const definition = id ? document.getElementById(id) : null
+    const displacement = definition?.querySelector('feDisplacementMap')
+    const bounds = el.getBoundingClientRect()
+    return { state: el.getAttribute('data-dcb-liquid'), map: el.getAttribute('data-dcb-liquid-map'), generation: Number(el.getAttribute('data-dcb-liquid-generation')), filter, id,
+      scale: Number(displacement?.getAttribute('scale')), cssScale: Number(style.getPropertyValue('--dcb-refraction-scale')),
+      blur: Number.parseFloat(style.getPropertyValue('--dcb-backdrop-blur')), width: bounds.width, height: bounds.height,
+      definitionsInContent: el.querySelectorAll('defs,filter').length, definitionOutsideCard: !!definition && !el.contains(definition) }
+  })
+  async function resetLiquidGlass(tasks = [{ content: '确认液态玻璃折射边缘', status: 'pending' }, { content: '保留清晰的任务文字', status: 'pending' }]) {
+    await page.emulateMedia({ reducedMotion: 'reduce', forcedColors: 'none' })
+    await page.evaluate(() => localStorage.removeItem('dsh-claude-beautify:settings:v1'))
+    await page.reload()
+    await mountPlugin()
+    await page.evaluate(tasks => {
+      const key = 'dsh-claude-beautify:settings:v1'
+      const value = JSON.stringify({ enabled: true, cardStyle: 'clear', width: 320 })
+      localStorage.setItem(key, value)
+      window.dispatchEvent(new StorageEvent('storage', { key, newValue: value }))
+      window.fixture.records([])
+      window.fixture.running(false)
+      window.fixture.update(tasks)
+      const background = document.createElement('style')
+      background.textContent = '.conversation{background:repeating-linear-gradient(37deg,#75b9dc 0 6px,#f3d0aa 6px 12px,#b8d7ad 12px 18px,#d3b9dc 18px 24px)!important}.scroll{background:transparent!important}'
+      document.head.append(background)
+    }, tasks)
+    await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
+    await settled()
+    await page.waitForFunction(() => document.querySelector('.dcb-summary')?.getAttribute('data-dcb-liquid') === 'active')
+  }
+  await check('liquid glass refracts real edge pixels while its center, foreground text and card geometry stay stable', async () => {
+    await resetLiquidGlass()
+    const state = await liquidState()
+    assert.ok(state.scale > 0 && state.cssScale > 0, 'Transparent glass applies a nonzero SVG displacement scale')
+    assert.ok(state.definitionOutsideCard && state.definitionsInContent === 0, 'Filter definitions live outside animated card content and its snapshots')
+    assert.match(state.map, /^\d+x\d+$/)
+    const text = card.locator('.dcb-step-text').first()
+    assert.equal(await text.evaluate(el => getComputedStyle(el).filter), 'none', 'Foreground text is never sent through the optical filter')
+    const capture = async name => {
+      const bytes = await card.screenshot({ path: resolve(output, `summary-liquid-${name}.png`), scale: 'css' })
+      return page.evaluate(async data => {
+        const response = await fetch(`data:image/png;base64,${data}`)
+        const bitmap = await createImageBitmap(await response.blob())
+        const canvas = document.createElement('canvas')
+        canvas.width = bitmap.width; canvas.height = bitmap.height
+        const context = canvas.getContext('2d')
+        context.drawImage(bitmap, 0, 0); bitmap.close()
+        return { width: canvas.width, height: canvas.height, pixels: Array.from(context.getImageData(0, 0, canvas.width, canvas.height).data) }
+      }, bytes.toString('base64'))
+    }
+    const refracted = await capture('refracted')
+    const textBounds = await text.boundingBox()
+    const cardBounds = await card.boundingBox()
+    await card.evaluate(el => el.style.setProperty('--dcb-liquid-filter', 'blur(0px)', 'important'))
+    const plain = await capture('without-refraction')
+    const regionDifference = (predicate, first = refracted, second = plain) => {
+      let total = 0, count = 0
+      for (let y = 0; y < first.height; y++) for (let x = 0; x < first.width; x++) if (predicate(x, y)) {
+        const start = (y * first.width + x) * 4
+        for (let channel = 0; channel < 3; channel++) { total += Math.abs(first.pixels[start + channel] - second.pixels[start + channel]); count++ }
+      }
+      return total / count
+    }
+    const edge = regionDifference((x, y) => (x >= 4 && x <= 18 || x >= refracted.width - 19 && x <= refracted.width - 5) && y > 28 && y < refracted.height - 28)
+    const center = regionDifference((x, y) => x > 40 && x < refracted.width - 40 && y > 40 && y < refracted.height - 40)
+    assert.ok(edge > 1, `The optical rim changes real backdrop pixels (${edge.toFixed(3)})`)
+    assert.ok(center < .2 && edge > center * 8, `Refraction stays at the rim instead of warping the center (${edge.toFixed(3)} vs ${center.toFixed(3)})`)
+    let glyphPixels = 0
+    const glyphDifference = regionDifference((x, y) => {
+      if (x < textBounds.x - cardBounds.x || x >= textBounds.x - cardBounds.x + textBounds.width || y < textBounds.y - cardBounds.y || y >= textBounds.y - cardBounds.y + textBounds.height) return false
+      const offset = (y * refracted.width + x) * 4
+      const channels = refracted.pixels.slice(offset, offset + 3)
+      const core = channels.every(channel => channel >= 145 && channel <= 165) && Math.max(...channels) - Math.min(...channels) < 4
+      if (core) glyphPixels++
+      return core
+    })
+    assert.ok(glyphPixels > 20 && glyphDifference < .25, `Opaque glyph cores remain sharp and stationary (${glyphPixels} pixels, difference ${glyphDifference.toFixed(3)})`)
+    const sheen = await card.evaluate(el => ({ image: getComputedStyle(el).backgroundImage, opacity: Number(getComputedStyle(el).getPropertyValue('--dcb-sheen-opacity')) }))
+    assert.match(sheen.image, /radial-gradient/)
+    assert.match(sheen.image, /linear-gradient/)
+    assert.ok(sheen.opacity > 0)
+    await card.evaluate(el => el.style.setProperty('background-image', 'none', 'important'))
+    const withoutSheen = await capture('without-sheen')
+    assert.ok(regionDifference((x, y) => x > 28 && x < plain.width - 28 && y > 3 && y < 18, plain, withoutSheen) > .2, 'The highlight changes actual top-edge pixels')
+    await card.evaluate(el => el.style.removeProperty('background-image'))
+    await card.evaluate(el => el.style.removeProperty('--dcb-liquid-filter'))
+    const restored = await liquidState()
+    assert.deepEqual([restored.width, restored.height], [state.width, state.height], 'Optics preserve the card dimensions')
+  })
+  await check('liquid glass material changes interpolate blur and refraction together and release definitions on accessibility fallback and disposal', async () => {
+    await resetLiquidGlass()
+    const original = await liquidState()
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.evaluate(() => window.fixture.settings(true))
+    await page.getByRole('radio', { name: '毛玻璃', exact: true }).click()
+    await card.evaluate(async el => {
+      await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))
+      window.liquidMaterialAnimations = el.getAnimations().filter(animation => 'transitionProperty' in animation)
+      for (const animation of window.liquidMaterialAnimations) { animation.pause(); animation.currentTime = 120 }
+    })
+    await nextFrame()
+    const middle = await liquidState()
+    assert.ok(middle.blur > 0 && middle.blur < 22, `Backdrop blur has a real intermediate value (${middle.blur})`)
+    assert.ok(middle.cssScale > 0 && middle.cssScale < original.cssScale, `Refraction fades through an intermediate scale (${middle.cssScale})`)
+    assert.ok(middle.scale > 0 && middle.scale < original.scale, 'The SVG displacement follows the interpolated CSS value')
+    await page.evaluate(() => window.liquidMaterialAnimations.forEach(animation => animation.finish()))
+    await settled()
+    await page.waitForFunction(id => !document.getElementById(id), original.id)
+    assert.equal((await readMaterial()).blur, 22)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.getByRole('radio', { name: '透明玻璃', exact: true }).click()
+    await settled()
+    await page.waitForFunction(() => document.querySelector('.dcb-summary')?.getAttribute('data-dcb-liquid') === 'active')
+    const reduced = await liquidState()
+    assert.equal(reduced.scale, reduced.cssScale, 'Reduced motion applies the settled optical state without continuous animation')
+    assert.equal(await card.evaluate(el => el.getAnimations().filter(animation => 'transitionProperty' in animation).length), 0)
+    await page.emulateMedia({ forcedColors: 'active' })
+    await settled()
+    await page.waitForFunction(id => !document.getElementById(id), reduced.id)
+    assert.equal((await readMaterial()).alpha, 1)
+    assert.equal((await readMaterial()).blur, 0)
+    assert.equal((await liquidState()).filter, '')
+    await page.emulateMedia({ forcedColors: 'none' })
+    await page.waitForFunction(() => document.querySelector('.dcb-summary')?.getAttribute('data-dcb-liquid') === 'active')
+    const restored = await liquidState()
+    await page.evaluate(() => { for (const cleanup of [...window.cleanups].reverse()) if (typeof cleanup === 'function') cleanup() })
+    await page.waitForFunction(id => !document.getElementById(id), restored.id)
+    assert.equal(await page.locator('[data-dcb-liquid]').count(), 0)
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+  })
+  await check('liquid glass geometry settles once after resize and is reused throughout fast wheel motion and card closure', async () => {
+    await resetLiquidGlass(fastTasks)
+    const original = await liquidState()
+    await page.evaluate(async () => {
+      for (const width of [330, 340, 350, 360, 370]) {
+        const key = 'dsh-claude-beautify:settings:v1'
+        const value = JSON.stringify({ ...JSON.parse(localStorage.getItem(key)), width })
+        localStorage.setItem(key, value)
+        window.dispatchEvent(new StorageEvent('storage', { key, newValue: value }))
+        await new Promise(done => requestAnimationFrame(done))
+      }
+    })
+    assert.equal((await liquidState()).generation, original.generation, 'A resize burst does not rebuild its raster map on every frame')
+    await page.waitForFunction(generation => Number(document.querySelector('.dcb-summary')?.getAttribute('data-dcb-liquid-generation')) > generation, original.generation)
+    const resized = await liquidState()
+    assert.equal(resized.generation, original.generation + 1, 'The final stable geometry creates one map')
+    assert.equal(resized.width, 370)
+    assert.notEqual(resized.map, original.map)
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.evaluate(() => { window.pauseStepRolls = true; window.liquidCloneBaseline = window.contextCloneCount })
+    const pitch = await fastViewport().evaluate(el => el.querySelector(':scope > ol > li').getBoundingClientRect().height)
+    for (let index = 0; index < 6; index++) {
+      const target = await fastStart() + 1
+      await burstWheel([pitch])
+      await waitFastStart(target)
+      await seekFastRoll(40)
+      await nextFrame()
+    }
+    assert.equal((await liquidState()).generation, resized.generation, 'Fixed-height wheel frames reuse the existing optical map')
+    assert.equal(await page.evaluate(() => window.contextCloneCount - window.liquidCloneBaseline), 0, 'Optics do not reintroduce whole-card snapshots during wheel motion')
+    await finishRoll()
+    await page.evaluate(() => { window.pauseStepRolls = false })
+    await card.getByRole('button', { name: '关闭进度面板', exact: true }).click()
+    await card.waitFor({ state: 'detached' })
+    await page.waitForFunction(id => !document.getElementById(id), resized.id)
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+  })
+  await check('liquid glass falls back to a readable static surface when rasterization or image decoding is unavailable', async () => {
+    for (const failure of ['canvas', 'decode']) {
+      await page.emulateMedia({ reducedMotion: 'reduce', forcedColors: 'none' })
+      await page.reload()
+      await page.evaluate(failure => {
+        const key = 'dsh-claude-beautify:settings:v1'
+        localStorage.setItem(key, JSON.stringify({ enabled: true, cardStyle: 'clear' }))
+        window.liquidFallbackAttempts = 0
+        if (failure === 'canvas') HTMLCanvasElement.prototype.getContext = () => { window.liquidFallbackAttempts++; return null }
+        else Image.prototype.decode = () => { window.liquidFallbackAttempts++; return Promise.reject(new Error('Synthetic image decoding failure')) }
+      }, failure)
+      await mountPlugin()
+      await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
+      await settled()
+      await page.waitForFunction(() => window.liquidFallbackAttempts > 0 && !document.querySelector('[data-dcb-liquid-defs]'))
+      assert.equal(await card.getAttribute('data-card-style'), 'clear')
+      assert.ok(await card.locator('.dcb-step-text').count() > 0)
+      assert.equal(await card.getAttribute('data-dcb-liquid'), null)
+      assert.doesNotMatch(await card.evaluate(el => getComputedStyle(el).backdropFilter), /url\(/)
+      assert.match(await card.evaluate(el => getComputedStyle(el).backgroundImage), /radial-gradient/)
+      await page.evaluate(() => { for (let index = 0; index < 4; index++) document.body.append(document.createElement('span')) })
+      await nextFrame(); await nextFrame()
+      assert.equal(await page.evaluate(() => window.liquidFallbackAttempts), 1, 'A failed optical backend is not retried on every DOM mutation')
+    }
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
   })
   assert.deepEqual(errors, [])
   console.log(JSON.stringify({ passed, output }))

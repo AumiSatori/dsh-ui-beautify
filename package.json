@@ -1,13 +1,13 @@
 {
   "name": "dsh-claude-beautify",
-  "version": "0.3.16",
+  "version": "0.3.17",
   "private": true,
   "type": "module",
   "description": "Claude-inspired session progress, outputs and used resources panel for DeepSeek Harness.",
   "license": "MIT",
   "main": "index.js",
   "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "scripts/profile.mjs", "scripts/patch-claude-slider.mjs", "README.md", "LICENSE"],
+  "files": ["index.js", "client.js", "cordis.patch.yml", "scripts/profile.mjs", "scripts/patch-claude-slider.mjs", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "test:browser": "node test/browser.mjs",

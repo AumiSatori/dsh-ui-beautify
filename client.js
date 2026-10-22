@@ -1162,8 +1162,10 @@ window.__ModuleLoader__.load({
         React.useLayoutEffect(() => {
           const node = card.current
           const previous = dropdown.current
-          const hidden = { opacity: 0, transform: 'translateY(-6px)', clipPath: 'inset(0 0 100% 0 round 14px)' }
-          const shown = { opacity: 1, transform: 'translateY(0)', clipPath: 'inset(0 0 0 0 round 14px)' }
+          // Reveal the card and its shadow together; clipping at the border would
+          // hide the outer shadow until the finished animation is removed.
+          const hidden = { opacity: 0, transform: 'translateY(-6px)', clipPath: 'inset(-64px -64px calc(100% + 64px) -64px round 14px)' }
+          const shown = { opacity: 1, transform: 'translateY(0)', clipPath: 'inset(-64px -64px -64px -64px round 14px)' }
           let from = open ? hidden : shown
           // Read the current animated frame before canceling so rapid re-entry is continuous.
           if (previous?.effect?.target === node && node) {

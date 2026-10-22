@@ -77,6 +77,7 @@ await page.addInitScript(() => {
     if (options?.id === 'dcb-hover-dismiss') window.hoverDismissals.push({ target: this.id, frames, duration: options.duration })
     const animation = animate.call(this, frames, options)
     if (options?.id === 'dcb-dropdown' && window.pauseDropdownReveals) { animation.pause(); animation.currentTime = 0 }
+    if (options?.id === 'dcb-hover-dismiss' && window.pauseHoverDismissals) { animation.pause(); animation.currentTime = 0 }
     if (options?.id?.startsWith('dcb-tools-')) {
       window.toolDisclosures.push(animation)
       if (window.pauseToolDisclosures) { animation.pause(); animation.currentTime = 0 }
@@ -1967,6 +1968,106 @@ try {
     assert.equal(await summary.locator(':scope > svg').evaluate(el => getComputedStyle(el).animationName), 'none')
     assert.ok((await summary.getAttribute('title')).includes('9 种 · 11 次'))
     await page.emulateMedia({ reducedMotion: 'no-preference' })
+  })
+
+  await check('hover shadow pixels fade with all three materials in both themes and remain continuous at cleanup and reversal', async () => {
+    const distance = (first, second) => first.reduce((sum, value, index) => sum + Math.abs(value - second[index]), 0) / first.length
+    for (const dark of [false, true]) for (const material of ['milk', 'clear', 'glass']) {
+      await page.reload()
+      await mountPlugin()
+      await page.evaluate(({ dark, material }) => {
+        const key = 'dsh-claude-beautify:settings:v1'
+        const value = JSON.stringify({ enabled: true, cardStyle: material })
+        localStorage.setItem(key, value)
+        window.dispatchEvent(new StorageEvent('storage', { key, newValue: value }))
+        document.body.toggleAttribute('data-ds-dark-theme', dark)
+        window.fixture.records([])
+        window.fixture.running(false)
+        window.fixture.update([{ content: '悬浮阴影合成验证', status: 'pending' }, { content: '检查平滑收起', status: 'pending' }])
+      }, { dark, material })
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
+      const outside = () => page.mouse.move(40, 400)
+      await entry.hover()
+      await card.waitFor()
+      const bounds = await card.boundingBox()
+      const clip = { x: Math.floor(bounds.x - 48), y: Math.max(0, Math.floor(bounds.y - 48)), width: 0, height: Math.ceil(bounds.height + 96) }
+      clip.width = Math.min(Math.ceil(bounds.width + 96), 1706 - clip.x)
+      const probe = { x: Math.floor(bounds.x - 16) - clip.x, y: Math.floor(bounds.y + bounds.height / 2) - clip.y, width: 12, height: 24 }
+      const capture = async name => {
+        const bytes = await page.screenshot({ clip, scale: 'css', ...(name ? { path: resolve(output, `summary-hover-shadow-${material}-${dark ? 'dark' : 'light'}-${name}.png`) } : {}) })
+        return page.evaluate(async ({ data, probe }) => {
+          const response = await fetch(`data:image/png;base64,${data}`)
+          const bitmap = await createImageBitmap(await response.blob())
+          const canvas = document.createElement('canvas')
+          canvas.width = bitmap.width; canvas.height = bitmap.height
+          const context = canvas.getContext('2d')
+          context.drawImage(bitmap, 0, 0)
+          bitmap.close()
+          const pixels = context.getImageData(probe.x, probe.y, probe.width, probe.height).data
+          return Array.from(pixels).filter((_value, index) => index % 4 !== 3)
+        }, { data: bytes.toString('base64'), probe })
+      }
+      const seek = (id, time) => card.evaluate((el, { id, time }) => {
+        const animation = el.getAnimations().find(item => item.id === id)
+        animation.pause(); animation.currentTime = time
+      }, { id, time })
+      const finish = id => card.evaluate((el, id) => el.getAnimations().find(item => item.id === id).finish(), id)
+      await outside()
+      await card.waitFor({ state: 'hidden' })
+      const empty = await capture()
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      await page.evaluate(() => { window.pauseDropdownReveals = true; window.pauseHoverDismissals = true })
+      await entry.hover()
+      await card.waitFor()
+      await seek('dcb-dropdown', 0)
+      const start = await capture()
+      await seek('dcb-dropdown', 80)
+      const middle = await capture('enter-80')
+      await seek('dcb-dropdown', 239)
+      const beforeCleanup = await capture('enter-239')
+      await finish('dcb-dropdown')
+      await settled()
+      const complete = await capture('settled')
+      const fullShadow = distance(empty, complete)
+      assert.ok(fullShadow > .2, `${material}/${dark}: the probe outside the card must contain a visible real shadow (${fullShadow})`)
+      assert.ok(distance(beforeCleanup, complete) < Math.max(.15, fullShadow * .12), `${material}/${dark}: the last animated frame must already render the exterior shadow instead of adding it at cleanup (${distance(beforeCleanup, complete)} vs ${fullShadow})`)
+      assert.ok(distance(start, empty) < .1)
+      assert.ok(distance(middle, empty) > 0 && distance(middle, empty) < fullShadow, 'The exterior shadow fades in through actual intermediate pixels')
+      await outside()
+      await page.waitForFunction(() => document.querySelector('.dcb-summary')?.dataset.state === 'closing')
+      await seek('dcb-hover-dismiss', 0)
+      const exitStart = await capture()
+      assert.ok(distance(exitStart, complete) < .15, 'Starting dismissal does not instantly clip away the settled shadow')
+      await seek('dcb-hover-dismiss', 70)
+      const exitMiddle = await capture('exit-70')
+      assert.ok(distance(exitMiddle, empty) < fullShadow && distance(exitMiddle, empty) > 0, 'The exterior shadow visibly fades during dismissal')
+      await entry.hover()
+      await seek('dcb-dropdown', 0)
+      const reversed = await capture()
+      assert.ok(distance(reversed, exitMiddle) < .15, 'Re-entry resumes the same painted shadow pixels rather than snapping to full strength')
+      await finish('dcb-dropdown')
+      await settled()
+      await outside()
+      await page.waitForFunction(() => document.querySelector('.dcb-summary')?.dataset.state === 'closing')
+      await seek('dcb-hover-dismiss', 179)
+      const lastExit = await capture()
+      await finish('dcb-hover-dismiss')
+      await card.waitFor({ state: 'hidden' })
+      assert.ok(distance(lastExit, await capture()) < .15, 'Removing the exited card does not leave a final shadow jump')
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      const reveals = await page.evaluate(() => window.dropdownReveals.length)
+      const dismissals = await page.evaluate(() => window.hoverDismissals.length)
+      await entry.hover()
+      await card.waitFor()
+      assert.equal(await page.evaluate(() => window.dropdownReveals.length), reveals)
+      assert.ok(distance(await capture(), complete) < .15, 'Reduced motion renders the final shadow immediately')
+      await outside()
+      await card.waitFor({ state: 'hidden' })
+      assert.equal(await page.evaluate(() => window.hoverDismissals.length), dismissals)
+      await page.evaluate(() => { window.pauseDropdownReveals = false; window.pauseHoverDismissals = false })
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+    }
   })
 
   const fastTasks = Array.from({ length: 90 }, (_, index) => ({ content: `连续滚动步骤 ${index + 1}`, status: index < 40 ? 'completed' : index === 40 ? 'in_progress' : 'pending' }))

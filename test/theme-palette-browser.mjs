@@ -9,7 +9,7 @@ import { chromium } from '@playwright/test'
 // Exercise the real material picker and rendered card. Background samples come
 // from the same Chromium surface with only its foreground temporarily hidden.
 const project = fileURLToPath(new URL('..', import.meta.url))
-const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '..', 'outputs', 'dsh-claude-beautify'), 'theme-palette')
+const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '.scratch', 'claude-beautify'), 'theme-palette')
 mkdirSync(output, { recursive: true })
 const built = await build({ entryPoints: [resolve(project, 'test/fixture.jsx')], bundle: true, write: false, format: 'iife' })
 const routes = {

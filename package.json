@@ -1,6 +1,6 @@
 {
   "name": "dsh-claude-beautify",
-  "version": "0.3.18",
+  "version": "0.3.19",
   "private": true,
   "type": "module",
   "description": "Claude-inspired session progress, outputs and used resources panel for DeepSeek Harness.",
@@ -13,6 +13,7 @@
     "test:browser": "node test/browser.mjs",
     "test:summary": "node test/summary-browser.mjs",
     "test:materials": "node test/material-browser.mjs",
+    "test:theme-palette": "node test/theme-palette-browser.mjs",
     "install-plugin": "node scripts/profile.mjs install",
     "uninstall-plugin": "node scripts/profile.mjs uninstall",
     "check-plugin": "node scripts/profile.mjs check",

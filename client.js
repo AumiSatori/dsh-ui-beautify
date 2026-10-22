@@ -661,6 +661,7 @@ window.__ModuleLoader__.load({
       const records = new Map(), cache = new Map()
       const forced = window.matchMedia('(forced-colors: active)')
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)')
+      const motionProperties = ['--dcb-glint-x', '--dcb-glint-y', '--dcb-glint-strength', '--dcb-interaction-depth']
       let disposed = false, svg = null, defs = null, serial = 0, lastElements = []
       const create = (name, attributes = {}) => {
         const node = document.createElementNS(namespace, name)
@@ -699,7 +700,7 @@ window.__ModuleLoader__.load({
         return value
       }
       const setScale = (record, scale) => {
-        const value = String(Math.round(Math.max(0, Math.min(12, scale)) * 1000) / 1000)
+        const value = String(Math.round(Math.max(0, Math.min(16, scale)) * 1000) / 1000)
         if (record.displacement.getAttribute('scale') !== value) record.displacement.setAttribute('scale', value)
       }
       const remove = record => {
@@ -707,7 +708,13 @@ window.__ModuleLoader__.load({
         records.delete(record.element); record.live = false
         resize.unobserve(record.element)
         if (record.frame) window.cancelAnimationFrame(record.frame)
+        if (record.inputFrame) window.cancelAnimationFrame(record.inputFrame)
         if (record.resizeTimer) window.clearTimeout(record.resizeTimer)
+        for (const [name, listener] of Object.entries(record.pointerListeners)) record.element.removeEventListener(name, listener)
+        for (const [name, value, priority] of record.previousMotion) {
+          if (value) record.element.style.setProperty(name, value, priority)
+          else record.element.style.removeProperty(name)
+        }
         record.filter.remove()
         if (record.previousFilter) record.element.style.setProperty('--dcb-liquid-filter', record.previousFilter, record.previousPriority)
         else record.element.style.removeProperty('--dcb-liquid-filter')
@@ -722,17 +729,58 @@ window.__ModuleLoader__.load({
         if (!record.ready) return
         const style = window.getComputedStyle(record.element)
         const parsed = Number.parseFloat(style.getPropertyValue('--dcb-refraction-scale'))
-        const scale = reduced.matches || !Number.isFinite(parsed) ? record.target : parsed
+        const base = reduced.matches || !Number.isFinite(parsed) ? record.target : parsed
+        const depth = reduced.matches ? 0 : Number.parseFloat(style.getPropertyValue('--dcb-interaction-depth')) || 0
+        const scale = base * (1 + depth / 12)
         setScale(record, scale)
-        const transitions = record.element.getAnimations().filter(animation => animation.transitionProperty === '--dcb-refraction-scale' && !['finished', 'idle'].includes(animation.playState))
+        const transitions = record.element.getAnimations().filter(animation => ['--dcb-refraction-scale', '--dcb-interaction-depth'].includes(animation.transitionProperty) && !['finished', 'idle'].includes(animation.playState))
         for (const animation of transitions) if (!record.watched.has(animation)) {
           record.watched.add(animation)
           animation.finished.then(() => { if (record.live && !disposed) tick(record) }).catch(() => {})
         }
         if (!record.target && scale < .01 && !transitions.length) { remove(record); return }
-        // Sampling is finite and runs only during a material handoff. A paused
+        // Sampling is finite and runs only during optical transitions. A paused
         // test transition keeps its sampled value; its finish promise settles it.
-        if (!reduced.matches && window.performance.now() < record.deadline && (transitions.length || Math.abs(scale - record.target) > .01)) record.frame = window.requestAnimationFrame(() => tick(record))
+        if (!reduced.matches && window.performance.now() < record.deadline && (transitions.length || Math.abs(base - record.target) > .01)) record.frame = window.requestAnimationFrame(() => tick(record))
+      }
+      const resetMotion = record => {
+        if (record.inputFrame) window.cancelAnimationFrame(record.inputFrame)
+        record.inputFrame = 0
+        record.pendingPointer = null
+        for (const name of motionProperties) record.element.style.removeProperty(name)
+        record.deadline = window.performance.now() + 400
+        tick(record)
+      }
+      const moveLight = (record, event) => {
+        if (reduced.matches || forced.matches || !record.live || record.target !== 12) return
+        record.pendingPointer = { x: event.clientX, y: event.clientY, pressed: event.type === 'pointerdown' || event.buttons > 0 }
+        if (record.inputFrame) return
+        // Coalesce pointer bursts; never rerasterize the map, move the card, or
+        // prevent touch scrolling. CSS interpolates only the optical properties.
+        record.inputFrame = window.requestAnimationFrame(() => {
+          record.inputFrame = 0
+          if (!record.live || !eligible(record.element) || reduced.matches || record.target !== 12) return
+          const pointer = record.pendingPointer, bounds = record.element.getBoundingClientRect()
+          if (!pointer || !bounds.width || !bounds.height) return
+          const x = Math.max(0, Math.min(100, (pointer.x - bounds.left) / bounds.width * 100))
+          const y = Math.max(0, Math.min(100, (pointer.y - bounds.top) / bounds.height * 100))
+          record.element.style.setProperty('--dcb-glint-x', `${x.toFixed(2)}%`)
+          record.element.style.setProperty('--dcb-glint-y', `${y.toFixed(2)}%`)
+          record.element.style.setProperty('--dcb-glint-strength', pointer.pressed ? '1.25' : '1')
+          record.element.style.setProperty('--dcb-interaction-depth', pointer.pressed ? '4' : '2')
+          record.deadline = window.performance.now() + 400
+          tick(record)
+        })
+      }
+      const bindMotion = record => {
+        record.pointerListeners = {
+          pointermove: event => moveLight(record, event),
+          pointerdown: event => moveLight(record, event),
+          pointerup: event => event.pointerType === 'touch' ? resetMotion(record) : moveLight(record, event),
+          pointerleave: () => resetMotion(record),
+          pointercancel: () => resetMotion(record),
+        }
+        for (const [name, listener] of Object.entries(record.pointerListeners)) record.element.addEventListener(name, listener, { passive: true })
       }
       const applyGeometry = (record, shape) => {
         if (!shape || !record.live || shape.key === record.key) return
@@ -786,13 +834,14 @@ window.__ModuleLoader__.load({
             const image = create('feImage', { x: 0, y: 0, preserveAspectRatio: 'none', result: 'normal' })
             const displacement = create('feDisplacementMap', { in: 'SourceGraphic', in2: 'normal', scale: 0, xChannelSelector: 'R', yChannelSelector: 'G' })
             filter.append(image, displacement); defs.append(filter)
-            record = { element, id, filter, image, displacement, target: null, key: null, generation: 0, frame: 0, resizeTimer: 0, ready: false, live: true, watched: new WeakSet(), previousFilter: element.style.getPropertyValue('--dcb-liquid-filter'), previousPriority: element.style.getPropertyPriority('--dcb-liquid-filter') }
-            records.set(element, record); resize.observe(element); applyGeometry(record, shape)
+            record = { element, id, filter, image, displacement, target: null, key: null, generation: 0, frame: 0, inputFrame: 0, resizeTimer: 0, ready: false, live: true, watched: new WeakSet(), pointerListeners: {}, previousMotion: motionProperties.map(name => [name, element.style.getPropertyValue(name), element.style.getPropertyPriority(name)]), previousFilter: element.style.getPropertyValue('--dcb-liquid-filter'), previousPriority: element.style.getPropertyPriority('--dcb-liquid-filter') }
+            records.set(element, record); bindMotion(record); resize.observe(element); applyGeometry(record, shape)
             if (disposed) return
           } else if (geometry(element)?.key !== record.key) queueGeometry(record)
           if (record.target !== target) {
             record.target = target; record.deadline = window.performance.now() + 400
             element.setAttribute('data-dcb-liquid', target ? 'active' : 'settling')
+            if (!target) resetMotion(record)
             if (record.frame) window.cancelAnimationFrame(record.frame)
             tick(record)
           }
@@ -803,14 +852,17 @@ window.__ModuleLoader__.load({
         if (forced.matches) { for (const record of [...records.values()]) remove(record) }
         else {
           sync(lastElements)
-          if (reduced.matches) for (const record of [...records.values()]) { if (record.frame) window.cancelAnimationFrame(record.frame); tick(record) }
+          if (reduced.matches) for (const record of [...records.values()]) resetMotion(record)
         }
       }
+      const blur = () => { for (const record of records.values()) resetMotion(record) }
       forced.addEventListener('change', preferences); reduced.addEventListener('change', preferences)
+      window.addEventListener('blur', blur)
       function dispose() {
         if (disposed) return
         disposed = true
         forced.removeEventListener('change', preferences); reduced.removeEventListener('change', preferences)
+        window.removeEventListener('blur', blur)
         for (const record of [...records.values()]) remove(record)
         resize.disconnect(); cache.clear(); lastElements = []
       }
@@ -1104,16 +1156,20 @@ window.__ModuleLoader__.load({
       @property --dcb-backdrop-saturation { syntax: "<number>"; inherits: false; initial-value: 1; }
       @property --dcb-refraction-scale { syntax: "<number>"; inherits: false; initial-value: 0; }
       @property --dcb-sheen-opacity { syntax: "<number>"; inherits: false; initial-value: 0; }
+      @property --dcb-glint-x { syntax: "<percentage>"; inherits: false; initial-value: 8%; }
+      @property --dcb-glint-y { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+      @property --dcb-glint-strength { syntax: "<number>"; inherits: false; initial-value: 0; }
+      @property --dcb-interaction-depth { syntax: "<number>"; inherits: false; initial-value: 0; }
       body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] {
         --dcb-surface-background: #fffdf9; --dcb-surface-border: #e8e4dc; --dcb-surface-shadow: 0 4px 14px rgba(38,32,24,.07);
         --dcb-backdrop-blur: 0px; --dcb-backdrop-saturation: 1; --dcb-refraction-scale: 0; --dcb-sheen-opacity: 0;
         background-color: var(--dcb-surface-background) !important;
-        background-image: radial-gradient(ellipse at 8% 0%, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .28)), transparent 56%), linear-gradient(123deg, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .1)), transparent 28% 72%, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .08))) !important;
+        background-image: radial-gradient(ellipse at var(--dcb-glint-x) var(--dcb-glint-y), rgb(255 255 255 / calc(var(--dcb-glint-strength) * var(--dcb-sheen-opacity) * .14)), transparent 60%), radial-gradient(ellipse at 8% 0%, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .28)), transparent 56%), linear-gradient(123deg, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .1)), transparent 28% 72%, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .08))) !important;
         background-origin: border-box; border-color: var(--dcb-surface-border) !important; box-shadow: var(--dcb-surface-shadow) !important;
         /* A URL makes ordinary filter transitions discrete. Typed values retain smooth interpolation. */
         backdrop-filter: var(--dcb-liquid-filter,) blur(var(--dcb-backdrop-blur)) saturate(var(--dcb-backdrop-saturation)) !important;
         -webkit-backdrop-filter: var(--dcb-liquid-filter,) blur(var(--dcb-backdrop-blur)) saturate(var(--dcb-backdrop-saturation)) !important;
-        transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-blur 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-saturation 240ms cubic-bezier(.4,0,.2,1), --dcb-refraction-scale 240ms cubic-bezier(.4,0,.2,1), --dcb-sheen-opacity 240ms cubic-bezier(.4,0,.2,1);
+        transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-blur 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-saturation 240ms cubic-bezier(.4,0,.2,1), --dcb-refraction-scale 240ms cubic-bezier(.4,0,.2,1), --dcb-sheen-opacity 240ms cubic-bezier(.4,0,.2,1), --dcb-glint-x 180ms ease-out, --dcb-glint-y 180ms ease-out, --dcb-glint-strength 240ms ease-out, --dcb-interaction-depth 240ms ease-out;
       }
       body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] { --dcb-surface-background: #292824; --dcb-surface-border: #45423b; --dcb-surface-shadow: 0 4px 16px #00000038; }
       body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="clear"] {
@@ -1169,7 +1225,7 @@ window.__ModuleLoader__.load({
       body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) li { color: var(--dcb-ink-muted); }
       body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) li[data-status="in_progress"] { color: var(--dcb-ink-active); font-weight: 700; }
       body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) li > span:last-child { color: inherit !important; }
-      body .dcb-style-swatch[data-card-style] { transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-blur 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-saturation 240ms cubic-bezier(.4,0,.2,1), --dcb-refraction-scale 240ms cubic-bezier(.4,0,.2,1), --dcb-sheen-opacity 240ms cubic-bezier(.4,0,.2,1), transform 240ms cubic-bezier(.22,.8,.26,1); }
+      body .dcb-style-swatch[data-card-style] { transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-blur 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-saturation 240ms cubic-bezier(.4,0,.2,1), --dcb-refraction-scale 240ms cubic-bezier(.4,0,.2,1), --dcb-sheen-opacity 240ms cubic-bezier(.4,0,.2,1), --dcb-glint-x 180ms ease-out, --dcb-glint-y 180ms ease-out, --dcb-glint-strength 240ms ease-out, --dcb-interaction-depth 240ms ease-out, transform 240ms cubic-bezier(.22,.8,.26,1); }
       .dcb-summary :is(.dcb-tool-summary, .dcb-output, .dcb-close) { transition: background-color 180ms cubic-bezier(.4,0,.2,1); }
       body ${GLASS_PANEL} :is(.dcb-tool-summary, .dcb-output, .dcb-close):hover { background: var(--dcb-content-hover); }
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

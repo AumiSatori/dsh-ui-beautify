@@ -7,7 +7,7 @@ import { build } from 'esbuild'
 import { chromium } from '@playwright/test'
 
 const project = fileURLToPath(new URL('..', import.meta.url))
-const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '..', 'outputs', 'dsh-claude-beautify'))
+const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '.scratch', 'claude-beautify'))
 mkdirSync(output, { recursive: true })
 const built = await build({ entryPoints: [resolve(project, 'test/fixture.jsx')], bundle: true, write: false, format: 'iife' })
 let nativeScript = ''

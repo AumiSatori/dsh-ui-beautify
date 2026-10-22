@@ -7,7 +7,7 @@ import { build } from 'esbuild'
 import { chromium } from '@playwright/test'
 
 const project = fileURLToPath(new URL('..', import.meta.url))
-const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '..', 'outputs', 'dsh-claude-beautify'))
+const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '.scratch', 'claude-beautify'))
 mkdirSync(output, { recursive: true })
 // Portable runs use a synthetic silhouette. DSH_ASAR borrows the installed
 // primitive's exact path and proportions in memory for visual verification.
@@ -2376,11 +2376,12 @@ try {
     assert.ok(edge > 1, `The optical rim changes real backdrop pixels (${edge.toFixed(3)})`)
     assert.ok(center < .2 && edge > center * 8, `Refraction stays at the rim instead of warping the center (${edge.toFixed(3)} vs ${center.toFixed(3)})`)
     let glyphPixels = 0
+    const ink = (await text.evaluate(el => getComputedStyle(el).color)).match(/[\d.]+/g).slice(0, 3).map(Number)
     const glyphDifference = regionDifference((x, y) => {
       if (x < textBounds.x - cardBounds.x || x >= textBounds.x - cardBounds.x + textBounds.width || y < textBounds.y - cardBounds.y || y >= textBounds.y - cardBounds.y + textBounds.height) return false
       const offset = (y * refracted.width + x) * 4
       const channels = refracted.pixels.slice(offset, offset + 3)
-      const core = channels.every(channel => channel >= 145 && channel <= 165) && Math.max(...channels) - Math.min(...channels) < 4
+      const core = channels.every((channel, index) => Math.abs(channel - ink[index]) < 6)
       if (core) glyphPixels++
       return core
     })

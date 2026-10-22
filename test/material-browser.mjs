@@ -9,7 +9,7 @@ import { chromium } from '@playwright/test'
 // The compact, tools-only card is the least favorable real use case for telling
 // the three materials apart. Measure rendered padding pixels, not just CSS flags.
 const project = fileURLToPath(new URL('..', import.meta.url))
-const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '..', 'outputs', 'dsh-claude-beautify'), 'material-regression')
+const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '.scratch', 'claude-beautify'), 'material-regression')
 mkdirSync(output, { recursive: true })
 const built = await build({ entryPoints: [resolve(project, 'test/fixture.jsx')], bundle: true, write: false, format: 'iife' })
 const routes = {
@@ -203,6 +203,99 @@ try {
     })
     results[theme] = { flat, styles, patterned }
   }
+  const optical = () => card.evaluate(element => {
+    const style = getComputedStyle(element), id = style.getPropertyValue('--dcb-liquid-filter').match(/#([^)'"\s]+)/)?.[1]
+    return { x: parseFloat(style.getPropertyValue('--dcb-glint-x')), y: parseFloat(style.getPropertyValue('--dcb-glint-y')),
+      strength: Number(style.getPropertyValue('--dcb-glint-strength')), depth: Number(style.getPropertyValue('--dcb-interaction-depth')),
+      scale: Number(document.getElementById(id)?.querySelector('feDisplacementMap')?.getAttribute('scale')),
+      generation: element.getAttribute('data-dcb-liquid-generation') }
+  })
+  for (const dark of [false, true]) await check(`${dark ? 'dark' : 'light'} liquid light follows real pointer movement and bends the backdrop without moving text`, async () => {
+    await page.evaluate(dark => {
+      document.body.toggleAttribute('data-ds-dark-theme', dark)
+      document.body.style.setProperty('--material-test-background', dark ? '#141414' : '#e4e7ec')
+    }, dark)
+    await material('clear')
+    await page.waitForFunction(() => document.querySelector('.dcb-summary')?.style.getPropertyValue('--dcb-liquid-filter').includes('url('))
+    const before = await optical(), bounds = await card.boundingBox(), text = await card.locator('.dcb-tool-name').boundingBox()
+    await page.mouse.move(bounds.x + bounds.width * .15, bounds.y + bounds.height * .15)
+    await settled()
+    const left = await optical(), leftPixels = await capture(`liquid-${dark ? 'dark' : 'light'}-left`)
+    assert.ok(left.x < 20 && left.y < 20 && left.strength === 1)
+    assert.ok(left.scale > before.scale && left.scale <= 16, 'Interaction strengthens actual SVG displacement within its bounded range')
+    await page.mouse.move(bounds.x + bounds.width * .85, bounds.y + bounds.height * .85)
+    await settled()
+    const right = await optical(), rightPixels = await capture(`liquid-${dark ? 'dark' : 'light'}-right`)
+    assert.ok(right.x > 80 && right.y > 80)
+    assert.ok(difference(leftPixels, rightPixels) > .25, 'Moving the light changes real padding pixels')
+    assert.deepEqual(await card.boundingBox(), bounds, 'The lens never transforms the card')
+    assert.deepEqual(await card.locator('.dcb-tool-name').boundingBox(), text, 'Text stays stationary')
+    assert.equal(right.generation, before.generation, 'Pointer motion reuses the edge map')
+    await page.mouse.move(10, 500)
+    await settled()
+    assert.equal((await optical()).strength, 0)
+    assert.equal((await optical()).scale, before.scale, 'Leaving settles back to the static lens')
+  })
+  await check('liquid pointer bursts coalesce, touch releases and cancellation settle, and idle optics stop updating', async () => {
+    await card.evaluate(element => {
+      window.opticalWrites = 0
+      window.opticalObserver = new MutationObserver(entries => { window.opticalWrites += entries.length })
+      window.opticalObserver.observe(element, { attributes: true, attributeFilter: ['style'] })
+      const bounds = element.getBoundingClientRect()
+      for (let index = 0; index < 40; index++) element.dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse', clientX: bounds.x + index + 20, clientY: bounds.y + 10 }))
+    })
+    await settled()
+    assert.ok(await page.evaluate(() => window.opticalWrites) <= 4, 'One frame commits one optical update despite a burst of inputs')
+    await card.evaluate(element => {
+      window.opticalObserver.disconnect()
+      const bounds = element.getBoundingClientRect()
+      element.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', buttons: 1, clientX: bounds.x + 100, clientY: bounds.y + 20 }))
+    })
+    await settled()
+    assert.equal((await optical()).scale, 16, 'Touch pressure reaches the bounded pressed lens')
+    for (const type of ['pointerup', 'pointercancel']) {
+      await card.dispatchEvent('pointerdown', { pointerType: 'touch', buttons: 1, clientX: 800, clientY: 110 })
+      await settled()
+      assert.equal((await optical()).depth, 4)
+      await card.dispatchEvent(type, { pointerType: 'touch' })
+      await settled()
+      assert.equal((await optical()).depth, 0, 'Touch completion/cancellation releases the lens')
+    }
+    await card.evaluate(() => {
+      window.idleOpticalWrites = 0
+      window.idleOpticalObserver = new MutationObserver(entries => { window.idleOpticalWrites += entries.length })
+      window.idleOpticalObserver.observe(document.querySelector('[data-dcb-liquid-defs]'), { subtree: true, attributes: true })
+    })
+    await page.waitForTimeout(500)
+    assert.equal(await page.evaluate(() => window.idleOpticalWrites), 0, 'There is no perpetual rendering loop when idle')
+    await page.evaluate(() => window.idleOpticalObserver.disconnect())
+  })
+  await check('motion preference changes, material switches and disposal clear interactive light and release its listeners', async () => {
+    const bounds = await card.boundingBox()
+    await page.mouse.move(bounds.x + 120, bounds.y + 15)
+    await settled()
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await settled()
+    assert.equal((await optical()).strength, 0)
+    await card.dispatchEvent('pointermove', { clientX: bounds.x + 60, clientY: bounds.y + 20 })
+    await settled()
+    assert.equal((await optical()).depth, 0, 'Reduced motion keeps the lens static')
+    await material('glass')
+    assert.equal(await card.getAttribute('data-dcb-liquid'), null, 'An immediate material handoff removes optical markers as well as its definitions')
+    await material('clear')
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await material('glass')
+    assert.equal((await optical()).strength, 0, 'Frost remains a separate material')
+    await material('clear')
+    await settled()
+    await card.evaluate(element => { window.disposedLens = element })
+    await page.evaluate(() => { for (const cleanup of [...window.cleanups].reverse()) if (typeof cleanup === 'function') cleanup() })
+    assert.equal(await page.locator('[data-dcb-liquid-defs]').count(), 0)
+    assert.equal(await page.evaluate(() => {
+      window.disposedLens.dispatchEvent(new PointerEvent('pointerdown', { buttons: 1, clientX: 200, clientY: 50 }))
+      return window.disposedLens.style.getPropertyValue('--dcb-glint-strength')
+    }), '', 'Disposed elements do not retain active optical listeners')
+  })
   assert.deepEqual(errors, [])
   writeFileSync(resolve(output, 'results.json'), `${JSON.stringify(results, null, 2)}\n`)
   const comparison = await browser.newPage({ viewport: { width: 1100, height: 640 }, deviceScaleFactor: 1 })

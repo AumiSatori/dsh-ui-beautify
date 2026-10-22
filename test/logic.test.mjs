@@ -38,6 +38,9 @@ test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize(null).chatUnderComposer, true)
   assert.equal(normalize({ chatUnderComposer: 'false' }).chatUnderComposer, true)
   assert.equal(normalize({ chatUnderComposer: false }).chatUnderComposer, false)
+  assert.equal(normalize(null).messageMotion, true)
+  assert.equal(normalize({ messageMotion: false }).messageMotion, false)
+  assert.equal(normalize({ messageMotion: 'false' }).messageMotion, true)
   assert.equal(normalize({ enabled: false, composerGlass: false, chatUnderComposer: true }).chatUnderComposer, true)
 })
 

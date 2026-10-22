@@ -235,7 +235,7 @@ void main(){
     const material = value => `${MATERIAL_SURFACE}:is([data-card-style="${value}"], [${COMPOSER_MARK}="${value}"], [${COMPOSER_ACTION_MARK}="${value}"])`
     const CARD_STYLES = ['milk', 'clear', 'css', 'glass']
     const MATERIALS = [['milk', '默认', '保留原始配色与样式'], ['clear', '透明玻璃', '液态折射，通透亮边'], ['css', '轻量玻璃', '柔和亮边，轻微模糊'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮']]
-    const DEFAULTS = { enabled: true, composerStyle: 'milk', chatUnderComposer: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
+    const DEFAULTS = { enabled: true, composerStyle: 'milk', chatUnderComposer: true, messageMotion: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
     const VARIABLES = ['--dcb-left', '--dcb-top', '--dcb-width', '--dcb-list-height']
 
     function normalize(value) {
@@ -244,6 +244,7 @@ void main(){
         // Fold the retired enable switch into the style; never leave a hidden gate.
         composerStyle: value?.composerGlass === false ? 'milk' : CARD_STYLES.includes(value?.composerStyle) ? value.composerStyle : value?.composerGlass === true ? 'css' : DEFAULTS.composerStyle,
         chatUnderComposer: typeof value?.chatUnderComposer === 'boolean' ? value.chatUnderComposer : DEFAULTS.chatUnderComposer,
+        messageMotion: typeof value?.messageMotion === 'boolean' ? value.messageMotion : DEFAULTS.messageMotion,
         width: Number.isFinite(value?.width) ? Math.round(Math.max(280, Math.min(480, value.width))) : 320,
         // Keep the existing glass value for the frosted material when upgrading.
         cardStyle: CARD_STYLES.includes(value?.cardStyle) ? value.cardStyle : 'milk',
@@ -1556,6 +1557,235 @@ void main(){
       }
     `
 
+    // Observe native message seats without replacing React-owned content or
+    // driving the host scroll controller. Only new, visible tail messages enter.
+    function createMessageMotion(document, window, initiallyEnabled = true) {
+      const FLOW = '[data-chat-flow]'
+      const ROW = '[data-chat-flow-kind="user"], [data-chat-flow-kind="steering"], [data-chat-flow-kind="assistant"], [data-submission-echo], [data-pending-steering]'
+      const preference = window.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
+      const states = new WeakMap(), pending = new Set(), waiting = new Set(), active = new Map(), echoCredits = new WeakMap(), arriving = new Map()
+      let enabled = initiallyEnabled, disposed = false, frame = 0, intent = null, intentTimer = 0
+      const now = () => window.performance.now()
+      const containerOf = root => root.closest('[data-conversation-content]')
+      const sessionOf = root => containerOf(root)?.getAttribute('data-conversation-session') || ''
+      const rowsOf = root => [...root.querySelectorAll(ROW)].filter(row => row.parentElement.closest(ROW) === null)
+      const echo = row => row.matches('[data-submission-echo], [data-pending-steering]')
+      const kindOf = row => row.getAttribute('data-chat-flow-kind') === 'assistant' ? 'assistant' : 'user'
+      const keyOf = row => row.getAttribute('data-chat-flow-key') || row.getAttribute('data-chat-node-key')
+      const turnOf = row => {
+        const value = row.getAttribute('data-chat-turn')
+        return value !== null && Number.isFinite(Number(value)) ? Number(value) : null
+      }
+      function remember(state, row) {
+        if (echo(row) && !state.nodes.has(row)) {
+          const credit = { row, lostAt: null }
+          state.credits.push(credit); echoCredits.set(row, credit)
+          if (state.credits.length > 16) state.credits.shift()
+        }
+        state.nodes.add(row)
+        const key = keyOf(row)
+        if (key) { state.keys.add(key); if (state.keys.size > 4096) state.keys.delete(state.keys.values().next().value) }
+        const turn = turnOf(row)
+        if (turn !== null) state.turn = Math.max(state.turn, turn)
+        if (!state.tail?.isConnected || state.tail.compareDocumentPosition(row) & 4) state.tail = row
+      }
+      function hasIntent(root) {
+        return intent && now() - intent.at < 4000 &&
+          (intent.container === containerOf(root) || !intent.session || intent.session === sessionOf(root))
+      }
+      function stateFor(root) {
+        let state = states.get(root)
+        if (!state || state.session !== sessionOf(root)) {
+          state = { session: sessionOf(root), nodes: new WeakSet(), keys: new Set(), turn: -Infinity, tail: null, ready: false, credits: [] }
+          states.set(root, state)
+        }
+        return state
+      }
+      function seed(root, allowIntent = false) {
+        const state = stateFor(root), rows = rowsOf(root)
+        const latest = rows.reduce((value, row) => Math.max(value, turnOf(row) ?? -Infinity), -Infinity)
+        const fresh = allowIntent && hasIntent(root)
+        state.ready = rows.length > 0
+        for (const row of rows) {
+          if (fresh && (echo(row) || turnOf(row) === latest)) pending.add(row)
+          else remember(state, row)
+        }
+        if (pending.size) schedule()
+      }
+      function visible(row, root) {
+        if (document.hidden || row.closest('[hidden], [inert], [data-turn-process-hidden="true"]')) return false
+        const scroller = root.closest('[data-conversation-scroll]') || root.parentElement
+        const bounds = row.getBoundingClientRect(), viewport = scroller.getBoundingClientRect()
+        return bounds.width > 0 && bounds.height > 0 && bounds.bottom > Math.max(0, viewport.top) &&
+          bounds.top < Math.min(window.innerHeight, viewport.bottom) && window.getComputedStyle(row).visibility !== 'hidden'
+      }
+      function cancel(record) {
+        record.animation.cancel()
+        active.delete(record.target)
+      }
+      function cancelAll() { for (const record of [...active.values()]) cancel(record) }
+      // The host can scroll to a just-appended row on the next frame. Wait for
+      // that visibility briefly, without scrolling or polling every frame.
+      const exposure = typeof window.IntersectionObserver === 'function' ? new window.IntersectionObserver(entries => {
+        for (const entry of entries) if (entry.isIntersecting && arriving.has(entry.target)) pending.add(entry.target)
+        if (pending.size) schedule()
+      }) : null
+      function releaseArrival(row) {
+        const arrival = arriving.get(row)
+        if (!arrival) return
+        window.clearTimeout(arrival.timer); exposure?.unobserve(row); arriving.delete(row)
+      }
+      function waitForHostScroll(row, root) {
+        if (!exposure || !row.getClientRects().length || row.closest('[hidden], [inert], [data-turn-process-hidden="true"]')) { remember(stateFor(root), row); return }
+        if (arriving.has(row)) return
+        const session = sessionOf(root)
+        const timer = window.setTimeout(() => {
+          releaseArrival(row)
+          if (row.isConnected && sessionOf(root) === session) remember(stateFor(root), row)
+        }, 600)
+        arriving.set(row, { timer }); exposure.observe(row)
+      }
+      function enter(row, root, kind) {
+        let target = row.querySelector(':scope > [data-slot="conversation.chat.node"]') || row.firstElementChild || row
+        // Factory slot wrappers may be display:contents and cannot be painted.
+        while (target !== row && window.getComputedStyle(target).display === 'contents') target = target.firstElementChild || row
+        if (typeof target.animate !== 'function') return
+        const animation = target.animate([
+          { opacity: .12, translate: kind === 'user' ? '7px 14px' : '-4px 11px' },
+          { opacity: 1, translate: '0px 0px' },
+        ], { duration: kind === 'user' ? 260 : 320, easing: 'cubic-bezier(.2,.8,.2,1)', id: `dcb-message-${kind}` })
+        const record = { target, root, animation, session: sessionOf(root) }
+        active.set(target, record)
+        const finish = () => { if (active.get(target) === record) cancel(record) }
+        animation.finished.then(finish, finish)
+      }
+      function flush() {
+        frame = 0
+        if (disposed) return
+        for (const record of [...active.values()]) if (!record.target.isConnected || record.session !== sessionOf(record.root)) cancel(record)
+        for (const row of waiting) if (!row.isConnected) waiting.delete(row)
+        for (const row of arriving.keys()) if (!row.isConnected) releaseArrival(row)
+        const batch = [...pending]; pending.clear()
+        const roots = new Set(batch.map(row => row.closest(FLOW)).filter(Boolean))
+        for (const root of roots) {
+          const state = stateFor(root)
+          if (!state.ready) {
+            const rows = rowsOf(root)
+            state.ready = rows.length > 0
+            if (!hasIntent(root)) { for (const row of rows) remember(state, row) }
+          }
+        }
+        for (const row of batch) {
+          const root = row.closest(FLOW)
+          if (!root || !row.isConnected) continue
+          const state = stateFor(root), key = keyOf(row), kind = kindOf(row), turn = turnOf(row)
+          if (state.nodes.has(row) || key && state.keys.has(key)) { remember(state, row); waiting.delete(row); releaseArrival(row); continue }
+          const historical = turn !== null && turn < state.turn || state.tail?.isConnected && Boolean(row.compareDocumentPosition(state.tail) & 4)
+          const following = root.closest('[data-chat-following-tail]') !== null || hasIntent(root)
+          if (historical || !following || !enabled || preference.matches) {
+            remember(state, row); waiting.delete(row); releaseArrival(row); continue
+          }
+          // Empty streaming seats wait for the first actual text/image. Later
+          // token updates never rescan or animate an already admitted message.
+          if (!row.textContent.trim() && !row.querySelector('img, video, canvas, pre')) { waiting.add(row); continue }
+          waiting.delete(row)
+          if (!visible(row, root)) { waitForHostScroll(row, root); continue }
+          releaseArrival(row)
+          state.credits = state.credits.filter(credit => credit.row.isConnected || credit.lostAt !== null && now() - credit.lostAt < 1500)
+          const replacement = kind === 'user' && !echo(row) && state.credits.findIndex(credit => !credit.row.isConnected)
+          if (replacement !== false && replacement >= 0) state.credits.splice(replacement, 1)
+          else enter(row, root, kind)
+          remember(state, row)
+        }
+      }
+      function schedule() { if (!frame && !disposed) frame = window.requestAnimationFrame(flush) }
+      function collect(element) {
+        if (element.nodeType !== 1) return
+        if (element.matches(FLOW) && !states.has(element)) seed(element, true)
+        for (const root of element.querySelectorAll(FLOW)) if (!states.has(root)) seed(root, true)
+        const root = element.closest(FLOW)
+        if (root) {
+          const row = element.closest(ROW)
+          if (row && (waiting.has(row) || !stateFor(root).nodes.has(row))) pending.add(row)
+          for (const child of element.querySelectorAll(ROW)) if (child.parentElement.closest(ROW) === null && !stateFor(root).nodes.has(child)) pending.add(child)
+        }
+      }
+      const observer = new window.MutationObserver(records => {
+        let detached = false
+        for (const record of records) {
+          if (record.type === 'attributes') {
+            for (const root of record.target.querySelectorAll(FLOW)) seed(root, true)
+            if (active.size) schedule()
+          } else if (record.type === 'characterData') {
+            const row = record.target.parentElement?.closest(ROW)
+            if (waiting.has(row)) pending.add(row)
+          } else {
+            if (record.removedNodes.length) detached = true
+            for (const node of record.removedNodes) if (node.nodeType === 1) {
+              const echoes = node.matches('[data-submission-echo], [data-pending-steering]') ? [node] : node.querySelectorAll('[data-submission-echo], [data-pending-steering]')
+              for (const element of echoes) {
+                const credit = echoCredits.get(element)
+                if (credit) credit.lostAt = now()
+              }
+            }
+            // A streaming text replacement only matters while its seat is empty.
+            const row = record.target.closest?.(ROW)
+            if (waiting.has(row)) pending.add(row)
+            for (const node of record.addedNodes) collect(node)
+          }
+        }
+        if (pending.size || detached && (active.size || waiting.size || arriving.size)) schedule()
+      })
+      function sendIntent(event) {
+        const target = event.target?.nodeType === 1 ? event.target : event.target?.parentElement
+        const seat = target?.closest('[data-composer-seat]')
+        if (!seat || event.defaultPrevented) return
+        if (event.type === 'keydown') {
+          if (event.key !== 'Enter' || event.shiftKey || event.isComposing || event.keyCode === 229 || event.repeat ||
+              !target.closest('[data-composer-input], textarea, [contenteditable="true"]')) return
+        } else {
+          const button = target.closest('button')
+          if (!button || button.disabled || ![...button.classList].some(name => /_primary$/.test(name))) return
+        }
+        const container = seat.closest('[data-conversation-content]')
+        intent = { at: now(), container, session: container?.getAttribute('data-conversation-session') || '' }
+        window.clearTimeout(intentTimer)
+        intentTimer = window.setTimeout(() => { intent = null; intentTimer = 0 }, 4000)
+      }
+      for (const root of document.querySelectorAll(FLOW)) seed(root)
+      observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['data-conversation-session'] })
+      document.addEventListener('keydown', sendIntent, true)
+      document.addEventListener('click', sendIntent, true)
+      const changed = () => {
+        if (!preference.matches) return
+        cancelAll()
+        for (const row of arriving.keys()) {
+          const root = row.closest(FLOW)
+          if (root) remember(stateFor(root), row)
+          releaseArrival(row)
+        }
+      }
+      preference.addEventListener('change', changed)
+      return {
+        setEnabled(value) {
+          if (enabled === value) return
+          enabled = value; cancelAll(); waiting.clear(); pending.clear()
+          for (const row of arriving.keys()) releaseArrival(row)
+          for (const root of document.querySelectorAll(FLOW)) seed(root)
+        },
+        dispose() {
+          disposed = true; observer.disconnect(); cancelAll(); waiting.clear(); pending.clear(); intent = null
+          for (const row of arriving.keys()) releaseArrival(row)
+          exposure?.disconnect()
+          if (frame) window.cancelAnimationFrame(frame)
+          window.clearTimeout(intentTimer)
+          preference.removeEventListener('change', changed)
+          document.removeEventListener('keydown', sendIntent, true)
+          document.removeEventListener('click', sendIntent, true)
+        },
+      }
+    }
+
     function apply(ctx) {
       let settings = readSettings()
       let frame = 0
@@ -1580,6 +1810,7 @@ void main(){
       document.head.appendChild(style)
       const liquid = createLiquidGlassManager(document, window)
       const lensActions = DcbLens.createLensActions(document, window)
+      const messageMotion = createMessageMotion(document, window, settings.messageMotion)
 
       function restore(panel) {
         panel.removeAttribute('data-dcb-native-hidden')
@@ -1676,6 +1907,7 @@ void main(){
       function schedule() { if (!frame && !disposed) frame = window.requestAnimationFrame(sync) }
       function update(patch, persist = true) {
         settings = normalize({ ...settings, ...patch })
+        messageMotion.setEnabled(settings.messageMotion)
         if (persist) {
           try { window.localStorage.setItem(KEY, JSON.stringify(settings)) } catch { /* private browsing */ }
         }
@@ -1874,7 +2106,13 @@ void main(){
                 h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '对话延伸到输入栏后方', 'aria-checked': settings.chatUnderComposer,
                   onClick: () => update({ chatUnderComposer: !settings.chatUnderComposer }) }))),
             h(StylePicker, { scope: 'composer', value: settings.composerStyle, onChange: composerStyle => update({ composerStyle }) }),
-            h('div', { className: 'dcb-settings-info', role: 'status' }, `输入栏样式：${composerName}`)))
+            h('div', { className: 'dcb-settings-info', role: 'status' }, `输入栏样式：${composerName}`)),
+          h('section', { className: 'dcb-settings-block dcb-settings-card', 'data-dcb-settings-block': 'messages' },
+            h('div', { className: 'dcb-settings-header' }, h('div', null, h('h2', null, '对话动效'), h('p', null, '发送消息与模型回复的入场过渡'))),
+            h('div', { className: 'dcb-settings-row' },
+              h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '新消息入场动效'), h('p', { className: 'dcb-settings-row-desc' }, '新消息轻微上滑、淡入；流式文字持续显示，不重复入场。')),
+              h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '新消息入场动效', 'aria-checked': settings.messageMotion,
+                onClick: () => update({ messageMotion: !settings.messageMotion }) }))))
       }
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section', id: NAME, order: 26, label: DISPLAY_NAME,
@@ -2217,6 +2455,7 @@ void main(){
         resize.disconnect()
         liquid.dispose()
         lensActions.dispose()
+        messageMotion.dispose()
         for (const element of composerActionOriginals.keys()) restoreComposerAction(element)
         for (const element of composerOriginals.keys()) restoreComposer(element)
         if (originalComposerFlag === null) document.body.removeAttribute(COMPOSER_FLAG)
@@ -2236,6 +2475,6 @@ void main(){
         stylePreviewListeners.clear()
       }, `${NAME}: presentation`)
     }
-    return { apply, inject: ['slots'], __test: { normalize, placement, activityFrom, activitySource, turnActivityFrom, toolSummary, toolCategory, createLiquidNormalMap, progressItems, fileAddress, imageExtension, tileLabel, mimeFor } }
+    return { apply, inject: ['slots'], __test: { normalize, placement, activityFrom, activitySource, turnActivityFrom, toolSummary, toolCategory, createLiquidNormalMap, createMessageMotion, progressItems, fileAddress, imageExtension, tileLabel, mimeFor } }
   },
 })

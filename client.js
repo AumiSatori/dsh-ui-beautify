@@ -18,7 +18,8 @@ window.__ModuleLoader__.load({
       return {
         enabled: typeof value?.enabled === 'boolean' ? value.enabled : true,
         width: Number.isFinite(value?.width) ? Math.round(Math.max(280, Math.min(480, value.width))) : 320,
-        cardStyle: value?.cardStyle === 'glass' ? 'glass' : 'milk',
+        // Keep the existing glass value for the frosted material when upgrading.
+        cardStyle: ['clear', 'glass', 'milk'].includes(value?.cardStyle) ? value.cardStyle : 'milk',
         modules: Object.fromEntries(Object.keys(DEFAULTS.modules).map(key => [key, typeof value?.modules?.[key] === 'boolean' ? value.modules[key] : true])),
         progressView: { count: value?.progressView?.count === 2 ? 2 : 3, previous: value?.progressView?.previous === true, future: value?.progressView?.future === true },
         toolDetails: value?.toolDetails === true,
@@ -771,9 +772,9 @@ window.__ModuleLoader__.load({
       .dcb-style-option:has(input:checked) { background: #f7f4ef; border-color: #b8a08c; box-shadow: 0 0 0 1px #a4695018; }
       .dcb-style-option:has(input:focus-visible) { outline: 2px solid #a46950; outline-offset: 3px; }
       .dcb-style-option input { position: absolute; top: 12px; right: 12px; margin: 0; z-index: 1; accent-color: #a46950; }
-      .dcb-style-scene { display: grid; place-items: center; height: 76px; overflow: hidden; border-radius: 6px; background: radial-gradient(ellipse at 15% 30%, #a6cbd0, transparent 60%), radial-gradient(ellipse at 85% 80%, #d9b59b, transparent 60%), #e8e4dc; }
-      .dcb-style-swatch { position: relative; display: grid; align-content: center; justify-items: start; gap: 6px; width: 82px; height: 44px; padding: 13px; border: 1px solid; border-radius: 12px; opacity: .8; transform: translateY(0); transition: transform 240ms cubic-bezier(.22,.8,.26,1), opacity 240ms cubic-bezier(.22,.8,.26,1); }
-      .dcb-style-option:has(input:checked) .dcb-style-swatch { opacity: 1; transform: translateY(-6px); }
+      .dcb-style-scene { display: grid; place-items: center; height: 76px; overflow: hidden; border-radius: 6px; background: linear-gradient(125deg, transparent 38%, #ffffffb3 38% 44%, transparent 44%), radial-gradient(ellipse at 15% 30%, #a6cbd0, transparent 60%), radial-gradient(ellipse at 85% 80%, #d9b59b, transparent 60%), #e8e4dc; }
+      .dcb-style-swatch { position: relative; display: grid; align-content: center; justify-items: start; gap: 6px; width: 82px; height: 44px; padding: 13px; border: 1px solid; border-radius: 12px; opacity: 1; transform: translateY(0); transition: transform 240ms cubic-bezier(.22,.8,.26,1); }
+      .dcb-style-option:has(input:checked) .dcb-style-swatch { transform: translateY(-6px); }
       .dcb-style-swatch i { width: 45px; height: 3px; border-radius: 3px; background: #847b72; opacity: .5; }
       .dcb-style-swatch i:last-child { width: 30px; opacity: .3; }
       .dcb-style-name { font-size: 13px; color: var(--dsw-alias-label-primary, #343434); }
@@ -781,24 +782,32 @@ window.__ModuleLoader__.load({
       body[data-ds-dark-theme] .dcb-style-option { border-color: #504b42; }
       body[data-ds-dark-theme] .dcb-style-option:has(input:checked) { background: #35312c; border-color: #b8a08c; }
       body[data-ds-dark-theme] .dcb-style-name { color: #eeeae2; }
-      body[data-ds-dark-theme] .dcb-style-scene { background: radial-gradient(ellipse at 15% 30%, #416b72, transparent 60%), radial-gradient(ellipse at 85% 80%, #7b5540, transparent 60%), #302e29; }
+      body[data-ds-dark-theme] .dcb-style-scene { background: linear-gradient(125deg, transparent 38%, #ffffff40 38% 44%, transparent 44%), radial-gradient(ellipse at 15% 30%, #416b72, transparent 60%), radial-gradient(ellipse at 85% 80%, #7b5540, transparent 60%), #302e29; }
       body[data-ds-dark-theme] .dcb-style-swatch i { background: #e3ddd4; }
       body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] {
-        --dcb-surface-background: #fff; --dcb-surface-border: #e4e3df; --dcb-surface-shadow: 0 2px 4px #0000000a; --dcb-surface-filter: blur(0px) saturate(1);
+        --dcb-surface-background: #fffdf9; --dcb-surface-border: #e8e4dc; --dcb-surface-shadow: 0 4px 14px rgba(38,32,24,.07); --dcb-surface-filter: blur(0px) saturate(1);
         background: var(--dcb-surface-background) !important; border-color: var(--dcb-surface-border) !important; box-shadow: var(--dcb-surface-shadow) !important;
         backdrop-filter: var(--dcb-surface-filter) !important; -webkit-backdrop-filter: var(--dcb-surface-filter) !important;
         transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), backdrop-filter 240ms cubic-bezier(.4,0,.2,1), -webkit-backdrop-filter 240ms cubic-bezier(.4,0,.2,1);
       }
-      body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] { --dcb-surface-background: #292824; --dcb-surface-border: #45423b; --dcb-surface-shadow: 0 2px 6px #0003; }
+      body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] { --dcb-surface-background: #292824; --dcb-surface-border: #45423b; --dcb-surface-shadow: 0 4px 16px #00000038; }
+      body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="clear"] {
+        --dcb-surface-background: rgba(255,255,255,.56); --dcb-surface-border: rgba(255,255,255,.74); --dcb-surface-filter: blur(0px) saturate(1.15);
+        --dcb-surface-shadow: 0 8px 24px rgba(28,32,40,.08), inset 0 1px 0 rgba(255,255,255,.88), inset 1px 0 0 rgba(255,255,255,.32), inset -1px -1px 0 rgba(255,255,255,.16);
+      }
+      body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="clear"] {
+        --dcb-surface-background: rgba(28,29,33,.62); --dcb-surface-border: rgba(255,255,255,.28);
+        --dcb-surface-shadow: 0 8px 24px #00000042, inset 0 1px 0 #ffffff38, inset 1px 0 0 #ffffff14, inset -1px -1px 0 #ffffff0a;
+      }
       body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] {
         --dcb-surface-background: rgba(255,255,255,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-surface-filter: blur(22px) saturate(1.45);
-        --dcb-surface-shadow: 0 12px 32px rgba(28,32,40,.12), inset 0 1px 0 rgba(255,255,255,.9), inset 1px 0 0 rgba(255,255,255,.45), inset -1px -1px 0 rgba(255,255,255,.2);
+        --dcb-surface-shadow: 0 12px 32px rgba(28,32,40,.1), inset 0 1px 0 rgba(255,255,255,.9), inset 1px 0 0 rgba(255,255,255,.45), inset -1px -1px 0 rgba(255,255,255,.2);
       }
       body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] {
         --dcb-surface-background: rgba(41,40,36,.68); --dcb-surface-border: rgba(255,255,255,.18);
         --dcb-surface-shadow: 0 12px 32px #0005, inset 0 1px 0 #ffffff26, inset 1px 0 0 #ffffff14, inset -1px -1px 0 #ffffff0a;
       }
-      body .dcb-style-swatch[data-card-style] { transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), backdrop-filter 240ms cubic-bezier(.4,0,.2,1), transform 240ms cubic-bezier(.22,.8,.26,1), opacity 240ms cubic-bezier(.22,.8,.26,1); }
+      body .dcb-style-swatch[data-card-style] { transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), backdrop-filter 240ms cubic-bezier(.4,0,.2,1), transform 240ms cubic-bezier(.22,.8,.26,1); }
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
         body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(255,255,255,.96); }
         body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(41,40,36,.96); }
@@ -934,7 +943,7 @@ window.__ModuleLoader__.load({
               onChange: event => update({ enabled: event.target.checked }) }), '启用右上角任务面板'),
             h('fieldset', { className: 'dcb-style-picker', 'data-dcb-card-style-picker': '' }, h('legend', null, '卡片样式'),
               h('p', null, '仅影响右上角任务卡片。选择时临时展开当前卡片供预览，关闭设置后结束预览；当前轮次没有内容时保持隐藏。'),
-              h('div', { className: 'dcb-style-options' }, [['milk', '奶白块', '柔和纯色，清晰简洁'], ['glass', '液态玻璃', '通透柔光，轻盈层次']].map(([value, label, description]) =>
+              h('div', { className: 'dcb-style-options' }, [['clear', '透明玻璃', '清透无磨砂，轻盈亮边'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '奶白块', '温润奶白，柔软浅影']].map(([value, label, description]) =>
                 h('label', { className: 'dcb-style-option', key: value },
                   h('input', { type: 'radio', name: `${NAME}-card-style`, value, checked: settings.cardStyle === value, 'aria-label': label, onClick: () => previewStyle(true), onChange: () => { update({ cardStyle: value }); previewStyle(true) } }),
                   h('span', { className: 'dcb-style-scene', 'aria-hidden': true }, h('span', { className: 'dcb-style-swatch', 'data-card-style': value }, h('i'), h('i'))),

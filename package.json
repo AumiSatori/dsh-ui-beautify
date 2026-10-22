@@ -1,6 +1,6 @@
 {
   "name": "dsh-claude-beautify",
-  "version": "0.3.12",
+  "version": "0.3.13",
   "private": true,
   "type": "module",
   "description": "Claude-inspired session progress, outputs and used resources panel for DeepSeek Harness.",

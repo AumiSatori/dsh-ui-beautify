@@ -333,8 +333,8 @@ window.__ModuleLoader__.load({
       const observed = new Set()
       const summaryOwners = new Map()
       const openedBySession = new Map()
-      // Sessions whose card already auto-opened once, so a manual close stays closed.
-      const inferenceRuns = new Map()
+      // Track real plan changes separately from tool/output activity and hover previews.
+      const planRuns = new Map()
       const style = document.createElement('style')
       style.dataset.plugin = NAME
       style.textContent = css
@@ -434,7 +434,7 @@ window.__ModuleLoader__.load({
               : h('p', null, '推理滑块插件（dsh-claude-slider）未启用，这里只显示任务面板设置。')),
           h('section', { className: 'dcb-settings-block', 'data-dcb-settings-block': 'panel' },
             h('h2', null, '任务面板'),
-            h('p', null, '鼠标移到右上角入口即可查看当前会话的进度、输出和已使用的工具，点击入口可固定展开。点击各栏目标题可分别展开或收起，下次打开会记住各栏目的选择。每轮推理开始时卡片自动下拉展开，本轮手动收起后不再反复弹出，下一轮重新展开。'),
+            h('p', null, '鼠标移到右上角入口即可预览，移开后收起；点击入口或安排新的任务步骤时会保持展开。普通推理、调用工具、输出文件和更新完成状态不会触发自动展开。本轮手动收起后不再反复弹出。各栏目的开合选择会自动记住。'),
             h('label', null, h('input', { type: 'checkbox', checked: settings.enabled,
               onChange: event => update({ enabled: event.target.checked }) }), '启用右上角任务面板'),
             h('label', null, '面板宽度', h('input', { type: 'range', min: 280, max: 480, step: 10,
@@ -479,6 +479,7 @@ window.__ModuleLoader__.load({
         const expanded = history === sessionId
         const working = running && todos.length > 0
         const progress = progressItems(todos, false, working)
+        const planRevision = JSON.stringify(todos.map(item => item.content))
         const entryLabel = working ? `第 ${progress.step} 步，共 ${progress.total} 步` : activity.files.length || todos.length || activity.resources.length
         React.useEffect(() => { listeners.add(refresh); return () => listeners.delete(refresh) }, [])
         // Hover previews must not overwrite the persistent per-session open state.
@@ -506,21 +507,25 @@ window.__ModuleLoader__.load({
           document.addEventListener('pointerdown', outside, true)
           return () => document.removeEventListener('pointerdown', outside, true)
         }, [sessionId, open, visible])
-        // Open once per inference run, never again after a manual close in that run.
-        // Keep a pending reveal when the run starts before any real panel content arrives.
+        // Only a new/edited plan during a run can pin the card open. Existing history,
+        // status-only progress, generic inference, tools and outputs cannot trigger it.
         React.useEffect(() => {
-          let run = inferenceRuns.get(sessionId)
-          if (!run || run.running !== running) {
-            run = { running, revealed: false }
-            inferenceRuns.set(sessionId, run)
+          const run = planRuns.get(sessionId)
+          if (!run) {
+            planRuns.set(sessionId, { running, plan: planRevision, revealed: false })
+            return
           }
-          if (!running || !visible || run.revealed) return
+          const changed = run.plan !== planRevision
+          if (run.running !== running) run.revealed = false
+          run.running = running
+          run.plan = planRevision
+          if (!running || !visible || todos.length === 0 || !changed || run.revealed) return
           run.revealed = true
           openedBySession.set(sessionId, true)
           setOpenState({ sessionId, value: true })
           setExitingSession(null)
           setReveal(value => value + 1)
-        }, [sessionId, visible, running])
+        }, [sessionId, visible, running, planRevision])
         React.useLayoutEffect(() => {
           const node = card.current
           const previous = dropdown.current

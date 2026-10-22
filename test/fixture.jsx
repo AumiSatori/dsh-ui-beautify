@@ -53,13 +53,25 @@ function App() {
   const [sidebar, setSidebar] = React.useState(false)
   const [settings, setSettings] = React.useState(false)
   const [detached, setDetached] = React.useState(false)
+  const [history, setHistory] = React.useState(null)
+  const [reading, setReading] = React.useState(null)
+  const historyScroll = React.useRef(null)
+  const goToTurn = turn => {
+    const scroll = historyScroll.current
+    const row = scroll?.querySelector(`[data-chat-turn="${turn}"]`)
+    if (row) scroll.scrollTop += row.getBoundingClientRect().top - scroll.getBoundingClientRect().top
+    setReading(turn)
+  }
+  React.useLayoutEffect(() => { if (history) goToTurn(history.initial ?? history.turns.at(-1)?.turn) }, [history])
   window.fixture = {
-    session: id => { setSession(id); setTodos(examples[id]); setRunning(false) },
+    session: id => { setSession(id); setTodos(examples[id]); setRunning(false); setHistory(null); setReading(null) },
     update: value => setTodos(value),
     running: value => setRunning(value),
     sidebar: value => setSidebar(value),
     settings: value => setSettings(value),
     detach: value => setDetached(value),
+    history: value => setHistory(value),
+    reading: goToTurn,
     records: (entries, hasMore) => window.fixtureBinding(session).eventSource.replace(entries, hasMore),
     refresh: force,
   }
@@ -68,18 +80,30 @@ function App() {
   const injected = Header ? window.fixtureHeaderSpec.inject(session) : null
   const source = injected?.hooks.taskActivity
   return <div className={'frame' + (sidebar ? ' sidebar-open' : '')}>
-    <aside className="nav"><strong>DeepSeek Harness</strong><small>工作区</small><p>界面优化</p><p>设计与开发</p></aside>
-    <main><header data-slot="conversation.header"><span>界面优化</span><span className="header-utilities">{Header && <Header sessionId={session} useProjection={() => todos} useSession={selector => selector({ running })}
+    <aside className="nav"><strong>DeepSeek Harness</strong><small>工作区</small><p>界面优化</p><p>设计与开发</p><button onClick={() => setSettings(true)}>打开设置</button></aside>
+    <main><header data-slot="conversation.header"><span>界面优化</span><span className="header-utilities">{Header && <Header sessionId={session} useProjection={name => name === 'turnOutline' ? history?.outline || history?.turns || [] : todos} useSession={selector => selector({ running })}
       useTaskActivity={selector => React.useSyncExternalStore(source.subscribe, () => selector(source.getSnapshot()))} openOutput={injected.openOutput} readThumbnail={injected.readThumbnail}/>}<span>···</span></span></header>
       {!detached && <div data-conversation-content="" data-conversation-session={session} className="conversation">
-        <div data-conversation-scroll="" className="scroll">
-          <article><p className="eyebrow">ASSISTANT</p><h1>让任务进度，一眼可见。</h1><p>任务清单收在右上角，随时展开查看当前进度。</p><p>暖灰色卡片与细腻的边框，让聊天区域更清爽。</p></article>
+        {history?.rail !== false && history && <nav aria-label="聊天轮次" style={{ position: 'absolute', right: 12, top: 360, zIndex: 2, display: 'grid', gap: 8 }}>
+          {(history.outline || history.turns).map((item, index) => <button key={item.turn} data-index={index} aria-label={`跳到第 ${item.turn} 轮`} aria-current={reading === item.turn ? 'true' : undefined} onClick={() => goToTurn(item.turn)}>{item.turn}</button>)}
+        </nav>}
+        <div data-conversation-scroll="" className="scroll" ref={historyScroll} onScroll={() => {
+          if (!history) return
+          const scroll = historyScroll.current
+          if (history.tail && scroll.scrollTop + scroll.clientHeight >= scroll.scrollHeight - 2) { setReading(history.turns.at(-1)?.turn); return }
+          const line = scroll.getBoundingClientRect().top + Math.min(96, scroll.clientHeight * .2)
+          const rows = [...scroll.querySelectorAll('[data-chat-turn]')]
+          const row = rows.findLast(item => item.getBoundingClientRect().top <= line) || rows[0]
+          if (row) setReading(Number(row.dataset.chatTurn))
+        }}>
+          {history ? history.turns.map(item => <article key={item.turn} data-chat-turn={item.turn} data-chat-flow-key={`turn-${item.turn}`} data-chat-flow-kind="message" style={{ minHeight: 650, flex: '0 0 650px', margin: '0 auto', padding: '32px 0' }}><p className="eyebrow">第 {item.turn} 轮</p><h1>{item.prompt || '历史消息'}</h1></article>) : <article><p className="eyebrow">ASSISTANT</p><h1>让任务进度，一眼可见。</h1><p>任务清单收在右上角，随时展开查看当前进度。</p><p>暖灰色卡片与细腻的边框，让聊天区域更清爽。</p></article>}
+          {history?.tail && reading === history.turns.at(-1)?.turn && <span data-chat-following-tail=""/>}
           <div data-composer-seat="" className="composer-seat"><TodoView key={session} todos={todos} t={t}/><div className="composer">发送消息…<small>DeepSeek　　＋</small></div></div>
         </div>
       </div>}
     </main>
     {sidebar && <aside className="right">预览面板</aside>}
-    {settings && Settings && <div role="dialog" className="settings-dialog"><Settings/></div>}
+    {settings && Settings && <div role="dialog" className="settings-dialog" style={{ overflowY: 'auto' }}><button aria-label="关闭设置" style={{ position: 'absolute', right: 8, top: 8 }} onClick={() => setSettings(false)}>×</button><Settings/></div>}
   </div>
 }
 createRoot(document.getElementById('root')).render(<App/> )

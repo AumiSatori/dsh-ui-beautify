@@ -51,7 +51,10 @@ page.on('pageerror', error => errors.push(error.message))
 const panel = page.getByTestId('todo-panel')
 let passed = 0
 async function check(name, run) { await run(); passed++; console.log(`PASS ${name}`) }
-async function settled() { await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))) }
+async function settled() {
+  await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))))
+  await page.evaluate(() => Promise.all(document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {}))))
+}
 async function bounds() {
   return page.evaluate(() => {
     const box = selector => { const r = document.querySelector(selector).getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width } }
@@ -146,7 +149,7 @@ try {
   })
   await check('settings merge hosts the reasoning-slider page above the panel block', async () => {
     await page.evaluate(() => window.fixture.settings(true))
-    await page.getByText('推理滑块插件（dsh-claude-slider）未启用').waitFor()
+    await page.getByText('滑块设置页暂不可用', { exact: false }).waitFor()
     await page.evaluate(() => {
       const h = window.fixtureReact.createElement
       window.fixtureSliderModule = { ClaudeSettingsPage: () => h('div', { 'data-fake-slider-page': '' }, '推理滑块页面') }

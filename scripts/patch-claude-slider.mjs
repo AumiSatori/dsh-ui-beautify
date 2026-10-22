@@ -55,46 +55,63 @@ const EXPORT_NEW = `    exports.configStore = configStore;
     // "Claude 美化" settings section.
     exports.ClaudeSettingsPage = ClaudeSettingsPage;`
 
-const MARK = '__dsbHostsClaudeSettings'
-
-function candidates() {
-  const home = process.env.DSH_HOME || join(homedir(), '.dsh')
-  return [
-    process.argv[2],
-    join(home, 'profiles', 'desktop', 'node_modules', 'dsh-claude-slider', 'lib', 'client.js'),
-    join(home, 'profiles', 'default', 'node_modules', 'dsh-claude-slider', 'lib', 'client.js'),
-  ].filter(Boolean)
+function argumentsFor(args) {
+  const options = { checkOnly: false, target: null }
+  for (const arg of args) {
+    if (arg === '--check') options.checkOnly = true
+    else if (arg.startsWith('-')) throw new Error(`Unknown option: ${arg}`)
+    else if (options.target !== null) throw new Error('Provide at most one client.js path.')
+    else options.target = arg
+  }
+  return options
 }
 
-function locate() {
-  for (const candidate of candidates()) if (existsSync(candidate)) return candidate
+function locate(explicitTarget) {
+  // An explicit path must never silently fall back to a different installed copy.
+  if (explicitTarget !== null) {
+    if (!existsSync(explicitTarget)) throw new Error(`dsh-claude-slider client not found: ${explicitTarget}`)
+    return explicitTarget
+  }
+  const home = process.env.DSH_HOME || join(homedir(), '.dsh')
+  const candidates = [
+    join(home, 'profiles', 'desktop', 'node_modules', 'dsh-claude-slider', 'lib', 'client.js'),
+    join(home, 'profiles', 'default', 'node_modules', 'dsh-claude-slider', 'lib', 'client.js'),
+  ]
+  for (const candidate of candidates) if (existsSync(candidate)) return candidate
   return null
 }
 
 async function main() {
-  const checkOnly = process.argv.includes('--check')
-  const target = locate()
+  const options = argumentsFor(process.argv.slice(2))
+  const target = locate(options.target)
   if (!target) {
     console.error('dsh-claude-slider not found — install it first (pnpm add dsh-claude-slider).')
     process.exit(1)
   }
-  const source = await readFile(target, 'utf8')
-  const patched = source.includes(MARK)
-  if (checkOnly) {
-    console.log(patched ? `patch present: ${target}` : `patch missing: ${target}`)
-    process.exit(patched ? 0 : 1)
+  const original = await readFile(target, 'utf8')
+  const source = original.replaceAll('\r\n', '\n')
+  const hasGuard = source.includes(SECTION_NEW)
+  const hasExport = source.includes('    exports.ClaudeSettingsPage = ClaudeSettingsPage;')
+  const patched = hasGuard && hasExport
+  if (options.checkOnly) {
+    console.log(`${patched ? 'patch present' : 'patch missing'}: ${target} (settings guard: ${hasGuard ? 'present' : 'missing'}, settings export: ${hasExport ? 'present' : 'missing'})`)
+    process.exitCode = patched ? 0 : 1
+    return
   }
   if (patched) {
     console.log(`already patched: ${target}`)
     return
   }
-  if (!source.includes(SECTION_OLD) || !source.includes(EXPORT_OLD)) {
+  // Validate every missing piece before writing; partial patches can be repaired
+  // only when their remaining upstream anchors are still recognizable.
+  if ((!hasGuard && !source.includes(SECTION_OLD)) || (!hasExport && !source.includes(EXPORT_OLD))) {
     console.error(`unexpected dsh-claude-slider build — patch anchors not found in ${target}`)
     console.error('The plugin probably changed shape upstream; re-check scripts/patch-claude-slider.mjs.')
     process.exit(1)
   }
-  const next = source.replace(SECTION_OLD, SECTION_NEW).replace(EXPORT_OLD, EXPORT_NEW)
-  await writeFile(target, next, 'utf8')
+  let next = hasGuard ? source : source.replace(SECTION_OLD, SECTION_NEW)
+  if (!hasExport) next = next.replace(EXPORT_OLD, EXPORT_NEW)
+  await writeFile(target, original.includes('\r\n') ? next.replaceAll('\n', '\r\n') : next, 'utf8')
   console.log(`patched: ${target}`)
 }
 

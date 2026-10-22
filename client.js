@@ -17,16 +17,16 @@ window.__ModuleLoader__.load({
     const MATERIAL_SURFACE = `:is(.dcb-summary, [${MARK}], .dcb-style-swatch, [${COMPOSER_MARK}])`
     const MATERIAL_BASE = `${MATERIAL_SURFACE}:is([data-card-style], [${COMPOSER_MARK}])`
     const material = value => `${MATERIAL_SURFACE}:is([data-card-style="${value}"], [${COMPOSER_MARK}="${value}"])`
-    const CARD_STYLES = ['clear', 'css', 'glass', 'milk']
-    const MATERIALS = [['clear', '透明玻璃', '液态折射，通透亮边'], ['css', '轻量玻璃', '柔和亮边，轻微模糊'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '默认', '保留原始配色与样式']]
-    const DEFAULTS = { enabled: true, composerGlass: true, composerStyle: 'css', chatUnderComposer: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
+    const CARD_STYLES = ['milk', 'clear', 'css', 'glass']
+    const MATERIALS = [['milk', '默认', '保留原始配色与样式'], ['clear', '透明玻璃', '液态折射，通透亮边'], ['css', '轻量玻璃', '柔和亮边，轻微模糊'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮']]
+    const DEFAULTS = { enabled: true, composerStyle: 'milk', chatUnderComposer: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
     const VARIABLES = ['--dcb-left', '--dcb-top', '--dcb-width', '--dcb-list-height']
 
     function normalize(value) {
       return {
         enabled: typeof value?.enabled === 'boolean' ? value.enabled : true,
-        composerGlass: typeof value?.composerGlass === 'boolean' ? value.composerGlass : DEFAULTS.composerGlass,
-        composerStyle: CARD_STYLES.includes(value?.composerStyle) ? value.composerStyle : DEFAULTS.composerStyle,
+        // Fold the retired enable switch into the style; never leave a hidden gate.
+        composerStyle: value?.composerGlass === false ? 'milk' : CARD_STYLES.includes(value?.composerStyle) ? value.composerStyle : value?.composerGlass === true ? 'css' : DEFAULTS.composerStyle,
         chatUnderComposer: typeof value?.chatUnderComposer === 'boolean' ? value.chatUnderComposer : DEFAULTS.chatUnderComposer,
         width: Number.isFinite(value?.width) ? Math.round(Math.max(280, Math.min(480, value.width))) : 320,
         // Keep the existing glass value for the frosted material when upgrading.
@@ -1337,7 +1337,7 @@ window.__ModuleLoader__.load({
       function sync() {
         frame = 0
         if (disposed) return
-        const composerEnabled = settings.composerGlass && settings.composerStyle !== 'milk'
+        const composerEnabled = settings.composerStyle !== 'milk'
         document.body.toggleAttribute(COMPOSER_FLAG, composerEnabled)
         document.body.toggleAttribute(CHAT_UNDER_COMPOSER_FLAG, settings.chatUnderComposer)
         const composers = new Set(composerEnabled ? document.querySelectorAll(COMPOSER_CARD) : [])
@@ -1552,7 +1552,7 @@ window.__ModuleLoader__.load({
         React.useEffect(() => () => previewStyle(false), [])
         const h = React.createElement
         const materialName = MATERIALS.find(([value]) => value === settings.cardStyle)?.[1] || '默认'
-        const composerName = MATERIALS.find(([value]) => value === settings.composerStyle)?.[1] || '轻量玻璃'
+        const composerName = MATERIALS.find(([value]) => value === settings.composerStyle)?.[1] || '默认'
         return h('div', { className: 'dcb-settings' },
           h('section', { className: 'dcb-settings-block dcb-settings-card', 'data-dcb-settings-block': 'panel' },
             h('div', { className: 'dcb-settings-header' },
@@ -1582,15 +1582,11 @@ window.__ModuleLoader__.load({
             h('div', { className: 'dcb-settings-header' }, h('div', null, h('h2', null, '输入栏外观'), h('p', null, '底部输入框的样式独立保存，切换即时生效'))),
             h('div', { className: 'dcb-settings-section' },
               h('div', { className: 'dcb-settings-row' },
-                h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '输入栏美化'), h('p', { className: 'dcb-settings-row-desc' }, '关闭后恢复原来的外观，并保留已选样式。')),
-                h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '启用输入栏美化', 'aria-checked': settings.composerGlass,
-                  onClick: () => update({ composerGlass: !settings.composerGlass }) })),
-              h('div', { className: 'dcb-settings-row' },
                 h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '对话延伸到输入栏后方'), h('p', { className: 'dcb-settings-row-desc' }, '滚动时让聊天透过玻璃显现；关闭后恢复底部遮罩。')),
                 h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '对话延伸到输入栏后方', 'aria-checked': settings.chatUnderComposer,
                   onClick: () => update({ chatUnderComposer: !settings.chatUnderComposer }) }))),
             h(StylePicker, { scope: 'composer', value: settings.composerStyle, onChange: composerStyle => update({ composerStyle }) }),
-            h('div', { className: 'dcb-settings-info', role: 'status' }, `${settings.composerGlass ? '输入栏样式' : '输入栏美化已关闭'}：${composerName}`)))
+            h('div', { className: 'dcb-settings-info', role: 'status' }, `输入栏样式：${composerName}`)))
       }
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section', id: NAME, order: 26, label: DISPLAY_NAME,

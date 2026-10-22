@@ -227,7 +227,7 @@ try {
     assert.equal(await activeDot.evaluate(el => getComputedStyle(el).animationName), 'dcb-breathe')
     assert.ok(await card.getByRole('button', { name: '2 个先前步骤' }).count())
     assert.equal(await card.locator('[data-status="in_progress"]').getAttribute('aria-current'), 'step')
-    assert.ok((await card.evaluate(el => el.getAnimations({ subtree: true }).map(animation => animation.animationName))).every(name => name === 'dcb-breathe'))
+    assert.ok((await card.evaluate(el => el.getAnimations({ subtree: true }).map(animation => animation.animationName))).every(name => ['dcb-breathe', 'dcb-text-shimmer'].includes(name)))
     const reveal = await page.evaluate(() => window.dropdownReveals.at(-1))
     assert.equal(reveal.duration, 240)
     assert.ok(reveal.frames[0].clipPath.includes('100%') && reveal.frames[1].transform === 'translateY(0)')
@@ -280,6 +280,71 @@ try {
     await page.evaluate(() => window.fixture.running(false))
     await settled()
     await page.emulateMedia({ reducedMotion: 'no-preference' })
+  })
+  await check('only live in-progress text has a white sweep, with readable motion and contrast fallbacks', async () => {
+    const todos = [
+      { content: '整理需求', status: 'completed' },
+      { content: '实现右上角任务面板，并保留任务状态的实时更新与动画效果', status: 'in_progress' },
+      { content: '检查窗口缩放与深色主题', status: 'pending' },
+    ]
+    await page.evaluate(todos => { window.fixture.update(todos); window.fixture.running(true) }, todos)
+    await settled()
+    const activeText = card.locator('[data-status="in_progress"] .dcb-step-text')
+    assert.equal(await activeText.evaluate(el => getComputedStyle(el).animationName), 'dcb-text-shimmer')
+    assert.ok(await card.locator('[data-status="completed"] .dcb-step-text, [data-status="pending"] .dcb-step-text').evaluateAll(nodes => nodes.every(el => el.getAnimations().length === 0)))
+    const phase = time => activeText.evaluate((el, time) => {
+      const animation = el.getAnimations().find(animation => animation.animationName === 'dcb-text-shimmer')
+      animation.pause()
+      animation.currentTime = time
+      return parseFloat(getComputedStyle(el).backgroundPositionX)
+    }, time)
+    const size = await activeText.boundingBox()
+    assert.equal(await phase(0), 100)
+    const before = await activeText.screenshot({ path: resolve(output, 'summary-shimmer-text-before.png') })
+    assert.equal(await phase(840), 50)
+    const during = await activeText.screenshot({ path: resolve(output, 'summary-shimmer-text-during.png') })
+    assert.notDeepEqual(before, during, 'The sweep visibly changes the rendered text pixels')
+    assert.deepEqual(await activeText.boundingBox(), size, 'The highlight does not resize or move the text')
+    assert.equal(await phase(1680), 0, 'Decreasing background position moves the oversized highlight from left to right')
+    await phase(840)
+    await card.screenshot({ path: resolve(output, 'summary-shimmer-light.png') })
+    await page.evaluate(() => document.body.setAttribute('data-ds-dark-theme', ''))
+    await phase(0)
+    const darkBefore = await activeText.screenshot()
+    await phase(840)
+    const darkDuring = await activeText.screenshot()
+    assert.notDeepEqual(darkBefore, darkDuring, 'The highlight is also visible in dark mode')
+    await card.screenshot({ path: resolve(output, 'summary-shimmer-dark.png') })
+    await page.evaluate(() => document.body.removeAttribute('data-ds-dark-theme'))
+    const staticReadableText = async () => {
+      const style = await activeText.evaluate(el => {
+        const style = getComputedStyle(el)
+        return { animation: style.animationName, fill: style.webkitTextFillColor, color: style.color, image: style.backgroundImage }
+      })
+      assert.equal(style.animation, 'none')
+      assert.equal(style.fill, style.color)
+      assert.notEqual(style.fill, 'rgba(0, 0, 0, 0)')
+      assert.equal(style.image, 'none')
+    }
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await staticReadableText()
+    await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'active' })
+    await staticReadableText()
+    await page.emulateMedia({ forcedColors: 'none' })
+    await page.evaluate(() => window.fixture.running(false))
+    await settled()
+    await staticReadableText()
+    await page.evaluate(todos => { window.fixture.running(true); window.fixture.update(todos.map(todo => ({ ...todo, status: 'completed' }))) }, todos)
+    await settled()
+    assert.equal(await card.locator('.dcb-step-text').evaluateAll(nodes => nodes.flatMap(el => el.getAnimations()).length), 0, 'Completing a task stops its sweep even before the run finishes')
+    await page.evaluate(() => {
+      window.fixture.running(false)
+      window.fixture.update([
+        { content: '整理需求', status: 'completed' }, { content: '准备工程', status: 'completed' },
+        { content: '制作并渲染动画', status: 'completed' }, { content: '检查成片并交付', status: 'completed' },
+      ])
+    })
+    await settled()
   })
   await check('declared outputs and actual used resources populate separate sections', async () => {
     assert.equal(await card.locator('.dcb-output').count(), 3)

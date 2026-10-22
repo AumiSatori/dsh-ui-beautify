@@ -275,13 +275,14 @@ window.__ModuleLoader__.load({
       .dcb-step[data-status="completed"], .dcb-step[data-status="pending"] { color: #9a9a9a; }
       .dcb-step[data-status="in_progress"] { color: #202020; font-weight: 500; }
       .dcb-status { position: relative; display: grid; place-items: center; flex: 0 0 20px; width: 20px; height: 21px; }
-      .dcb-status-dot { position: relative; box-sizing: border-box; flex: none; width: 8px; height: 8px; border: 1px solid currentColor; border-radius: 50% !important; display: grid; place-items: center; }
-      .dcb-step[data-status="completed"] .dcb-status-dot, .dcb-step[data-status="in_progress"] .dcb-status-dot { background: currentColor; }
+      .dcb-status > .dcb-status-dot { position: absolute; display: block; width: 24px; height: 24px; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: visible; shape-rendering: geometricPrecision; }
+      .dcb-status-core { fill: none; stroke: currentColor; stroke-width: 1px; }
+      .dcb-step[data-status="completed"] .dcb-status-core, .dcb-step[data-status="in_progress"] .dcb-status-core { fill: currentColor; }
+      .dcb-status-orbit, .dcb-status-ripple { display: none; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; transform-box: view-box; transform-origin: 50% 50%; }
       .dcb-step-text { overflow-wrap: anywhere; min-width: 0; }
       @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
-        .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot::before, .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; }
-        .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot::before { inset: -5px; background: conic-gradient(transparent 30%, color-mix(in srgb, currentColor 15%, transparent) 55%, currentColor 92%, transparent 94%); mask: radial-gradient(farthest-side, transparent calc(100% - 1.4px), #000 calc(100% - 1.2px)); animation: dcb-orbit 1.35s linear infinite; }
-        .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-dot::after { inset: -3px; border: 1px solid currentColor; animation: dcb-ripple 1.9s cubic-bezier(.15,.6,.3,1) infinite; }
+        .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-orbit { display: inline; animation: dcb-orbit 1.35s linear infinite; }
+        .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-ripple { display: inline; animation: dcb-ripple 1.9s cubic-bezier(.15,.6,.3,1) infinite; }
         .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-step-text { background-image: linear-gradient(100deg, var(--dcb-shimmer-base, currentColor) 38%, #c5c5c5 46%, #fff 50%, #c5c5c5 54%, var(--dcb-shimmer-base, currentColor) 62%); background-size: 250% 100%; background-repeat: no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: dcb-text-shimmer 2.4s linear infinite; }
       }
       @media (forced-colors: active) { .dcb-step-text { -webkit-text-fill-color: CanvasText; } }
@@ -593,7 +594,13 @@ window.__ModuleLoader__.load({
             h('div', { className: 'dcb-collapse-inner' }, children))
         const step = (item, index) => h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-status': item.status, 'aria-current': item.status === 'in_progress' ? 'step' : undefined },
           h('span', { className: 'dcb-status', role: 'img', 'aria-label': { completed: '已完成', in_progress: '进行中', pending: '待处理' }[item.status] || item.status },
-            h('span', { className: 'dcb-status-dot' })),
+            h('svg', { className: 'dcb-status-dot', width: 24, height: 24, viewBox: '0 0 24 24', 'aria-hidden': true, focusable: false },
+              item.status === 'in_progress' && h(React.Fragment, null,
+                h('circle', { className: 'dcb-status-ripple', cx: 12, cy: 12, r: 6, strokeWidth: 1 }),
+                h('g', { className: 'dcb-status-orbit' },
+                  h('circle', { cx: 12, cy: 12, r: 7.5, pathLength: 100, strokeWidth: 1.4, strokeDasharray: '28 72', opacity: .9 }),
+                  h('circle', { cx: 12, cy: 12, r: 7.5, pathLength: 100, strokeWidth: 1.4, strokeDasharray: '15 85', strokeDashoffset: -40, opacity: .25 }))),
+              h('circle', { className: 'dcb-status-core', cx: 12, cy: 12, r: 3.5 }))),
           h('span', { className: 'dcb-step-text' }, item.content))
         const section = (kind, label, children, withClose) => {
           const expanded = modules[kind]

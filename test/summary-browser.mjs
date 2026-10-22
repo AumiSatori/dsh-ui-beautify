@@ -415,10 +415,9 @@ try {
     assert.equal(await card.getByRole('listitem').count(), 4)
     assert.equal(await card.locator('.dcb-recent-steps .dcb-status-dot').count(), 4, 'Each working step uses a small round status dot')
     const activeDot = card.locator('[data-status="in_progress"] .dcb-status-dot')
-    assert.equal(await activeDot.evaluate(el => getComputedStyle(el).borderRadius), '50%')
     assert.equal(await activeDot.evaluate(el => getComputedStyle(el).animationName), 'none', 'The solid core stays steady')
-    assert.equal(await activeDot.evaluate(el => getComputedStyle(el, '::before').animationName), 'dcb-orbit')
-    assert.equal(await activeDot.evaluate(el => getComputedStyle(el, '::after').animationName), 'dcb-ripple')
+    assert.equal(await activeDot.locator('.dcb-status-orbit').evaluate(el => getComputedStyle(el).animationName), 'dcb-orbit')
+    assert.equal(await activeDot.locator('.dcb-status-ripple').evaluate(el => getComputedStyle(el).animationName), 'dcb-ripple')
     assert.ok(await card.getByRole('button', { name: '2 个先前步骤' }).count())
     assert.equal(await card.locator('[data-status="in_progress"]').getAttribute('aria-current'), 'step')
     assert.ok((await card.evaluate(el => el.getAnimations({ subtree: true }).map(animation => animation.animationName))).every(name => ['dcb-orbit', 'dcb-ripple', 'dcb-text-shimmer'].includes(name)))
@@ -491,10 +490,10 @@ try {
     const phase = time => card.evaluate((el, time) => {
       for (const animation of el.getAnimations({ subtree: true })) { animation.pause(); animation.currentTime = time }
       const dot = el.querySelector('[data-status="in_progress"] .dcb-status-dot')
-      const core = getComputedStyle(dot)
-      const orbit = getComputedStyle(dot, '::before')
-      const ripple = getComputedStyle(dot, '::after')
-      return { color: core.backgroundColor, opacity: core.opacity, orbit: orbit.transform, ripple: ripple.transform, rippleOpacity: Number(ripple.opacity) }
+      const core = getComputedStyle(dot.querySelector('.dcb-status-core'))
+      const orbit = getComputedStyle(dot.querySelector('.dcb-status-orbit'))
+      const ripple = getComputedStyle(dot.querySelector('.dcb-status-ripple'))
+      return { color: core.fill, opacity: core.opacity, orbit: orbit.transform, ripple: ripple.transform, rippleOpacity: Number(ripple.opacity) }
     }, time)
     const before = await phase(0)
     const firstFrame = await card.getByTestId('dcb-progress').screenshot({ path: resolve(output, 'summary-indicator-before.png') })
@@ -508,7 +507,17 @@ try {
     assert.equal(before.color, during.color)
     assert.notDeepEqual(firstFrame, secondFrame, 'Animation phases produce different rendered pixels')
     assert.deepEqual(await dot.boundingBox(), size, 'Decorative motion does not move the core or task text')
-    assert.ok(await card.locator('[data-status="completed"] .dcb-status-dot, [data-status="pending"] .dcb-status-dot').evaluateAll(nodes => nodes.every(el => getComputedStyle(el, '::before').content === 'none' && getComputedStyle(el, '::after').content === 'none')))
+    const geometry = await dot.evaluate(el => {
+      const core = el.querySelector('.dcb-status-core')
+      const box = core.getBoundingClientRect()
+      return { tag: core.tagName, width: box.width, height: box.height, stroke: getComputedStyle(core).strokeWidth,
+        arcs: [...el.querySelectorAll('.dcb-status-orbit circle')].map(arc => ({ tag: arc.tagName, cap: getComputedStyle(arc).strokeLinecap, join: getComputedStyle(arc).strokeLinejoin, radius: arc.r.baseVal.value })) }
+    })
+    assert.equal(geometry.tag, 'circle')
+    assert.equal(geometry.width, geometry.height, 'The vector core has identical horizontal and vertical diameters')
+    assert.equal(geometry.width + Number.parseFloat(geometry.stroke), 8)
+    assert.ok(geometry.arcs.every(arc => arc.tag === 'circle' && arc.cap === 'round' && arc.join === 'round' && arc.radius === 7.5), 'Every orbit segment follows a circular path with rounded endpoints')
+    assert.equal(await card.locator('[data-status="completed"] .dcb-status-orbit, [data-status="pending"] .dcb-status-orbit').count(), 0)
     // Deterministic frames for a compact animation preview; synthetic task text only.
     for (let index = 0; index < 36; index++) {
       await phase(index * 75)
@@ -520,15 +529,15 @@ try {
     await card.getByTestId('dcb-progress').screenshot({ path: resolve(output, 'summary-indicator-dark.png') })
     await page.evaluate(() => document.body.removeAttribute('data-ds-dark-theme'))
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    assert.equal(await dot.evaluate(el => getComputedStyle(el, '::before').content), 'none')
+    assert.equal(await dot.locator('.dcb-status-orbit').evaluate(el => getComputedStyle(el).display), 'none')
     assert.equal(await card.evaluate(el => el.getAnimations({ subtree: true }).length), 0)
     await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'active' })
-    assert.equal(await dot.evaluate(el => getComputedStyle(el, '::before').content), 'none')
+    assert.equal(await dot.locator('.dcb-status-orbit').evaluate(el => getComputedStyle(el).display), 'none')
     assert.equal(await card.evaluate(el => el.getAnimations({ subtree: true }).length), 0)
     await page.emulateMedia({ forcedColors: 'none' })
     await page.evaluate(() => window.fixture.running(false))
     await settled()
-    assert.equal(await dot.evaluate(el => getComputedStyle(el, '::before').content), 'none', 'Stopping the run removes the decorative motion')
+    assert.equal(await dot.locator('.dcb-status-orbit').evaluate(el => getComputedStyle(el).display), 'none', 'Stopping the run removes the decorative motion')
     await page.evaluate(todos => { window.fixture.running(true); window.fixture.update(todos.map(todo => ({ ...todo, status: 'completed' }))) }, todos)
     await settled()
     assert.equal(await card.evaluate(el => el.getAnimations({ subtree: true }).length), 0, 'Completing the active step stops all indicator effects')

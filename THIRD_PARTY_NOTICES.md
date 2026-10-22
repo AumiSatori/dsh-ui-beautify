@@ -29,6 +29,17 @@ No source code from that project is included in this distribution.
 
 ## Lens button optics
 
+## Smooth option switching reference
+
+The sidebar material selector and navigation highlight independently adapt the
+persistent-indicator and reversible-transition principles described by
+https://github.com/zhoulinhua0-star/smooth-option-switcher (MIT original guidance).
+No canonical video reconstruction, example source or other third-party code from
+that repository is distributed here. The sidebar controls retain this plugin's
+own material palette, layout, semantics and motion settings.
+
+## Lens button optics
+
 Lens WebGL2 rendering modules are vendored unmodified from
 https://github.com/ruiqichenbiec/design-systems at revision
 `7a424c93b9be13cf835b91ea67495fec2ec0584e` (MIT).

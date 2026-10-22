@@ -1,4 +1,5 @@
 import {GlassRenderer} from '../vendor/lens/internal/renderer.js'
+export {createSidebarGlass} from './sidebar-glass.js'
 
 const MARK='data-dcb-composer-action',CANVAS='data-dcb-lens-canvas'
 

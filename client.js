@@ -1249,9 +1249,15 @@ window.__ModuleLoader__.load({
       ${COMPOSER_ACTION_SURFACE} {
         /* Each small lens owns its filter; do not inherit the whole input map. */
         --dcb-liquid-filter: initial;
-        --dcb-surface-shadow: 0 2px 6px #00000016, inset 0 1px 1px #ffffff9c, inset 0 -1px 1px #00000012;
+        --dcb-glyph-shadow: rgba(24,32,48,.24);
+        --dcb-surface-shadow: 0 2px 6px #00000016, inset 0 1px 1px #ffffffd9, inset 0 3px 3px #ffffff36, inset 0 -3px 3px #1820301c;
         outline: 1px solid var(--dcb-surface-border); outline-offset: -1px;
+        text-shadow: 0 4px 1.4px var(--dcb-glyph-shadow);
       }
+      /* A small projected glyph, scaled for native 28–34px controls. The
+         foreground stays sharp; the filter never touches the input or button. */
+      ${COMPOSER_ACTION_SURFACE} svg { filter: drop-shadow(0 4px 1.4px var(--dcb-glyph-shadow)); }
+      body[data-ds-dark-theme] ${COMPOSER_ACTION_SURFACE} { --dcb-glyph-shadow: rgba(0,0,0,.64); }
       ${COMPOSER_ACTION_SURFACE}[${COMPOSER_ACTION_MARK}="clear"] { --dcb-refraction-scale: 4; }
       ${COMPOSER_ACTION_SURFACE}[${COMPOSER_ACTION_KIND}="accent"] {
         --dcb-surface-background: color-mix(in srgb, var(--dsw-alias-button-info-fill, #4d6bfe) 84%, transparent);
@@ -1316,6 +1322,7 @@ window.__ModuleLoader__.load({
         ${COMPOSER_GLASS} { background: Canvas !important; color: CanvasText !important; box-shadow: none !important; outline-color: CanvasText; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         ${CHAT_UNDER_COMPOSER} { background: Canvas !important; }
         ${COMPOSER_ACTION_SURFACE} { background: ButtonFace !important; color: ButtonText !important; outline-color: ButtonText; }
+        ${COMPOSER_ACTION_SURFACE}, ${COMPOSER_ACTION_SURFACE} svg { text-shadow: none; filter: none; }
         ${COMPOSER_ACTION_SURFACE}:focus-visible { outline-color: Highlight; }
         body ${MATERIAL_BASE} { background: Canvas !important; border-color: CanvasText !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         body ${GLASS_PANEL}, body[data-ds-dark-theme] ${GLASS_PANEL} {

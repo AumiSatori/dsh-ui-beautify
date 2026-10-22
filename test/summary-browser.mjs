@@ -39,7 +39,7 @@ let passed = 0
 async function check(name, run) { await run(); passed++; console.log(`PASS ${name}`) }
 async function settled() {
   await page.evaluate(() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done))))
-  await page.evaluate(() => Promise.all(document.getAnimations().filter(animation => animation.id === 'dcb-dropdown').map(animation => animation.finished.catch(() => {}))))
+  await page.evaluate(() => Promise.all(document.getAnimations().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity).map(animation => animation.finished.catch(() => {}))))
 }
 const rows = []
 let seq = 1
@@ -108,11 +108,12 @@ try {
     ])
   }, rows)
   await settled()
-  await check('matches reference proportions: 320px wide, fixed 360px tall, 13px row text', async () => {
+  await check('matches reference width and typography with three naturally sized modules', async () => {
     const metrics = await card.evaluate(el => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height, rowFont: getComputedStyle(el.querySelector('.dcb-resource')).fontSize }))
     assert.equal(metrics.width, 320)
-    assert.equal(metrics.height, 360)
+    assert.ok(metrics.height > 300 && metrics.height < 500)
     assert.equal(metrics.rowFont, '13px')
+    assert.equal(await card.locator('.dcb-module-toggle').count(), 3)
     assert.equal(await page.locator('[data-dcb-native-hidden]').count(), 1)
     await card.screenshot({ path: resolve(output, 'summary-reference-light.png') })
     await page.screenshot({ path: resolve(output, 'summary-desktop.png') })
@@ -207,8 +208,11 @@ try {
     assert.ok(await card.getByText('remotion-best-practices', { exact: true }).count())
     assert.ok(await card.getByText('已读取 · Character Setting.md', { exact: true }).count())
     await card.getByRole('button', { name: '本次会话中已使用' }).click()
-    assert.equal(await card.locator('.dcb-resource').count(), 0)
+    await settled()
+    assert.equal(await card.getByTestId('dcb-resources').locator('.dcb-module-content').getAttribute('aria-hidden'), 'true')
+    assert.equal(await card.getByTestId('dcb-resources').locator('.dcb-module-content').evaluate(el => el.inert && el.getBoundingClientRect().height === 0), true)
     await card.getByRole('button', { name: '本次会话中已使用' }).click()
+    await settled()
   })
   await check('images load a real preview tile while other files keep a short type tile', async () => {
     await page.waitForFunction(() => document.querySelectorAll('.dcb-tile img').length === 1)
@@ -230,15 +234,94 @@ try {
     })
     assert.deepEqual(decoded, { ok: true, bytes: 68 })
   })
-  await check('long content scrolls inside the same fixed card with no horizontal spill', async () => {
-    const long = Array.from({ length: 40 }, (_, index) => ({ content: `步骤 ${index}：验证较长内容可以换行并在固定高度面板中滚动。`, status: 'pending' }))
+  await check('each module collapses smoothly and independently while preserving output previews', async () => {
+    const originalHeight = (await card.boundingBox()).height
+    const source = await card.locator('.dcb-tile img').getAttribute('src')
+    await page.evaluate(() => { window.previewNode = document.querySelector('.dcb-tile img') })
+    const frames = await page.evaluate(async () => {
+      const card = document.querySelector('.dcb-summary')
+      const toggle = card.querySelector('[data-testid="dcb-progress"] .dcb-module-toggle')
+      const samples = [card.getBoundingClientRect().height]
+      toggle.click()
+      const start = performance.now()
+      await new Promise(done => {
+        const sample = now => {
+          samples.push(card.getBoundingClientRect().height)
+          if (now - start < 380) requestAnimationFrame(sample)
+          else done()
+        }
+        requestAnimationFrame(sample)
+      })
+      return samples
+    })
+    assert.ok(new Set(frames.map(value => Math.round(value))).size >= 4, 'Collapse must render multiple intermediate card heights')
+    assert.ok(frames.slice(1).every((value, index) => value <= frames[index] + 1), 'The card contracts continuously')
+    assert.ok(frames.at(-1) < originalHeight - 30)
+    assert.deepEqual(await card.locator('.dcb-module-toggle').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-expanded'))), ['false', 'true', 'true'])
+    await card.screenshot({ path: resolve(output, 'summary-progress-collapsed.png') })
+    await card.getByRole('button', { name: '输出', exact: true }).click()
+    await card.getByRole('button', { name: '本次会话中已使用' }).click()
+    await settled()
+    assert.ok((await card.boundingBox()).height < 180, 'All folded modules leave only compact headings')
+    assert.deepEqual(await card.locator('.dcb-module-content').evaluateAll(nodes => nodes.map(node => ({ height: node.getBoundingClientRect().height, inert: node.inert }))), Array(3).fill({ height: 0, inert: true }))
+    await card.screenshot({ path: resolve(output, 'summary-all-collapsed.png') })
+    await card.getByRole('button', { name: '进度', exact: true }).click()
+    await card.getByRole('button', { name: '输出', exact: true }).click()
+    await card.getByRole('button', { name: '本次会话中已使用' }).click()
+    await settled()
+    assert.ok(Math.abs((await card.boundingBox()).height - originalHeight) < 1)
+    assert.equal(await card.locator('.dcb-tile img').getAttribute('src'), source)
+    assert.equal(await page.evaluate(() => document.querySelector('.dcb-tile img') === window.previewNode), true, 'Folding does not replace or reload thumbnails')
+  })
+  await check('rapid reversal continues from current height and reduced motion settles immediately', async () => {
+    const result = await page.evaluate(async () => {
+      const card = document.querySelector('.dcb-summary')
+      const toggle = card.querySelector('[data-testid="dcb-outputs"] .dcb-module-toggle')
+      const height = () => card.getBoundingClientRect().height
+      const initial = height()
+      toggle.click()
+      await new Promise(done => setTimeout(done, 90))
+      const midway = height()
+      toggle.click()
+      await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))
+      return { initial, midway, reversed: height() }
+    })
+    assert.ok(result.midway < result.initial - 5)
+    assert.ok(result.reversed < result.initial - 1, 'Reversing does not jump to the expanded height')
+    assert.ok(result.reversed >= result.midway - 5)
+    await settled()
+    assert.ok(Math.abs((await card.boundingBox()).height - result.initial) < 1)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await card.getByRole('button', { name: '输出', exact: true }).click()
+    await settled()
+    assert.equal(await card.getByTestId('dcb-outputs').locator('.dcb-module-content').evaluate(el => el.getBoundingClientRect().height), 0)
+    assert.equal(await card.evaluate(el => el.getAnimations({ subtree: true }).length), 0)
+    await card.getByRole('button', { name: '输出', exact: true }).click()
+    await settled()
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+  })
+  await check('long modules have no internal scroll and folding restores a compact card', async () => {
+    const long = Array.from({ length: 40 }, (_, index) => ({ content: `步骤 ${index}：验证较长内容换行，使用标题箭头收起整个模块。`, status: 'pending' }))
     await page.evaluate(todos => window.fixture.update(todos), long)
     await settled()
-    assert.equal((await card.boundingBox()).height, 360)
+    const box = await card.boundingBox()
+    assert.ok(box.y + box.height <= 1018)
     assert.ok(await card.evaluate(el => el.scrollHeight > el.clientHeight))
     await card.evaluate(el => { el.scrollTop = el.scrollHeight })
     assert.ok(await card.evaluate(el => el.scrollTop > 0))
     assert.ok(await card.evaluate(el => el.scrollWidth <= el.clientWidth))
+    assert.ok(await card.locator('section, .dcb-module-content, .dcb-module-inner, .dcb-module-body').evaluateAll(nodes => nodes.every(node => !['auto', 'scroll'].includes(getComputedStyle(node).overflowY))))
+    await card.evaluate(el => { el.scrollTop = 0 })
+    await card.getByRole('button', { name: '进度', exact: true }).click()
+    await settled()
+    assert.ok((await card.boundingBox()).height < 400)
+    assert.ok(await card.evaluate(el => el.scrollHeight <= el.clientHeight))
+    await page.evaluate(() => window.fixture.update([
+      { content: '整理需求', status: 'completed' }, { content: '准备工程', status: 'completed' },
+      { content: '制作并渲染动画', status: 'completed' }, { content: '检查成片并交付', status: 'completed' },
+    ]))
+    await card.getByRole('button', { name: '进度', exact: true }).click()
+    await settled()
   })
   await check('output opens its exact session file address and sidebar resize keeps card in its column', async () => {
     await card.locator('.dcb-output').first().click()
@@ -274,6 +357,8 @@ try {
     assert.equal(await card.count(), 0)
     await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
     await page.evaluate(rows => window.fixture.records(rows), rows)
+    await card.getByRole('button', { name: '本次会话中已使用' }).click()
+    await settled()
     await page.evaluate(() => window.fixture.session('b'))
     await settled()
     assert.equal(await card.count(), 0, 'A newly visited idle session stays closed')
@@ -281,6 +366,9 @@ try {
     assert.equal(await card.locator('.dcb-output').count(), 0)
     assert.equal(await card.locator('.dcb-resource').count(), 0)
     assert.ok(await card.getByText('第二个会话的任务', { exact: true }).count())
+    assert.equal(await card.getByRole('button', { name: '进度', exact: true }).getAttribute('aria-expanded'), 'true', 'A new session does not inherit collapsed modules')
+    await card.getByRole('button', { name: '进度', exact: true }).click()
+    await settled()
     await page.evaluate(() => window.fixture.session('empty'))
     await settled()
     assert.equal(await card.count(), 0)
@@ -293,8 +381,15 @@ try {
     assert.equal(await card.getByTestId('dcb-progress').count(), 0)
     await page.evaluate(() => window.fixture.session('a'))
     await settled()
+    assert.equal(await card.getByRole('button', { name: '本次会话中已使用' }).getAttribute('aria-expanded'), 'false', 'Returning restores only this session\'s module choices')
+    await card.getByRole('button', { name: '本次会话中已使用' }).click()
+    await page.evaluate(() => window.fixture.update([
+      { content: '整理需求', status: 'completed' }, { content: '准备工程', status: 'completed' },
+      { content: '制作并渲染动画', status: 'completed' }, { content: '检查成片并交付', status: 'completed' },
+    ]))
+    await settled()
   })
-  await check('dark theme and phone view preserve compact fonts and fixed scrolling', async () => {
+  await check('dark theme and phone view preserve compact fonts and natural height', async () => {
     await page.evaluate(() => document.body.setAttribute('data-ds-dark-theme', ''))
     assert.equal(await card.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(41, 40, 36)')
     await card.screenshot({ path: resolve(output, 'summary-reference-dark.png') })
@@ -302,7 +397,7 @@ try {
     await settled()
     const box = await card.boundingBox()
     assert.ok(box.x >= 0 && box.x + box.width <= 390)
-    assert.equal(box.height, 360)
+    assert.ok(box.height > 150 && box.y + box.height <= 700)
     assert.equal(await card.locator('.dcb-step').first().evaluate(el => getComputedStyle(el).fontSize), '13px')
     await page.screenshot({ path: resolve(output, 'summary-mobile.png') })
     await page.setViewportSize({ width: 1706, height: 1018 })

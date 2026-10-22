@@ -10,7 +10,7 @@ window.__ModuleLoader__.load({
     const KEY = `${NAME}:settings:v1`
     const PANEL = '[data-testid="todo-panel"]'
     const MARK = 'data-dcb-task-panel'
-    const DEFAULTS = { enabled: true, width: 320, modules: { progress: true, outputs: true, resources: true } }
+    const DEFAULTS = { enabled: true, width: 320, modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false } }
     const VARIABLES = ['--dcb-left', '--dcb-top', '--dcb-width', '--dcb-list-height']
 
     function normalize(value) {
@@ -18,6 +18,7 @@ window.__ModuleLoader__.load({
         enabled: typeof value?.enabled === 'boolean' ? value.enabled : true,
         width: Number.isFinite(value?.width) ? Math.round(Math.max(280, Math.min(480, value.width))) : 320,
         modules: Object.fromEntries(Object.keys(DEFAULTS.modules).map(key => [key, typeof value?.modules?.[key] === 'boolean' ? value.modules[key] : true])),
+        progressView: { count: value?.progressView?.count === 2 ? 2 : 3, previous: value?.progressView?.previous === true, future: value?.progressView?.future === true },
       }
     }
 
@@ -148,12 +149,14 @@ window.__ModuleLoader__.load({
       }
       return { getSnapshot, subscribe: listener => events?.subscribe(() => { const old = current; if (getSnapshot() !== old) listener() }) || (() => {}) }
     }
-    function progressItems(todos, expanded, working = false) {
+    function progressItems(todos, count = 3) {
       const active = todos.findIndex(item => item.status === 'in_progress')
       const pending = todos.findIndex(item => item.status === 'pending')
       const current = active >= 0 ? active : pending >= 0 ? pending : todos.length - 1
-      const hidden = Math.max(0, current - (working ? 2 : 1))
-      return { hidden, items: expanded ? todos : todos.slice(hidden), step: current + 1, total: todos.length }
+      const limit = count === 2 ? 2 : 3
+      const start = Math.max(0, Math.min(current - (limit === 3 ? 1 : 0), todos.length - limit))
+      const end = Math.min(todos.length, start + limit)
+      return { previous: todos.slice(0, start), items: todos.slice(start, end), future: todos.slice(end), start, end, step: current + 1, total: todos.length }
     }
     function Icon({ kind, size = 16 }) {
       const paths = {
@@ -435,12 +438,15 @@ window.__ModuleLoader__.load({
               : h('p', null, '推理滑块插件（dsh-claude-slider）未启用，这里只显示任务面板设置。')),
           h('section', { className: 'dcb-settings-block', 'data-dcb-settings-block': 'panel' },
             h('h2', null, '任务面板'),
-            h('p', null, '鼠标移到右上角入口即可预览，移开后收起；点击入口或安排新的任务步骤时会保持展开。普通推理、调用工具、输出文件和更新完成状态不会触发自动展开。本轮手动收起后不再反复弹出。各栏目的开合选择会自动记住。'),
+            h('p', null, '鼠标移到右上角入口即可预览，移开后收起；点击入口或安排新的任务步骤时会保持展开。普通推理、调用工具、输出文件和更新完成状态不会触发自动展开。本轮手动收起后不再反复弹出。默认显示当前步骤附近的 3 步，可改为 2 步；先前步骤、后续步骤和各栏目的开合选择都会自动记住。'),
             h('label', null, h('input', { type: 'checkbox', checked: settings.enabled,
               onChange: event => update({ enabled: event.target.checked }) }), '启用右上角任务面板'),
             h('label', null, '面板宽度', h('input', { type: 'range', min: 280, max: 480, step: 10,
               value: settings.width, 'aria-label': '面板宽度',
               onChange: event => update({ width: Number(event.target.value) }) }), h('span', null, `${settings.width} px`)),
+            h('label', null, '进度默认显示', h('select', { value: settings.progressView.count, 'aria-label': '默认显示步骤数',
+              onChange: event => update({ progressView: { ...settings.progressView, count: Number(event.target.value) } }) },
+              h('option', { value: 2 }, '2 个步骤'), h('option', { value: 3 }, '3 个步骤'))),
             h('p', null, '点击面板外部即可带动画收起，无需点关闭按钮。窄屏会自动缩小。关闭插件后立即恢复 DSH 原来的任务清单位置。设置只保存在当前浏览器。')))
       }
       ctx.slots.inject('settings.section', () => ctx.slots.register({
@@ -463,7 +469,6 @@ window.__ModuleLoader__.load({
         const [openState, setOpenState] = React.useState(() => ({ sessionId, value: openedBySession.get(sessionId) ?? false }))
         const [hoverSession, setHoverSession] = React.useState(null)
         const [exitingSession, setExitingSession] = React.useState(null)
-        const [history, setHistory] = React.useState(null)
         const [reveal, setReveal] = React.useState(0)
         const [, refresh] = React.useReducer(value => value + 1, 0)
         const anchor = React.useRef(null)
@@ -477,9 +482,8 @@ window.__ModuleLoader__.load({
         const modules = settings.modules
         const hasContent = todos.length > 0 || activity.files.length > 0 || activity.resources.length > 0
         const visible = settings.enabled && hasContent
-        const expanded = history === sessionId
         const working = running && todos.length > 0
-        const progress = progressItems(todos, false, working)
+        const progress = progressItems(todos, settings.progressView.count)
         const planRevision = JSON.stringify(todos.map(item => item.content))
         const entryLabel = working ? `第 ${progress.step} 步，共 ${progress.total} 步` : activity.files.length || todos.length || activity.resources.length
         React.useEffect(() => { listeners.add(refresh); return () => listeners.delete(refresh) }, [])
@@ -588,7 +592,6 @@ window.__ModuleLoader__.load({
         const close = () => { setOpen(false); button.current?.focus() }
         const closeControl = h('button', { type: 'button', className: 'dcb-close', 'aria-label': '关闭进度面板', onClick: close }, h(Icon, { kind: 'close', size: 16 }))
         const cardId = `${NAME}-summary-${sessionId}`
-        const historyId = `${cardId}-history`
         const collapsible = (id, expanded, children, className) =>
           h('div', { id, className: `dcb-collapse ${className}`, 'aria-hidden': !expanded, inert: !expanded },
             h('div', { className: 'dcb-collapse-inner' }, children))
@@ -601,6 +604,16 @@ window.__ModuleLoader__.load({
                   h('circle', { cx: 12, cy: 12, r: 7.5, pathLength: 100, strokeWidth: 1.4, strokeDasharray: '36 64' }))),
               h('circle', { className: 'dcb-status-core', cx: 12, cy: 12, r: 3.5 }))),
           h('span', { className: 'dcb-step-text' }, item.content))
+        const stepGroup = (kind, label, entries, offset) => {
+          if (!entries.length) return null
+          const expanded = settings.progressView[kind]
+          const contentId = `${cardId}-${kind}`
+          return h(React.Fragment, { key: kind },
+            h('button', { type: 'button', className: `dcb-history${kind === 'future' ? ' dcb-future' : ''}`, 'aria-expanded': expanded, 'aria-controls': contentId,
+              onClick: () => update({ progressView: { ...settings.progressView, [kind]: !settings.progressView[kind] } }) },
+              h('span', { className: 'dcb-status', 'aria-hidden': true }, '⋮'), h('span', { className: 'dcb-history-label' }, expanded ? `收起${label}` : `${entries.length} 个${label}`, h(Icon, { kind: 'chevron', size: 12 }))),
+            collapsible(contentId, expanded, h('ol', { className: 'dcb-timeline', start: offset + 1 }, entries.map((item, index) => step(item, offset + index))), kind === 'previous' ? 'dcb-history-content' : 'dcb-future-content'))
+        }
         const section = (kind, label, children, withClose) => {
           const expanded = modules[kind]
           const contentId = `${cardId}-${kind}`
@@ -634,11 +647,9 @@ window.__ModuleLoader__.load({
           present && h('aside', { key: sessionId, className: 'dcb-summary', ref: card, id: cardId, 'aria-label': '会话进度与输出', 'aria-hidden': !open, inert: !open, 'data-state': open ? 'open' : 'closing', 'data-testid': 'dcb-summary' },
             todos.length > 0 && section('progress', '进度',
               h(React.Fragment, null,
-                progress.hidden > 0 && h(React.Fragment, null,
-                  h('button', { type: 'button', className: 'dcb-history', 'aria-expanded': expanded, 'aria-controls': historyId, onClick: () => setHistory(expanded ? null : sessionId) },
-                    h('span', { className: 'dcb-status', 'aria-hidden': true }, '⋮'), h('span', { className: 'dcb-history-label' }, expanded ? '收起先前步骤' : `${progress.hidden} 个先前步骤`, h(Icon, { kind: 'chevron', size: 12 }))),
-                  collapsible(historyId, expanded, h('ol', { className: 'dcb-timeline' }, todos.slice(0, progress.hidden).map(step)), 'dcb-history-content')),
-                h('ol', { className: 'dcb-timeline dcb-recent-steps', 'data-working': working, start: progress.hidden + 1 }, progress.items.map((item, index) => step(item, index + progress.hidden)))), true),
+                stepGroup('previous', '先前步骤', progress.previous, 0),
+                h('ol', { className: 'dcb-timeline dcb-recent-steps', 'data-working': working, start: progress.start + 1 }, progress.items.map((item, index) => step(item, index + progress.start))),
+                stepGroup('future', '后续步骤', progress.future, progress.end)), true),
             activity.files.length > 0 && section('outputs', '输出', activity.files.map(file =>
               h(OutputRow, { key: file.path, file, sessionId, readThumbnail, onOpen: openOutput })), todos.length === 0),
             activity.resources.length > 0 && section('resources', '本次会话中已使用', h(React.Fragment, null,

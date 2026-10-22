@@ -22,6 +22,8 @@ test('validates corrupted and out-of-range preferences', () => {
   const modules = normalize({ width: 400, modules: { progress: false, outputs: 'false', unrelated: false } }).modules
   assert.deepEqual(Object.entries(modules), [['progress', false], ['outputs', true], ['resources', true]])
   assert.equal(normalize({ enabled: false, width: 400 }).modules.progress, true, 'Existing preferences without module fields retain the expanded defaults')
+  assert.deepEqual(Object.entries(normalize({ progressView: { count: 2, previous: true, future: 'true' } }).progressView), [['count', 2], ['previous', true], ['future', false]])
+  assert.equal(normalize({ progressView: { count: 99 } }).progressView.count, 3)
 })
 
 const entry = (type, data, seq = 1) => ({ event: { type, data, seq } })
@@ -62,16 +64,25 @@ test('PTC calls de-duplicate start/settlement and activity sources ignore token-
   snapshot = { ...snapshot, change: { kind: 'append', entries: [entry('assistant/live-chunk', {})] } }
   assert.equal(source.getSnapshot(), first)
 })
-test('prior completed steps fold and file addresses remain scoped and correctly encoded', () => {  const todos = ['completed', 'completed', 'completed', 'in_progress'].map((status, index) => ({ status, content: `step${index}` }))
-  assert.equal(exports.__test.progressItems(todos, false).hidden, 2)
-  assert.equal(exports.__test.progressItems(todos, false).items.length, 2)
-  assert.equal(exports.__test.progressItems(todos, true).items.length, 4)
+test('progress windows keep the current step visible with separate previous and future groups', () => {  const todos = ['completed', 'completed', 'completed', 'in_progress'].map((status, index) => ({ status, content: `step${index}` }))
+  assert.equal(exports.__test.progressItems(todos).previous.length, 1)
+  assert.equal(exports.__test.progressItems(todos).items.length, 3)
+  assert.equal(exports.__test.progressItems(todos, 2).items.length, 2)
   const working = ['completed', 'completed', 'completed', 'completed', 'in_progress', 'pending'].map((status, index) => ({ status, content: `step${index}` }))
-  assert.equal(exports.__test.progressItems(working, false, true).hidden, 2)
-  assert.equal(exports.__test.progressItems(working, false, true).step, 5)
-  assert.equal(exports.__test.progressItems(working, false, true).total, 6)
-  assert.equal(exports.__test.progressItems(working, false, true).items.length, 4)
-  assert.equal(exports.__test.progressItems([], false, true).step, 0)
+  assert.equal(exports.__test.progressItems(working).previous.length, 3)
+  assert.equal(exports.__test.progressItems(working).step, 5)
+  assert.equal(exports.__test.progressItems(working).total, 6)
+  assert.equal(exports.__test.progressItems(working).items.length, 3)
+  assert.equal(exports.__test.progressItems([]).step, 0)
+  for (const count of [2, 3]) for (let current = 0; current < 10; current++) {
+    const list = Array.from({ length: 10 }, (_, index) => ({ content: `item${index}`, status: index < current ? 'completed' : index === current ? 'in_progress' : 'pending' }))
+    const view = exports.__test.progressItems(list, count)
+    assert.equal(view.items.length, count)
+    assert.ok(view.items.includes(list[current]))
+    assert.deepEqual([...view.previous, ...view.items, ...view.future], list, 'The two folded groups and visible window partition the list without omissions or duplicates')
+  }
+  const pending = exports.__test.progressItems(Array.from({ length: 8 }, (_, index) => ({ content: `item${index}`, status: 'pending' })))
+  assert.equal(pending.future.length, 5)
   assert.equal(exports.__test.fileAddress('a/b', 'out/a b.zip'), 'dsh-resource://file/session/a%2Fb/out/a%20b.zip')
 })
 test('keeps tasks in the conversation column, away from a right sidebar and composer', () => {

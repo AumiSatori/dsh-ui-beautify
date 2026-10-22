@@ -66,13 +66,15 @@ try {
   await panel.waitFor()
   await page.evaluate(() => {
     window.cleanups = []
-    window.__ModuleLoader__ = { load(spec) { window.plugin = spec.factory(name => (name === 'dsh-claude-slider' && window.fixtureSliderModule) || window.fixtureReact) } }
+    window.fixtureDependencies = []
+    window.fixtureSettingsEntries = []
+    window.__ModuleLoader__ = { load(spec) { window.plugin = spec.factory(name => { window.fixtureDependencies.push(name); return window.fixtureReact }) } }
   })
   await page.addScriptTag({ url: `${url}/client.js` })
   await page.evaluate(() => window.plugin.apply({
     slots: {
       inject(name, callback) { callback() },
-      register(spec, component) { window.fixtureSettings = component; return () => {} },
+      register(spec, component) { window.fixtureSettingsEntries.push({ id: spec.id, label: spec.label }); window.fixtureSettings = component; return () => {} },
     },
     effect(callback) { window.cleanups.push(callback()) },
   }))
@@ -147,27 +149,17 @@ try {
     await page.screenshot({ path: resolve(output, 'mobile.png') })
     await page.setViewportSize({ width: 1440, height: 960 })
   })
-  await check('settings merge hosts the reasoning-slider page above the panel block', async () => {
+  await check('task-panel settings have an independent entry without loading or hosting the reasoning slider', async () => {
     await page.evaluate(() => window.fixture.settings(true))
-    await page.getByText('滑块设置页暂不可用', { exact: false }).waitFor()
-    await page.evaluate(() => {
-      const h = window.fixtureReact.createElement
-      window.fixtureSliderModule = { ClaudeSettingsPage: () => h('div', { 'data-fake-slider-page': '' }, '推理滑块页面') }
-      window.fixture.settings(false)
-    })
     await settled()
-    await page.evaluate(() => window.fixture.settings(true))
-    await page.getByText('推理滑块页面').waitFor()
-    assert.equal(await page.locator('[data-dcb-settings-block="slider"]').count(), 1)
+    assert.deepEqual(await page.evaluate(() => window.fixtureSettingsEntries), [{ id: 'dsh-claude-beautify', label: 'Claude 美化' }])
+    assert.equal(await page.evaluate(() => window.fixtureDependencies.includes('dsh-claude-slider')), false)
+    assert.equal(await page.evaluate(() => Object.hasOwn(window, '__dsbHostsClaudeSettings')), false)
+    assert.equal(await page.locator('[data-dcb-settings-block="slider"], .dcs-settings-card').count(), 0)
+    assert.equal(await page.getByText('滑块设置页暂不可用', { exact: false }).count(), 0)
     assert.equal(await page.locator('[data-dcb-settings-block="panel"]').count(), 1)
-    const order = await page.evaluate(() => {
-      const slider = document.querySelector('[data-dcb-settings-block="slider"]')
-      const panel = document.querySelector('[data-dcb-settings-block="panel"]')
-      return slider.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING ? 'slider-first' : 'panel-first'
-    })
-    assert.equal(order, 'slider-first')
-    await page.screenshot({ path: resolve(output, 'settings-merged.png') })
-    await page.evaluate(() => { window.fixtureSliderModule = undefined; window.fixture.settings(false) })
+    await page.screenshot({ path: resolve(output, 'settings-independent.png') })
+    await page.evaluate(() => window.fixture.settings(false))
   })
   await check('settings turn it off and on and persist its width', async () => {
     await page.evaluate(() => window.fixture.settings(true))
@@ -175,13 +167,18 @@ try {
     assert.equal(await controls.locator('select, input[type="checkbox"], input[type="radio"], input[type="range"]').count(), 0)
     const toggle = controls.getByRole('switch', { name: '启用右上角任务面板' })
     assert.equal(await toggle.getAttribute('aria-checked'), 'true')
+    assert.match(await controls.locator('.dcb-settings-status').textContent(), /已开启/)
+    assert.equal(await controls.locator('.dcb-settings-status').getAttribute('data-enabled'), 'true')
     await toggle.click()
     await settled()
     assert.equal(await toggle.getAttribute('aria-checked'), 'false')
+    assert.match(await controls.locator('.dcb-settings-status').textContent(), /已关闭/)
+    assert.equal(await controls.locator('.dcb-settings-status').getAttribute('data-enabled'), 'false')
     assert.equal(await page.locator('[data-dcb-task-panel]').count(), 0)
     assert.ok((await bounds()).panel.top > 500)
     await toggle.focus()
     await page.keyboard.press('Space')
+    assert.match(await controls.locator('.dcb-settings-status').textContent(), /已开启/)
     const width = controls.getByRole('slider', { name: '面板宽度' })
     await width.focus()
     await page.keyboard.press('End')
@@ -207,7 +204,7 @@ try {
     const choices = page.getByRole('radiogroup', { name: '卡片样式' })
     const clear = choices.getByRole('radio', { name: '透明玻璃', exact: true })
     const glass = choices.getByRole('radio', { name: '毛玻璃', exact: true })
-    const milk = choices.getByRole('radio', { name: '奶白块', exact: true })
+    const milk = choices.getByRole('radio', { name: '默认', exact: true })
     await clear.click()
     assert.equal(await clear.getAttribute('aria-checked'), 'true')
     assert.equal(await clear.getAttribute('tabindex'), '0')
@@ -219,6 +216,101 @@ try {
     assert.equal(await milk.getAttribute('aria-checked'), 'true')
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')).cardStyle), 'milk')
     await page.evaluate(() => window.fixture.settings(false))
+  })
+  await check('settings present one cohesive card with equal material choices and a real animated selection border', async () => {
+    await page.evaluate(() => window.fixture.settings(true))
+    await settled()
+    const settingsCard = page.locator('[data-dcb-settings-block="panel"]')
+    const layout = await settingsCard.evaluate(node => {
+      const box = node.getBoundingClientRect()
+      const style = getComputedStyle(node)
+      const options = [...node.querySelectorAll('.dcb-style-option')].map(item => {
+        const rect = item.getBoundingClientRect()
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+      })
+      return { radius: style.borderTopLeftRadius, padding: style.padding, width: box.width, options, filter: style.filter, transform: style.transform,
+        groups: node.querySelectorAll('.dcb-settings-section-title').length,
+        header: node.querySelector('.dcb-settings-header h2')?.textContent,
+        info: node.querySelector('.dcb-settings-info')?.textContent }
+    })
+    assert.equal(layout.radius, '20px')
+    assert.equal(layout.padding, '20px 24px 24px')
+    assert.equal(layout.filter, 'none', 'The entrance releases its blur rather than leaving a permanent backdrop root')
+    assert.equal(layout.transform, 'none', 'The entrance releases its transform after settling')
+    assert.equal(layout.header, '任务面板')
+    assert.ok(layout.groups >= 2, 'The card separates its controls into named visual groups')
+    assert.match(layout.info, /默认/)
+    assert.match(layout.info, /400/)
+    assert.equal(layout.options.length, 3)
+    assert.ok(layout.options.every(option => Math.abs(option.width - layout.options[0].width) < 1 && Math.abs(option.height - layout.options[0].height) < 1))
+    assert.ok(layout.options.every(option => Math.abs(option.y - layout.options[0].y) < 1), 'The three material choices share one desktop row')
+    const clear = page.getByRole('radio', { name: '透明玻璃', exact: true })
+    const start = await clear.evaluate(node => getComputedStyle(node).borderTopColor)
+    await clear.evaluate(node => node.click())
+    const motion = await clear.evaluate(node => {
+      const animations = node.getAnimations().filter(item => item instanceof CSSTransition)
+      for (const animation of animations) { animation.pause(); animation.currentTime = 110 }
+      return { properties: animations.map(item => item.transitionProperty), border: getComputedStyle(node).borderTopColor }
+    })
+    assert.ok(motion.properties.includes('border-top-color'), 'Selecting a material animates its visible border')
+    assert.notEqual(motion.border, start)
+    await settingsCard.screenshot({ path: resolve(output, 'settings-redesign-selection-110.png') })
+    await clear.evaluate(node => { for (const animation of node.getAnimations()) animation.finish() })
+    const finish = await clear.evaluate(node => getComputedStyle(node).borderTopColor)
+    assert.notEqual(motion.border, finish, 'The captured border frame lies between the original and selected appearance')
+    assert.match(await settingsCard.locator('.dcb-settings-info').textContent(), /透明玻璃/)
+    await settingsCard.screenshot({ path: resolve(output, 'settings-redesign-light.png') })
+    await page.evaluate(() => window.fixture.settings(false))
+  })
+  await check('the settings card fits narrow light and dark layouts without horizontal overflow', async () => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    for (const dark of [false, true]) {
+      await page.evaluate(dark => {
+        document.body.toggleAttribute('data-ds-dark-theme', dark)
+        window.fixture.settings(true)
+      }, dark)
+      const dialog = page.getByRole('dialog')
+      // The desktop fixture uses a centered modal; narrow DSH settings use the available width.
+      await dialog.evaluate(node => { node.style.inset = '20px 12px' })
+      await settled()
+      const layout = await dialog.evaluate(node => {
+        const card = node.querySelector('[data-dcb-settings-block="panel"]')
+        const rgba = value => (value.match(/[\d.]+/g) || []).map(Number)
+        const composite = (foreground, background) => foreground.slice(0, 3).map((value, index) => value * (foreground[3] ?? 1) + background[index] * (1 - (foreground[3] ?? 1)))
+        const luminance = rgb => rgb.map(value => value / 255).map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0)
+        const contrast = selector => {
+          const element = card.querySelector(selector)
+          const ancestors = []
+          for (let parent = element; parent; parent = parent.parentElement) ancestors.unshift(parent)
+          const background = ancestors.reduce((color, parent) => composite(rgba(getComputedStyle(parent).backgroundColor), color), [255, 255, 255])
+          const foreground = composite(rgba(getComputedStyle(element).color), background)
+          const light = [luminance(background), luminance(foreground)].sort((a, b) => b - a)
+          return { selector, ratio: (light[0] + .05) / (light[1] + .05) }
+        }
+        const options = [...card.querySelectorAll('.dcb-style-option')].map(item => {
+          const box = item.getBoundingClientRect()
+          return { left: box.left, right: box.right, top: box.top, width: box.width, height: box.height }
+        })
+        return { scrollWidth: node.scrollWidth, clientWidth: node.clientWidth, cardScroll: card.scrollWidth, cardWidth: card.clientWidth,
+          options, readability: ['.dcb-settings-header h2', '.dcb-settings-row-title', '.dcb-count-button', '.dcb-settings-row-desc', '.dcb-settings-info', '.dcb-style-option small', '.dcb-settings-status'].map(contrast) }
+      })
+      assert.ok(layout.scrollWidth <= layout.clientWidth + 1, `${dark ? 'Dark' : 'Light'} settings remain inside the modal`)
+      assert.ok(layout.cardScroll <= layout.cardWidth + 1)
+      assert.ok(layout.options.every(option => option.left >= 12 && option.right <= 378))
+      assert.ok(layout.options[1].top > layout.options[0].top && layout.options[2].top > layout.options[1].top, 'Narrow material cards stack into a single readable column')
+      assert.ok(layout.options.every(option => Math.abs(option.width - layout.options[0].width) < 1 && Math.abs(option.height - layout.options[0].height) < 1))
+      for (const text of layout.readability) assert.ok(text.ratio >= 4.5, `${dark ? 'Dark' : 'Light'} ${text.selector} remains readable without host theme tokens (contrast ${text.ratio.toFixed(2)})`)
+      // Keep the narrow width but give the scrolling modal enough height to paint the complete card.
+      await page.setViewportSize({ width: 390, height: 2200 })
+      await dialog.evaluate(node => { node.scrollTop = 0 })
+      await settled()
+      await page.locator('[data-dcb-settings-block="panel"]').screenshot({ path: resolve(output, `settings-redesign-narrow-${dark ? 'dark' : 'light'}.png`) })
+      await page.setViewportSize({ width: 390, height: 844 })
+      await page.evaluate(() => window.fixture.settings(false))
+      await settled()
+    }
+    await page.evaluate(() => document.body.removeAttribute('data-ds-dark-theme'))
+    await page.setViewportSize({ width: 1440, height: 960 })
   })
   await check('step count dropdown animates, supports keyboard, and dismisses outside or with Escape', async () => {
     await page.evaluate(() => window.fixture.settings(true))

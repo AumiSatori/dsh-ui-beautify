@@ -120,10 +120,12 @@ async function mountPlugin(target = page) {
   await target.evaluate(branding => {
     window.openedResources = []
     window.cleanups = []
+    window.fixtureDependencies = []
+    window.fixtureSettingsEntries = []
     window.fixturePrimitives = { FishLogo: ({ size = 24, className }) => window.fixtureReact.createElement('svg', {
       width: size, height: size * branding.height / branding.width, className, viewBox: `0 0 ${branding.width} ${branding.height}`, fill: 'none', 'aria-hidden': true,
     }, window.fixtureReact.createElement('path', { d: branding.path, fill: 'currentColor' })) }
-    window.__ModuleLoader__ = { load(spec) { window.plugin = spec.factory(name => name === '@deepseek-ai/dsh-client-ui-primitives' ? window.fixturePrimitives : name === 'dsh-claude-slider' ? window.fixtureSliderModule || {} : window.fixtureReact) } }
+    window.__ModuleLoader__ = { load(spec) { window.plugin = spec.factory(name => { window.fixtureDependencies.push(name); return name === '@deepseek-ai/dsh-client-ui-primitives' ? window.fixturePrimitives : window.fixtureReact }) } }
   }, branding)
   await target.addScriptTag({ url: `${url}/client.js` })
   await target.evaluate(() => {
@@ -137,7 +139,7 @@ async function mountPlugin(target = page) {
       slots: {
         inject(name, callback) { callback() },
         register(spec, component) {
-          if (spec.name === 'settings.section') window.fixtureSettings = component
+          if (spec.name === 'settings.section') { window.fixtureSettingsEntries.push({ id: spec.id, label: spec.label }); window.fixtureSettings = component }
           else { window.fixtureHeader = component; window.fixtureHeaderSpec = spec }
           return () => {}
         },
@@ -304,7 +306,7 @@ try {
     await settled()
     assert.equal(await card.count(), 0)
   })
-  await check('only real plan edits auto-open as pinned panels; tools, files and ordinary runs do not', async () => {
+  await check('only real plan edits auto-open and require the close button; tools, files and ordinary runs do not', async () => {
     const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
     const baseline = await page.evaluate(() => window.dropdownReveals.length)
     await page.evaluate(() => window.fixture.running(true))
@@ -332,8 +334,16 @@ try {
     assert.equal(await page.evaluate(() => window.dropdownReveals.length), baseline + 1)
     await page.mouse.move(40, 400)
     await page.waitForTimeout(450)
-    assert.equal(await card.count(), 1, 'A plan-triggered opening is pinned like a click, not dismissed like hover')
+    assert.equal(await card.count(), 1, 'A plan-triggered opening is not dismissed like hover')
     await page.locator('article h1').click()
+    await settled()
+    assert.equal(await card.getAttribute('data-state'), 'open', 'An outside press cannot close an automatically opened plan')
+    await entry.click()
+    await page.keyboard.press('Escape')
+    await page.mouse.move(40, 400)
+    await page.waitForTimeout(450)
+    assert.equal(await card.getAttribute('data-state'), 'open', 'Entry presses, Escape and leaving the card cannot close an automatic plan')
+    await card.getByRole('button', { name: '关闭进度面板' }).click()
     await card.waitFor({ state: 'detached' })
     await page.evaluate(() => window.fixture.update([{ content: '本轮再次调整步骤', status: 'pending' }]))
     await settled()
@@ -818,14 +828,17 @@ try {
     assert.ok(box.x >= column.x && box.x + box.width <= column.x + column.width)
     await page.evaluate(() => window.fixture.sidebar(false))
   })
-  await check('outside presses dismiss pinned, automatic and hover panels without blocking the clicked control', async () => {
+  await check('outside presses dismiss manual and hover panels while automatic plans stay open without blocking the clicked control', async () => {
     const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
-    const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
+    await card.getByRole('button', { name: '关闭进度面板' }).click()
+    await entry.click()
+    await settled()
     await card.getByRole('button', { name: '进度', exact: true }).click()
     await settled()
     assert.equal(await card.getAttribute('data-state'), 'open', 'Module controls stay inside the panel')
     await card.getByRole('button', { name: '进度', exact: true }).click()
     await settled()
+    const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
     await page.locator('article h1').click()
     assert.equal(await card.getAttribute('data-state'), 'closing', 'Clicking the chat begins the existing exit animation')
     assert.equal(await entry.getAttribute('aria-expanded'), 'false')
@@ -857,6 +870,11 @@ try {
       await settled()
       assert.equal(await card.getAttribute('data-state'), 'open')
       await outside.click()
+      await settled()
+      assert.equal(await card.getAttribute('data-state'), 'open', 'Outside presses preserve an automatically opened plan')
+      assert.equal(await page.evaluate(() => window.outsideClickCount), 3, 'The outside control still works while an automatic plan remains open')
+      assert.equal(await outside.evaluate(el => el === document.activeElement), true)
+      await card.getByRole('button', { name: '关闭进度面板' }).click()
       await card.waitFor({ state: 'detached' })
       await page.evaluate(() => window.fixture.refresh())
       await settled()
@@ -869,7 +887,9 @@ try {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await outside.click()
       await settled()
-      assert.equal(await card.count(), 0, 'Reduced motion dismisses immediately')
+      assert.equal(await card.getAttribute('data-state'), 'open', 'Reduced motion retains the automatic close-button requirement')
+      await card.getByRole('button', { name: '关闭进度面板' }).click()
+      assert.equal(await card.count(), 0, 'The close button still closes immediately with reduced motion')
       await page.emulateMedia({ reducedMotion: 'no-preference' })
       await page.evaluate(() => window.fixture.running(false))
       await settled()
@@ -1573,7 +1593,7 @@ try {
     assert.equal(await group.getByRole('radio').count(), 3)
     assert.equal(await page.getByRole('dialog').locator('select,input[type="checkbox"],input[type="radio"],input[type="range"]').count(), 0, 'Settings use themed custom controls instead of native pickers, switches and sliders')
     assert.ok(await group.locator('.dcb-style-swatch').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).opacity === '1')), 'Swatches keep full element opacity so Chromium can render their backdrop blur; transparency comes from the surface color')
-    assert.equal(await group.getByRole('radio', { name: '奶白块', exact: true }).getAttribute('aria-checked'), 'true')
+    assert.equal(await group.getByRole('radio', { name: '默认', exact: true }).getAttribute('aria-checked'), 'true')
     await page.getByRole('dialog').screenshot({ path: resolve(output, 'settings-card-style.png') })
     await group.getByRole('radio', { name: '透明玻璃', exact: true }).click()
     await settled()
@@ -1590,9 +1610,9 @@ try {
     await settled()
     assert.equal(await card.getAttribute('data-state'), 'open', 'Mouse selection in the material picker preserves the open live preview')
     assert.equal(await card.getAttribute('data-card-style'), 'glass')
-    await group.getByRole('radio', { name: '奶白块', exact: true }).click()
+    await group.getByRole('radio', { name: '默认', exact: true }).click()
     await settled()
-    await group.getByRole('radio', { name: '奶白块', exact: true }).focus()
+    await group.getByRole('radio', { name: '默认', exact: true }).focus()
     await page.keyboard.press('ArrowLeft')
     assert.equal(await group.getByRole('radio', { name: '毛玻璃', exact: true }).getAttribute('aria-checked'), 'true', 'Custom radio keyboard navigation changes the style')
     await settled()
@@ -1611,7 +1631,7 @@ try {
   })
   await check('material changes interpolate actual blur and opacity, reverse from the displayed frame and preserve card nodes and folds', async () => {
     const start = await readMaterial()
-    await pauseMaterialChange('奶白块')
+    await pauseMaterialChange('默认')
     const frames = []
     for (const time of [60, 120, 210]) {
       await seekMaterial(time)
@@ -1630,7 +1650,7 @@ try {
     await pauseMaterialChange('毛玻璃')
     await seekMaterial(90)
     const halfway = await readMaterial()
-    await pauseMaterialChange('奶白块')
+    await pauseMaterialChange('默认')
     const reversed = await readMaterial()
     assert.ok(Math.abs(reversed.alpha - halfway.alpha) < .015)
     assert.ok(Math.abs(reversed.blur - halfway.blur) < .3)
@@ -1672,7 +1692,7 @@ try {
       await other.goto(url)
       await mountPlugin(other)
       await other.evaluate(rows => { window.fixture.records(rows); window.fixture.settings(true) }, rows)
-      const milk = other.getByRole('radio', { name: '奶白块', exact: true })
+      const milk = other.getByRole('radio', { name: '默认', exact: true })
       assert.equal(await other.getByRole('radio', { name: '毛玻璃', exact: true }).getAttribute('aria-checked'), 'true')
       await other.getByRole('radio', { name: '透明玻璃', exact: true }).click()
       await page.waitForFunction(() => document.querySelector('.dcb-summary')?.dataset.cardStyle === 'clear')
@@ -1696,7 +1716,7 @@ try {
     await page.evaluate(rows => { window.fixture.records(rows); window.fixture.settings(true) }, rows)
     await page.getByRole('button', { name: '会话进度与输出', exact: true }).evaluate(el => el.click())
     await settled()
-    assert.equal(await page.getByRole('radio', { name: '奶白块', exact: true }).getAttribute('aria-checked'), 'true')
+    assert.equal(await page.getByRole('radio', { name: '默认', exact: true }).getAttribute('aria-checked'), 'true')
     assert.equal(await card.getAttribute('data-card-style'), 'milk')
     const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
     assert.equal(JSON.parse(stored).cardStyle, 'milk')
@@ -1719,14 +1739,14 @@ try {
     await card.screenshot({ path: resolve(output, 'summary-style-glass-dark.png') })
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.evaluate(() => window.fixture.settings(true))
-    await page.getByRole('radio', { name: '奶白块', exact: true }).evaluate(el => el.click())
+    await page.getByRole('radio', { name: '默认', exact: true }).evaluate(el => el.click())
     await settled()
     assert.equal((await readMaterial()).alpha, 1)
     assert.equal(await card.evaluate(el => el.getAnimations().filter(animation => 'transitionProperty' in animation).length), 0)
     await page.getByRole('radio', { name: '透明玻璃', exact: true }).evaluate(el => el.click())
     await settled()
     const clearDark = await readMaterial()
-    assert.equal(clearDark.alpha, .62)
+    assert.equal(clearDark.alpha, .22)
     assert.equal(clearDark.blur, 0)
     assert.ok(Number(clearDark.color.match(/[\d.]+/g)[0]) > 200)
     assert.notEqual(clearDark.shadow, dark.shadow)
@@ -1742,7 +1762,7 @@ try {
     assert.equal(forced.blur, 0)
     assert.equal(await card.evaluate(el => el.getAnimations().filter(animation => 'transitionProperty' in animation).length), 0)
     await card.screenshot({ path: resolve(output, 'summary-style-forced-colors.png'), style: '.settings-dialog { visibility: hidden !important; }' })
-    for (const label of ['奶白块', '透明玻璃']) {
+    for (const label of ['默认', '透明玻璃']) {
       await page.getByRole('radio', { name: label, exact: true }).evaluate(el => el.click())
       await settled()
       const accessible = await readMaterial()
@@ -1764,7 +1784,7 @@ try {
     await settled()
     assert.equal(await native.getAttribute('data-card-style'), 'glass')
     assert.match(await native.evaluate(el => getComputedStyle(el).backdropFilter), /blur\(22px\)/)
-    await page.getByRole('radio', { name: '奶白块', exact: true }).click()
+    await page.getByRole('radio', { name: '默认', exact: true }).click()
     await settled()
     assert.equal(await native.getAttribute('data-card-style'), 'milk')
     await page.getByRole('switch', { name: '启用右上角任务面板' }).click()
@@ -1804,7 +1824,7 @@ try {
     await page.getByRole('slider', { name: '面板宽度', exact: true }).click()
     await settled()
     assert.equal(await card.getAttribute('data-state'), 'open', 'Editing nearby settings retains the temporary preview')
-    await page.getByRole('radio', { name: '奶白块', exact: true }).focus()
+    await page.getByRole('radio', { name: '默认', exact: true }).focus()
     await page.keyboard.press('Space')
     await settled()
     assert.equal(await card.getAttribute('data-card-style'), 'milk')
@@ -1814,7 +1834,7 @@ try {
     assert.equal(await card.count(), 0)
     assert.equal(await entry.getAttribute('aria-expanded'), 'false', 'Temporary appearance previews do not pin the card')
     await page.getByRole('button', { name: '打开设置', exact: true }).click()
-    await page.getByRole('radio', { name: '奶白块', exact: true }).click()
+    await page.getByRole('radio', { name: '默认', exact: true }).click()
     await settled()
     assert.equal(await card.count(), 1, 'Selecting the already-selected style can preview it again')
     await page.evaluate(() => window.fixture.settings(false))
@@ -1832,14 +1852,14 @@ try {
     await card.getByRole('button', { name: '关闭进度面板', exact: true }).click()
     await page.evaluate(() => window.fixture.session('empty'))
     await page.getByRole('button', { name: '打开设置', exact: true }).click()
-    await page.getByRole('radio', { name: '奶白块', exact: true }).click()
+    await page.getByRole('radio', { name: '默认', exact: true }).click()
     await settled()
     assert.equal(await card.count(), 0, 'No-content conversations keep their task card hidden')
     await page.evaluate(() => window.fixture.settings(false))
     assert.deepEqual(Object.keys(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))).sort(), ['cardStyle', 'enabled', 'modules', 'progressView', 'toolDetails', 'width'])
   })
 
-  if (process.env.DSH_SLIDER_CLIENT) await check('installed slider shares the settings entry while its theme remains independent of task-card material and preview', async () => {
+  if (process.env.DSH_SLIDER_CLIENT) await check('installed original slider keeps its own settings entry and independent theme beside task-panel settings', async () => {
     await page.reload()
     await mountPlugin()
     await page.evaluate(() => {
@@ -1848,31 +1868,60 @@ try {
     await page.addScriptTag({ url: `${url}/slider.js` })
     await page.evaluate(() => {
       window.sliderSettingsEntries = []
+      window.beautifySettings = window.fixtureSettings
       window.fixtureSliderModule.apply({
         get: name => name === 'sessions' || name === 'modelDirectories' ? {} : undefined,
         effect: callback => { window.cleanups.push(callback()) },
-        slots: { inject: (_name, callback) => callback(), register: spec => { if (spec.name === 'settings.section') window.sliderSettingsEntries.push(spec.id); return () => {} } },
+        slots: { inject: (_name, callback) => callback(), register: (spec, component) => {
+          if (spec.name === 'settings.section') { window.sliderSettingsEntries.push(spec.id); window.installedSliderSettings = component }
+          return () => {}
+        } },
       })
     })
-    assert.deepEqual(await page.evaluate(() => window.sliderSettingsEntries), [], 'The installed slider does not duplicate its settings entry while beautify hosts it')
+    assert.deepEqual(await page.evaluate(() => window.fixtureSettingsEntries), [{ id: 'dsh-claude-beautify', label: 'Claude 美化' }])
+    assert.deepEqual(await page.evaluate(() => window.sliderSettingsEntries), ['claude-reasoning-slider'], 'The unmodified slider registers its own settings section')
+    assert.equal(await page.evaluate(() => Object.hasOwn(window, '__dsbHostsClaudeSettings')), false)
+    assert.equal(await page.evaluate(() => window.fixtureDependencies.includes('dsh-claude-slider')), false)
     await page.getByRole('button', { name: '打开设置', exact: true }).click()
-    await page.getByRole('heading', { name: 'Claude 风格推理滑块', exact: true }).waitFor()
+    assert.equal(await page.locator('[data-dcb-settings-block="slider"], .dcs-settings-card').count(), 0)
+    assert.equal(await page.getByText('滑块设置页暂不可用', { exact: false }).count(), 0)
     await page.getByRole('radio', { name: '毛玻璃', exact: true }).click()
     await settled()
+    await page.getByRole('dialog').screenshot({ path: resolve(output, 'settings-independent-task-panel.png') })
+    await card.screenshot({ path: resolve(output, 'summary-style-settings-preview.png'), style: '.settings-dialog { visibility: hidden !important; }' })
     const before = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
+    await page.getByRole('button', { name: '关闭设置', exact: true }).click()
+    await settled()
+    await page.evaluate(() => { window.fixtureSettings = window.installedSliderSettings; window.fixture.refresh() })
+    await page.getByRole('button', { name: '打开设置', exact: true }).click()
+    await page.getByRole('heading', { name: 'Claude 风格推理滑块', exact: true }).waitFor()
+    assert.equal(await page.locator('[data-dcb-settings-block="panel"]').count(), 0, 'The slider entry renders its own settings without embedding the task panel')
     for (const mode of ['深色模式', '浅色模式', '跟随系统']) {
       await page.locator('.dcs-theme-mode-card').filter({ has: page.locator('.dcs-theme-card-label', { hasText: mode }) }).click()
       await settled()
-      assert.equal(await card.getAttribute('data-state'), 'open')
-      assert.equal(await card.getAttribute('data-card-style'), 'glass')
+      assert.equal(await card.count(), 0, 'Slider theme choices do not start a task-card preview')
       assert.equal(await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1')), before, 'Slider theme preferences never overwrite task-card preferences')
     }
-    await page.getByRole('group', { name: '卡片样式', exact: true }).scrollIntoViewIfNeeded()
-    await page.screenshot({ path: resolve(output, 'settings-installed-slider.png') })
-    await card.screenshot({ path: resolve(output, 'summary-style-settings-preview.png'), style: '.settings-dialog { visibility: hidden !important; }' })
+    await page.setViewportSize({ width: 1706, height: 1500 })
+    const dialog = page.getByRole('dialog')
+    await dialog.evaluate(node => { node.style.inset = '28px 18%'; node.scrollTop = 0 })
+    await settled()
+    await dialog.screenshot({ path: resolve(output, 'settings-installed-slider.png') })
+    await page.locator('.dcs-theme-mode-card').filter({ has: page.locator('.dcs-theme-card-label', { hasText: '深色模式' }) }).click()
+    await page.evaluate(() => document.body.setAttribute('data-ds-dark-theme', ''))
+    await settled()
+    await dialog.evaluate(node => { node.scrollTop = 0 })
+    await dialog.screenshot({ path: resolve(output, 'settings-installed-slider-dark.png') })
+    await page.evaluate(() => document.body.removeAttribute('data-ds-dark-theme'))
+    await page.setViewportSize({ width: 1706, height: 1018 })
     await page.getByRole('button', { name: '关闭设置', exact: true }).click()
     await settled()
-    assert.equal(await card.count(), 0)
+    await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
+    await settled()
+    assert.equal(await card.getAttribute('data-card-style'), 'glass', 'The task card retains its material after independent slider theme changes')
+    await card.getByRole('button', { name: '关闭进度面板', exact: true }).click()
+    await settled()
+    await page.evaluate(() => { window.fixtureSettings = window.beautifySettings; window.fixture.refresh() })
   })
 
   await check('tool category icons distinguish the screenshot tools and unknown tools across materials and dark narrow layouts', async () => {
@@ -2451,6 +2500,90 @@ try {
       assert.equal(await page.evaluate(() => window.liquidFallbackAttempts), 1, 'A failed optical backend is not retried on every DOM mutation')
     }
     await page.emulateMedia({ reducedMotion: 'no-preference' })
+  })
+  await check('automatic plans keep their close-button requirement across completion and session switches without changing manual dismissal', async () => {
+    await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'none' })
+    await page.evaluate(() => localStorage.removeItem('dsh-claude-beautify:settings:v1'))
+    await page.reload()
+    await mountPlugin()
+    await settled()
+    const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
+    const outside = page.locator('article h1')
+    const close = () => card.getByRole('button', { name: '关闭进度面板', exact: true }).click()
+    const expectAutomatic = async message => {
+      await settled()
+      assert.equal(await card.isVisible(), true, message)
+      assert.equal(await card.getAttribute('data-state'), 'open', message)
+      assert.equal(await card.getAttribute('data-open-origin'), 'automatic')
+    }
+    await page.evaluate(() => {
+      window.fixture.running(true)
+      window.fixture.update([{ content: '自动展开并跨会话保留的计划', status: 'in_progress' }])
+    })
+    await expectAutomatic('A newly arranged plan opens automatically')
+    await page.evaluate(() => window.fixture.session('b'))
+    await settled()
+    assert.equal(await card.count(), 0, 'A different session does not inherit the automatic opening')
+    await entry.click()
+    await settled()
+    assert.equal(await card.getAttribute('data-open-origin'), 'manual')
+    await outside.click()
+    await card.waitFor({ state: 'detached' })
+    await page.evaluate(() => window.fixture.session('a'))
+    await expectAutomatic('Returning to the original session restores its automatic opening')
+    await outside.click()
+    await entry.click()
+    await page.keyboard.press('Escape')
+    await page.mouse.move(40, 400)
+    await page.waitForTimeout(450)
+    await expectAutomatic('Returning to an automatic panel cannot convert it to ordinary dismissal')
+    await page.evaluate(() => {
+      window.fixture.update([{ content: '自动展开并跨会话保留的计划', status: 'completed' }])
+      window.fixture.running(false)
+    })
+    await settled()
+    await outside.click()
+    await page.keyboard.press('Escape')
+    await expectAutomatic('Finishing the task does not silently unlock the automatic panel')
+    await page.evaluate(() => { window.pauseHoverDismissals = true })
+    await close()
+    await page.waitForFunction(() => document.getAnimations().some(animation => animation.id === 'dcb-hover-dismiss'))
+    const exitFrame = await card.evaluate(el => {
+      const animation = el.getAnimations().find(value => value.id === 'dcb-hover-dismiss')
+      animation.currentTime = 90
+      const style = getComputedStyle(el)
+      return { opacity: Number(style.opacity), y: new DOMMatrixReadOnly(style.transform).m42, state: el.dataset.state, hidden: el.getAttribute('aria-hidden') }
+    })
+    assert.ok(exitFrame.opacity > 0 && exitFrame.opacity < 1, 'The automatic close button fades through a real intermediate frame')
+    assert.ok(exitFrame.y < 0, 'The automatic card retracts upward during its close animation')
+    assert.equal(exitFrame.state, 'closing')
+    assert.equal(exitFrame.hidden, 'true')
+    await card.evaluate(el => el.getAnimations().find(animation => animation.id === 'dcb-hover-dismiss').finish())
+    await card.waitFor({ state: 'detached' })
+    await page.evaluate(() => { window.pauseHoverDismissals = false })
+    await entry.click()
+    await settled()
+    assert.equal(await card.getAttribute('data-open-origin'), 'manual', 'Reopening after the close button starts an ordinary manual panel')
+    await entry.click()
+    await card.waitFor({ state: 'detached' })
+    await entry.click()
+    await settled()
+    await page.keyboard.press('Escape')
+    await card.waitFor({ state: 'detached' })
+    await entry.click()
+    await settled()
+    await outside.click()
+    await card.waitFor({ state: 'detached' })
+    await page.evaluate(() => {
+      window.fixture.running(true)
+      window.fixture.update([{ content: '下一轮自动计划', status: 'pending' }])
+    })
+    await expectAutomatic('A new plan in a new run restores automatic opening')
+    await close()
+    await card.waitFor({ state: 'detached' })
+    await page.evaluate(() => window.fixture.update([{ content: '同一轮调整步骤仍尊重关闭', status: 'pending' }]))
+    await settled()
+    assert.equal(await card.count(), 0, 'Closing with X suppresses further automatic openings in that run')
   })
   assert.deepEqual(errors, [])
   console.log(JSON.stringify({ passed, output }))

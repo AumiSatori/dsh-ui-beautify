@@ -1,22 +1,23 @@
 {
   "name": "dsh-claude-beautify",
-  "version": "0.3.17",
+  "version": "0.3.18",
   "private": true,
   "type": "module",
   "description": "Claude-inspired session progress, outputs and used resources panel for DeepSeek Harness.",
   "license": "MIT",
   "main": "index.js",
   "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "scripts/profile.mjs", "scripts/patch-claude-slider.mjs", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
+  "files": ["index.js", "client.js", "cordis.patch.yml", "scripts/profile.mjs", "scripts/restore-claude-slider.mjs", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "test:browser": "node test/browser.mjs",
     "test:summary": "node test/summary-browser.mjs",
+    "test:materials": "node test/material-browser.mjs",
     "install-plugin": "node scripts/profile.mjs install",
     "uninstall-plugin": "node scripts/profile.mjs uninstall",
     "check-plugin": "node scripts/profile.mjs check",
-    "patch-slider": "node scripts/patch-claude-slider.mjs",
-    "check-slider": "node scripts/patch-claude-slider.mjs --check"
+    "restore-slider": "node scripts/restore-claude-slider.mjs",
+    "check-slider": "node scripts/restore-claude-slider.mjs --check"
   },
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },

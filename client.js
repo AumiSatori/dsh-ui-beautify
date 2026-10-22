@@ -4,10 +4,6 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const { FishLogo } = require('@deepseek-ai/dsh-client-ui-primitives')
     const NAME = 'dsh-claude-beautify'
-    // Host the reasoning-slider settings page here (see reasoningSliderPage) so the
-    // settings sidebar keeps a single Claude entry; the slider plugin checks this
-    // flag before registering its own section.
-    try { window.__dsbHostsClaudeSettings = true } catch {}
     const KEY = `${NAME}:settings:v1`
     const PANEL = '[data-testid="todo-panel"]'
     const MARK = 'data-dcb-task-panel'
@@ -821,6 +817,7 @@ window.__ModuleLoader__.load({
       return { sync, dispose }
     }
 
+    const GLASS_PANEL = `:is(.dcb-summary, [${MARK}]):is([data-card-style="clear"], [data-card-style="glass"])`
     const css = `
       [${MARK}] {
         position: fixed !important;
@@ -881,29 +878,42 @@ window.__ModuleLoader__.load({
       body[data-ds-dark-theme] [${MARK}] button > span:first-child { color: #d99c7c !important; }
       body[data-ds-dark-theme] [${MARK}] button > span:nth-child(3),
       body[data-ds-dark-theme] [${MARK}] button > span:last-child { color: #aaa294 !important; }
-      .dcb-settings { padding: 24px; max-width: 800px; color: var(--dsw-alias-label-primary); }
-      .dcb-settings-block + .dcb-settings-block { border-top: 1px solid #e7e3db; margin-top: 28px; padding-top: 8px; }
-      body[data-ds-dark-theme] .dcb-settings-block + .dcb-settings-block { border-top-color: #45423b; }
-      .dcb-settings h2 { font-size: 18px; margin: 0 0 12px; }
-      .dcb-settings p { font-size: 13px; line-height: 1.8; color: var(--dsw-alias-label-secondary); }
-      .dcb-settings-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; font-size: 14px; }
-      .dcb-settings-row > span:first-child { flex: 1; }
+      .dcb-settings { padding: 16px 20px; max-width: 800px; color: var(--dsw-alias-label-primary, #202124); }
+      .dcb-settings-card { box-sizing: border-box; position: relative; width: 100%; padding: 20px 24px 24px; border: 1px solid #ffffffcc; border-radius: 20px; background: #ffffffeb; box-shadow: 0 16px 42px #00000012, 0 2px 8px #0000000a, inset 0 1px 1px #ffffffbf; animation: dcb-settings-enter 260ms cubic-bezier(.22,.8,.26,1); }
+      .dcb-settings-header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid #0000000f; }
+      .dcb-settings-header > div { min-width: 0; }
+      .dcb-settings-card h2 { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.4; letter-spacing: -.3px; }
+      .dcb-settings-card p { margin: 4px 0 0; font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary, #6f6f6f); }
+      .dcb-settings-badge { flex: none; padding: 3px 10px; border: 1px solid #ffffff99; border-radius: 999px; background: #ffffff80; box-shadow: 0 1px 4px #0000000a; color: #6265fa; font-size: 11px; font-weight: 600; letter-spacing: .5px; white-space: nowrap; }
+      .dcb-settings-section { margin-bottom: 18px; }
+      .dcb-settings-section-title, .dcb-style-picker legend { display: block; padding: 0; margin: 0 0 10px; color: var(--dsw-alias-label-secondary, #6f6f6f); font-size: 12px; font-weight: 700; line-height: 1.5; }
+      .dcb-settings-row { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 12px 14px; border: 1px solid #0000000d; border-radius: 14px; background: #00000008; font-size: 14px; transition: background-color 220ms cubic-bezier(.4,0,.2,1), border-color 220ms cubic-bezier(.4,0,.2,1); }
+      .dcb-settings-row + .dcb-settings-row { margin-top: 10px; }
+      .dcb-settings-copy { flex: 1; min-width: 0; }
+      .dcb-settings-row-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 14px; font-weight: 600; line-height: 1.5; }
+      .dcb-settings-card .dcb-settings-row-desc { margin-top: 3px; line-height: 1.45; }
+      .dcb-settings-status { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border: 1px solid #9ba1a529; border-radius: 7px; background: #9ba1a51a; color: #697078; font-size: 11px; font-weight: 600; line-height: 1.4; transition: background-color 220ms cubic-bezier(.4,0,.2,1), border-color 220ms cubic-bezier(.4,0,.2,1), color 220ms cubic-bezier(.4,0,.2,1); }
+      .dcb-settings-status[data-enabled="true"] { border-color: #49b9954a; background: #49b99524; color: #26735b; }
+      .dcb-settings-controls { display: flex; align-items: center; gap: 14px; flex: 0 1 48%; min-width: 150px; }
+      .dcb-settings-info { display: flex; align-items: flex-start; gap: 9px; padding: 10px 14px; border: 1px solid #0000000d; border-radius: 10px; background: #00000008; color: var(--dsw-alias-label-secondary, #6f6f6f); font-size: 12px; line-height: 1.6; }
+      .dcb-settings-info::before { content: ''; flex: none; width: 7px; height: 7px; margin-top: 6px; border-radius: 50%; background: #6265fa; box-shadow: 0 0 7px #6265fa55; }
+      .dcb-settings-card .dcb-settings-footnote { margin-top: 12px; font-size: 11px; }
+      @keyframes dcb-settings-enter { from { opacity: 0; transform: translateY(8px); filter: blur(3px); } to { opacity: 1; transform: translateY(0); filter: blur(0px); } }
       .dcb-settings-row button, .dcb-style-option, .dcb-count-option { font-family: inherit; }
-      .dcb-switch { position: relative; flex: none; width: 36px; height: 22px; padding: 0; border: 1px solid #c9c9c9; border-radius: 12px; background: #dedede; cursor: pointer; transition: background-color 220ms cubic-bezier(.4,0,.2,1), border-color 220ms cubic-bezier(.4,0,.2,1); }
-      .dcb-switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0002; transform: translateX(0); transition: transform 220ms cubic-bezier(.22,.8,.26,1); }
-      .dcb-switch[aria-checked="true"] { background: #494949; border-color: #494949; }
-      .dcb-switch[aria-checked="true"]::after { transform: translateX(14px); }
+      .dcb-switch { position: relative; flex: none; width: 42px; height: 24px; padding: 0; border: 1px solid #c9c9c9; border-radius: 999px; background: #d9dce0; box-shadow: inset 0 1px 2px #0000000a; cursor: pointer; transition: background-color 220ms cubic-bezier(.4,0,.2,1), border-color 220ms cubic-bezier(.4,0,.2,1), box-shadow 220ms cubic-bezier(.4,0,.2,1); }
+      .dcb-switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #0003; transform: translateX(0); transition: transform 220ms cubic-bezier(.22,.8,.26,1); }
+      .dcb-switch[aria-checked="true"] { background: #6265fa; border-color: #6265fa; box-shadow: 0 2px 10px #6265fa26; }
+      .dcb-switch[aria-checked="true"]::after { transform: translateX(18px); }
       .dcb-settings :is(.dcb-switch, .dcb-width-slider, .dcb-count-button, .dcb-count-option):focus-visible { outline: 2px solid #777; outline-offset: 3px; }
       .dcb-width-slider { position: relative; flex: 1; min-width: 80px; height: 28px; cursor: ew-resize; touch-action: none; user-select: none; border-radius: 6px; }
-      .dcb-settings-row > .dcb-width-label { flex: none; }
       .dcb-width-track, .dcb-width-fill { position: absolute; top: 12px; left: 0; height: 4px; border-radius: 4px; background: #dedede; width: 100%; }
       .dcb-width-fill { width: var(--dcb-width-percent); background: #555; transition: width 180ms cubic-bezier(.22,.8,.26,1); }
       .dcb-width-thumb { position: absolute; left: var(--dcb-width-percent); top: 6px; width: 16px; height: 16px; border: 1px solid #bbb; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px #0002; transform: translateX(-50%); transition: left 180ms cubic-bezier(.22,.8,.26,1), box-shadow 180ms cubic-bezier(.4,0,.2,1); }
       .dcb-width-slider[data-dragging="true"] :is(.dcb-width-fill, .dcb-width-thumb) { transition-duration: 0ms; }
       .dcb-width-slider:hover .dcb-width-thumb { box-shadow: 0 0 0 4px #8882, 0 1px 4px #0002; }
-      .dcb-width-value { min-width: 47px; color: var(--dsw-alias-label-secondary, #777); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+      .dcb-width-value { min-width: 47px; padding: 4px 8px; border-radius: 6px; background: #0000000a; color: var(--dsw-alias-label-primary, #555); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }
       .dcb-count-picker { position: relative; flex: none; }
-      .dcb-count-button { display: flex; align-items: center; gap: 20px; min-width: 116px; height: 32px; padding: 0 10px; border: 1px solid #cfcfcf; border-radius: 8px; background: transparent; color: var(--dsw-alias-label-primary, #343434); font-size: 13px; cursor: pointer; transition: border-color 180ms cubic-bezier(.4,0,.2,1), box-shadow 180ms cubic-bezier(.4,0,.2,1); }
+      .dcb-count-button { display: flex; align-items: center; gap: 20px; min-width: 116px; height: 32px; padding: 0 10px; border: 1px solid #00000014; border-radius: 8px; background: #ffffff80; color: var(--dsw-alias-label-primary, #343434); font-size: 12px; font-weight: 500; cursor: pointer; transition: border-color 180ms cubic-bezier(.4,0,.2,1), box-shadow 180ms cubic-bezier(.4,0,.2,1); }
       .dcb-count-button:hover, .dcb-count-button[aria-expanded="true"] { border-color: #999; box-shadow: 0 0 0 2px #8881; }
       .dcb-count-caret { width: 6px; height: 6px; margin: -3px 2px 0 auto; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); transition: transform 200ms cubic-bezier(.22,.8,.26,1); }
       .dcb-count-button[aria-expanded="true"] .dcb-count-caret { transform: translateY(3px) rotate(225deg); }
@@ -911,14 +921,26 @@ window.__ModuleLoader__.load({
       .dcb-count-option { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 8px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--dsw-alias-label-primary, #343434); font-size: 13px; text-align: left; cursor: pointer; transition: background-color 180ms cubic-bezier(.4,0,.2,1); }
       .dcb-count-option:hover, .dcb-count-option[aria-selected="true"] { background: #8882; }
       body[data-ds-dark-theme] .dcb-switch { background: #444; border-color: #555; }
-      body[data-ds-dark-theme] .dcb-switch[aria-checked="true"] { background: #bbb; border-color: #bbb; }
-      body[data-ds-dark-theme] .dcb-switch[aria-checked="true"]::after { background: #333; }
+      body[data-ds-dark-theme] .dcb-settings { color: var(--dsw-alias-label-primary, #eee); }
+      body[data-ds-dark-theme] .dcb-settings-card p, body[data-ds-dark-theme] .dcb-settings :is(.dcb-settings-section-title, .dcb-style-picker legend, .dcb-settings-info) { color: var(--dsw-alias-label-secondary, #a6a8b2); }
+      body[data-ds-dark-theme] .dcb-settings :is(.dcb-count-button, .dcb-count-option, .dcb-width-value) { color: var(--dsw-alias-label-primary, #eee); }
+      body[data-ds-dark-theme] .dcb-switch[aria-checked="true"] { background: #777aff; border-color: #777aff; }
+      body[data-ds-dark-theme] .dcb-settings-card { background: #20232bec; border-color: #ffffff1c; box-shadow: 0 16px 42px #00000059, inset 0 1px 0 #ffffff29; }
+      body[data-ds-dark-theme] .dcb-settings-header { border-color: #ffffff14; }
+      body[data-ds-dark-theme] .dcb-settings-badge { background: #ffffff14; border-color: #ffffff1f; color: #a3a5ff; }
+      body[data-ds-dark-theme] .dcb-settings-status { color: #adb3bb; }
+      body[data-ds-dark-theme] .dcb-settings-status[data-enabled="true"] { color: #70d5b3; }
+      body[data-ds-dark-theme] :is(.dcb-settings-row, .dcb-settings-info) { border-color: #ffffff12; background: #ffffff0a; }
+      body[data-ds-dark-theme] .dcb-width-value { background: #ffffff14; }
+      body[data-ds-dark-theme] .dcb-count-button { background: #ffffff0a; }
       body[data-ds-dark-theme] .dcb-width-track { background: #555; }
       body[data-ds-dark-theme] .dcb-width-fill { background: #bbb; }
       body[data-ds-dark-theme] .dcb-count-button, body[data-ds-dark-theme] .dcb-count-menu { border-color: #555; }
       body[data-ds-dark-theme] .dcb-count-menu { background: var(--dsw-alias-bg-layer-1, #292929); box-shadow: 0 8px 24px #0005; }
       @media (prefers-reduced-motion: reduce) {
+        .dcb-settings-card { animation: none; }
         .dcb-settings :is(.dcb-switch, .dcb-width-fill, .dcb-width-thumb, .dcb-count-button, .dcb-count-caret, .dcb-count-option, .dcb-style-option), .dcb-settings .dcb-switch::after, .dcb-settings .dcb-style-option::after { transition: none; }
+        .dcb-settings :is(.dcb-settings-row, .dcb-settings-status) { transition: none; }
       }
       [data-dcb-native-hidden] { display: none !important; }
       [data-slot="conversation.header"]:has(.dcb-anchor) { position: relative; z-index: 20; }
@@ -967,7 +989,7 @@ window.__ModuleLoader__.load({
       @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
         .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-orbit { display: inline; animation: dcb-orbit 1.35s linear infinite; }
         .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-status-ripple { display: inline; animation: dcb-ripple 1.9s cubic-bezier(.15,.6,.3,1) infinite; }
-        .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-step-text { background-image: linear-gradient(100deg, var(--dcb-shimmer-base, currentColor) 38%, #c5c5c5 46%, #fff 50%, #c5c5c5 54%, var(--dcb-shimmer-base, currentColor) 62%); background-size: 250% 100%; background-repeat: no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: dcb-text-shimmer 2.4s linear infinite; }
+        .dcb-timeline[data-working="true"] .dcb-step[data-status="in_progress"] .dcb-step-text { background-image: linear-gradient(100deg, var(--dcb-shimmer-base, currentColor) 38%, var(--dcb-shimmer-shoulder, #c5c5c5) 46%, var(--dcb-shimmer-peak, #fff) 50%, var(--dcb-shimmer-shoulder, #c5c5c5) 54%, var(--dcb-shimmer-base, currentColor) 62%); background-size: 250% 100%; background-repeat: no-repeat; background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: dcb-text-shimmer 2.4s linear infinite; }
       }
       @media (forced-colors: active) { .dcb-summary { --dcb-timeline-line: GrayText; } .dcb-step-text { -webkit-text-fill-color: CanvasText; } }
       .dcb-history { border: 0; background: transparent; width: 100%; text-align: left; color: #95918a; font-size: 12px; padding-top: 0; }
@@ -1033,28 +1055,51 @@ window.__ModuleLoader__.load({
       body[data-ds-dark-theme] .dcb-step[data-status="completed"], body[data-ds-dark-theme] .dcb-step[data-status="pending"] { color: #8d8d8d; }
       body[data-ds-dark-theme] .dcb-step[data-status="in_progress"] { color: #f2f2f2; --dcb-shimmer-base: #d2d2d2; }
       @media (max-width: 600px) { .dcb-summary { padding: 14px; } }
-      .dcb-style-picker { border: 0; padding: 0; margin: 10px 0 18px; min-width: 0; }
-      .dcb-style-picker legend { padding: 0; margin-bottom: 10px; font-size: 14px; }
-      .dcb-style-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 12px; }
-      .dcb-settings .dcb-style-option { position: relative; display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid #ddd; border-radius: 10px; background: transparent; text-align: left; cursor: pointer; transition: border-color 220ms cubic-bezier(.4,0,.2,1), background-color 220ms cubic-bezier(.4,0,.2,1), box-shadow 220ms cubic-bezier(.4,0,.2,1); }
-      .dcb-style-option[aria-checked="true"] { background: #8881; border-color: #888; box-shadow: 0 0 0 1px #8882; }
+      .dcb-style-picker { border: 0; padding: 0; margin: 0 0 18px; min-width: 0; }
+      .dcb-settings-card .dcb-style-picker > p { margin: -3px 0 12px; font-size: 11px; }
+      .dcb-style-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+      .dcb-settings .dcb-style-option { position: relative; display: grid; grid-template-rows: 66px auto 1fr; justify-items: center; gap: 8px; min-width: 0; padding: 14px 12px 13px; border: 1.5px solid #00000014; border-radius: 14px; background: #00000008; text-align: center; cursor: pointer; transition: border-color 220ms cubic-bezier(.4,0,.2,1), background-color 220ms cubic-bezier(.4,0,.2,1), box-shadow 220ms cubic-bezier(.4,0,.2,1); }
+      .dcb-settings .dcb-style-option:hover { background: #ffffffb3; border-color: #00000026; }
+      .dcb-settings .dcb-style-option[aria-checked="true"] { background: #ffffffd9; border-color: #4d6bfe; box-shadow: 0 4px 16px #4d6bfe38; }
       .dcb-style-option:focus-visible { outline: 2px solid #777; outline-offset: 3px; }
-      .dcb-style-option::after { content: ''; position: absolute; top: 18px; right: 18px; width: 10px; height: 10px; border: 1px solid #7778; border-radius: 50%; background: #fff9; box-shadow: inset 0 0 0 3px #fff; transition: background-color 220ms cubic-bezier(.4,0,.2,1), border-color 220ms cubic-bezier(.4,0,.2,1); }
-      .dcb-style-option[aria-checked="true"]::after { background: #555; border-color: #555; }
-      .dcb-style-scene { display: grid; place-items: center; height: 76px; overflow: hidden; border-radius: 6px; background: linear-gradient(125deg, transparent 38%, #ffffffb3 38% 44%, transparent 44%), radial-gradient(ellipse at 15% 30%, #a6cbd0, transparent 60%), radial-gradient(ellipse at 85% 80%, #d9b59b, transparent 60%), #e8e4dc; }
-      .dcb-style-swatch { position: relative; display: grid; align-content: center; justify-items: start; gap: 6px; width: 82px; height: 44px; padding: 13px; border: 1px solid; border-radius: 12px; opacity: 1; transform: translateY(0); transition: transform 240ms cubic-bezier(.22,.8,.26,1); }
+      .dcb-style-option::after { content: ''; position: absolute; top: 11px; right: 11px; width: 7px; height: 7px; border: 1px solid #7f87926b; border-radius: 50%; background: #ffffff80; opacity: .65; transition: background-color 220ms cubic-bezier(.4,0,.2,1), border-color 220ms cubic-bezier(.4,0,.2,1), opacity 220ms cubic-bezier(.4,0,.2,1); }
+      .dcb-style-option[aria-checked="true"]::after { background: #4d6bfe; border-color: #4d6bfe; opacity: 1; }
+      .dcb-style-scene { display: grid; place-items: center; width: 100%; height: 66px; overflow: hidden; border-radius: 8px; background: linear-gradient(125deg, transparent 38%, #ffffffb3 38% 44%, transparent 44%), radial-gradient(ellipse at 15% 30%, #a6cbd0, transparent 60%), radial-gradient(ellipse at 85% 80%, #d9b59b, transparent 60%), #e8e4dc; }
+      .dcb-style-swatch { box-sizing: border-box; position: relative; display: grid; align-content: center; justify-items: start; gap: 6px; width: 82px; height: 48px; padding: 12px; border: 1px solid; border-radius: 12px; opacity: 1; transform: translateY(0); transition: transform 240ms cubic-bezier(.22,.8,.26,1); }
       .dcb-style-option[aria-checked="true"] .dcb-style-swatch { transform: translateY(-6px); }
       .dcb-style-swatch i { width: 45px; height: 3px; border-radius: 3px; background: #847b72; opacity: .5; }
       .dcb-style-swatch i:last-child { width: 30px; opacity: .3; }
-      .dcb-style-name { font-size: 13px; color: var(--dsw-alias-label-primary, #343434); }
-      .dcb-style-option small { color: var(--dsw-alias-label-secondary, #817b71); font-size: 11px; }
-      body[data-ds-dark-theme] .dcb-style-option { border-color: #504b42; }
-      body[data-ds-dark-theme] .dcb-style-option[aria-checked="true"] { background: #8882; border-color: #999; }
-      body[data-ds-dark-theme] .dcb-style-option::after { background: #555; box-shadow: inset 0 0 0 3px #292929; }
-      body[data-ds-dark-theme] .dcb-style-option[aria-checked="true"]::after { background: #ddd; border-color: #aaa; }
+      .dcb-style-name { font-size: 14px; font-weight: 600; color: var(--dsw-alias-label-primary, #343434); line-height: 1.4; }
+      .dcb-style-option small { color: var(--dsw-alias-label-secondary, #6f6f6f); font-size: 11px; line-height: 1.45; }
+      body[data-ds-dark-theme] .dcb-settings .dcb-style-option { background: #ffffff08; border-color: #ffffff1f; }
+      body[data-ds-dark-theme] .dcb-settings .dcb-style-option:hover { background: #ffffff10; border-color: #ffffff33; }
+      body[data-ds-dark-theme] .dcb-settings .dcb-style-option[aria-checked="true"] { background: #4d6bfe14; border-color: #7f91ff; box-shadow: 0 4px 16px #00000033, 0 0 12px #4d6bfe1a; }
+      body[data-ds-dark-theme] .dcb-style-option::after { background: #ffffff14; border-color: #aab0ba66; }
+      body[data-ds-dark-theme] .dcb-style-option[aria-checked="true"]::after { background: #8b9bff; border-color: #8b9bff; }
       body[data-ds-dark-theme] .dcb-style-name { color: #eeeae2; }
+      body[data-ds-dark-theme] .dcb-style-option small { color: var(--dsw-alias-label-secondary, #a6a8b2); }
       body[data-ds-dark-theme] .dcb-style-scene { background: linear-gradient(125deg, transparent 38%, #ffffff40 38% 44%, transparent 44%), radial-gradient(ellipse at 15% 30%, #416b72, transparent 60%), radial-gradient(ellipse at 85% 80%, #7b5540, transparent 60%), #302e29; }
       body[data-ds-dark-theme] .dcb-style-swatch i { background: #e3ddd4; }
+      @media (max-width: 600px) {
+        .dcb-settings { padding: 12px; }
+        .dcb-settings-card { padding: 18px 16px 20px; }
+        .dcb-settings-header { gap: 10px; }
+        .dcb-settings-badge { font-size: 10px; padding-inline: 8px; }
+        .dcb-style-options { grid-template-columns: minmax(0, 1fr); }
+        .dcb-settings-controls { flex-basis: 100%; }
+        .dcb-settings-row[data-setting="width"] { flex-wrap: wrap; gap: 8px; }
+      }
+      @media (forced-colors: active) {
+        .dcb-settings-card, .dcb-settings :is(.dcb-settings-row, .dcb-settings-info, .dcb-settings-badge, .dcb-settings-status, .dcb-style-option, .dcb-count-button, .dcb-count-menu) { background: Canvas !important; border-color: CanvasText !important; color: CanvasText !important; box-shadow: none !important; }
+        .dcb-settings-card p, .dcb-settings :is(.dcb-settings-section-title, .dcb-style-name, .dcb-style-option small, .dcb-style-picker legend) { color: CanvasText !important; }
+        .dcb-settings .dcb-style-option[aria-checked="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
+        .dcb-settings .dcb-style-option[aria-checked="true"]::after, .dcb-settings-info::before { background: Highlight; border-color: Highlight; box-shadow: none; }
+        .dcb-settings .dcb-switch { background: ButtonFace; border-color: ButtonText; box-shadow: none; }
+        .dcb-settings .dcb-switch[aria-checked="true"] { background: Highlight; border-color: Highlight; }
+        .dcb-settings .dcb-switch::after { background: ButtonText; }
+        .dcb-settings .dcb-switch[aria-checked="true"]::after { background: HighlightText; }
+        .dcb-settings :is(.dcb-width-track, .dcb-width-fill, .dcb-width-thumb) { background: ButtonText; border-color: ButtonText; }
+      }
       @property --dcb-backdrop-blur { syntax: "<length>"; inherits: false; initial-value: 0px; }
       @property --dcb-backdrop-saturation { syntax: "<number>"; inherits: false; initial-value: 1; }
       @property --dcb-refraction-scale { syntax: "<number>"; inherits: false; initial-value: 0; }
@@ -1076,27 +1121,73 @@ window.__ModuleLoader__.load({
         --dcb-surface-shadow: 0 2px 6px rgba(28,32,40,.035), 0 10px 28px rgba(28,32,40,.09), inset 0 1px 0 rgba(255,255,255,.92), inset 1px 0 0 rgba(255,255,255,.42), inset -1px -1px 0 rgba(255,255,255,.18);
       }
       body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="clear"] {
-        --dcb-surface-background: rgba(28,29,33,.62); --dcb-surface-border: rgba(255,255,255,.28); --dcb-sheen-opacity: .45;
+        --dcb-surface-background: rgba(24,28,36,.22); --dcb-surface-border: rgba(255,255,255,.4); --dcb-sheen-opacity: .52;
         --dcb-surface-shadow: 0 2px 6px #00000014, 0 10px 28px #00000042, inset 0 1px 0 #ffffff42, inset 1px 0 0 #ffffff1a, inset -1px -1px 0 #ffffff0c;
       }
       body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] {
-        --dcb-surface-background: rgba(255,255,255,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-backdrop-blur: 22px; --dcb-backdrop-saturation: 1.45;
+        --dcb-surface-background: rgba(236,242,248,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-backdrop-blur: 22px; --dcb-backdrop-saturation: 1.45; --dcb-sheen-opacity: .22;
         --dcb-surface-shadow: 0 12px 32px rgba(28,32,40,.1), inset 0 1px 0 rgba(255,255,255,.9), inset 1px 0 0 rgba(255,255,255,.45), inset -1px -1px 0 rgba(255,255,255,.2);
       }
       body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] {
-        --dcb-surface-background: rgba(41,40,36,.68); --dcb-surface-border: rgba(255,255,255,.18);
-        --dcb-surface-shadow: 0 12px 32px #0005, inset 0 1px 0 #ffffff26, inset 1px 0 0 #ffffff14, inset -1px -1px 0 #ffffff0a;
+        --dcb-surface-background: rgba(160,174,190,.26); --dcb-surface-border: rgba(255,255,255,.34); --dcb-sheen-opacity: .32;
+        --dcb-surface-shadow: 0 12px 32px #0005, inset 0 1px 0 #ffffff52, inset 1px 0 0 #ffffff24, inset -1px -1px 0 #ffffff14;
       }
+      /* Glass needs its own foreground palette; the default material keeps its original colors. */
+      body ${GLASS_PANEL} {
+        --dcb-ink-primary: #20242a; --dcb-ink-body: #414852; --dcb-ink-muted: #59616d; --dcb-ink-active: #16191d;
+        --dcb-ink-failure: #a3443d; --dcb-content-separator: rgba(30,42,58,.16); --dcb-timeline-line: #aab2bd;
+        --dcb-content-hover: rgba(0,0,0,.045); --dcb-content-tile: rgba(30,42,58,.07);
+        --dcb-ink-sheen-base: #16191d; --dcb-shimmer-shoulder: #b4bcc7; --dcb-shimmer-peak: #fff; --dcb-tool-sheen: #778494;
+        color: var(--dcb-ink-primary);
+      }
+      body[data-ds-dark-theme] ${GLASS_PANEL} {
+        --dcb-ink-primary: #f4f6f8; --dcb-ink-body: #dce2e9; --dcb-ink-muted: #c8d0da; --dcb-ink-active: #fff;
+        --dcb-ink-failure: #ffc1ba; --dcb-content-separator: rgba(225,233,242,.22); --dcb-timeline-line: #818b98;
+        --dcb-content-hover: rgba(255,255,255,.08); --dcb-content-tile: rgba(225,233,242,.1);
+        --dcb-ink-sheen-base: #dce2e9; --dcb-shimmer-shoulder: #edf1f5; --dcb-tool-sheen: #fff;
+      }
+      body ${GLASS_PANEL} section + section { border-color: var(--dcb-content-separator); }
+      body ${GLASS_PANEL} :is(.dcb-step, .dcb-output, .dcb-resource, .dcb-tool-summary) { color: var(--dcb-ink-body); }
+      body ${GLASS_PANEL} :is(.dcb-step[data-status="completed"], .dcb-step[data-status="pending"], .dcb-history, .dcb-follow,
+        .dcb-resource-detail, .dcb-file-type, .dcb-tool-count, .dcb-tool-category, .dcb-tool-chevron, .dcb-note, .dcb-context-empty) { color: var(--dcb-ink-muted); }
+      body ${GLASS_PANEL} .dcb-history .dcb-status { color: var(--dcb-timeline-line); }
+      body ${GLASS_PANEL} :is(.dcb-step[data-status="in_progress"], .dcb-tool-summary[data-working="true"], .dcb-tool-row[data-working="true"]) {
+        color: var(--dcb-ink-active); --dcb-shimmer-base: var(--dcb-ink-sheen-base);
+      }
+      body ${GLASS_PANEL} .dcb-follow:hover { color: var(--dcb-ink-active); }
+      body ${GLASS_PANEL} .dcb-tool-failed { color: var(--dcb-ink-failure); }
+      body ${GLASS_PANEL} .dcb-tile { background: var(--dcb-content-tile); color: var(--dcb-ink-body); }
+      body ${GLASS_PANEL} .dcb-tile[data-kind="image"]:not(:has(img)) { color: var(--dcb-ink-muted); }
+      body ${GLASS_PANEL} :is(.dcb-step, .dcb-history, .dcb-follow, .dcb-output, .dcb-resource, .dcb-tool-summary,
+        .dcb-resource-detail, .dcb-file-type, .dcb-tool-count, .dcb-tool-category, .dcb-note, .dcb-context-empty) {
+        transition: color 180ms cubic-bezier(.4,0,.2,1), background-color 180ms cubic-bezier(.4,0,.2,1);
+      }
+      body ${GLASS_PANEL} :focus-visible { outline-color: var(--dcb-ink-muted); }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) button > span { color: var(--dcb-ink-body) !important; }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) button > span:first-child { color: var(--dcb-ink-body) !important; }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) button > :is(span:nth-child(3), span:last-child) { color: var(--dcb-ink-muted) !important; }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) li { color: var(--dcb-ink-muted); }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) li[data-status="in_progress"] { color: var(--dcb-ink-active); font-weight: 700; }
+      body [${MARK}]:is([data-card-style="clear"], [data-card-style="glass"]) li > span:last-child { color: inherit !important; }
       body .dcb-style-swatch[data-card-style] { transition: background-color 240ms cubic-bezier(.4,0,.2,1), border-color 240ms cubic-bezier(.4,0,.2,1), box-shadow 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-blur 240ms cubic-bezier(.4,0,.2,1), --dcb-backdrop-saturation 240ms cubic-bezier(.4,0,.2,1), --dcb-refraction-scale 240ms cubic-bezier(.4,0,.2,1), --dcb-sheen-opacity 240ms cubic-bezier(.4,0,.2,1), transform 240ms cubic-bezier(.22,.8,.26,1); }
+      .dcb-summary :is(.dcb-tool-summary, .dcb-output, .dcb-close) { transition: background-color 180ms cubic-bezier(.4,0,.2,1); }
+      body ${GLASS_PANEL} :is(.dcb-tool-summary, .dcb-output, .dcb-close):hover { background: var(--dcb-content-hover); }
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(255,255,255,.96); }
-        body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(41,40,36,.96); }
+        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(236,242,248,.96); }
+        body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(65,72,81,.96); }
       }
       @media (prefers-reduced-motion: reduce), (forced-colors: active) {
-        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style], .dcb-settings .dcb-style-option { transition: none; }
+        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style], .dcb-settings .dcb-style-option, .dcb-summary :is(.dcb-tool-summary, .dcb-output, .dcb-close) { transition: none; }
+        body ${GLASS_PANEL} :is(.dcb-step, .dcb-history, .dcb-follow, .dcb-output, .dcb-resource, .dcb-tool-summary,
+          .dcb-resource-detail, .dcb-file-type, .dcb-tool-count, .dcb-tool-category, .dcb-note, .dcb-context-empty) { transition: none; }
       }
       @media (forced-colors: active) {
         body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] { background: Canvas !important; border-color: CanvasText !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+        body ${GLASS_PANEL}, body[data-ds-dark-theme] ${GLASS_PANEL} {
+          --dcb-ink-primary: CanvasText; --dcb-ink-body: CanvasText; --dcb-ink-muted: CanvasText; --dcb-ink-active: CanvasText;
+          --dcb-ink-failure: CanvasText; --dcb-timeline-line: GrayText; --dcb-content-separator: GrayText; --dcb-content-hover: ButtonFace; --dcb-content-tile: ButtonFace;
+        }
+        body ${GLASS_PANEL} :focus-visible { outline-color: Highlight; }
       }
     `
 
@@ -1111,6 +1202,7 @@ window.__ModuleLoader__.load({
       const observed = new Set()
       const summaryOwners = new Map()
       const openedBySession = new Map()
+      const autoOpenedSessions = new Set()
       // Track real plan changes separately from tool/output activity and hover previews.
       const planRuns = new Map()
       const style = document.createElement('style')
@@ -1194,16 +1286,6 @@ window.__ModuleLoader__.load({
       document.addEventListener('scroll', schedule, true)
       window.addEventListener('storage', onStorage)
       sync()
-
-      // dsh-claude-slider (npm) exports its settings page; render it inside this entry
-      // so the sidebar shows one merged "Claude 美化" section instead of two.
-      let sliderPageCache
-      function reasoningSliderPage() {
-        if (sliderPageCache) return sliderPageCache
-        try { sliderPageCache = require('dsh-claude-slider')?.ClaudeSettingsPage || null }
-        catch { sliderPageCache = null }
-        return sliderPageCache
-      }
 
       function WidthSlider() {
         const [dragging, setDragging] = React.useState(false)
@@ -1333,23 +1415,25 @@ window.__ModuleLoader__.load({
         React.useEffect(() => { listeners.add(render); return () => listeners.delete(render) }, [])
         React.useEffect(() => () => previewStyle(false), [])
         const h = React.createElement
-        const SliderPage = reasoningSliderPage()
+        const materials = [['clear', '透明玻璃', '液态折射，通透亮边'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '默认', '保留原始配色与样式']]
+        const materialName = materials.find(([value]) => value === settings.cardStyle)?.[1] || '默认'
         return h('div', { className: 'dcb-settings' },
-          h('section', { className: 'dcb-settings-block', 'data-dcb-settings-block': 'slider' },
-            h('h2', null, '输入框推理滑块'),
-            h('p', null, '由独立插件 dsh-claude-slider 提供，控制输入框附近的推理强度滑块。这里的外观模式只影响滑块。'),
-            SliderPage
-              ? h(SliderPage)
-              : h('p', null, '滑块设置页暂不可用；若仍有单独的“推理滑块 (Claude)”入口，可在那里设置。右上角任务卡片设置在下方。')),
-          h('section', { className: 'dcb-settings-block', 'data-dcb-settings-block': 'panel' },
-            h('h2', null, '任务面板'),
-            h('p', null, '鼠标移到右上角入口即可预览，移开后收起；点击入口或安排新的任务步骤时会保持展开。普通推理、调用工具、输出文件和更新完成状态不会触发自动展开。本轮手动收起后不再反复弹出。默认显示当前步骤附近的 3 步，可改为 2 步；先前步骤、后续步骤和各栏目的开合选择都会自动记住。'),
-            h('div', { className: 'dcb-settings-row' }, h('span', null, '启用右上角任务面板'),
-              h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '启用右上角任务面板', 'aria-checked': settings.enabled,
-                onClick: () => update({ enabled: !settings.enabled }) })),
+          h('section', { className: 'dcb-settings-block dcb-settings-card', 'data-dcb-settings-block': 'panel' },
+            h('div', { className: 'dcb-settings-header' },
+              h('div', null, h('h2', null, '任务面板'), h('p', null, '右上角任务卡片的显示、材质与进度布局')),
+              h('span', { className: 'dcb-settings-badge' }, 'Task Panel')),
+            h('div', { className: 'dcb-settings-section' },
+              h('div', { className: 'dcb-settings-section-title' }, '面板开关'),
+              h('div', { className: 'dcb-settings-row dcb-panel-toggle' },
+                h('div', { className: 'dcb-settings-copy' },
+                  h('div', { className: 'dcb-settings-row-title' }, '右上角任务面板',
+                    h('span', { className: 'dcb-settings-status', 'data-enabled': settings.enabled }, settings.enabled ? '✓ 已开启' : '已关闭')),
+                  h('p', { className: 'dcb-settings-row-desc' }, settings.enabled ? '悬浮预览；点击入口或安排新步骤时保持展开。' : '开启后，在右上角查看当前轮次的任务进度与输出。')),
+                h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '启用右上角任务面板', 'aria-checked': settings.enabled,
+                  onClick: () => update({ enabled: !settings.enabled }) }))),
             h('fieldset', { className: 'dcb-style-picker', 'data-dcb-card-style-picker': '' }, h('legend', null, '卡片样式'),
-              h('p', null, '仅影响右上角任务卡片。选择时临时展开当前卡片供预览，关闭设置后结束预览；当前轮次没有内容时保持隐藏。'),
-              h('div', { className: 'dcb-style-options', role: 'radiogroup', 'aria-label': '卡片样式' }, [['clear', '透明玻璃', 'iPhone 式液态折射，通透亮边'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '奶白块', '温润奶白，柔软浅影']].map(([value, label, description], index) =>
+              h('p', null, '选择后实时预览当前任务卡片；当前轮次没有内容时保持隐藏。'),
+              h('div', { className: 'dcb-style-options', role: 'radiogroup', 'aria-label': '卡片样式' }, materials.map(([value, label, description], index) =>
                 h('button', { type: 'button', role: 'radio', className: 'dcb-style-option', key: value, 'aria-label': label, 'aria-checked': settings.cardStyle === value,
                   tabIndex: settings.cardStyle === value ? 0 : -1, onClick: () => { update({ cardStyle: value }); previewStyle(true) },
                   onKeyDown: event => {
@@ -1362,9 +1446,16 @@ window.__ModuleLoader__.load({
                   } },
                   h('span', { className: 'dcb-style-scene', 'aria-hidden': true }, h('span', { className: 'dcb-style-swatch', 'data-card-style': value }, h('i'), h('i'))),
                   h('span', { className: 'dcb-style-name' }, label), h('small', null, description))))),
-            h('div', { className: 'dcb-settings-row' }, h('span', { className: 'dcb-width-label' }, '面板宽度'), h(WidthSlider), h('span', { className: 'dcb-width-value' }, `${settings.width} px`)),
-            h('div', { className: 'dcb-settings-row' }, h('span', null, '进度默认显示'), h(StepCountPicker)),
-            h('p', null, '点击面板外部即可带动画收起，无需点关闭按钮。窄屏会自动缩小。关闭插件后立即恢复 DSH 原来的任务清单位置。设置只保存在当前浏览器。')))
+            h('div', { className: 'dcb-settings-section' },
+              h('div', { className: 'dcb-settings-section-title' }, '布局与显示'),
+              h('div', { className: 'dcb-settings-row', 'data-setting': 'width' },
+                h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title dcb-width-label' }, '面板宽度'), h('p', { className: 'dcb-settings-row-desc' }, '窄屏会自动适应可用空间。')),
+                h('div', { className: 'dcb-settings-controls' }, h(WidthSlider), h('span', { className: 'dcb-width-value' }, `${settings.width} px`))),
+              h('div', { className: 'dcb-settings-row' },
+                h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '进度默认显示'), h('p', { className: 'dcb-settings-row-desc' }, '显示当前步骤附近的任务，支持上下滚动。')),
+                h(StepCountPicker))),
+            h('div', { className: 'dcb-settings-info', role: 'status' }, `${settings.enabled ? '当前生效' : '面板已关闭'}：${materialName} · ${settings.width} px · ${settings.progressView.count} 个步骤`),
+            h('p', { className: 'dcb-settings-footnote' }, '展开偏好会自动记住。自动展开的面板仅点 X 收起，手动打开可点外部收起；普通推理或工具调用不会自动展开。设置保存在当前浏览器。')))
       }
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section', id: NAME, order: 26, label: 'Claude 美化',
@@ -1420,7 +1511,7 @@ window.__ModuleLoader__.load({
         const liveRunning = useSession ? useSession(value => value.running) === true : liveTodos.some(item => item.status === 'in_progress')
         const running = liveRunning && !viewingHistory && turnSnapshot?.ended !== true
         const contextKey = `${sessionId}:${selectedTurn ?? 'live'}`
-        const [openState, setOpenState] = React.useState(() => ({ sessionId, value: openedBySession.get(sessionId) ?? false }))
+        const [openState, setOpenState] = React.useState(() => ({ sessionId, value: openedBySession.get(sessionId) ?? false, automatic: autoOpenedSessions.has(sessionId) }))
         const [hoverSession, setHoverSession] = React.useState(null)
         const [stylePreviewSession, setStylePreviewSession] = React.useState(null)
         const [exitingSession, setExitingSession] = React.useState(null)
@@ -1433,6 +1524,7 @@ window.__ModuleLoader__.load({
         const hoverTimer = React.useRef(null)
         const dropdown = React.useRef(null)
         const pinned = openState.sessionId === sessionId ? openState.value : openedBySession.get(sessionId) ?? false
+        const automaticallyOpened = pinned && (openState.sessionId === sessionId ? openState.automatic : autoOpenedSessions.has(sessionId))
         const stylePreview = stylePreviewSession === sessionId
         const open = pinned || hoverSession === sessionId || stylePreview
         const present = open || exitingSession === sessionId
@@ -1488,8 +1580,9 @@ window.__ModuleLoader__.load({
           dropdown.current = null
         }, [sessionId, visible])
         React.useEffect(() => {
-          if (!open || !visible) return
+          if (!open || !visible || automaticallyOpened) return
           const outside = event => {
+            if (autoOpenedSessions.has(sessionId)) return
             const node = anchor.current
             if (!node || event.composedPath().includes(node)) return
             if (event.target?.closest?.('[data-dcb-card-style-picker]')) return
@@ -1498,7 +1591,7 @@ window.__ModuleLoader__.load({
             if (navigation?.querySelector('button[data-index]') && navigation.closest('[data-conversation-content]')?.dataset.conversationSession === sessionId) return
             window.clearTimeout(hoverTimer.current)
             openedBySession.set(sessionId, false)
-            setOpenState({ sessionId, value: false })
+            setOpenState({ sessionId, value: false, automatic: false })
             setHoverSession(null)
             setStylePreviewSession(null)
             setExitingSession(sessionId)
@@ -1506,7 +1599,7 @@ window.__ModuleLoader__.load({
           // Observe outside presses without blocking the clicked control or moving focus.
           document.addEventListener('pointerdown', outside, true)
           return () => document.removeEventListener('pointerdown', outside, true)
-        }, [sessionId, open, visible, stylePreview])
+        }, [sessionId, open, visible, stylePreview, automaticallyOpened])
         // Only a new/edited plan during a run can pin the card open. Existing history,
         // status-only progress, generic inference, tools and outputs cannot trigger it.
         React.useEffect(() => {
@@ -1522,7 +1615,8 @@ window.__ModuleLoader__.load({
           if (!liveRunning || viewingHistory || !visible || liveTodos.length === 0 || !changed || run.revealed) return
           run.revealed = true
           openedBySession.set(sessionId, true)
-          setOpenState({ sessionId, value: true })
+          autoOpenedSessions.add(sessionId)
+          setOpenState({ sessionId, value: true, automatic: true })
           setExitingSession(null)
           setReveal(value => value + 1)
         }, [sessionId, visible, liveRunning, livePlanRevision, viewingHistory])
@@ -1585,8 +1679,13 @@ window.__ModuleLoader__.load({
           return () => { observer.disconnect(); window.removeEventListener('resize', size) }
         }, [sessionId, visible, settings.width])
         if (!visible) return null
-        const setOpen = value => { window.clearTimeout(hoverTimer.current); setHoverSession(null); setStylePreviewSession(null); setExitingSession(null); openedBySession.set(sessionId, value); setOpenState({ sessionId, value }) }
-        const close = () => { setOpen(false); button.current?.focus() }
+        const setOpen = value => { window.clearTimeout(hoverTimer.current); setHoverSession(null); setStylePreviewSession(null); setExitingSession(null); openedBySession.set(sessionId, value); autoOpenedSessions.delete(sessionId); setOpenState({ sessionId, value, automatic: false }) }
+        const close = () => {
+          const automatic = autoOpenedSessions.has(sessionId)
+          setOpen(false)
+          if (automatic) setExitingSession(sessionId)
+          button.current?.focus()
+        }
         const closeControl = h('button', { type: 'button', className: 'dcb-close', 'aria-label': '关闭进度面板', onClick: close }, h(Icon, { kind: 'close', size: 16 }))
         const cardId = `${NAME}-summary-${sessionId}-${selectedTurn ?? 'live'}`
         const collapsible = (id, expanded, children, className) =>
@@ -1644,10 +1743,10 @@ window.__ModuleLoader__.load({
               }
             }, 220)
           },
-          onKeyDown: event => { if (event.key === 'Escape' && open) { event.stopPropagation(); close() } } },
-          h('button', { type: 'button', className: 'dcb-entry', ref: button, 'data-working': working, title: selectedTurn === null ? '会话进度与输出' : `第 ${selectedTurn} 轮 · 会话进度与输出`, 'aria-label': '会话进度与输出', 'aria-expanded': open, 'aria-controls': cardId, onClick: () => setOpen(!pinned) },
+          onKeyDown: event => { if (event.key === 'Escape' && open) { event.stopPropagation(); if (autoOpenedSessions.has(sessionId)) event.preventDefault(); else close() } } },
+          h('button', { type: 'button', className: 'dcb-entry', ref: button, 'data-working': working, title: selectedTurn === null ? '会话进度与输出' : `第 ${selectedTurn} 轮 · 会话进度与输出`, 'aria-label': '会话进度与输出', 'aria-expanded': open, 'aria-controls': cardId, onClick: () => { if (!autoOpenedSessions.has(sessionId)) setOpen(!pinned) } },
             h(FishLogo, { size: 16, className: 'dcb-logo' }), h('span', { 'aria-live': 'polite', 'aria-atomic': true }, entryLabel)),
-          present && h('aside', { key: sessionId, className: 'dcb-summary', ref: card, id: cardId, 'data-card-style': settings.cardStyle, 'aria-label': '会话进度与输出', 'aria-hidden': !open, inert: !open, 'data-dcb-turn': selectedTurn ?? undefined, 'data-state': open ? 'open' : 'closing', 'data-testid': 'dcb-summary' },
+          present && h('aside', { key: sessionId, className: 'dcb-summary', ref: card, id: cardId, 'data-card-style': settings.cardStyle, 'data-open-origin': open ? automaticallyOpened ? 'automatic' : pinned ? 'manual' : stylePreview ? 'preview' : 'hover' : undefined, 'aria-label': '会话进度与输出', 'aria-hidden': !open, inert: !open, 'data-dcb-turn': selectedTurn ?? undefined, 'data-state': open ? 'open' : 'closing', 'data-testid': 'dcb-summary' },
             h('div', { className: 'dcb-context-window', ref: transition.viewport }, h('div', { className: 'dcb-context-content', ref: transition.content },
             todos.length > 0 && section('progress', '进度',
               h(React.Fragment, null,

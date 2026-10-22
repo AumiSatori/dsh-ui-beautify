@@ -27,6 +27,15 @@ inspiration includes greyd097/yzrt's public CSS glass demonstration:
 https://gitee.com/greyd097/yzrt/tree/master/
 No source code from that project is included in this distribution.
 
+## Smooth option switching reference
+
+The sidebar material selector and navigation highlight independently adapt the
+persistent-indicator and reversible-transition principles described by
+https://github.com/zhoulinhua0-star/smooth-option-switcher (MIT original guidance).
+No canonical video reconstruction, example source or other third-party code from
+that repository is distributed here. The sidebar controls retain this plugin's
+own material palette, layout, semantics and motion settings.
+
 ## Lens button optics
 
 Lens WebGL2 rendering modules are vendored unmodified from

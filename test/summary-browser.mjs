@@ -516,7 +516,8 @@ try {
     assert.equal(geometry.tag, 'circle')
     assert.equal(geometry.width, geometry.height, 'The vector core has identical horizontal and vertical diameters')
     assert.equal(geometry.width + Number.parseFloat(geometry.stroke), 8)
-    assert.ok(geometry.arcs.every(arc => arc.tag === 'circle' && arc.cap === 'round' && arc.join === 'round' && arc.radius === 7.5), 'Every orbit segment follows a circular path with rounded endpoints')
+    assert.equal(geometry.arcs.length, 1, 'Only one arc rotates; the secondary gray arc is removed')
+    assert.ok(geometry.arcs.every(arc => arc.tag === 'circle' && arc.cap === 'round' && arc.join === 'round' && arc.radius === 7.5), 'The orbit follows a circular path with rounded endpoints')
     assert.equal(await card.locator('[data-status="completed"] .dcb-status-orbit, [data-status="pending"] .dcb-status-orbit').count(), 0)
     // Deterministic frames for a compact animation preview; synthetic task text only.
     for (let index = 0; index < 36; index++) {

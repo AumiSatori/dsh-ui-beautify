@@ -598,8 +598,7 @@ window.__ModuleLoader__.load({
               item.status === 'in_progress' && h(React.Fragment, null,
                 h('circle', { className: 'dcb-status-ripple', cx: 12, cy: 12, r: 6, strokeWidth: 1 }),
                 h('g', { className: 'dcb-status-orbit' },
-                  h('circle', { cx: 12, cy: 12, r: 7.5, pathLength: 100, strokeWidth: 1.4, strokeDasharray: '28 72', opacity: .9 }),
-                  h('circle', { cx: 12, cy: 12, r: 7.5, pathLength: 100, strokeWidth: 1.4, strokeDasharray: '15 85', strokeDashoffset: -40, opacity: .25 }))),
+                  h('circle', { cx: 12, cy: 12, r: 7.5, pathLength: 100, strokeWidth: 1.4, strokeDasharray: '36 64' }))),
               h('circle', { className: 'dcb-status-core', cx: 12, cy: 12, r: 3.5 }))),
           h('span', { className: 'dcb-step-text' }, item.content))
         const section = (kind, label, children, withClose) => {

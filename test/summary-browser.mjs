@@ -1017,7 +1017,7 @@ try {
     await settled()
     assert.deepEqual(await toggles(card), ['false', 'false', 'true'], 'A fresh plugin instance restores the saved folds')
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))
-    assert.deepEqual(Object.keys(stored).sort(), ['cardStyle', 'composerGlass', 'composerStyle', 'enabled', 'modules', 'progressView', 'toolDetails', 'width'])
+    assert.deepEqual(Object.keys(stored).sort(), ['cardStyle', 'chatUnderComposer', 'composerGlass', 'composerStyle', 'enabled', 'modules', 'progressView', 'toolDetails', 'width'])
     assert.deepEqual(stored.modules, { progress: false, outputs: false, resources: true })
     const other = await page.context().newPage()
     other.on('pageerror', error => errors.push(error.message))
@@ -1731,7 +1731,7 @@ try {
     assert.equal(await card.getAttribute('data-card-style'), 'milk')
     const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
     assert.equal(JSON.parse(stored).cardStyle, 'milk')
-    assert.deepEqual(Object.keys(JSON.parse(stored)).sort(), ['cardStyle', 'composerGlass', 'composerStyle', 'enabled', 'modules', 'progressView', 'toolDetails', 'width'])
+    assert.deepEqual(Object.keys(JSON.parse(stored)).sort(), ['cardStyle', 'chatUnderComposer', 'composerGlass', 'composerStyle', 'enabled', 'modules', 'progressView', 'toolDetails', 'width'])
     assert.ok(!/outputs|\.png|\.zip|remotion|Character|sessionId/.test(stored.replace('"outputs":true', '').replace('"outputs":false', '')), 'Only material and other presentation choices are saved')
   })
   await check('glass materials stay legible on dark narrow screens, honor motion and high-contrast settings, and restore the native fallback on disable', async () => {
@@ -1872,7 +1872,7 @@ try {
     await settled()
     assert.equal(await card.count(), 0, 'No-content conversations keep their task card hidden')
     await page.evaluate(() => window.fixture.settings(false))
-    assert.deepEqual(Object.keys(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))).sort(), ['cardStyle', 'composerGlass', 'composerStyle', 'enabled', 'modules', 'progressView', 'toolDetails', 'width'])
+    assert.deepEqual(Object.keys(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))).sort(), ['cardStyle', 'chatUnderComposer', 'composerGlass', 'composerStyle', 'enabled', 'modules', 'progressView', 'toolDetails', 'width'])
   })
 
   if (process.env.DSH_SLIDER_CLIENT) await check('installed original slider keeps its own settings entry and independent theme beside task-panel settings', async () => {

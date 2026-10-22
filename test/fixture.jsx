@@ -47,6 +47,7 @@ function TodoPanel({ todos }) {
   </div></section>
 }
 function App() {
+  const interactiveComposer = new URLSearchParams(window.location.search).has('composer')
   const [, force] = React.useReducer(value => value + 1, 0)
   const [session, setSession] = React.useState('a')
   const [todos, setTodos] = React.useState(examples.a)
@@ -84,11 +85,11 @@ function App() {
     <aside className="nav"><strong>DeepSeek Harness</strong><small>工作区</small><p>界面优化</p><p>设计与开发</p><button onClick={() => setSettings(true)}>打开设置</button></aside>
     <main><header data-slot="conversation.header"><span>界面优化</span><span className="header-utilities">{Header && <Header sessionId={session} useProjection={name => name === 'turnOutline' ? history?.outline || history?.turns || [] : todos} useSession={selector => selector({ running })}
       useTaskActivity={selector => React.useSyncExternalStore(source.subscribe, () => selector(source.getSnapshot()))} openOutput={injected.openOutput} readThumbnail={injected.readThumbnail}/>}<span>···</span></span></header>
-      {!detached && <div data-conversation-content="" data-conversation-session={session} className="conversation">
+      {!detached && <div data-conversation-content="" data-conversation-session={session} data-content-phase={interactiveComposer ? 'active' : undefined} className={'conversation' + (interactiveComposer ? ' cr_body cr_embeddedBody' : '')}>
         {history?.rail !== false && history && <nav aria-label="聊天轮次" style={{ position: 'absolute', right: 12, top: 360, zIndex: 2, display: 'grid', gap: 8 }}>
           {(history.outline || history.turns).map((item, index) => <button key={item.turn} data-index={index} aria-label={`跳到第 ${item.turn} 轮`} aria-current={reading === item.turn ? 'true' : undefined} onClick={() => goToTurn(item.turn)}>{item.turn}</button>)}
         </nav>}
-        <div data-conversation-scroll="" className="scroll" ref={historyScroll} onScroll={() => {
+        <div data-conversation-scroll="" className={'scroll' + (interactiveComposer ? ' cr_scrollBody' : '')} ref={historyScroll} onScroll={() => {
           if (!history) return
           const scroll = historyScroll.current
           if (history.tail && scroll.scrollTop + scroll.clientHeight >= scroll.scrollHeight - 2) { setReading(history.turns.at(-1)?.turn); return }
@@ -99,7 +100,7 @@ function App() {
         }}>
           {history ? history.turns.map(item => <article key={item.turn} data-chat-turn={item.turn} data-chat-flow-key={`turn-${item.turn}`} data-chat-flow-kind="message" style={{ minHeight: 650, flex: '0 0 650px', margin: '0 auto', padding: '32px 0' }}><p className="eyebrow">第 {item.turn} 轮</p><h1>{item.prompt || '历史消息'}</h1></article>) : <article><p className="eyebrow">ASSISTANT</p><h1>让任务进度，一眼可见。</h1><p>任务清单收在右上角，随时展开查看当前进度。</p><p>暖灰色卡片与细腻的边框，让聊天区域更清爽。</p></article>}
           {history?.tail && reading === history.turns.at(-1)?.turn && <span data-chat-following-tail=""/>}
-          <div data-composer-seat="" className="composer-seat"><TodoView key={session} todos={todos} t={t}/>{new URLSearchParams(window.location.search).has('composer') ? <ComposerFixture/> : <div className="composer">发送消息…<small>DeepSeek　　＋</small></div>}</div>
+          <div data-composer-seat="" className={'composer-seat' + (interactiveComposer ? ' cr_composerSeat' : '')}><TodoView key={session} todos={todos} t={t}/>{interactiveComposer ? <ComposerFixture/> : <div className="composer">发送消息…<small>DeepSeek　　＋</small></div>}</div>
         </div>
       </div>}
     </main>

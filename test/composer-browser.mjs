@@ -11,6 +11,7 @@ const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','.s
 mkdirSync(output,{recursive:true})
 let inputCSS='.cf_root{display:flex;flex-direction:column;align-items:center}.cf_card{position:relative;display:flex;flex-direction:column;gap:12px;width:100%;max-width:720px;padding-top:8px;background:var(--dsw-specific-input-major);border:0;border-radius:20px;box-shadow:0 1px 5px #0002}.cf_grow{position:relative}.cf_input{min-height:36px;padding:4px 14px;outline:none;white-space:pre-wrap;color:var(--dsw-alias-label-primary);caret-color:var(--dsw-alias-state-business-primary)}.cf_placeholder{position:absolute;inset:4px 14px auto;pointer-events:none;color:var(--dsw-alias-label-caption)}.cf_row,.cf_tools,.cf_trailing{display:flex;align-items:center;gap:12px}.cf_row{justify-content:space-between;padding:2px 8px 6px}.cf_primary,.cf_add{border:0;border-radius:50%;width:34px;height:34px}.cf_primary{background:#4d6bfe;color:white}.cf_overlayAnchor{position:absolute;inset:0 0 auto;height:0}'
 let source='portable public-marker fixture'
+let conversationCSS='.cr_body{min-height:0;flex:1;display:flex;flex-direction:column}.cr_scrollBody{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto}.cr_composerSeat{flex:none;position:sticky;bottom:0;z-index:7}'
 if(process.env.DSH_ASAR){
  const fd=openSync(process.env.DSH_ASAR,'r')
  try{
@@ -27,13 +28,19 @@ if(process.env.DSH_ASAR){
   const stylesheet=JSON.parse(literal[1]),prefix=stylesheet.match(/\.([A-Za-z0-9]+)_card\{/)
   assert.ok(prefix,'Installed card selector is discoverable')
   inputCSS=stylesheet.replaceAll(prefix[1]+'_','cf_')
-  source='installed DSH InputBar stylesheet and public DOM markers; synthetic editor behavior'
+  const rootAt=host.indexOf('ConversationRoot.module.css'),rootStart=host.lastIndexOf('//#region',rootAt),rootEnd=host.indexOf('//#endregion',rootAt)
+  const rootLiteral=host.slice(rootStart,rootEnd).match(/const css\$\d+ = ("(?:[^"\\]|\\.)*");/)
+  assert.ok(rootLiteral,'Installed ConversationRoot stylesheet is discoverable')
+  const rootCSS=JSON.parse(rootLiteral[1]),rootPrefix=rootCSS.match(/\.([A-Za-z0-9]+)_body\{/)
+  assert.ok(rootPrefix,'Installed conversation body selector is discoverable')
+  conversationCSS=rootCSS.replaceAll(rootPrefix[1]+'_','cr_')
+  source='installed DSH InputBar and ConversationRoot stylesheets and public DOM markers; synthetic editor behavior'
  }finally{closeSync(fd)}
 }
 const fixtureCSS=`:root{--dsw-specific-input-major:#f4f5f7;--dsw-alias-label-primary:#202124;--dsw-alias-label-secondary:#656d78;--dsw-alias-label-caption:#737982;--dsw-alias-state-business-primary:#4d6bfe;--dsw-alias-button-info-fill:#4d6bfe;--dsw-alias-button-info-hover:#3b53d8;--dsw-specific-selector:#202a3c0d;--dsw-alias-border-l2:#d9dde5;--dsw-radius-panel:20px;--dsw-radius-sm:6px;--dsw-font-family:system-ui,sans-serif;--dsw-elevation-soft:0 1px 5px #0002;--dsh-composer-side-clearance:0px;--dsh-composer-card-max-width:720px;--dsh-composer-text-max-height:180px}body[data-ds-dark-theme]{--dsw-specific-input-major:#25272f;--dsw-alias-label-primary:#f2f4f8;--dsw-alias-label-secondary:#c5cbd5;--dsw-alias-label-caption:#aab0bb;--dsw-alias-state-business-primary:#8b9bff}.cf_card{line-height:24px}.cf_fixture_menu{position:absolute;bottom:10px;left:12px;z-index:30;padding:12px;background:var(--dsw-specific-input-major);box-shadow:0 5px 20px #0003;border-radius:10px}.cf_fixture_files{margin:0;padding:4px 24px;color:var(--dsw-alias-label-primary)}.composer-seat{background:radial-gradient(ellipse at 40% 50%,#7b9bb222,transparent 65%),#e7eaf0!important}body[data-ds-dark-theme] .composer-seat{background:radial-gradient(ellipse at 40% 50%,#7b9bb222,transparent 65%),#141414!important}`
 const built=await build({entryPoints:[resolve(project,'test/fixture.jsx')],bundle:true,write:false,format:'iife'})
 const routes={
- '/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'),'utf8').replace('</style>',`${inputCSS}${fixtureCSS}</style>`)],
+ '/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'),'utf8').replace('</style>',`${inputCSS}${conversationCSS}${fixtureCSS}</style>`)],
  '/fixture.js':['text/javascript',built.outputFiles[0].text],
  '/client.js':['text/javascript',readFileSync(resolve(project,'client.js'),'utf8')],
 }
@@ -172,10 +179,11 @@ try{
   await patch({composerGlass:true,cardStyle:'milk'})
  })
  await check('composer appearance survives reload and synchronizes across windows',async()=>{
-  await patch({composerGlass:false});await page.reload();await mount()
+  await patch({composerGlass:false,chatUnderComposer:false});await page.reload();await mount()
   assert.equal(await page.locator('body').getAttribute('data-dcb-composer-glass'),null)
+  assert.equal(await page.locator('body').getAttribute('data-dcb-chat-under-composer'),null)
   const other=await page.context().newPage()
-  try{await other.goto(url);await mount(other);await other.evaluate(()=>window.fixture.settings(true));await other.getByRole('switch',{name:'启用输入栏美化',exact:true}).click();await other.getByRole('radio',{name:'输入栏：毛玻璃',exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-composer-card]')?.getAttribute('data-dcb-composer-style')==='glass');await settled();assert.match((await style()).filter,/blur\(22px\)/)}finally{await other.close()}
+  try{await other.goto(url);await mount(other);await other.evaluate(()=>window.fixture.settings(true));await other.getByRole('switch',{name:'启用输入栏美化',exact:true}).click();await other.getByRole('switch',{name:'对话延伸到输入栏后方',exact:true}).click();await other.getByRole('radio',{name:'输入栏：毛玻璃',exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-composer-card]')?.getAttribute('data-dcb-composer-style')==='glass'&&document.body.hasAttribute('data-dcb-chat-under-composer'));await settled();assert.match((await style()).filter,/blur\(22px\)/)}finally{await other.close()}
   await page.reload();await mount();assert.match((await style()).filter,/blur\(22px\)/)
   await patch({composerStyle:'css'})
  })
@@ -202,25 +210,72 @@ try{
   assert.equal(await card.getAttribute('data-dcb-liquid'),null)
   assert.equal(await page.locator('[data-dcb-liquid-defs]').count(),0)
  })
+ await check('the real underlay switch reveals scrolling chat through the bottom input row without changing layout or tail clearance',async()=>{
+  await patch({chatUnderComposer:true,composerGlass:true,composerStyle:'css'})
+  await page.evaluate(()=>{window.fixture.history({initial:1,turns:[1,2,3,4].map(turn=>({turn,prompt:`第 ${turn} 段：滚动中的对话内容`}))});window.fixture.settings(true)})
+  const toggle=page.getByRole('switch',{name:'对话延伸到输入栏后方',exact:true})
+  assert.equal(await toggle.getAttribute('aria-checked'),'true')
+  await toggle.click();await settled()
+  assert.equal(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)).chatUnderComposer,key),false)
+  await page.evaluate(()=>window.fixture.settings(false));await settled()
+  const texture=await page.addStyleTag({content:'article[data-chat-turn]{background:repeating-linear-gradient(90deg,#154f99 0 30px,#f5b26b 30px 60px)}'})
+  const geometry=()=>page.evaluate(()=>{const s=document.querySelector('[data-conversation-scroll]'),c=document.querySelector('[data-composer-card]'),seat=c.closest('[data-composer-seat]'),r=c.getBoundingClientRect();return{scrollTop:s.scrollTop,scrollHeight:s.scrollHeight,clientHeight:s.clientHeight,card:[r.x,r.y,r.width,r.height],seat:[seat.offsetWidth,seat.offsetHeight]}})
+  const pixels=buffer=>page.evaluate(async base64=>{const image=await createImageBitmap(await(await fetch('data:image/png;base64,'+base64)).blob()),canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;const ctx=canvas.getContext('2d');ctx.drawImage(image,0,0);image.close();return Array.from(ctx.getImageData(0,0,canvas.width,canvas.height).data)},buffer.toString('base64'))
+  for(const dark of[false,true]){
+   await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
+   await patch({chatUnderComposer:false})
+   await page.evaluate(()=>{const s=document.querySelector('[data-conversation-scroll]'),row=document.querySelector('[data-chat-turn="3"] h1'),card=document.querySelector('[data-composer-card]').getBoundingClientRect();s.scrollTop+=row.getBoundingClientRect().top-(card.bottom-30)})
+   await settled();const before=await geometry(),bounds=await card.boundingBox()
+   const clip={x:bounds.x+bounds.width*.45,y:bounds.y+bounds.height-24,width:100,height:8}
+   const blocked=await pixels(await page.screenshot({clip}))
+   await page.evaluate(()=>window.fixture.settings(true));await toggle.click();await settled()
+   assert.equal(await toggle.getAttribute('aria-checked'),'true')
+   await page.evaluate(()=>window.fixture.settings(false));await settled()
+   assert.deepEqual(await geometry(),before,'Keep the native scroll range, offset, input size and bottom reservation')
+   assert.equal(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)')
+   assert.equal(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundImage),'none')
+   const visible=await pixels(await page.screenshot({clip}))
+   const difference=visible.reduce((sum,value,index)=>sum+(index%4===3?0:Math.abs(value-blocked[index])),0)/(visible.length/4*3)
+   assert.ok(difference>3,`Chat texture actually reaches the input's lower row (${difference.toFixed(2)} mean pixel difference)`)
+   await page.screenshot({path:resolve(output,`chat-under-composer-${dark?'dark':'light'}.png`),clip:{x:220,y:650,width:980,height:300}})
+   await page.locator('[data-conversation-scroll]').evaluate(el=>el.scrollTop=el.scrollHeight)
+   await settled()
+   assert.ok(await page.evaluate(()=>document.querySelector('[data-chat-turn="4"]').getBoundingClientRect().bottom<=document.querySelector('[data-composer-seat]').getBoundingClientRect().top+1),'The final message can still clear the input completely')
+  }
+  await texture.evaluate(el=>el.remove())
+  await patch({enabled:false,composerGlass:false})
+  assert.equal(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundImage),'none','The underlay switch works independently of both beauty switches')
+  await page.locator('[data-conversation-content]').evaluate(el=>el.dataset.contentPhase='hero')
+  assert.notEqual(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundImage),'none','Leave the new-chat hero unchanged')
+  await page.locator('[data-conversation-content]').evaluate(el=>el.dataset.contentPhase='active')
+  await page.locator('[data-composer-seat]').evaluate(el=>{const overlay=document.createElement('div');overlay.setAttribute('data-conversation-composer-overlay','');el.append(overlay)})
+  assert.notEqual(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundImage),'none','Keep blocking interaction overlays opaque')
+  await page.locator('[data-conversation-composer-overlay]').evaluate(el=>el.remove())
+  await page.evaluate(()=>{document.body.removeAttribute('data-ds-dark-theme');window.fixture.session('a')})
+  await patch({enabled:true,composerGlass:true});await settled()
+ })
  await check('reduced motion and forced colors use stable accessible composer surfaces',async()=>{
   await page.emulateMedia({reducedMotion:'reduce'});await settled()
   assert.equal(await card.evaluate(el=>getComputedStyle(el).transitionDuration),'0s')
   await page.emulateMedia({forcedColors:'active'});await settled()
   assert.equal((await style()).filter,'none');assert.equal((await style()).shadow,'none')
   assert.doesNotMatch((await style()).background,/rgba/)
+  assert.doesNotMatch(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundColor),/rgba/)
   await page.emulateMedia({reducedMotion:'no-preference',forcedColors:'none'})
  })
  await check('disposal restores the host appearance and original body marker without removing the editor or its events',async()=>{
   await input.evaluate(el=>window.disposalEditor=el)
   await page.evaluate(()=>{for(const cleanup of [...window.cleanups].reverse())if(typeof cleanup==='function')cleanup()});await settled()
   assert.equal(await page.locator('body').getAttribute('data-dcb-composer-glass'),null)
+  assert.equal(await page.locator('body').getAttribute('data-dcb-chat-under-composer'),null)
   assert.doesNotMatch((await style()).filter,/blur\(2px\)/)
   assert.equal(await input.evaluate(el=>el===window.disposalEditor),true)
   await input.fill('卸载后的合成消息');await page.getByRole('button',{name:'合成发送',exact:true}).click()
   assert.equal(await page.evaluate(()=>window.composerTest.sent.at(-1).text),'卸载后的合成消息')
-  await page.reload();await page.evaluate(()=>document.body.setAttribute('data-dcb-composer-glass','preexisting'));await mount()
+  await page.reload();await page.evaluate(()=>{document.body.setAttribute('data-dcb-composer-glass','preexisting');document.body.setAttribute('data-dcb-chat-under-composer','preexisting')});await mount()
   await page.evaluate(()=>{for(const cleanup of [...window.cleanups].reverse())if(typeof cleanup==='function')cleanup()})
   assert.equal(await page.locator('body').getAttribute('data-dcb-composer-glass'),'preexisting')
+  assert.equal(await page.locator('body').getAttribute('data-dcb-chat-under-composer'),'preexisting')
  })
  assert.deepEqual(errors,[])
  console.log(JSON.stringify({passed,source,output}))

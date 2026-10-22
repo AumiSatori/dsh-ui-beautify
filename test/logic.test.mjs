@@ -35,6 +35,10 @@ test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize({ composerStyle: 'unknown' }).composerStyle, 'css')
   assert.equal(normalize({ composerStyle: 'milk' }).composerStyle, 'milk')
   assert.equal(normalize({ composerStyle: 'glass', cardStyle: 'css' }).composerStyle, 'glass')
+  assert.equal(normalize(null).chatUnderComposer, true)
+  assert.equal(normalize({ chatUnderComposer: 'false' }).chatUnderComposer, true)
+  assert.equal(normalize({ chatUnderComposer: false }).chatUnderComposer, false)
+  assert.equal(normalize({ enabled: false, composerGlass: false, chatUnderComposer: true }).chatUnderComposer, true)
 })
 
 test('card styles migrate to milk by default and retain all four supported presentation values', () => {

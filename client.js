@@ -9,6 +9,8 @@ window.__ModuleLoader__.load({
     const PANEL = '[data-testid="todo-panel"]'
     const MARK = 'data-dcb-task-panel'
     const COMPOSER_FLAG = 'data-dcb-composer-glass'
+    const CHAT_UNDER_COMPOSER_FLAG = 'data-dcb-chat-under-composer'
+    const CHAT_UNDER_COMPOSER = `body[${CHAT_UNDER_COMPOSER_FLAG}] [data-conversation-content][data-content-phase="active"] > [data-conversation-scroll]:not(:has([data-conversation-composer-overlay])) > [data-composer-seat]`
     const COMPOSER_CARD = '[data-composer-seat] [data-composer-card]'
     const COMPOSER_MARK = 'data-dcb-composer-style'
     const COMPOSER_GLASS = `body[${COMPOSER_FLAG}] [${COMPOSER_MARK}]`
@@ -17,7 +19,7 @@ window.__ModuleLoader__.load({
     const material = value => `${MATERIAL_SURFACE}:is([data-card-style="${value}"], [${COMPOSER_MARK}="${value}"])`
     const CARD_STYLES = ['clear', 'css', 'glass', 'milk']
     const MATERIALS = [['clear', '透明玻璃', '液态折射，通透亮边'], ['css', '轻量玻璃', '柔和亮边，轻微模糊'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮'], ['milk', '默认', '保留原始配色与样式']]
-    const DEFAULTS = { enabled: true, composerGlass: true, composerStyle: 'css', width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
+    const DEFAULTS = { enabled: true, composerGlass: true, composerStyle: 'css', chatUnderComposer: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
     const VARIABLES = ['--dcb-left', '--dcb-top', '--dcb-width', '--dcb-list-height']
 
     function normalize(value) {
@@ -25,6 +27,7 @@ window.__ModuleLoader__.load({
         enabled: typeof value?.enabled === 'boolean' ? value.enabled : true,
         composerGlass: typeof value?.composerGlass === 'boolean' ? value.composerGlass : DEFAULTS.composerGlass,
         composerStyle: CARD_STYLES.includes(value?.composerStyle) ? value.composerStyle : DEFAULTS.composerStyle,
+        chatUnderComposer: typeof value?.chatUnderComposer === 'boolean' ? value.chatUnderComposer : DEFAULTS.chatUnderComposer,
         width: Number.isFinite(value?.width) ? Math.round(Math.max(280, Math.min(480, value.width))) : 320,
         // Keep the existing glass value for the frosted material when upgrading.
         cardStyle: CARD_STYLES.includes(value?.cardStyle) ? value.cardStyle : 'milk',
@@ -1211,6 +1214,9 @@ window.__ModuleLoader__.load({
       ${COMPOSER_GLASS} {
         outline: 1px solid var(--dcb-surface-border); outline-offset: -1px;
       }
+      /* The host already scrolls behind its sticky seat and reserves tail space.
+         Reveal that content without changing scroll geometry or input hit areas. */
+      ${CHAT_UNDER_COMPOSER} { background: transparent !important; }
       body ${material('glass')} {
         --dcb-surface-background: rgba(236,242,248,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-backdrop-blur: 22px; --dcb-backdrop-saturation: 1.45; --dcb-sheen-opacity: .22;
         --dcb-surface-shadow: 0 12px 32px rgba(28,32,40,.1), inset 0 1px 0 rgba(255,255,255,.9), inset 1px 0 0 rgba(255,255,255,.45), inset -1px -1px 0 rgba(255,255,255,.2);
@@ -1273,6 +1279,7 @@ window.__ModuleLoader__.load({
       }
       @media (forced-colors: active) {
         ${COMPOSER_GLASS} { background: Canvas !important; color: CanvasText !important; box-shadow: none !important; outline-color: CanvasText; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+        ${CHAT_UNDER_COMPOSER} { background: Canvas !important; }
         body ${MATERIAL_BASE} { background: Canvas !important; border-color: CanvasText !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         body ${GLASS_PANEL}, body[data-ds-dark-theme] ${GLASS_PANEL} {
           --dcb-ink-primary: CanvasText; --dcb-ink-body: CanvasText; --dcb-ink-muted: CanvasText; --dcb-ink-active: CanvasText;
@@ -1297,6 +1304,7 @@ window.__ModuleLoader__.load({
       // Track real plan changes separately from tool/output activity and hover previews.
       const planRuns = new Map()
       const originalComposerFlag = document.body.getAttribute(COMPOSER_FLAG)
+      const originalChatUnderComposerFlag = document.body.getAttribute(CHAT_UNDER_COMPOSER_FLAG)
       const composerOriginals = new Map()
       const style = document.createElement('style')
       style.dataset.plugin = NAME
@@ -1331,6 +1339,7 @@ window.__ModuleLoader__.load({
         if (disposed) return
         const composerEnabled = settings.composerGlass && settings.composerStyle !== 'milk'
         document.body.toggleAttribute(COMPOSER_FLAG, composerEnabled)
+        document.body.toggleAttribute(CHAT_UNDER_COMPOSER_FLAG, settings.chatUnderComposer)
         const composers = new Set(composerEnabled ? document.querySelectorAll(COMPOSER_CARD) : [])
         for (const element of composerOriginals.keys()) if (!composers.has(element)) restoreComposer(element)
         for (const element of composers) {
@@ -1575,7 +1584,11 @@ window.__ModuleLoader__.load({
               h('div', { className: 'dcb-settings-row' },
                 h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '输入栏美化'), h('p', { className: 'dcb-settings-row-desc' }, '关闭后恢复原来的外观，并保留已选样式。')),
                 h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '启用输入栏美化', 'aria-checked': settings.composerGlass,
-                  onClick: () => update({ composerGlass: !settings.composerGlass }) }))),
+                  onClick: () => update({ composerGlass: !settings.composerGlass }) })),
+              h('div', { className: 'dcb-settings-row' },
+                h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '对话延伸到输入栏后方'), h('p', { className: 'dcb-settings-row-desc' }, '滚动时让聊天透过玻璃显现；关闭后恢复底部遮罩。')),
+                h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '对话延伸到输入栏后方', 'aria-checked': settings.chatUnderComposer,
+                  onClick: () => update({ chatUnderComposer: !settings.chatUnderComposer }) }))),
             h(StylePicker, { scope: 'composer', value: settings.composerStyle, onChange: composerStyle => update({ composerStyle }) }),
             h('div', { className: 'dcb-settings-info', role: 'status' }, `${settings.composerGlass ? '输入栏样式' : '输入栏美化已关闭'}：${composerName}`)))
       }
@@ -1922,6 +1935,8 @@ window.__ModuleLoader__.load({
         for (const element of composerOriginals.keys()) restoreComposer(element)
         if (originalComposerFlag === null) document.body.removeAttribute(COMPOSER_FLAG)
         else document.body.setAttribute(COMPOSER_FLAG, originalComposerFlag)
+        if (originalChatUnderComposerFlag === null) document.body.removeAttribute(CHAT_UNDER_COMPOSER_FLAG)
+        else document.body.setAttribute(CHAT_UNDER_COMPOSER_FLAG, originalChatUnderComposerFlag)
         if (frame) window.cancelAnimationFrame(frame)
         window.removeEventListener('resize', schedule)
         window.removeEventListener('storage', onStorage)

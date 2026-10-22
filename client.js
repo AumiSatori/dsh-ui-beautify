@@ -1494,8 +1494,8 @@ void main(){
       ${COMPOSER_ACTION_SURFACE}:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary, #777aff); outline-offset: 2px; }
       [data-dcb-sidebar-column] { background: transparent !important; border-color: transparent !important; }
       body [${SIDEBAR_MARK}] { position: relative; isolation: isolate; box-sizing: border-box; width: calc(100% - 12px) !important; height: calc(100% - 12px); margin: 6px; border-radius: 20px; outline: 1px solid var(--dcb-surface-border); outline-offset: -1px; }
-      body[data-ds-dark-theme] [${SIDEBAR_MARK}="clear"] { --dcb-surface-background: rgba(24,28,36,.55); }
-      body[data-ds-dark-theme] [${SIDEBAR_MARK}="glass"] { --dcb-surface-background: rgba(24,28,36,.62); }
+      body[data-ds-dark-theme] [${SIDEBAR_MARK}="clear"][${SIDEBAR_MARK}] { --dcb-surface-background: rgba(24,28,36,.55); }
+      body[data-ds-dark-theme] [${SIDEBAR_MARK}="glass"][${SIDEBAR_MARK}] { --dcb-surface-background: rgba(24,28,36,.62); }
       [data-sidebar-collapsed="true"] [${SIDEBAR_MARK}] { width: calc(100% - 8px) !important; height: calc(100% - 8px); margin: 4px; border-radius: 16px; padding-inline: 6px; }
       [${SIDEBAR_MARK}] :is([role="treeitem"], [class$="_panelRow"], [class*="_panelRow "], [class$="_newSession"], [class*="_newSession "]) { border-radius: 12px; }
       [${SIDEBAR_MARK}] :is([role="treeitem"], [class$="_panelRow"], [class*="_panelRow "]):hover { background-color: color-mix(in srgb, var(--dsw-alias-label-primary, #20242a) 5%, transparent); }

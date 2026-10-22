@@ -48,6 +48,14 @@ try{
   for(const dark of[false,true]){await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark);for(const style of['css','glass','clear']){await patch({sidebarStyle:style});const s=await root.evaluate(el=>({radius:getComputedStyle(el).borderRadius,filter:getComputedStyle(el).backdropFilter,width:el.getBoundingClientRect().width,fill:getComputedStyle(el).backgroundColor}));assert.equal(s.radius,'20px');assert.equal(s.width,await root.evaluate(el=>el.parentElement.clientWidth-12));assert.match(s.fill,/rgba/);assert.match(s.filter,style==='css'?/blur\(2px\)/:style==='glass'?/blur\(22px\)/:/url\(/);await page.evaluate(()=>window.fixture.settings(false));await root.screenshot({path:resolve(output,`sidebar-${style}-${dark?'dark':'light'}.png`)});await page.evaluate(()=>window.fixture.settings(true))}}
   await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'));await patch({sidebarStyle:'css'})
  })
+ await check('dark transparent and frosted sidebars retain a dark tint over bright artwork',async()=>{
+  await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''))
+  for(const [sidebarStyle,expected] of [['clear','rgba(24, 28, 36, 0.55)'],['glass','rgba(24, 28, 36, 0.62)']]){
+   await patch({sidebarStyle});assert.equal(await root.evaluate(el=>getComputedStyle(el).backgroundColor),expected)
+   await page.evaluate(()=>window.fixture.settings(false));await root.screenshot({path:resolve(output,`sidebar-${sidebarStyle}-dark.png`)});await page.evaluate(()=>window.fixture.settings(true))
+  }
+  await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'));await patch({sidebarStyle:'css'})
+ })
  await check('material choice reuses one traveling indicator with reversible intermediate motion',async()=>{
   await group.locator('.dcb-sidebar-style-indicator').evaluate(el=>window.originalStyleIndicator=el);await group.getByRole('radio',{name:'侧栏：默认'}).click();await settled();await group.getByRole('radio',{name:'侧栏：毛玻璃'}).click();await page.waitForTimeout(80);const between=await group.locator('.dcb-sidebar-style-indicator').evaluate(el=>new DOMMatrix(getComputedStyle(el).transform).m41);const width=await group.locator('.dcb-sidebar-style-indicator').evaluate(el=>el.getBoundingClientRect().width);assert.ok(between>0&&between<width*3);await group.getByRole('radio',{name:'侧栏：轻量玻璃'}).click();await settled();assert.equal(await group.locator('.dcb-sidebar-style-indicator').evaluate(el=>el===window.originalStyleIndicator),true)
  })

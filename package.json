@@ -4,7 +4,7 @@
   "version": "0.3.30",
   "private": true,
   "type": "module",
-  "description": "dsh-UI美化：独立配置任务卡片与输入栏的玻璃样式、进度与输出展示。",
+  "description": "dsh-UI美化：独立配置左侧栏、任务卡片与输入栏的玻璃样式、进度与切换动效。",
   "license": "MIT",
   "main": "index.js",
   "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },

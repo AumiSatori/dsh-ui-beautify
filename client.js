@@ -437,7 +437,7 @@ window.__ModuleLoader__.load({
               : h('p', null, '推理滑块插件（dsh-claude-slider）未启用，这里只显示任务面板设置。')),
           h('section', { className: 'dcb-settings-block', 'data-dcb-settings-block': 'panel' },
             h('h2', null, '任务面板'),
-            h('p', null, '在右上角查看当前会话的进度、输出和已使用的工具。点击各栏目标题可分别展开或收起。每轮推理开始时卡片自动下拉展开，本轮手动收起后不再反复弹出，下一轮重新展开。'),
+            h('p', null, '鼠标移到右上角入口即可查看当前会话的进度、输出和已使用的工具，点击入口可固定展开。点击各栏目标题可分别展开或收起。每轮推理开始时卡片自动下拉展开，本轮手动收起后不再反复弹出，下一轮重新展开。'),
             h('label', null, h('input', { type: 'checkbox', checked: settings.enabled,
               onChange: event => update({ enabled: event.target.checked }) }), '启用右上角任务面板'),
             h('label', null, '面板宽度', h('input', { type: 'range', min: 280, max: 480, step: 10,
@@ -463,6 +463,7 @@ window.__ModuleLoader__.load({
         const activity = useTaskActivity(value => value)
         const running = useSession ? useSession(value => value.running) === true : todos.some(item => item.status === 'in_progress')
         const [openState, setOpenState] = React.useState(() => ({ sessionId, value: openedBySession.get(sessionId) ?? false }))
+        const [hoverSession, setHoverSession] = React.useState(null)
         const [history, setHistory] = React.useState(null)
         const [moduleState, setModuleState] = React.useState(() => ({ sessionId, values: modulesBySession.get(sessionId) || { progress: true, outputs: true, resources: true } }))
         const [reveal, setReveal] = React.useState(0)
@@ -470,7 +471,9 @@ window.__ModuleLoader__.load({
         const anchor = React.useRef(null)
         const button = React.useRef(null)
         const card = React.useRef(null)
-        const open = openState.sessionId === sessionId ? openState.value : openedBySession.get(sessionId) ?? false
+        const hoverTimer = React.useRef(null)
+        const pinned = openState.sessionId === sessionId ? openState.value : openedBySession.get(sessionId) ?? false
+        const open = pinned || hoverSession === sessionId
         const modules = moduleState.sessionId === sessionId ? moduleState.values : modulesBySession.get(sessionId) || { progress: true, outputs: true, resources: true }
         const hasContent = todos.length > 0 || activity.files.length > 0 || activity.resources.length > 0
         const visible = settings.enabled && hasContent
@@ -480,6 +483,11 @@ window.__ModuleLoader__.load({
         const progress = progressItems(todos, false, working)
         const entryLabel = working ? `第 ${progress.step} 步，共 ${progress.total} 步` : activity.files.length || todos.length || activity.resources.length
         React.useEffect(() => { listeners.add(refresh); return () => listeners.delete(refresh) }, [])
+        // Hover previews must not overwrite the persistent per-session open state.
+        React.useEffect(() => {
+          setHoverSession(null)
+          return () => window.clearTimeout(hoverTimer.current)
+        }, [sessionId, visible])
         // Open once per inference run, never again after a manual close in that run.
         // Keep a pending reveal when the run starts before any real panel content arrives.
         React.useEffect(() => {
@@ -530,7 +538,7 @@ window.__ModuleLoader__.load({
           return () => { observer.disconnect(); window.removeEventListener('resize', size) }
         }, [sessionId, visible, settings.width])
         if (!visible) return null
-        const setOpen = value => { openedBySession.set(sessionId, value); setOpenState({ sessionId, value }) }
+        const setOpen = value => { window.clearTimeout(hoverTimer.current); setHoverSession(null); openedBySession.set(sessionId, value); setOpenState({ sessionId, value }) }
         const close = () => { setOpen(false); button.current?.focus() }
         const closeControl = h('button', { type: 'button', className: 'dcb-close', 'aria-label': '关闭进度面板', onClick: close }, h(Icon, { kind: 'close', size: 16 }))
         const cardId = `${NAME}-summary-${sessionId}`
@@ -555,8 +563,16 @@ window.__ModuleLoader__.load({
             collapsible(contentId, expanded, h('div', { className: 'dcb-module-body' }, children), 'dcb-module-content'))
         }
         return h('div', { className: 'dcb-anchor', ref: anchor, 'data-dcb-summary-for': sessionId,
+          onPointerEnter: event => { if (event.pointerType === 'mouse') { window.clearTimeout(hoverTimer.current); setHoverSession(sessionId) } },
+          onPointerLeave: event => {
+            if (event.pointerType !== 'mouse') return
+            window.clearTimeout(hoverTimer.current)
+            hoverTimer.current = window.setTimeout(() => {
+              if (!card.current?.contains(document.activeElement)) setHoverSession(value => value === sessionId ? null : value)
+            }, 220)
+          },
           onKeyDown: event => { if (event.key === 'Escape' && open) { event.stopPropagation(); close() } } },
-          h('button', { type: 'button', className: 'dcb-entry', ref: button, 'data-working': working, title: '会话进度与输出', 'aria-label': '会话进度与输出', 'aria-expanded': open, 'aria-controls': cardId, onClick: () => setOpen(!open) },
+          h('button', { type: 'button', className: 'dcb-entry', ref: button, 'data-working': working, title: '会话进度与输出', 'aria-label': '会话进度与输出', 'aria-expanded': open, 'aria-controls': cardId, onClick: () => setOpen(!pinned) },
             h(Icon, { kind: 'file', size: 16 }), h('span', { 'aria-live': 'polite', 'aria-atomic': true }, entryLabel)),
           open && h('aside', { className: 'dcb-summary', ref: card, id: cardId, 'aria-label': '会话进度与输出', 'data-testid': 'dcb-summary' },
             todos.length > 0 && section('progress', '进度',

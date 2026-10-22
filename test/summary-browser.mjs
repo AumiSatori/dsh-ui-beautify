@@ -305,7 +305,7 @@ try {
     })
     await settled()
     assert.ok(!(await entryButton.innerText()).includes('步'))
-    assert.equal(await card.locator('[data-finished="true"] .dcb-status-dot svg').count(), 1)
+    assert.equal(await card.locator('.dcb-status-dot svg').count(), 0, 'Completed steps retain the same solid gray dot, including the final step')
     await card.getByRole('button', { name: '关闭进度面板' }).click()
     const beforeNextRun = await page.evaluate(() => window.dropdownReveals.length)
     await page.evaluate(() => window.fixture.running(true))

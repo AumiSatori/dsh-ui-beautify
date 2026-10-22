@@ -440,7 +440,7 @@ window.__ModuleLoader__.load({
             h('label', null, '面板宽度', h('input', { type: 'range', min: 280, max: 480, step: 10,
               value: settings.width, 'aria-label': '面板宽度',
               onChange: event => update({ width: Number(event.target.value) }) }), h('span', null, `${settings.width} px`)),
-            h('p', null, '窄屏会自动缩小。关闭后立即恢复 DSH 原来的任务清单位置。设置只保存在当前浏览器。')))
+            h('p', null, '点击面板外部即可带动画收起，无需点关闭按钮。窄屏会自动缩小。关闭插件后立即恢复 DSH 原来的任务清单位置。设置只保存在当前浏览器。')))
       }
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section', id: NAME, order: 26, label: 'Claude 美化',
@@ -491,6 +491,21 @@ window.__ModuleLoader__.load({
           dropdown.current?.cancel()
           dropdown.current = null
         }, [sessionId, visible])
+        React.useEffect(() => {
+          if (!open || !visible) return
+          const outside = event => {
+            const node = anchor.current
+            if (!node || event.composedPath().includes(node)) return
+            window.clearTimeout(hoverTimer.current)
+            openedBySession.set(sessionId, false)
+            setOpenState({ sessionId, value: false })
+            setHoverSession(null)
+            setExitingSession(sessionId)
+          }
+          // Observe outside presses without blocking the clicked control or moving focus.
+          document.addEventListener('pointerdown', outside, true)
+          return () => document.removeEventListener('pointerdown', outside, true)
+        }, [sessionId, open, visible])
         // Open once per inference run, never again after a manual close in that run.
         // Keep a pending reveal when the run starts before any real panel content arrives.
         React.useEffect(() => {

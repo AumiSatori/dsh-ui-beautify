@@ -1,6 +1,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import * as jsxRuntime from 'react/jsx-runtime'
+import { ComposerFixture } from './composer-fixture.jsx'
 
 window.fixtureReact = React
 window.fixtureBindings = new Map()
@@ -98,7 +99,7 @@ function App() {
         }}>
           {history ? history.turns.map(item => <article key={item.turn} data-chat-turn={item.turn} data-chat-flow-key={`turn-${item.turn}`} data-chat-flow-kind="message" style={{ minHeight: 650, flex: '0 0 650px', margin: '0 auto', padding: '32px 0' }}><p className="eyebrow">第 {item.turn} 轮</p><h1>{item.prompt || '历史消息'}</h1></article>) : <article><p className="eyebrow">ASSISTANT</p><h1>让任务进度，一眼可见。</h1><p>任务清单收在右上角，随时展开查看当前进度。</p><p>暖灰色卡片与细腻的边框，让聊天区域更清爽。</p></article>}
           {history?.tail && reading === history.turns.at(-1)?.turn && <span data-chat-following-tail=""/>}
-          <div data-composer-seat="" className="composer-seat"><TodoView key={session} todos={todos} t={t}/><div className="composer">发送消息…<small>DeepSeek　　＋</small></div></div>
+          <div data-composer-seat="" className="composer-seat"><TodoView key={session} todos={todos} t={t}/>{new URLSearchParams(window.location.search).has('composer') ? <ComposerFixture/> : <div className="composer">发送消息…<small>DeepSeek　　＋</small></div>}</div>
         </div>
       </div>}
     </main>

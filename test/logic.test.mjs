@@ -27,6 +27,10 @@ test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize(null).toolDetails, false)
   assert.equal(normalize({ toolDetails: 'true' }).toolDetails, false)
   assert.equal(normalize({ toolDetails: true }).toolDetails, true)
+  assert.equal(normalize(null).composerGlass, true, 'Composer glass is enabled by default for this feature')
+  assert.equal(normalize({ composerGlass: 'false' }).composerGlass, true)
+  assert.equal(normalize({ composerGlass: false, enabled: true }).composerGlass, false)
+  assert.equal(normalize({ composerGlass: true, enabled: false }).composerGlass, true, 'Composer appearance is independent of the task-panel switch')
 })
 
 test('card styles migrate to milk by default and retain all four supported presentation values', () => {

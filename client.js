@@ -7,13 +7,17 @@ window.__ModuleLoader__.load({
     const KEY = `${NAME}:settings:v1`
     const PANEL = '[data-testid="todo-panel"]'
     const MARK = 'data-dcb-task-panel'
+    const COMPOSER_FLAG = 'data-dcb-composer-glass'
+    const COMPOSER_CARD = '[data-composer-seat] [data-composer-card]'
+    const COMPOSER_GLASS = `body[${COMPOSER_FLAG}] ${COMPOSER_CARD}`
     const CARD_STYLES = ['clear', 'css', 'glass', 'milk']
-    const DEFAULTS = { enabled: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
+    const DEFAULTS = { enabled: true, composerGlass: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
     const VARIABLES = ['--dcb-left', '--dcb-top', '--dcb-width', '--dcb-list-height']
 
     function normalize(value) {
       return {
         enabled: typeof value?.enabled === 'boolean' ? value.enabled : true,
+        composerGlass: typeof value?.composerGlass === 'boolean' ? value.composerGlass : DEFAULTS.composerGlass,
         width: Number.isFinite(value?.width) ? Math.round(Math.max(280, Math.min(480, value.width))) : 320,
         // Keep the existing glass value for the frosted material when upgrading.
         cardStyle: CARD_STYLES.includes(value?.cardStyle) ? value.cardStyle : 'milk',
@@ -1186,15 +1190,25 @@ window.__ModuleLoader__.load({
       }
       /* A separate CSS surface: no displacement map, pointer light, or overlay
          over the content. Its subtle rim uses the existing material properties. */
-      body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"] {
+      body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"], ${COMPOSER_GLASS} {
         --dcb-surface-background: rgba(255,255,255,.56); --dcb-surface-border: rgba(255,255,255,.6);
         --dcb-backdrop-blur: 2px; --dcb-backdrop-saturation: 1.15; --dcb-sheen-opacity: .6;
         --dcb-surface-shadow: 0 5px 18px rgba(26,34,46,.1), inset 0 1px 1px rgba(255,255,255,.92), inset 1px 0 1px rgba(255,255,255,.52), inset 0 -1px 1px rgba(255,255,255,.45), inset 0 0 2px rgba(10,20,40,.16);
       }
-      body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"] {
+      body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"], body[data-ds-dark-theme][${COMPOSER_FLAG}] ${COMPOSER_CARD} {
         --dcb-surface-background: rgba(24,28,36,.78); --dcb-surface-border: rgba(255,255,255,.35); --dcb-sheen-opacity: .14;
         --dcb-surface-shadow: 0 5px 18px #00000052, inset 0 1px 1px #ffffff8f, inset 1px 0 1px #ffffff33, inset 0 -1px 1px #ffffff20, inset 0 0 2px #00000029;
       }
+      ${COMPOSER_GLASS} {
+        background-color: var(--dcb-surface-background) !important;
+        background-image: radial-gradient(ellipse at 8% 0%, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .28)), transparent 56%), linear-gradient(123deg, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .1)), transparent 28% 72%, rgb(255 255 255 / calc(var(--dcb-sheen-opacity) * .08))) !important;
+        box-shadow: var(--dcb-surface-shadow) !important;
+        outline: 1px solid var(--dcb-surface-border); outline-offset: -1px;
+        backdrop-filter: blur(2px) saturate(1.15) !important;
+        -webkit-backdrop-filter: blur(2px) saturate(1.15) !important;
+        transition: background-color 240ms ease-out, box-shadow 240ms ease-out;
+      }
+      ${COMPOSER_GLASS}:focus-within { outline-color: var(--dsw-alias-state-business-primary, #777aff); }
       body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] {
         --dcb-surface-background: rgba(236,242,248,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-backdrop-blur: 22px; --dcb-backdrop-saturation: 1.45; --dcb-sheen-opacity: .22;
         --dcb-surface-shadow: 0 12px 32px rgba(28,32,40,.1), inset 0 1px 0 rgba(255,255,255,.9), inset 1px 0 0 rgba(255,255,255,.45), inset -1px -1px 0 rgba(255,255,255,.2);
@@ -1244,17 +1258,19 @@ window.__ModuleLoader__.load({
       .dcb-summary :is(.dcb-tool-summary, .dcb-output, .dcb-close) { transition: background-color 180ms cubic-bezier(.4,0,.2,1); }
       body ${GLASS_PANEL} :is(.dcb-tool-summary, .dcb-output, .dcb-close):hover { background: var(--dcb-content-hover); }
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"] { --dcb-surface-background: rgba(255,255,255,.96); }
-        body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"] { --dcb-surface-background: rgba(24,28,36,.96); }
+        body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"], ${COMPOSER_GLASS} { --dcb-surface-background: rgba(255,255,255,.96); }
+        body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="css"], body[data-ds-dark-theme][${COMPOSER_FLAG}] ${COMPOSER_CARD} { --dcb-surface-background: rgba(24,28,36,.96); }
         body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(236,242,248,.96); }
         body[data-ds-dark-theme] :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style="glass"] { --dcb-surface-background: rgba(65,72,81,.96); }
       }
       @media (prefers-reduced-motion: reduce), (forced-colors: active) {
+        ${COMPOSER_GLASS} { transition: none; }
         body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style], .dcb-settings .dcb-style-option, .dcb-summary :is(.dcb-tool-summary, .dcb-output, .dcb-close) { transition: none; }
         body ${GLASS_PANEL} :is(.dcb-step, .dcb-history, .dcb-follow, .dcb-output, .dcb-resource, .dcb-tool-summary,
           .dcb-resource-detail, .dcb-file-type, .dcb-tool-count, .dcb-tool-category, .dcb-note, .dcb-context-empty) { transition: none; }
       }
       @media (forced-colors: active) {
+        ${COMPOSER_GLASS} { background: Canvas !important; color: CanvasText !important; box-shadow: none !important; outline-color: CanvasText; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         body :is(.dcb-summary, [${MARK}], .dcb-style-swatch)[data-card-style] { background: Canvas !important; border-color: CanvasText !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
         body ${GLASS_PANEL}, body[data-ds-dark-theme] ${GLASS_PANEL} {
           --dcb-ink-primary: CanvasText; --dcb-ink-body: CanvasText; --dcb-ink-muted: CanvasText; --dcb-ink-active: CanvasText;
@@ -1278,6 +1294,7 @@ window.__ModuleLoader__.load({
       const autoOpenedSessions = new Set()
       // Track real plan changes separately from tool/output activity and hover previews.
       const planRuns = new Map()
+      const originalComposerFlag = document.body.getAttribute(COMPOSER_FLAG)
       const style = document.createElement('style')
       style.dataset.plugin = NAME
       style.textContent = css
@@ -1302,6 +1319,7 @@ window.__ModuleLoader__.load({
       function sync() {
         frame = 0
         if (disposed) return
+        document.body.toggleAttribute(COMPOSER_FLAG, settings.composerGlass)
         const panels = settings.enabled ? [...document.querySelectorAll(PANEL)] : []
         for (const panel of document.querySelectorAll('[data-dcb-native-hidden]')) {
           if (!settings.enabled || !summaryOwners.has(panel.closest('[data-conversation-content]')?.dataset.conversationSession)) panel.removeAttribute('data-dcb-native-hidden')
@@ -1493,7 +1511,7 @@ window.__ModuleLoader__.load({
         return h('div', { className: 'dcb-settings' },
           h('section', { className: 'dcb-settings-block dcb-settings-card', 'data-dcb-settings-block': 'panel' },
             h('div', { className: 'dcb-settings-header' },
-              h('div', null, h('h2', null, '任务面板'), h('p', null, '右上角任务卡片的显示、材质与进度布局')),
+              h('div', null, h('h2', null, '任务面板'), h('p', null, '任务卡片与底部输入栏的外观、材质与进度布局')),
               h('span', { className: 'dcb-settings-badge' }, 'Task Panel')),
             h('div', { className: 'dcb-settings-section' },
               h('div', { className: 'dcb-settings-section-title' }, '面板开关'),
@@ -1528,6 +1546,12 @@ window.__ModuleLoader__.load({
               h('div', { className: 'dcb-settings-row' },
                 h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '进度默认显示'), h('p', { className: 'dcb-settings-row-desc' }, '显示当前步骤附近的任务，支持上下滚动。')),
                 h(StepCountPicker))),
+            h('div', { className: 'dcb-settings-section' },
+              h('div', { className: 'dcb-settings-section-title' }, '输入栏外观'),
+              h('div', { className: 'dcb-settings-row' },
+                h('div', { className: 'dcb-settings-copy' }, h('span', { className: 'dcb-settings-row-title' }, '输入栏轻量玻璃'), h('p', { className: 'dcb-settings-row-desc' }, '底部输入框使用柔和亮边与轻微模糊，独立于任务卡片样式。')),
+                h('button', { type: 'button', role: 'switch', className: 'dcb-switch', 'aria-label': '启用输入栏轻量玻璃', 'aria-checked': settings.composerGlass,
+                  onClick: () => update({ composerGlass: !settings.composerGlass }) }))),
             h('div', { className: 'dcb-settings-info', role: 'status' }, `${settings.enabled ? '当前生效' : '面板已关闭'}：${materialName} · ${settings.width} px · ${settings.progressView.count} 个步骤`),
             h('p', { className: 'dcb-settings-footnote' }, '展开偏好会自动记住。自动展开的面板仅点 X 收起，手动打开可点外部收起；普通推理或工具调用不会自动展开。设置保存在当前浏览器。')))
       }
@@ -1871,6 +1895,8 @@ window.__ModuleLoader__.load({
         observer.disconnect()
         resize.disconnect()
         liquid.dispose()
+        if (originalComposerFlag === null) document.body.removeAttribute(COMPOSER_FLAG)
+        else document.body.setAttribute(COMPOSER_FLAG, originalComposerFlag)
         if (frame) window.cancelAnimationFrame(frame)
         window.removeEventListener('resize', schedule)
         window.removeEventListener('storage', onStorage)

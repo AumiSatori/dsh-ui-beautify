@@ -1,6 +1,7 @@
 import {motion} from './motion.js'
 const TABS='[data-conversation-tabs]',MARK='data-dcb-conversation-tabs'
 const INDICATOR='data-dcb-conversation-indicator',MOTION='data-dcb-conversation-motion',CLIP='data-dcb-conversation-clip'
+const WIDTH='data-dcb-view-width'
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const EASE=motion.ease.smooth
 const MAX_NODES=96,MAX_ROOTS=8,MAX_PIXELS=4_000_000
@@ -10,6 +11,7 @@ const LIQUID_LEFT='M 14 3.5 C 36 5.8 80 5.5 99 5.4 C 100 5.4 100 6.6 99 6.6 C 80
 const pathValue=value=>`path("${value}")`
 
 export const conversationTabsCss=`
+  [${WIDTH}=shared] { box-sizing:border-box; width:min(var(--dsh-chat-content-width,920px),calc(100% - var(--dsh-composer-side-clearance,16px) * 2 - 32px)); max-width:100%; min-width:0; align-self:center; }
   [${MARK}] { position: relative; }
   [${MARK}] > button[role="tab"]::after { background: transparent !important; }
   [${INDICATOR}] {
@@ -76,7 +78,24 @@ export function createConversationTabs(doc,win,schedule){
   }
   function release(record){
     stopContent(record);stopIndicator(record);record.resize.disconnect()
+    releaseWidth(record)
     record.indicator.remove();restore(record.tabs,MARK,record.originalMark)
+  }
+  function releaseWidth(record){
+    if(record.widthArea)restore(record.widthArea,WIDTH,record.widthMark)
+    record.widthArea=null;record.widthSelected=null;record.widthReady=false
+  }
+  function syncWidth(record,next,selected){
+    if(record.widthArea!==next.area){releaseWidth(record);if(next.area){record.widthArea=next.area;record.widthMark=next.area.getAttribute(WIDTH)}}
+    if(!next.area||record.widthSelected===selected&&record.widthReady)return
+    // Classify once per selected view, not on every streamed token or scroll.
+    // The native ChatView already applies this width inside its padded column.
+    let seat=next.area
+    for(let depth=0;depth<8&&seat.childElementCount===1&&seat.firstElementChild.hasAttribute('data-slot');depth++)seat=seat.firstElementChild
+    record.widthReady=seat.childElementCount>0;record.widthSelected=selected
+    const chat=[...next.area.querySelectorAll('[data-chat-flow]')].some(flow=>flow.closest('[data-conversation-content]')===next.body)
+    if(chat)restore(next.area,WIDTH,record.widthMark)
+    else next.area.setAttribute(WIDTH,'shared')
   }
   function move(record,selected,animate){
     const {tabs,indicator}=record
@@ -221,6 +240,7 @@ export function createConversationTabs(doc,win,schedule){
       if(!sameSession||!visible(tabs)){
         stopContent(record);record.pending=null
       }else if(next.area!==record.area||(record.motion&&(!record.motion.target.isConnected||overSize(record.motion.target))))stopContent(record)
+      syncWidth(record,next,selected)
       Object.assign(record,next)
       move(record,selected,sameSession&&changed)
       if(changed&&sameSession&&visible(tabs))record.pending={direction,until:win.performance.now()+400}

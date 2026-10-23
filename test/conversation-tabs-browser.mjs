@@ -43,7 +43,7 @@ function update(patch){state={...state,...patch};flushSync(()=>{for(const fn of 
 const useStore=selector=>selector(React.useSyncExternalStore(fn=>{listeners.add(fn);return()=>listeners.delete(fn)},()=>state));
 const useSession=selector=>selector({blank:false}),useConversation=selector=>selector({}),useConversationViews=selector=>selector(views),useInspectCall=selector=>selector(null);
 const inputActions={persistDraft(){window.persisted=(window.persisted||0)+1}},actions={setDraft(){},completeViewRequest(){}},bindDraftPersistence=()=>()=>{};
-function content(){return state.empty?null:<div data-slot="conversation.view" style={{display:'contents'}}><section key={state.replace?state.view:undefined} className="view-content" data-view={state.view}>
+function content(){return state.empty?null:<div data-slot="conversation.view" style={{display:'contents'}}><section key={state.replace?state.view:undefined} className="view-content" data-view={state.view} data-chat-flow={state.view==='chat'?'':undefined}>
   <h2>{views.find(v=>v.id===state.view).label}</h2><p>滑动指示条 · 轻移与淡入 · 连续切换</p>
   {Array.from({length:5},(_,i)=><article key={i}><b>{['界面与交互','切换状态','滚动与输入','工作区记录','更多内容'][i]}</b><p>这里是用于检查界面的演示内容。</p><span>{state.stream}</span></article>)}
   <button id="inside-control" onClick={()=>window.insideClicks=(window.insideClicks||0)+1}>原生操作</button>
@@ -150,6 +150,21 @@ async function profile(){
 }
 try{
   if(process.env.DSH_TABS_PROFILE)await profile()
+  await check('other views share the native chat width across selection, live width changes and narrow resizes without changing the composer',async()=>{
+    await boot();await page.addStyleTag({content:'.view-content[data-chat-flow]{width:min(var(--dsh-chat-content-width),calc(100% - 64px));align-self:center;margin-inline:auto}.view-content{min-width:0}'});
+    await page.evaluate(()=>{document.querySelector('[data-conversation-content]').style.setProperty('--dsh-chat-content-width','720px');window.widthEditor=document.querySelector('textarea')});await tick()
+    const bounds=()=>page.locator('[data-view]').boundingBox()
+    const chat=await bounds();assert.ok(Math.abs(chat.width-720)<.5)
+    assert.equal(await page.locator('[data-dcb-view-width]').count(),0,'the existing native chat column keeps its layout')
+    for(const view of ['trace','context']){await select(view);await complete();const r=await bounds();assert.ok(Math.abs(r.width-chat.width)<.5&&Math.abs(r.x-chat.x)<.5,view+' matches the chat column')}
+    await page.evaluate(()=>document.querySelector('[data-conversation-content]').style.setProperty('--dsh-chat-content-width','860px'));await tick();assert.ok(Math.abs((await bounds()).width-860)<.5)
+    await select('chat');await complete();const wide=await bounds();assert.ok(Math.abs(wide.width-860)<.5)
+    await page.setViewportSize({width:560,height:780});await tick();const narrow=await bounds();assert.ok(narrow.width<454)
+    for(const view of ['trace','context']){await select(view);await complete();const r=await bounds();assert.ok(Math.abs(r.width-narrow.width)<.5&&Math.abs(r.x-narrow.x)<.5)}
+    assert.equal(await page.evaluate(()=>window.widthEditor===document.querySelector('textarea')),true);assert.equal(await page.locator('textarea').inputValue(),'保留这段草稿')
+    await page.evaluate(()=>window.tabs.dispose());assert.equal(await page.locator('[data-dcb-view-width]').count(),0)
+    await page.setViewportSize({width:1100,height:780})
+  })
   await check('native tabs retain their identity and initial selected underline without entrance or nested-tab decorations',async()=>{
     await boot();const g=await geometry();assert.ok(Math.abs(g.x-g.expectedX)<.1&&Math.abs(g.width-g.expectedWidth)<.1)
     assert.equal(await page.evaluate(()=>window.calls.length),0)

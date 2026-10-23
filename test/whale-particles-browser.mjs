@@ -4,6 +4,7 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
+import {PARTICLE_COUNTS} from '../src/context-particle-config.js'
 
 const project=fileURLToPath(new URL('..',import.meta.url))
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'../.scratch/whale-particles'),'whale-particles')
@@ -56,6 +57,19 @@ try{
     assert.ok(result.alpha.apron>240,'white apron remains foreground')
     assert.ok(result.alpha.face>240,'skin remains foreground')
     await page.screenshot({path:resolve(output,fallback?'whale-full-canvas2d.png':'whale-full-webgl.png')})
+    result.densities=[]
+    for(const count of [PARTICLE_COUNTS.default,PARTICLE_COUNTS.max]){
+      const frames=await page.evaluate(count=>{for(const key in window.audit)window.audit[key]=0;window.scene.pause();const frames=window.scene.snapshot().frames;window.scene.configure({progress:1,count,light:false,visible:true,width:1080,height:1000,bottom:980});return frames},count)
+      await page.waitForFunction(({count,frames})=>window.scene.snapshot().budget===count&&window.scene.snapshot().frames>frames,{count:fallback?4500:count,frames})
+      const drawn=await page.evaluate(()=>({budget:window.scene.snapshot().budget,points:window.audit.points,arcs:window.audit.arcs,images:window.audit.images,triangles:window.audit.triangles}))
+      assert.equal(drawn.images,0);assert.equal(drawn.triangles,0)
+      if(fallback)assert.ok(drawn.arcs>=4500&&drawn.arcs<4700,'denser preferences retain the CPU safety cap')
+      else assert.ok(drawn.points>=count&&drawn.points<count+200,'the denser setting increases real GPU points')
+      result.densities.push({count,...drawn})
+      await page.screenshot({path:resolve(output,`whale-full-${count}-${fallback?'canvas2d':'webgl'}.png`)})
+    }
+    await page.evaluate(count=>window.scene.configure({progress:1,count,light:false,visible:true,width:1080,height:1000,bottom:980}),PARTICLE_COUNTS.default)
+    await page.waitForFunction(count=>window.scene.snapshot().budget===count,fallback?4500:PARTICLE_COUNTS.default)
     await page.emulateMedia({reducedMotion:'no-preference'})
     const before=await page.evaluate(()=>window.scene.snapshot())
     await page.waitForTimeout(1100)
@@ -64,7 +78,7 @@ try{
     assert.ok(after.frames-before.frames<=(fallback?12:17),'settled motion retains the low drawing cadence')
     assert.equal(after.progress,1);assert.ok(after.time>before.time)
     result.settledFrames=after.frames-before.frames
-    await page.evaluate(()=>window.scene.configure({progress:.45,count:6400,light:false,visible:true,width:1080,height:1000,bottom:980}))
+    await page.evaluate(count=>window.scene.configure({progress:.45,count,light:false,visible:true,width:1080,height:1000,bottom:980}),PARTICLE_COUNTS.default)
     await page.waitForFunction(()=>Math.abs(window.scene.snapshot().progress-.45)<.002)
     await page.screenshot({path:resolve(output,fallback?'whale-gathering-canvas2d.png':'whale-gathering-webgl.png')})
     // Isolate one red body dot: measure real shader readback / canvas arc

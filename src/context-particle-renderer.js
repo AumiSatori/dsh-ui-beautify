@@ -1,4 +1,5 @@
 // Bounded canvas renderer shared by visible DSH conversation backgrounds.
+import {PARTICLE_COUNTS} from './context-particle-config.js'
 export async function sampleParticleArtwork(source,{vector=false,transparent=false}={}) { return sampleImage(source,{vector,transparent}) }
 const clamp=(v,lo=0,hi=1)=>Math.max(lo,Math.min(hi,v)),mix=(a,b,p)=>a+(b-a)*p;
 const smooth=(a,b,x)=>{const p=clamp((x-a)/(b-a));return p*p*(3-2*p)};
@@ -42,7 +43,7 @@ return{points:[...ambient,...body],ratio:detail.width/detail.height,count:body.l
 }
 
 export function createParticleScene(root,doc,win){
-const state={progress:0,target:0,budget:6400,budgetTarget:6400,view:1,light:0,lightTarget:0,time:0,width:1,height:1,dpr:1,ready:false,disposed:false,visible:true,mode:'',frames:0,maxPoints:0,artwork:'default',quality:'low'};
+const state={progress:0,target:0,budget:PARTICLE_COUNTS.default,budgetTarget:PARTICLE_COUNTS.default,view:1,light:0,lightTarget:0,time:0,width:1,height:1,dpr:1,ready:false,disposed:false,visible:true,mode:'',frames:0,maxPoints:0,artwork:'default',quality:'low'};
 const media=win.matchMedia('(prefers-reduced-motion: reduce)');
 let canvas=doc.createElement('canvas'),renderer=null,points=[],raf=0,timer=0,last=0,dirty=true,rect=[0,0,1,1],field=[0,0,1,1],detailImage=null,model=null,geometry={width:1,height:1,bottom:1},shapeAnimation=null;
 canvas.setAttribute('aria-hidden','true');root.append(canvas);

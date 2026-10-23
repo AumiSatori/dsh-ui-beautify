@@ -1,4 +1,5 @@
 import whaleImage from '../assets/context-whale.jpg'
+import {PARTICLE_COUNTS} from './context-particle-config.js'
 
 export const particleSettingsCss=`
   .dcb-particle-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:14px 0; }
@@ -46,16 +47,17 @@ export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
   function DensitySlider({value,onChange}){
     const drag=React.useRef(null),queued=React.useRef(null),frame=React.useRef(0),change=React.useRef(onChange)
     change.current=onChange
-    const clampCount=count=>Math.max(500,Math.min(10000,Math.round(count/100)*100))
+    const {min,max,step}=PARTICLE_COUNTS,span=max-min
+    const clampCount=count=>Math.max(min,Math.min(max,Math.round(count/step)*step))
     const flush=()=>{win.cancelAnimationFrame(frame.current);frame.current=0;if(queued.current!==null){const count=queued.current;queued.current=null;change.current(count)}}
-    const point=(x,bounds)=>{queued.current=clampCount(500+(x-bounds.left-10)/Math.max(1,bounds.width-20)*9500);if(!frame.current)frame.current=win.requestAnimationFrame(flush)}
+    const point=(x,bounds)=>{queued.current=clampCount(min+(x-bounds.left-10)/Math.max(1,bounds.width-20)*span);if(!frame.current)frame.current=win.requestAnimationFrame(flush)}
     React.useEffect(()=>()=>win.cancelAnimationFrame(frame.current),[])
-    return h('div',{className:'dcb-particle-density-slider',role:'slider',tabIndex:0,'aria-label':'粒子浓度','aria-orientation':'horizontal','aria-valuemin':5,'aria-valuemax':100,'aria-valuenow':value/100,'aria-valuetext':`${value/100}%，${value} 颗`,style:{'--dcb-density-fill':`${(value-500)/9500*100}%`},
+    return h('div',{className:'dcb-particle-density-slider',role:'slider',tabIndex:0,'aria-label':'粒子浓度','aria-orientation':'horizontal','aria-valuemin':min/100,'aria-valuemax':max/100,'aria-valuenow':value/100,'aria-valuetext':`${value/100}%，${value} 颗`,style:{'--dcb-density-fill':`${(value-min)/span*100}%`},
       onPointerDown:e=>{if(e.button!==0||e.isPrimary===false)return;e.preventDefault();e.currentTarget.focus();e.currentTarget.setPointerCapture(e.pointerId);drag.current={id:e.pointerId,bounds:e.currentTarget.getBoundingClientRect()};point(e.clientX,drag.current.bounds)},
       onPointerMove:e=>{if(drag.current?.id===e.pointerId)point(e.clientX,drag.current.bounds)},
       onPointerUp:e=>{if(drag.current?.id!==e.pointerId)return;point(e.clientX,drag.current.bounds);flush();drag.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId)},
       onPointerCancel:()=>{flush();drag.current=null},onLostPointerCapture:()=>{drag.current=null},
-      onKeyDown:e=>{const steps={ArrowLeft:-100,ArrowDown:-100,ArrowRight:100,ArrowUp:100,PageDown:-1000,PageUp:1000};if(e.key==='Home'||e.key==='End'||e.key in steps){e.preventDefault();flush();onChange(clampCount(e.key==='Home'?500:e.key==='End'?10000:value+steps[e.key]))}}
+      onKeyDown:e=>{const steps={ArrowLeft:-step,ArrowDown:-step,ArrowRight:step,ArrowUp:step,PageDown:-step*10,PageUp:step*10};if(e.key==='Home'||e.key==='End'||e.key in steps){e.preventDefault();flush();onChange(clampCount(e.key==='Home'?min:e.key==='End'?max:value+steps[e.key]))}}
     },h('span',{className:'dcb-particle-density-track','aria-hidden':'true'},h('span',{className:'dcb-particle-density-fill'}),h('span',{className:'dcb-particle-density-thumb'})))
   }
   function NumberField({label,value,min,max,step=1,onChange}){
@@ -97,7 +99,7 @@ export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
         h('div',{className:'dcb-particle-density-ends','aria-hidden':'true'},h('span',null,'稀疏'),h('span',null,'浓密')),
         h('div',{className:'dcb-particle-density-preview','aria-hidden':'true',style:{'--dcb-density-gap':`${Math.sqrt(420000/value.particleCount)}px`}}),
         h('p',null,'拖动实时调整点阵密度，与下方粒子数同步并自动保存；浓度越高绘制开销越大。备用绘图最多 4500 颗。')),
-      row('粒子数','500–10000。默认 6400（64%）；也可直接输入精确数量。',h(NumberField,{label:'粒子数',value:value.particleCount,min:500,max:10000,step:100,onChange:particleCount=>onChange({particleCount})})),
+      row('粒子数',`${PARTICLE_COUNTS.min}–${PARTICLE_COUNTS.max}。默认 ${PARTICLE_COUNTS.default}（${PARTICLE_COUNTS.default/100}%）；100% 对应 10000 颗，可继续调至 200%。`,h(NumberField,{label:'粒子数',value:value.particleCount,min:PARTICLE_COUNTS.min,max:PARTICLE_COUNTS.max,step:PARTICLE_COUNTS.step,onChange:particleCount=>onChange({particleCount})})),
       row('开始显示 (%)','低于这个占用比例时隐藏背景。',h(NumberField,{label:'开始显示百分比',value:value.particleStart,min:0,max:95,onChange:particleStart=>onChange({particleStart})})),
       row('完整成形 (%)','达到此占用比例时完整成形；之后保持完整，压缩时随占用回退。',h(NumberField,{label:'完整成形百分比',value:value.particleFull,min:value.particleStart+1,max:100,onChange:particleFull=>onChange({particleFull})})),
       h('div',{className:'dcb-settings-info dcb-particle-live',role:'status'},!value.particleEnabled?'背景已关闭':live===undefined?'等待当前会话的上下文数据；未上报时不模拟占用':`当前上下文 ${live}% · 成形进度 ${Math.round(Math.max(0,Math.min(1,(live-value.particleStart)/(value.particleFull-value.particleStart)))*100)}% · ${value.particleStart}% 开始 / ${value.particleFull}% 完整`,current?.error?` · ${current.error}`:''),

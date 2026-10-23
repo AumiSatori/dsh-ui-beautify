@@ -5,6 +5,7 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
+import {PARTICLE_COUNTS} from '../src/context-particle-config.js'
 
 const project=fileURLToPath(new URL('..',import.meta.url))
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'../.scratch/ui-performance'),'particle-performance')
@@ -30,13 +31,13 @@ try{
       if(fallback){const get=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(kind,...args){return kind.startsWith('webgl')?null:get.call(this,kind,...args)}}
     },fallback)
     await page.addScriptTag({content:bundle.outputFiles[0].text})
-    await page.evaluate(()=>{
+    await page.evaluate(count=>{
       const detail=document.createElement('canvas');detail.width=64;detail.height=64;detail.getContext('2d').fillRect(8,8,48,48)
       const points=Array.from({length:10048},(_,i)=>({x:(i%100)/100,y:Math.floor(i/100)/100,r:.25,g:.4,b:.7,index:i<48?i:i-48,s1:(i%83)/83,s2:(i%97)/97,s3:(i%67)/67,ambient:i<48?1:0,alpha:1}))
       window.scene=Particles.createParticleScene(document.querySelector('#root'),document,window)
-      window.options={progress:.5,count:6400,light:true,visible:true,width:1440,height:900,bottom:800}
+      window.options={progress:.5,count,light:true,visible:true,width:1440,height:900,bottom:800}
       window.scene.configure(window.options);window.scene.setModel({points,count:10000,ratio:1,detail},'default')
-    })
+    },baseline?6400:PARTICLE_COUNTS.default)
     await page.waitForFunction(()=>Math.abs(window.scene.snapshot().progress-.5)<.0002)
     await page.waitForTimeout(100)
     async function sample(phase,ms=1000){

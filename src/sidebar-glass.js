@@ -1,7 +1,7 @@
 import {motion} from './motion.js'
 import {createSidebarLayout} from './sidebar-layout.js'
 const MARK='data-dcb-sidebar-style',COLUMN='data-dcb-sidebar-column',MOTION='data-dcb-sidebar-motion'
-const TOGGLE='data-dcb-sidebar-toggle',STATE='data-dcb-sidebar-toggle-state',MOVING='data-dcb-sidebar-moving',WIDTH='--dcb-sidebar-expanded-width'
+const TOGGLE='data-dcb-sidebar-toggle',STATE='data-dcb-sidebar-toggle-state',MOVING='data-dcb-sidebar-moving'
 const FRAME='data-dcb-sidebar-frame-motion',RESIZING='data-dcb-sidebar-resizing',DURATION=motion.time.sidebar
 const suffix=(el,name)=>[...el.classList].some(value=>value.endsWith('_'+name))
 const visible=el=>el.isConnected&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden'
@@ -62,8 +62,6 @@ export function createSidebarGlass(doc,win,schedule){
     if(!record.decorated)return
     record.indicator.remove();record.indicator=null;record.decorated=false;record.placed=false
     restore(record.root,MARK,record.style);restore(record.root,MOTION,record.motion);restore(record.column,COLUMN,record.columnMark)
-    if(record.width)record.root.style.setProperty(WIDTH,record.width,record.widthPriority)
-    else record.root.style.removeProperty(WIDTH)
   }
   function release(record){
     layout.release(record.frame)
@@ -172,17 +170,10 @@ export function createSidebarGlass(doc,win,schedule){
       if(style==='milk'||(collapsed&&doc.documentElement.hasAttribute('data-windows-titlebar'))){releaseGlass(record);capture(record);continue}
       if(!record.decorated){
         const indicator=doc.createElement('span');indicator.className='dcb-sidebar-indicator';indicator.setAttribute('aria-hidden','true')
-        Object.assign(record,{indicator,decorated:true,style:root.getAttribute(MARK),motion:root.getAttribute(MOTION),columnMark:column.getAttribute(COLUMN),width:root.style.getPropertyValue(WIDTH),widthPriority:root.style.getPropertyPriority(WIDTH),placed:false})
+        Object.assign(record,{indicator,decorated:true,style:root.getAttribute(MARK),motion:root.getAttribute(MOTION),columnMark:column.getAttribute(COLUMN),placed:false})
       }
-      // The host intentionally fixes its content width while the grid clips it.
-      // A percentage width here would reflow the entire list on every frame.
-      if(!collapsed){
-        if(/^\d+(?:\.\d+)?px$/.test(root.style.width)){
-          const border=win.getComputedStyle(column)
-          record.expandedWidth=parseFloat(root.style.width)-(parseFloat(border.borderLeftWidth)||0)-(parseFloat(border.borderRightWidth)||0)
-        }else if(!record.moving)record.expandedWidth=column.clientWidth
-        if(record.expandedWidth>0){const value=`${record.expandedWidth}px`;if(root.style.getPropertyValue(WIDTH)!==value)root.style.setProperty(WIDTH,value)}
-      }
+      // Keep the host's width, height, margins and padding unchanged. Its fixed
+      // content width is already clipped by the native grid during transitions.
       set(root,MARK,style);set(root,MOTION,String(motion));set(column,COLUMN,'')
       if(record.indicator.parentElement!==root)root.append(record.indicator)
       if(record.moving){if(!record.indicator.hidden)record.indicator.hidden=true;continue}

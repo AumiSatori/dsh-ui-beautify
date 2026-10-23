@@ -1,4 +1,4 @@
-const DB='dsh-ui-beautify-background',STORE='wallpaper',KEY='selection'
+const DB='dsh-ui-beautify-background',STORE='wallpaper',ASSETS='assets',KEY='selection'
 const bound=(value,min,max,fallback)=>Number.isFinite(value)?Math.max(min,Math.min(max,value)):fallback
 export function normalizeBackground(value){
   return{
@@ -13,8 +13,9 @@ export function normalizeBackground(value){
   }
 }
 
-// Blobs live in a separate local database. Preferences contain no file payload.
-// Replacement and undo update both slots in one transaction, including failures.
+const metadata=asset=>({revision:asset.revision,name:asset.name,kind:asset.kind,type:asset.type,preview:asset.preview||'',size:asset.blob?.size||0,uploadedAt:asset.uploadedAt||Date.now()})
+// Originals and static thumbnails stay on this device. Selecting an older
+// upload never duplicates its blob or changes its upload order.
 export function createBackgroundStore(win){
   let opening=null,database=null,disposed=false
   function open(){
@@ -22,8 +23,22 @@ export function createBackgroundStore(win){
     if(database)return Promise.resolve(database)
     if(!opening)opening=new Promise((resolve,reject)=>{
       if(!win.indexedDB){reject(Error('当前环境无法保存本机背景'));return}
-      const request=win.indexedDB.open(DB,1)
-      request.onupgradeneeded=()=>request.result.createObjectStore(STORE)
+      const request=win.indexedDB.open(DB,2)
+      request.onupgradeneeded=()=>{
+        const db=request.result,tx=request.transaction
+        if(!db.objectStoreNames.contains(STORE))db.createObjectStore(STORE)
+        const assets=db.objectStoreNames.contains(ASSETS)?tx.objectStore(ASSETS):db.createObjectStore(ASSETS)
+        const selection=tx.objectStore(STORE),read=selection.get(KEY)
+        read.onsuccess=()=>{
+          const old=read.result
+          if(old?.schema===2)return
+          const recent=[]
+          for(const asset of [old?.current,old?.previous])if(asset?.blob&&asset.revision&&!recent.some(item=>item.revision===asset.revision)){
+            assets.put(asset,asset.revision);recent.push(metadata(asset))
+          }
+          selection.put({schema:2,currentId:old?.current?.revision||'',previousId:old?.previous?.revision||'',recent},KEY)
+        }
+      }
       request.onerror=request.onblocked=()=>{opening=null;reject(Error('无法打开背景存储，请关闭其他设置窗口后重试'))}
       request.onsuccess=()=>{
         if(disposed){request.result.close();reject(Error('背景存储已关闭'));return}
@@ -35,20 +50,26 @@ export function createBackgroundStore(win){
   async function transact(change){
     const db=await open()
     return new Promise((resolve,reject)=>{
-      const tx=db.transaction(STORE,change?'readwrite':'readonly'),store=tx.objectStore(STORE),request=store.get(KEY)
+      const tx=db.transaction([STORE,ASSETS],change?'readwrite':'readonly'),store=tx.objectStore(STORE),assets=tx.objectStore(ASSETS),request=store.get(KEY)
       let result
       request.onsuccess=()=>{
-        result=request.result||{current:null,previous:null}
-        if(change)try{result=change(result);store.put(result,KEY)}catch{tx.abort()}
+        let state=request.result||{schema:2,currentId:'',previousId:'',recent:[]}
+        try{
+          if(change){state=change(state,assets);store.put(state,KEY)}
+          result={current:null,previous:null,recent:state.recent||[]}
+          if(state.currentId){const read=assets.get(state.currentId);read.onsuccess=()=>{result.current=read.result||null}}
+          if(state.previousId){const read=assets.get(state.previousId);read.onsuccess=()=>{result.previous=read.result||null}}
+        }catch{tx.abort()}
       }
       tx.oncomplete=()=>resolve(result)
       tx.onerror=tx.onabort=()=>reject(Error('无法保存背景，请检查本机可用空间；原背景仍保留'))
     })
   }
   return{
-    read:()=>transact(),replace:asset=>transact(old=>({current:asset,previous:old.current})),
-    restore:()=>transact(old=>old.previous?{current:old.previous,previous:old.current}:old),
-    clear:()=>transact(()=>({current:null,previous:null})),
+    read:()=>transact(),replace:asset=>transact((old,assets)=>{assets.put(asset,asset.revision);return{...old,currentId:asset.revision,previousId:old.currentId,recent:[metadata(asset),...old.recent.filter(item=>item.revision!==asset.revision)]}}),
+    select:revision=>transact(old=>{if(!old.recent.some(item=>item.revision===revision))throw Error('背景已不存在');return{...old,currentId:revision,previousId:old.currentId===revision?old.previousId:old.currentId}}),
+    restore:()=>transact(old=>old.previousId?{...old,currentId:old.previousId,previousId:old.currentId}:old),
+    clear:()=>transact(old=>({...old,currentId:'',previousId:''})),
     dispose(){disposed=true;database?.close();database=null},
   }
 }

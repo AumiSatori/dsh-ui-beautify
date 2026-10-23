@@ -40,6 +40,24 @@ export const backgroundSettingsCss=`
   .dcb-background-actions button:active:not(:disabled) { transform:scale(.965); }
   .dcb-background-actions button:disabled { opacity:.4; cursor:default; }
   .dcb-background-actions svg { width:15px; height:15px; flex:none; }
+  .dcb-background-library { display:grid; gap:12px; padding-top:20px; border-top:1px solid var(--dsh-settings-border); }
+  .dcb-background-library-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; font-size:13px; }
+  .dcb-background-library-heading strong { font-weight:500; }
+  .dcb-background-library-heading span { color:var(--dsh-settings-secondary); font-size:11px; }
+  .dcb-background-gallery { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+  .dcb-background-gallery-item { position:relative; display:flex; flex-direction:column; gap:7px; min-width:0; padding:5px 5px 8px; border:1px solid var(--dsh-settings-border); border-radius:11px; background:var(--dsh-settings-surface); color:var(--dsh-settings-text); font:12px/18px system-ui,sans-serif; text-align:left; cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; transition:transform 320ms ${motion.ease.snappy},border-color 180ms ease,background-color 180ms ease; }
+  .dcb-background-gallery-item:active { transform:scale(.96); }
+  .dcb-background-gallery-item[aria-pressed=true] { border-color:var(--dsh-settings-text); background:var(--dsh-settings-subtle); }
+  .dcb-background-gallery-picture { display:grid; place-items:center; position:relative; overflow:hidden; width:100%; aspect-ratio:16/10; border-radius:7px; background:var(--dsh-settings-subtle); }
+  .dcb-background-gallery-picture img { width:100%; height:100%; object-fit:cover; }
+  .dcb-background-gallery-picture > svg { width:24px; height:24px; color:var(--dsh-settings-secondary); }
+  .dcb-background-gallery-kind { position:absolute; left:6px; bottom:6px; padding:1px 5px; border-radius:4px; background:#101824bb; color:#fff; font-size:10px; line-height:17px; }
+  .dcb-background-gallery-check { position:absolute; top:6px; right:6px; display:grid; place-items:center; width:20px; height:20px; border-radius:50%; background:#151b25cf; color:#fff; font-size:12px; }
+  .dcb-background-gallery-name { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 4px; }
+  .dcb-background-gallery-more { justify-self:center; min-height:44px; padding:8px 18px; border:1px solid var(--dsh-settings-border); border-radius:10px; background:transparent; color:var(--dsh-settings-text); font:12px/20px system-ui,sans-serif; cursor:pointer; }
+  .dcb-background-library-empty { display:flex; align-items:center; gap:10px; min-height:72px; padding:14px; border:1px dashed var(--dsh-settings-border); border-radius:11px; color:var(--dsh-settings-secondary); font-size:12px; }
+  .dcb-background-library-empty svg { width:22px; height:22px; flex:none; }
+  .dcb-background-gallery-item:focus-visible,.dcb-background-gallery-more:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
   .dcb-background-controls { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; padding-top:22px; border-top:1px solid var(--dsh-settings-border); }
   .dcb-background-control { display:flex; flex-direction:column; min-width:0; gap:9px; padding:16px; border:1px solid #8881; border-radius:13px; background:var(--dsh-settings-subtle); }
   .dcb-background-control-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; font-size:13px; line-height:20px; }
@@ -71,6 +89,7 @@ export const backgroundSettingsCss=`
   body[data-ds-dark-theme] .dcb-background-mini-question { color:#e6e9f2; border-color:#ffffff16; background:#59658365; }
   body[data-ds-dark-theme] .dcb-background-mini-input { background:#16192285; color:#b0b5c4; }
   @container dcb-settings-page (max-width:580px) {
+    .dcb-background-gallery { grid-template-columns:repeat(3,minmax(0,1fr)); }
     .dcb-background-overview { grid-template-columns:minmax(0,1fr); gap:20px; }
     .dcb-background-import { gap:14px; }
     .dcb-background-controls { grid-template-columns:minmax(0,1fr); }
@@ -78,6 +97,7 @@ export const backgroundSettingsCss=`
     .dcb-background-options button { min-height:44px; }
   }
   @container dcb-settings-page (max-width:360px) {
+    .dcb-background-gallery { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .dcb-settings-card.dcb-background-settings { padding:16px; gap:20px; }
     .dcb-background-settings .dcb-settings-header { gap:12px; }
     .dcb-background-enable span { display:none; }
@@ -103,7 +123,7 @@ export function createBackgroundSettings(React,{background}){
   const paths={image:'M4 4h16v16H4zM4 15l5-5 5 5 3-3 3 3M15 8h.01',restore:'M3 10a9 9 0 1 1 2 8M3 4v6h6',remove:'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5',upload:'M12 16V4M7 9l5-5 5 5M4 16v4h16v-4'}
   const icon=name=>h('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:paths[name]}))
   return function BackgroundSettings({value,onChange}){
-    const state=React.useSyncExternalStore(background.subscribe,background.getSnapshot),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),input=React.useRef(null),mounted=React.useRef(true),uid=React.useId()
+    const state=React.useSyncExternalStore(background.subscribe,background.getSnapshot),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[limit,setLimit]=React.useState(12),input=React.useRef(null),mounted=React.useRef(true),uid=React.useId()
     React.useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
     const run=async action=>{setBusy(true);setError('');try{await action()}catch(error){if(mounted.current)setError(error.message)}finally{if(mounted.current)setBusy(false)}}
     const select=asset=>onChange({backgroundEnabled:!!asset,backgroundRevision:asset?.revision||'',backgroundName:asset?.name||''})
@@ -134,6 +154,12 @@ export function createBackgroundSettings(React,{background}){
             h('button',{type:'button',disabled:busy||!state.hasPrevious,onClick:()=>run(async()=>select(await background.restore()))},icon('restore'),'恢复上一张'),
             h('button',{type:'button',disabled:busy||!value.backgroundRevision,onClick:()=>run(async()=>{await background.clear();select(null)})},icon('remove'),'清除背景')))),
       (error||state.error)&&h('p',{className:'dcb-background-error',role:'alert'},error||state.error),
+      h('section',{className:'dcb-background-library','aria-label':'背景素材库'},
+        h('div',{className:'dcb-background-library-heading'},h('strong',null,'最近上传'),h('span',null,state.recent.length?`${state.recent.length} 个 · 仅保存在本机`:'本机素材库')),
+        state.recent.length?h('div',{className:'dcb-background-gallery'},state.recent.slice(0,limit).map(item=>h('button',{key:item.revision,type:'button',className:'dcb-background-gallery-item','aria-label':`使用背景：${item.name}`,'aria-pressed':value.backgroundRevision===item.revision,disabled:busy,title:item.name,onClick:()=>run(async()=>select(await background.select(item.revision)))},
+          h('span',{className:'dcb-background-gallery-picture'},item.preview?h('img',{src:item.preview,alt:'',loading:'lazy',decoding:'async'}):icon('image'),h('span',{className:'dcb-background-gallery-kind'},item.kind==='video'?'视频':'图片'),value.backgroundRevision===item.revision&&h('span',{className:'dcb-background-gallery-check','aria-hidden':true},'✓')),
+          h('span',{className:'dcb-background-gallery-name'},item.name)))):h('div',{className:'dcb-background-library-empty'},icon('image'),h('span',null,'上传的图片和视频会留在这里，随时点选切换。')),
+        state.recent.length>limit&&h('button',{className:'dcb-background-gallery-more',type:'button',onClick:()=>setLimit(value=>value+12)},'显示更多')),
       h('div',{className:'dcb-background-controls'},
         slider('背景可见度','backgroundOpacity',100,'%','降低可见度，让文字更清楚。'),
         slider('背景模糊','backgroundBlur',20,'','柔化细节，减少画面干扰。'),

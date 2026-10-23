@@ -16,7 +16,7 @@ export const fullBackgroundCss=`
 export function createFullBackground(doc,win){
   const store=createBackgroundStore(win),listeners=new Set(),surfaces=new Map(),forced=win.matchMedia('(forced-colors: active)'),reduced=win.matchMedia('(prefers-reduced-motion: reduce)')
   const priorFlag=doc.body.getAttribute(FLAG)
-  let settings=normalizeBackground(null),snapshot={error:'',notice:'',preview:'',hasPrevious:false},layer=null,media=null,url=null,timer=0,loaded=false,disposed=false,generation=0,wanted='',assetKind='',surfacesDirty=true,surfaceFrame=0,appearanceKey='',soundBlocked=false,infoRevision='',importSequence=0
+  let settings=normalizeBackground(null),snapshot={error:'',notice:'',preview:'',hasPrevious:false,recent:[]},layer=null,media=null,url=null,timer=0,loaded=false,disposed=false,generation=0,wanted='',assetKind='',surfacesDirty=true,surfaceFrame=0,appearanceKey='',soundBlocked=false,infoRevision=null,importSequence=0
   const publish=patch=>{if(disposed)return;const next={...snapshot,...patch};if(Object.keys(next).every(key=>next[key]===snapshot[key]))return;snapshot=next;for(const listener of listeners)listener()}
   const restore=(el,key,value)=>value===null?el.removeAttribute(key):el.setAttribute(key,value)
   function releaseSurfaces(){for(const [node,previous]of surfaces)restore(node,SURFACE,previous);surfaces.clear();restore(doc.body,FLAG,priorFlag);surfacesDirty=true}
@@ -71,7 +71,7 @@ export function createFullBackground(doc,win){
     try{
       const state=await store.read()
       if(disposed||token!==generation)return
-      publish({hasPrevious:!!state.previous})
+      publish({hasPrevious:!!state.previous,recent:state.recent})
       const asset=state.current
       if(!asset?.blob||asset.revision!==revision)throw Error('找不到这张本机背景，请重新导入')
       releaseMedia();assetKind=asset.kind
@@ -99,9 +99,9 @@ export function createFullBackground(doc,win){
     if(infoRevision!==settings.backgroundRevision){
       infoRevision=settings.backgroundRevision;const revision=infoRevision
       publish({preview:''})
-      if(revision)store.read().then(async state=>{
+      store.read().then(async state=>{
         if(disposed||infoRevision!==revision)return
-        publish({hasPrevious:!!state.previous})
+        publish({hasPrevious:!!state.previous,recent:state.recent})
         if(state.current?.revision!==revision)return
         if(state.current.preview)publish({preview:state.current.preview})
         else if(!settings.backgroundEnabled){
@@ -110,7 +110,6 @@ export function createFullBackground(doc,win){
           try{const asset=await inspectBackgroundMedia(state.current.blob,doc,win);if(infoRevision===revision)publish({preview:asset.preview})}catch{/* The real player reports any asset error when enabled. */}
         }
       },()=>{})
-      else publish({hasPrevious:false})
     }
     const key=settings.backgroundEnabled?settings.backgroundRevision:''
     if(key!==wanted){wanted=key;publish({error:'',notice:''});if(key)load(key);else{generation++;releaseMedia()}}
@@ -128,8 +127,9 @@ export function createFullBackground(doc,win){
   doc.addEventListener('visibilitychange',visibility);forced.addEventListener('change',visibility);reduced.addEventListener('change',visibility)
   return{
     sync,subscribe:listener=>{listeners.add(listener);return()=>listeners.delete(listener)},getSnapshot:()=>snapshot,
-    async import(file){const request=++importSequence,asset=await inspectBackgroundMedia(file,doc,win);if(disposed||request!==importSequence)throw Error('已取消较早的背景导入');const state=await store.replace(asset);if(disposed)throw Error('背景设置已关闭');publish({hasPrevious:!!state.previous});return asset},
-    async restore(){importSequence++;const state=await store.restore();publish({hasPrevious:!!state.previous});return state.current},
+    async import(file){const request=++importSequence,asset=await inspectBackgroundMedia(file,doc,win);if(disposed||request!==importSequence)throw Error('已取消较早的背景导入');const state=await store.replace(asset);if(disposed)throw Error('背景设置已关闭');publish({hasPrevious:!!state.previous,recent:state.recent});return asset},
+    async select(revision){importSequence++;const state=await store.select(revision);publish({hasPrevious:!!state.previous,recent:state.recent});return state.current},
+    async restore(){importSequence++;const state=await store.restore();publish({hasPrevious:!!state.previous,recent:state.recent});return state.current},
     async clear(){importSequence++;await store.clear();publish({hasPrevious:false,preview:''})},
     dispose(){disposed=true;generation++;importSequence++;structure.disconnect();win.cancelAnimationFrame(surfaceFrame);releaseMedia();store.dispose();listeners.clear();doc.removeEventListener('visibilitychange',visibility);forced.removeEventListener('change',visibility);reduced.removeEventListener('change',visibility)},
   }

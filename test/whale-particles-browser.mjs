@@ -22,10 +22,19 @@ try{
       window.model=await Particles.sampleParticleArtwork(source,{transparent:true})
       window.audit={triangles:0,points:0,images:0,arcs:0}
       const draw=WebGL2RenderingContext.prototype.drawArrays
-      WebGL2RenderingContext.prototype.drawArrays=function(mode,first,count){if(mode===this.TRIANGLES)window.audit.triangles++;if(mode===this.POINTS)window.audit.points+=count;return draw.call(this,mode,first,count)}
+      WebGL2RenderingContext.prototype.drawArrays=function(mode,first,count){
+        if(mode===this.TRIANGLES)window.audit.triangles++;if(mode===this.POINTS)window.audit.points+=count
+        const result=draw.call(this,mode,first,count)
+        if(window.motionPositions&&mode===this.POINTS){
+          const w=this.drawingBufferWidth,h=this.drawingBufferHeight,pixels=new Uint8Array(w*h*4);this.readPixels(0,0,w,h,this.RGBA,this.UNSIGNED_BYTE,pixels)
+          let sx=0,sy=0,weight=0;for(let i=0;i<w*h;i++){const k=i*4,r=pixels[k];if(r>20&&r>pixels[k+1]*2&&r>pixels[k+2]*2){weight+=r;sx+=(i%w)*r;sy+=Math.floor(i/w)*r}}
+          if(weight)window.motionPositions.push([sx/weight,sy/weight])
+        }
+        return result
+      }
       const image=CanvasRenderingContext2D.prototype.drawImage,arc=CanvasRenderingContext2D.prototype.arc
       CanvasRenderingContext2D.prototype.drawImage=function(...args){window.audit.images++;return image.apply(this,args)}
-      CanvasRenderingContext2D.prototype.arc=function(...args){window.audit.arcs++;return arc.apply(this,args)}
+      CanvasRenderingContext2D.prototype.arc=function(...args){window.audit.arcs++;if(window.motionPositions&&args[0]>0&&args[0]<240&&args[1]>0&&args[1]<240)window.motionPositions.push(args.slice(0,2));return arc.apply(this,args)}
       if(fallback){const get=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(kind,...args){return kind.startsWith('webgl')?null:get.call(this,kind,...args)}}
       window.scene=Particles.createParticleScene(document.querySelector('#root'),document,window)
       window.scene.configure({progress:1,count:6400,light:false,visible:true,width:1080,height:1000,bottom:980})
@@ -48,9 +57,43 @@ try{
     assert.ok(result.alpha.face>240,'skin remains foreground')
     await page.screenshot({path:resolve(output,fallback?'whale-full-canvas2d.png':'whale-full-webgl.png')})
     await page.emulateMedia({reducedMotion:'no-preference'})
+    const before=await page.evaluate(()=>window.scene.snapshot())
+    await page.waitForTimeout(1100)
+    const after=await page.evaluate(()=>window.scene.snapshot())
+    assert.ok(after.frames-before.frames>3,'fully formed whale keeps drawing without a settings or pressure update')
+    assert.ok(after.frames-before.frames<=(fallback?12:17),'settled motion retains the low drawing cadence')
+    assert.equal(after.progress,1);assert.ok(after.time>before.time)
+    result.settledFrames=after.frames-before.frames
     await page.evaluate(()=>window.scene.configure({progress:.45,count:6400,light:false,visible:true,width:1080,height:1000,bottom:980}))
     await page.waitForFunction(()=>Math.abs(window.scene.snapshot().progress-.45)<.002)
     await page.screenshot({path:resolve(output,fallback?'whale-gathering-canvas2d.png':'whale-gathering-webgl.png')})
+    // Isolate one red body dot: measure real shader readback / canvas arc
+    // coordinates so brightness changes alone cannot pass the movement check.
+    await page.evaluate(()=>{
+      const ambient=Array.from({length:48},(_,i)=>({x:0,y:0,r:0,g:0,b:0,index:i,s1:0,s2:.9,s3:.8,ambient:1,alpha:1}))
+      const dot={x:.5,y:.5,r:1,g:0,b:0,index:0,s1:.15,s2:.4,s3:.8,ambient:0,alpha:1}
+      document.querySelector('#root').style.cssText='width:240px;height:240px'
+      window.scene.setModel({...window.model,points:[...ambient,dot],count:1,ratio:1},'whale')
+      window.scene.configure({progress:1,count:500,light:false,visible:true,width:240,height:240,bottom:240})
+    })
+    await page.waitForFunction(()=>window.scene.snapshot().progress===1)
+    await page.evaluate(()=>window.motionPositions=[])
+    await page.waitForTimeout(1600)
+    const motion=await page.evaluate(()=>{
+      const points=window.motionPositions,x=points.map(p=>p[0]),y=points.map(p=>p[1]);window.motionPositions=null
+      return{samples:points.length,x:Math.max(...x)-Math.min(...x),y:Math.max(...y)-Math.min(...y)}
+    })
+    assert.ok(motion.samples>3,'the isolated particle renders continuously')
+    assert.ok(Math.max(motion.x,motion.y)>.45,'a gathered particle actually moves in space')
+    assert.ok(motion.x<12&&motion.y<12,'motion stays local to the formed silhouette')
+    result.motion=motion
+    await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(180)
+    const still=await page.evaluate(()=>window.scene.snapshot().frames);await page.waitForTimeout(250)
+    assert.equal(await page.evaluate(()=>window.scene.snapshot().frames),still,'reduced motion still stops continuous drawing')
+    await page.emulateMedia({reducedMotion:'no-preference'});await page.waitForTimeout(100)
+    await page.evaluate(()=>window.scene.pause());await page.waitForTimeout(100)
+    const paused=await page.evaluate(()=>window.scene.snapshot().frames);await page.waitForTimeout(200)
+    assert.equal(await page.evaluate(()=>window.scene.snapshot().frames),paused,'pausing cancels the settled whale timer')
     await page.evaluate(()=>window.scene.dispose())
     evidence.push(result);await page.close()
   }

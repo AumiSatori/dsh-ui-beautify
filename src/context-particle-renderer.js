@@ -58,7 +58,15 @@ function flowPosition(a,p,time){
   const journey=gathered+spread*(.03+.36*phase)*(1-smooth(.4,.85,p));
   const dx=origin[0]-target[0],dy=origin[1]-target[1],length=Math.hypot(dx,dy)||1;
   const bend=Math.sin(Math.PI*journey)*(a.s3-.5)*Math.min(field[2],field[3])*.65;
-  return{x:mix(origin[0],target[0],journey)-dy/length*bend,y:mix(origin[1],target[1],journey)+dx/length*bend,origin,gathered,phase,fade:mix(smooth(0,.1,phase)*(1-smooth(.86,1,phase)),1,gathered)};
+  // Each gathered whale dot keeps a small local orbit. The face moves less,
+  // and every orbit stays anchored to its sampled point instead of dispersing.
+  let ox=0,oy=0;
+  if(state.artwork==='whale'&&!a.ambient&&!media.matches){
+    const face=a.x>.30&&a.x<.66&&a.y>.10&&a.y<.33;
+    const orbit=smooth(.3,.9,gathered)*(1.6+2.8*a.s3)*clamp(rect[3]/700,.45,1.2)*(face?.45:1);
+    ox=orbit*Math.sin(time*(.75+.4*a.s2)+a.s1*Math.PI*2);oy=orbit*.75*Math.cos(time*(.65+.35*a.s3)+a.s2*Math.PI*2);
+  }
+  return{x:mix(origin[0],target[0],journey)-dy/length*bend+ox,y:mix(origin[1],target[1],journey)+dx/length*bend+oy,origin,gathered,phase,fade:mix(smooth(0,.1,phase)*(1-smooth(.86,1,phase)),1,gathered)};
 }
 const vertex=`#version 300 es
 precision highp float;
@@ -76,6 +84,11 @@ float journey=gathered+spread*(.03+.36*phase)*(1.-smoothstep(.4,.85,p));
 vec2 direction=origin-target;vec2 normal=vec2(-direction.y,direction.x)/max(1.,length(direction));
 float bend=sin(3.14159265*journey)*(s3-.5)*min(u_field.z,u_field.w)*.65;
 vec2 pos=mix(origin,target,journey)+normal*bend;
+if(u_whale>.5&&u_still<.5&&ambient<.5){
+  float face=step(.30,a_pos.x)*(1.-step(.66,a_pos.x))*step(.10,a_pos.y)*(1.-step(.33,a_pos.y));
+  float orbit=smoothstep(.3,.9,gathered)*(1.6+2.8*s3)*clamp(u_rect.w/700.,.45,1.2)*mix(1.,.45,face);
+  pos+=orbit*vec2(sin(time*(.75+.4*s2)+s1*6.2831853),.75*cos(time*(.65+.35*s3)+s2*6.2831853));
+}
 float streamFade=mix(smoothstep(0.,.1,phase)*(1.-smoothstep(.86,1.,phase)),1.,gathered);
 float population=u_budget*(.01+.99*pow(p,.9));float alpha=1.-smoothstep(population-32.,population+32.,idx);
 float lightness=dot(a_color,vec3(.2126,.7152,.0722));
@@ -187,8 +200,9 @@ function frame(now){
   if(!changing){state.progress=state.target;state.light=state.lightTarget;state.budget=budget}
   renderer.draw();state.frames++;dirty=false;
   // A slow ambient flow needs no display-refresh-rate polling (often 165 Hz).
-  // Keep transitions smooth, lower the stable cadence, and sleep once gathered.
-  if(!media.matches&&(changing||state.progress<1))requestFrame(1000/(changing?(state.mode==='Canvas 2D'?24:30):(state.mode==='Canvas 2D'?8:12)));
+  // Keep transitions smooth; whale dots retain a bounded low-cadence local
+  // motion when gathered. Other complete artwork can still sleep.
+  if(!media.matches&&(changing||state.progress<1||state.artwork==='whale'))requestFrame(1000/(changing?(state.mode==='Canvas 2D'?24:30):(state.mode==='Canvas 2D'?8:12)));
 }
 const changed=()=>{stopFrame();dirty=true;requestFrame()};media.addEventListener('change',changed);doc.addEventListener('visibilitychange',changed);
 return{

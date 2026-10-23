@@ -16,6 +16,20 @@ export const particleSettingsCss=`
   .dcb-particle-number input:focus { border-color:#888b; box-shadow:0 0 0 3px #8882; }
   .dcb-particle-number button { display:grid; place-items:center; width:28px; height:30px; border:1px solid #8884; border-radius:7px; background:transparent; color:inherit; cursor:pointer; transition:background-color 180ms ease,transform 220ms ease; }
   .dcb-particle-number button:active { transform:scale(.9); }
+  .dcb-particle-density { margin:14px 0; padding:14px; border:1px solid #8883; border-radius:10px; }
+  .dcb-particle-density-heading,.dcb-particle-density-ends { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .dcb-particle-density-heading { font:600 13px/20px system-ui; }
+  .dcb-particle-density-heading output { font-variant-numeric:tabular-nums; }
+  .dcb-particle-density-slider { display:flex; align-items:center; height:36px; cursor:ew-resize; touch-action:none; user-select:none; border-radius:8px; outline:none; }
+  .dcb-particle-density-slider:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+  .dcb-particle-density-track { position:relative; display:block; flex:1; margin-inline:10px; height:5px; border-radius:999px; background:#8884; }
+  .dcb-particle-density-fill { position:absolute; inset:0 auto 0 0; width:var(--dcb-density-fill); border-radius:inherit; background:currentColor; }
+  .dcb-particle-density-thumb { position:absolute; top:50%; left:var(--dcb-density-fill); width:17px; height:17px; box-sizing:border-box; border:2px solid currentColor; border-radius:50%; background:var(--dsh-settings-bg,#fff); transform:translate(-50%,-50%); box-shadow:0 1px 5px #0002; }
+  body[data-ds-dark-theme] .dcb-particle-density-thumb { background:#222; }
+  .dcb-particle-density-ends { font:11px/18px system-ui; color:var(--dsh-settings-secondary); }
+  .dcb-particle-density-preview { height:46px; margin-top:10px; border:1px solid #8882; border-radius:7px; background-image:radial-gradient(circle,#7d95c9 1px,transparent 1.5px); background-size:var(--dcb-density-gap) var(--dcb-density-gap); background-position:center; }
+  .dcb-particle-density p { margin:8px 0 0; font:12px/20px system-ui; color:var(--dsh-settings-secondary); }
+  @media(forced-colors:active) { .dcb-particle-density-fill { background:Highlight; } .dcb-particle-density-thumb { background:Canvas; } .dcb-particle-density-track { border:1px solid ButtonText; } }
   .dcb-particle-control { margin-top:12px; padding:13px; border:1px dashed #8885; border-radius:10px; }
   .dcb-particle-control p { font:12px/20px system-ui; color:var(--dsh-settings-secondary); overflow-wrap:anywhere; }
   .dcb-particle-buttons { display:flex; flex-wrap:wrap; gap:8px; }
@@ -29,6 +43,21 @@ export const particleSettingsCss=`
 
 export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
   const h=React.createElement
+  function DensitySlider({value,onChange}){
+    const drag=React.useRef(null),queued=React.useRef(null),frame=React.useRef(0),change=React.useRef(onChange)
+    change.current=onChange
+    const clampCount=count=>Math.max(500,Math.min(10000,Math.round(count/100)*100))
+    const flush=()=>{win.cancelAnimationFrame(frame.current);frame.current=0;if(queued.current!==null){const count=queued.current;queued.current=null;change.current(count)}}
+    const point=(x,bounds)=>{queued.current=clampCount(500+(x-bounds.left-10)/Math.max(1,bounds.width-20)*9500);if(!frame.current)frame.current=win.requestAnimationFrame(flush)}
+    React.useEffect(()=>()=>win.cancelAnimationFrame(frame.current),[])
+    return h('div',{className:'dcb-particle-density-slider',role:'slider',tabIndex:0,'aria-label':'粒子浓度','aria-orientation':'horizontal','aria-valuemin':5,'aria-valuemax':100,'aria-valuenow':value/100,'aria-valuetext':`${value/100}%，${value} 颗`,style:{'--dcb-density-fill':`${(value-500)/9500*100}%`},
+      onPointerDown:e=>{if(e.button!==0||e.isPrimary===false)return;e.preventDefault();e.currentTarget.focus();e.currentTarget.setPointerCapture(e.pointerId);drag.current={id:e.pointerId,bounds:e.currentTarget.getBoundingClientRect()};point(e.clientX,drag.current.bounds)},
+      onPointerMove:e=>{if(drag.current?.id===e.pointerId)point(e.clientX,drag.current.bounds)},
+      onPointerUp:e=>{if(drag.current?.id!==e.pointerId)return;point(e.clientX,drag.current.bounds);flush();drag.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId)},
+      onPointerCancel:()=>{flush();drag.current=null},onLostPointerCapture:()=>{drag.current=null},
+      onKeyDown:e=>{const steps={ArrowLeft:-100,ArrowDown:-100,ArrowRight:100,ArrowUp:100,PageDown:-1000,PageUp:1000};if(e.key==='Home'||e.key==='End'||e.key in steps){e.preventDefault();flush();onChange(clampCount(e.key==='Home'?500:e.key==='End'?10000:value+steps[e.key]))}}
+    },h('span',{className:'dcb-particle-density-track','aria-hidden':'true'},h('span',{className:'dcb-particle-density-fill'}),h('span',{className:'dcb-particle-density-thumb'})))
+  }
   function NumberField({label,value,min,max,step=1,onChange}){
     const [draft,setDraft]=React.useState(String(value))
     const skipCommit=React.useRef(false)
@@ -62,7 +91,13 @@ export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
       ].map(([shape,label,icon])=>h('button',{key:shape,type:'button',role:'radio',className:'dcb-particle-option','aria-label':label,'aria-checked':value.particleShape===shape,tabIndex:value.particleShape===shape?0:-1,disabled:shape==='custom'&&!value.particleSvgRevision,onClick:()=>onChange({particleShape:shape}),
         onKeyDown:e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(e.key))return;e.preventDefault();const choices=[...e.currentTarget.parentElement.querySelectorAll('button:not(:disabled)')],at=choices.indexOf(e.currentTarget),next=e.key==='Home'?0:e.key==='End'?choices.length-1:(at+(['ArrowRight','ArrowDown'].includes(e.key)?1:choices.length-1))%choices.length;choices[next].click();choices[next].focus()}
       },h('span',{className:'dcb-particle-icon','aria-hidden':'true'},icon),label))),
-      row('粒子数','500–10000。默认 6400，保持轻量；数量越多绘制负担越大。',h(NumberField,{label:'粒子数',value:value.particleCount,min:500,max:10000,step:100,onChange:particleCount=>onChange({particleCount})})),
+      h('div',{className:'dcb-particle-density'},
+        h('div',{className:'dcb-particle-density-heading'},h('span',null,'粒子浓度'),h('output',null,`${value.particleCount/100}% · ${value.particleCount} 颗`)),
+        h(DensitySlider,{value:value.particleCount,onChange:particleCount=>onChange({particleCount})}),
+        h('div',{className:'dcb-particle-density-ends','aria-hidden':'true'},h('span',null,'稀疏'),h('span',null,'浓密')),
+        h('div',{className:'dcb-particle-density-preview','aria-hidden':'true',style:{'--dcb-density-gap':`${Math.sqrt(420000/value.particleCount)}px`}}),
+        h('p',null,'拖动实时调整点阵密度，与下方粒子数同步并自动保存；浓度越高绘制开销越大。备用绘图最多 4500 颗。')),
+      row('粒子数','500–10000。默认 6400（64%）；也可直接输入精确数量。',h(NumberField,{label:'粒子数',value:value.particleCount,min:500,max:10000,step:100,onChange:particleCount=>onChange({particleCount})})),
       row('开始显示 (%)','低于这个占用比例时隐藏背景。',h(NumberField,{label:'开始显示百分比',value:value.particleStart,min:0,max:95,onChange:particleStart=>onChange({particleStart})})),
       row('完整成形 (%)','达到此占用比例时完整成形；之后保持完整，压缩时随占用回退。',h(NumberField,{label:'完整成形百分比',value:value.particleFull,min:value.particleStart+1,max:100,onChange:particleFull=>onChange({particleFull})})),
       h('div',{className:'dcb-settings-info dcb-particle-live',role:'status'},!value.particleEnabled?'背景已关闭':live===undefined?'等待当前会话的上下文数据；未上报时不模拟占用':`当前上下文 ${live}% · 成形进度 ${Math.round(Math.max(0,Math.min(1,(live-value.particleStart)/(value.particleFull-value.particleStart)))*100)}% · ${value.particleStart}% 开始 / ${value.particleFull}% 完整`,current?.error?` · ${current.error}`:''),

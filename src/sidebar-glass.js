@@ -194,7 +194,7 @@ export function createSidebarGlass(doc,win,schedule){
       for(let parent=selected.parentElement;parent&&parent!==root;parent=parent.parentElement){if(/auto|scroll|hidden|clip/.test(win.getComputedStyle(parent).overflowY)){const clip=parent.getBoundingClientRect();top=Math.max(top,clip.top);bottom=Math.min(bottom,clip.bottom)}}
       const clipped=r.top<top-.5||r.bottom>bottom+.5
       if(indicator.hidden!==clipped)indicator.hidden=clipped
-      for(const [key,value] of Object.entries({width:`${r.width}px`,height:`${r.height}px`,transform:`translate(${r.left-origin.left}px, ${r.top-origin.top}px)`}))if(indicator.style[key]!==value)indicator.style[key]=value
+      for(const [key,value] of Object.entries({width:`${r.width}px`,height:`${r.height}px`,borderRadius:win.getComputedStyle(selected).borderRadius,transform:`translate(${r.left-origin.left}px, ${r.top-origin.top}px)`}))if(indicator.style[key]!==value)indicator.style[key]=value
       if(!record.placed){record.placed=true;win.requestAnimationFrame(()=>{if(records.get(root)?.indicator===indicator)set(indicator,'data-ready','true')})}
       capture(record)
     }

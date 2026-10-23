@@ -168,6 +168,24 @@ GitHub 仓库名为 **dsh-ui-beautify**，显示名称为 **UI动效美化**。�
 
 升级保留原有开关：之前关闭分轮玻璃的仍使用默认外观，之前打开的迁移为轻盈卡片；新安装默认关闭。内部保留 `turnGlass` 作为开关字段，新增 `turnCardStyle` 独立保存 `soft` / `line`，选择默认时保留上次样式。
 
+### 分隔装饰自定义
+
+选中“极简分隔”后，可在“自定义分隔装饰”里选择原始细线、彩色细线或“鲸鱼娘与艺术字”。鲸鱼娘预设用左侧逐字轻晃的 **DeepSeek Harness** 与右侧趴着托腮、交替摆脚的四帧鲸鱼娘替换原先那条额外的分隔线；不叠加第二条线，不改变宿主正文里的进度/表格边框。颜色、动画均可独立调整，只有主动选中鲸鱼娘预设时才开启其动效。旧设置仍保留原始细线。
+
+动效仅在装饰自身进入可见区域、页面前台且系统允许动态效果时播放；离屏、关闭动效和减少动态效果时暂停，没有持续 JavaScript 帧循环。普通细线模式仍不测量回复高度；鲸鱼娘模式为装饰增加轮次间的留白，不覆盖文字或操作。原图及生成提示词在 `assets/TURN-DIVIDER-ART.md`。
+
+“导入自己的动图”支持 2MB 以内且边长不超过 1024 像素的 GIF、APNG/PNG 和 WebP，替换右侧角色。素材保存在本机 IndexedDB，设置只记录版本号，不写入文件内容或本地路径；暂停时使用静态预览并释放动图播放源，可一键恢复内置鲸鱼娘。
+
+“CSS 自定义”支持 `.line`、`.brand`、`.letter`、`.mascot` 和 `@keyframes`，点击“应用 CSS”后保存。每个装饰都有独立的 Shadow DOM，CSS 不会改到消息、设置按钮或其他插件。可用下面的规则调整颜色、字重和右侧角色尺寸；不支持 `@import`，动图使用本地导入入口。
+
+```css
+.line { height: 2px; background: linear-gradient(90deg, #79b7e7, #c9a3e7); }
+.brand { color: #849fd0; font-weight: 800; }
+.divider { --divider-mascot-width: 118px; --divider-speed: 2.2s; }
+```
+
+`npm run test:turn-divider` 检查装饰替换、字母/摆脚中间帧、CSS 隔离、动图保存和暂停、窄屏、设置保存与卸载。截图在 `DSH_CLAUDE_OUTPUT_DIR/turn-divider/`。
+
 新轮次使用 280ms 渐入与轻微上移，历史加载、同轮续写以及待发送消息转为正式消息不重复播放。减少动态效果时停用入场过渡，强制颜色模式使用系统底色与边框。`npm run test:turn-cards` 检查实际卡片尺寸、间距、动画中间帧、长对话开销、原生操作、设置开关与卸载清理；设置 `DSH_ASAR` 可读取本机宿主的 ChatView 样式和公开标记验收，内容使用合成消息。截图保存在 `DSH_CLAUDE_OUTPUT_DIR/turn-cards/`。
 
 ## 对话动效

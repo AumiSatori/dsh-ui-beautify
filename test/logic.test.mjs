@@ -70,6 +70,11 @@ test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize({ turnGlass: true, sidebarStyle: 'glass' }).turnCardStyle, 'soft')
   assert.equal(normalize({ turnGlass: true, turnCardStyle: 'line' }).turnCardStyle, 'line')
   assert.equal(normalize({ turnCardStyle: 'glass' }).turnCardStyle, 'soft')
+  assert.equal(normalize(null).turnDividerPreset, 'plain')
+  assert.equal(normalize(null).turnDividerMotion, false)
+  assert.equal(normalize({ turnDividerPreset: 'whale', turnDividerMotion: true }).turnDividerPreset, 'whale')
+  assert.equal(normalize({ turnDividerColor: 'url(file:///invalid)' }).turnDividerColor, '#87a5d4')
+  assert.equal(normalize({ turnDividerCss: 'x'.repeat(15000) }).turnDividerCss.length, 12000)
   assert.equal(normalize({ enabled: false, composerGlass: false, chatUnderComposer: true }).chatUnderComposer, false)
 })
 

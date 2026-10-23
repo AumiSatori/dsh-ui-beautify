@@ -1,12 +1,13 @@
 import {motion} from './motion.js'
 import {createTurnNavigation} from './turn-navigation.js'
+import {normalizeTurnDivider,createTurnDivider,createTurnDividerSettings,turnDividerSettingsCss} from './turn-divider.js'
 
 const FLOW='[data-chat-flow]:not([data-step-process-content])'
 const ROW='data-dcb-turn-row',HEAD='data-dcb-turn-head',TAIL='data-dcb-turn-tail',FIRST='data-dcb-turn-first'
 const SURFACE='data-dcb-turn-surface',VISIBLE='data-dcb-turn-visible',ARRIVING='data-dcb-turn-arriving'
 const HEIGHT='--dcb-turn-height'
 const ENABLED='data-dcb-turn-cards-enabled'
-const OWNED=[ROW,HEAD,TAIL,FIRST,SURFACE,VISIBLE,ARRIVING,'data-dcb-turn-focused','data-dcb-turn-jump']
+const OWNED=[ROW,HEAD,TAIL,FIRST,SURFACE,VISIBLE,ARRIVING,'data-dcb-turn-focused','data-dcb-turn-jump','data-dcb-divider-preset']
 const OWNED_SELECTOR=OWNED.map(name=>`[${name}]`).concat(`[style*="${HEIGHT}"]`).join(',')
 const ROOT=`body[${ENABLED}] [${SURFACE}]`,DARK=`body[data-ds-dark-theme][${ENABLED}] [${SURFACE}]`
 const CARD=`${ROOT} [${HEAD}][${ROW}]`
@@ -22,8 +23,9 @@ export const turnCardsCss=`
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-row] { padding-inline:4px; }
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-head] { padding-block-start:12px; }
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-tail] { padding-block-end:12px; }
-  ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-head]::before { height:1px; top:-12px; border:0; border-radius:0; background:var(--dcb-turn-rim); }
+  ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-head]::before { content:none; }
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-first]::before { content:none; }
+  ${ROOT}[data-dcb-turn-surface="line"][data-dcb-divider-preset="whale"] [data-dcb-turn-head]:not([data-dcb-turn-first]) { margin-block-start:112px!important; }
   ${CARD}[data-dcb-turn-arriving]::before { animation:dcb-turn-card-in ${motion.time.standard}ms ${motion.ease.smooth}; }
   ${CARD}[data-dcb-turn-focused]::before { border-color:#989fa9; }
   ${DARK} [data-dcb-turn-head][data-dcb-turn-row][data-dcb-turn-focused]::before { border-color:#818894; }
@@ -59,16 +61,18 @@ export const turnCardsCss=`
     .dcb-turn-style-preview { grid-column:1; grid-row:1 / 3; height:46px; padding-inline:6px; gap:7px; }
     .dcb-turn-style-option strong,.dcb-turn-style-option small { grid-column:2; align-self:center; }
   }
+  ${turnDividerSettingsCss}
 `
 
 export function normalizeTurnCards(value){
-  return {turnGlass:value?.turnGlass===true,turnCardStyle:value?.turnCardStyle==='line'?'line':'soft'}
+  return {turnGlass:value?.turnGlass===true,turnCardStyle:value?.turnCardStyle==='line'?'line':'soft',...normalizeTurnDivider(value)}
 }
 
-export function createTurnCardSettings(React){
+export function createTurnCardSettings(React,doc=globalThis.document,win=globalThis.window){
   const h=React.createElement
+  const DividerSettings=createTurnDividerSettings(React,doc,win)
   const choices=[['default','默认','保留原始外观'],['soft','轻盈卡片','浅底色 · 细边框'],['line','极简分隔','留白 · 细分隔线']]
-  return function TurnCardSettings({value,onChange}){
+  return function TurnCardSettings({value,onChange,manager}){
     const selected=value.turnGlass?value.turnCardStyle:'default'
     const choose=style=>onChange({turnGlass:style!=='default',...(style!=='default'?{turnCardStyle:style}:{})})
     return h('fieldset',{className:'dcb-turn-style-picker'},
@@ -84,16 +88,19 @@ export function createTurnCardSettings(React){
             else if(event.key==='End')next=choices.length-1
             else return
             event.preventDefault();event.currentTarget.parentElement.children[next].focus();choose(choices[next][0])
-          }},h('span',{className:'dcb-turn-style-preview','data-turn-preview':style,'aria-hidden':true},h('i'),h('i'),h('i')),h('strong',null,name),h('small',null,description)))))
+          }},h('span',{className:'dcb-turn-style-preview','data-turn-preview':style,'aria-hidden':true},h('i'),h('i'),h('i')),h('strong',null,name),h('small',null,description)))),
+      selected==='line'&&h(DividerSettings,{value,onChange,manager}))
   }
 }
 
 // Paint one background across a run of native siblings. The host owns their
 // parents, order, anchors, scroll and content; nothing is wrapped or copied.
-export function createTurnCards(doc,win,{enabled=true,style='soft'}={}){
+export function createTurnCards(doc,win,{enabled=true,style='soft',...initial}={}){
   const records=new Map(),rowGroups=new WeakMap(),pending=new Set(),geometry=new Set()
   const reduced=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
   let disposed=false,frame=0,measureFrame=0,active=enabled,material=style==='line'?'line':'soft',pendingKey=0
+  let dividerOptions=normalizeTurnDivider(initial)
+  const divider=createTurnDivider(doc,win);divider.setOptions(dividerOptions)
   const pendingIds=new WeakMap()
   const navigation=createTurnNavigation(doc,win,{
     groupById:(root,id)=>records.get(root)?.byId?.get(id),
@@ -119,6 +126,7 @@ export function createTurnCards(doc,win,{enabled=true,style='soft'}={}){
     // an older decoration; restoring it as a host original revives the glass.
     for(const name of OWNED)node.removeAttribute(name)
     node.style.removeProperty(HEIGHT)
+    for(const child of node.querySelectorAll(':scope > [data-dcb-turn-divider]'))child.remove()
   }
   const sweep=root=>{restore(root);for(const node of root.querySelectorAll(OWNED_SELECTOR))restore(node)}
   const scheduleMeasure=group=>{if(material==='line')return;geometry.add(group);if(!measureFrame&&!disposed)measureFrame=win.requestAnimationFrame(measure)}
@@ -137,10 +145,10 @@ export function createTurnCards(doc,win,{enabled=true,style='soft'}={}){
   const exposure=new win.IntersectionObserver(entries=>{
     const changed=new Set()
     for(const entry of entries){const group=rowGroups.get(entry.target);if(!group)continue;entry.isIntersecting?group.visible.add(entry.target):group.visible.delete(entry.target);changed.add(group)}
-    for(const group of changed)group.visible.size?mark(group.head,VISIBLE):group.head.removeAttribute(VISIBLE)
+    for(const group of changed){group.visible.size?mark(group.head,VISIBLE):group.head.removeAttribute(VISIBLE);if(material==='line')divider.sync(group.head,{visible:!!group.visible.size,first:group.head.hasAttribute(FIRST)})}
   },{rootMargin:'80px 0px'})
   function drop(group){
-    group.live=false;geometry.delete(group);win.clearTimeout(group.timer)
+    group.live=false;geometry.delete(group);win.clearTimeout(group.timer);divider.remove(group.head)
     for(const row of group.rows){resize.unobserve(row);exposure.unobserve(row);rowGroups.delete(row);restore(row)}
   }
   const isEcho=row=>row.matches('[data-submission-echo], [data-pending-steering]')
@@ -157,7 +165,7 @@ export function createTurnCards(doc,win,{enabled=true,style='soft'}={}){
     const session=root.closest('[data-conversation-session]')?.getAttribute('data-conversation-session')||''
     if(record.session!==session){clear(record);record.seeded=false;record.maxTurn=-1;record.session=session}
     const list=[...root.children].find(el=>el.getAttribute('data-slot')==='conversation.chat.flow')||root
-    record.list=list;mark(root,SURFACE,material)
+    record.list=list;mark(root,SURFACE,material);mark(root,'data-dcb-divider-preset',dividerOptions.turnDividerPreset)
     const runs=[]
     for(const row of list.children){
       const id=idOf(row)
@@ -185,7 +193,10 @@ export function createTurnCards(doc,win,{enabled=true,style='soft'}={}){
         mark(group.head,ARRIVING);group.timer=win.setTimeout(()=>{if(group.live)group.head.removeAttribute(ARRIVING)},motion.time.standard+30)
       }
     }
-    for(let i=0;i<groups.length;i++)i===0?mark(groups[i].head,FIRST):groups[i].head.removeAttribute(FIRST)
+    for(let i=0;i<groups.length;i++){
+      const group=groups[i];i===0?mark(group.head,FIRST):group.head.removeAttribute(FIRST)
+      if(material==='line')divider.sync(group.head,{visible:!!group.visible.size,first:i===0});else divider.remove(group.head)
+    }
     record.groups=groups
     record.byId=new Map(groups.map(group=>[group.id,group]))
     navigation.refresh()
@@ -215,8 +226,11 @@ export function createTurnCards(doc,win,{enabled=true,style='soft'}={}){
   if(active)discover(doc.body)
   return {
     setOptions(options){
+      const nextDivider=normalizeTurnDivider({...dividerOptions,...options}),dividerChanged=JSON.stringify(nextDivider)!==JSON.stringify(dividerOptions)
+      dividerOptions=nextDivider;divider.setOptions(dividerOptions)
       const wasActive=active,next=options.style==='line'?'line':'soft',materialChanged=next!==material,changed=active!==options.enabled||materialChanged
       active=options.enabled;material=next
+      if(dividerChanged)for(const record of records.values())mark(record.root,'data-dcb-divider-preset',dividerOptions.turnDividerPreset)
       if(!changed)return
       if(active){
         if(!wasActive)sweep(doc.body)
@@ -228,6 +242,7 @@ export function createTurnCards(doc,win,{enabled=true,style='soft'}={}){
       }
       else{doc.body.removeAttribute(ENABLED);win.cancelAnimationFrame(frame);frame=0;win.cancelAnimationFrame(measureFrame);measureFrame=0;pending.clear();for(const record of records.values())clear(record);records.clear();geometry.clear();sweep(doc.body)}
     },
-    dispose(){disposed=true;doc.body.removeAttribute(ENABLED);navigation.dispose();observer.disconnect();resize.disconnect();exposure.disconnect();win.cancelAnimationFrame(frame);win.cancelAnimationFrame(measureFrame);for(const record of records.values())clear(record);records.clear();pending.clear();geometry.clear();sweep(doc.body)},
+    importImage:file=>divider.importImage(file),resetImage:()=>divider.resetImage(),
+    dispose(){disposed=true;doc.body.removeAttribute(ENABLED);navigation.dispose();observer.disconnect();resize.disconnect();exposure.disconnect();win.cancelAnimationFrame(frame);win.cancelAnimationFrame(measureFrame);for(const record of records.values())clear(record);records.clear();pending.clear();geometry.clear();sweep(doc.body);divider.dispose()},
   }
 }

@@ -27,7 +27,7 @@ if(process.env.DSH_ASAR){
     source='installed ChatView stylesheet and verified public markers; synthetic messages'
   }finally{closeSync(fd)}
 }
-const bundle=await build({entryPoints:[resolve(project,'src/turn-cards.js')],bundle:true,write:false,format:'iife',globalName:'TurnCards'})
+const bundle=await build({entryPoints:[resolve(project,'src/turn-cards.js')],bundle:true,write:false,format:'iife',globalName:'TurnCards',loader:{'.png':'dataurl'}})
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'})
 const page=await browser.newPage({viewport:{width:1440,height:1040}}),errors=[]
 page.on('pageerror',e=>errors.push(e.message))
@@ -172,7 +172,7 @@ try{
   await check('minimal dividers omit full-height surfaces and do no geometry reads during streaming',async()=>{
     await boot()
     await page.evaluate(()=>manager.setOptions({enabled:true,style:'line'}));await tick()
-    const style=await page.locator('[data-dcb-turn-head]').nth(1).evaluate(el=>{const css=getComputedStyle(el,'::before');return{height:css.height,blur:css.backdropFilter,filter:css.filter,shadow:css.boxShadow,background:css.backgroundColor}})
+    const style=await page.locator('[data-dcb-turn-head]').nth(1).evaluate(el=>{const css=getComputedStyle(el.querySelector('[data-dcb-turn-divider]').shadowRoot.querySelector('.line'));return{height:css.height,blur:css.backdropFilter,filter:css.filter,shadow:css.boxShadow,background:css.backgroundColor}})
     assert.deepEqual(style,{height:'1px',blur:'none',filter:'none',shadow:'none',background:'rgb(229, 231, 235)'})
     assert.equal(await page.locator('[style*="--dcb-turn-height"]').count(),0)
     const reads=await page.evaluate(async()=>{

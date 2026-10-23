@@ -81,7 +81,7 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
     return models.get(key)
   }
   function unbind(scene){
-    scene.resize.disconnect();scene.intersection.disconnect();scene.renderer.pause()
+    scene.resize.disconnect();scene.phase.disconnect();scene.intersection.disconnect();scene.renderer.pause()
     if(scenes.get(scene.host)===scene){scenes.delete(scene.host);scene.host.removeAttribute('data-dcb-particles-host')}
     scene.layer.remove()
   }
@@ -98,14 +98,15 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   }
   function park(scene){unbind(scene);scene.expires=now()+RETAIN_MS;retained.add(scene);armRetention()}
   function bind(scene,host){
-    retained.delete(scene);scene.resize.disconnect();scene.host=host;scene.visible=true;scene.expires=0
+    retained.delete(scene);scene.resize.disconnect();scene.phase.disconnect();scene.host=host;scene.visible=true;scene.expires=0
     host.setAttribute('data-dcb-particles-host','');host.prepend(scene.layer)
     const composer=host.querySelector('[data-composer-seat]');if(composer)scene.resize.observe(composer)
+    scene.phase.observe(host,{attributes:true,attributeFilter:['data-content-phase']})
     scene.intersection.observe(host);scenes.set(host,scene);armRetention();return scene
   }
   function create(host){
     const layer=doc.createElement('div');layer.className='dcb-particle-layer';layer.setAttribute('aria-hidden','true');layer.setAttribute('data-waiting','');
-    const scene={host,session:host.dataset.conversationSession,layer,renderer:createParticleScene(layer,doc,win),key:null,percent:null,shape:null,waiting:true,visible:true,revision:0,released:false,expires:0,resize:new win.ResizeObserver(schedule),intersection:new win.IntersectionObserver(entries=>{const entry=entries.find(entry=>entry.target===scene.host);if(entry&&scenes.get(scene.host)===scene){scene.visible=entry.isIntersecting;schedule()}})}
+    const scene={host,session:host.dataset.conversationSession,layer,renderer:createParticleScene(layer,doc,win),key:null,percent:null,shape:null,waiting:true,visible:true,revision:0,released:false,expires:0,resize:new win.ResizeObserver(schedule),phase:new win.MutationObserver(schedule),intersection:new win.IntersectionObserver(entries=>{const entry=entries.find(entry=>entry.target===scene.host);if(entry&&scenes.get(scene.host)===scene){scene.visible=entry.isIntersecting;schedule()}})}
     return bind(scene,host)
   }
   async function changeModel(scene,key){
@@ -144,7 +145,9 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
       scene.layer.toggleAttribute('data-waiting',!canShow||scene.waiting)
       if(canShow&&scene.key!==key)changeModel(scene,key)
       const box=host.getBoundingClientRect(),composer=host.querySelector('[data-composer-seat]')?.getBoundingClientRect()
-      const bottom=composer&&composer.top>box.top+40?Math.min(box.height,composer.top-box.top):box.height
+      // The hero composer is centered welcome content, not a bottom dock.
+      // Keep its particles centered across the whole conversation background.
+      const bottom=host.dataset.contentPhase!=='hero'&&composer&&composer.top>box.top+40?Math.min(box.height,composer.top-box.top):box.height
       scene.renderer.configure({progress:particleConversion(scene.percent,settings),count:settings.particleCount,light:!doc.body.hasAttribute('data-ds-dark-theme'),visible:scene.visible&&!previewOpen&&!scene.waiting&&canShow,width:Math.max(1,box.width),height:Math.max(1,box.height),bottom})
       scene.layer.style.opacity=canShow?'':'0'
     }

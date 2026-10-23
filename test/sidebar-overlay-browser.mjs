@@ -79,11 +79,12 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
 try{
  await page.addInitScript(key=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,particleProgressMode:'manual',particleManualProgress:65}))},key)
  await mount()
- await check('the native title and tabs stay centered while utilities and the sidebar switch dock at the right edge without replacing controls',async()=>{
+ await check('the native title and tabs align with the text column while utilities and the sidebar switch dock at the right edge without replacing controls',async()=>{
   await page.locator('.sb_toggle').click();await page.waitForTimeout(400)
   const row=await page.locator('.cr_titleRow').boundingBox(),tabs=await page.locator('[data-conversation-tabs]').boundingBox()
-  assert.ok(Math.abs(row.x+row.width/2-720)<.6,JSON.stringify({row,tabs,header:await page.locator('.cr_header').evaluate(el=>({marked:el.hasAttribute('data-dcb-header-centered'),columns:getComputedStyle(el).gridTemplateColumns,leading:el.firstElementChild.outerHTML}))}));assert.ok(row.width<=1160)
-  assert.ok(Math.abs(tabs.x+tabs.width/2-720)<.6)
+  const flow=await page.locator('[data-chat-flow]').boundingBox()
+  assert.ok(Math.abs(row.x-flow.x)<.6&&Math.abs(row.width-flow.width)<.6,JSON.stringify({row,flow}))
+  assert.ok(Math.abs(tabs.x-flow.x)<.6&&Math.abs(tabs.width-flow.width)<.6)
   const corner=await page.getByRole('button',{name:'切换右侧栏',exact:true}).boundingBox(),tools=await page.locator('.cr_headerUtilities').boundingBox()
   assert.ok(Math.abs(corner.x+corner.width-1428)<.6,'the right-side switch stays at the actual conversation edge')
   assert.ok(Math.abs(corner.y+corner.height/2-tools.y-tools.height/2)<.6,'the right-side switch and utilities share a baseline')

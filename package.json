@@ -1,7 +1,7 @@
 {
   "name": "dsh-claude-beautify",
   "displayName": "UI动效美化",
-  "version": "0.3.53",
+  "version": "0.3.54",
   "private": true,
   "type": "module",
   "description": "UI动效美化：独立配置左侧栏、任务卡片与输入栏的玻璃样式、进度与切换动效。",
@@ -65,7 +65,8 @@
     "check-slider": "node scripts/restore-claude-slider.mjs --check",
     "test:context-particles": "node test/context-particles-browser.mjs",
     "test:particle-conversion": "node test/particle-conversion-browser.mjs",
-    "test:whale-particles": "node test/whale-particles-browser.mjs"
+    "test:whale-particles": "node test/whale-particles-browser.mjs",
+    "test:header-project": "node test/header-project-browser.mjs"
   },
   "dsh": {
     "bundle": {

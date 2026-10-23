@@ -137,6 +137,34 @@ try{
   await page.setViewportSize({width:1440,height:1000});await page.waitForTimeout(160)
   await page.locator('.sb_toggle').click();await page.waitForTimeout(400)
  })
+ await check('overlay drawers render continuous entry and exit while the fixed toggle has one restrained pulse and the chat stays still',async()=>{
+  await patch({sidebarStyle:'css',sidebarMotion:true});await page.waitForTimeout(600)
+  const capture=()=>page.locator('.sb_toggle').evaluate(button=>new Promise(done=>{
+   const samples=[],start=performance.now(),center=document.querySelector('.af_centerCol'),base=center.getBoundingClientRect(),canvas=document.querySelector('.dcb-particle-layer canvas'),query=document.querySelectorAll;let scans=0
+   document.querySelectorAll=function(selector){if(selector.includes('class$="_sidebarCol"'))scans++;return query.call(this,selector)}
+   button.click()
+   const take=()=>{const root=document.querySelector('.sb_root'),column=root.parentElement,b=button.getBoundingClientRect(),c=center.getBoundingClientRect(),ghost=document.querySelector('[data-dcb-sidebar-ghost]'),seat=ghost||root.querySelector('.sb_regionArea'),s=seat&&getComputedStyle(seat),icon=button.querySelector('svg'),m=new DOMMatrix(getComputedStyle(icon).transform);samples.push({width:column.getBoundingClientRect().width,rootWidth:root.getBoundingClientRect().width,x:c.x,w:c.width,buttonX:b.x+b.width/2,buttonY:b.y+b.height/2,scale:parseFloat(getComputedStyle(button).scale)||1,transform:getComputedStyle(button).transform,iconX:m.m41,ghost:!!ghost,opacity:s?Number(s.opacity):1,moving:root.hasAttribute('data-dcb-sidebar-moving')});if(performance.now()-start<620)requestAnimationFrame(take);else{document.querySelectorAll=query;done({samples,scans,base:{x:base.x,w:base.width},sameCanvas:canvas===document.querySelector('.dcb-particle-layer canvas')})}};requestAnimationFrame(take)
+  }))
+  const close=await capture(),open=await capture()
+  writeFileSync(resolve(output,'drawer-motion.json'),JSON.stringify({close,open},null,2))
+  for(const [direction,result]of [['close',close],['open',open]]){
+   const mid=result.samples.filter(s=>s.width>3&&s.width<277)
+   assert.ok(mid.length>=3,direction+' has rendered intermediate widths')
+   assert.ok(mid.some(s=>s.opacity>0&&s.opacity<.98&&s.moving),direction+' fades content during the drawer transition')
+   for(const s of result.samples){assert.ok(Math.abs(s.x-result.base.x)<.6&&Math.abs(s.w-result.base.w)<.6);assert.ok(Math.abs(s.buttonX-26)<.6&&Math.abs(s.buttonY-20)<.6,'the fixed toggle center never moves');assert.equal(s.transform,'none');assert.ok(s.scale>=.969&&s.scale<=1.001);assert.ok(Math.abs(s.iconX)<=2.05)}
+   assert.equal(result.sameCanvas,true);assert.ok(result.scans<18,'drawer frames do not rescan the entire UI: '+result.scans)
+  }
+  assert.ok(close.samples.some(s=>s.ghost),'the outgoing native content remains visible long enough to fade')
+  assert.equal(await page.locator('[data-dcb-sidebar-ghost]').count(),0)
+  const reversal=await page.locator('.sb_toggle').evaluate(button=>new Promise(done=>{button.click();setTimeout(()=>{const column=document.querySelector('.af_sidebarCol'),before=column.getBoundingClientRect().width;button.click();requestAnimationFrame(()=>done({before,after:column.getBoundingClientRect().width,ghosts:document.querySelectorAll('[data-dcb-sidebar-ghost]').length,transitions:column.getAnimations().filter(a=>a.transitionProperty==='width').length}))},90)}))
+  assert.ok(Math.abs(reversal.after-reversal.before)<24,'rapid reversal continues from the current width');assert.ok(reversal.ghosts<=1&&reversal.transitions<=1)
+  await page.waitForTimeout(650);assert.ok(Math.abs((await page.locator('.af_sidebarCol').boundingBox()).width-280)<.5)
+  await patch({sidebarMotion:false});await page.locator('.sb_toggle').click();await page.waitForTimeout(45)
+  assert.equal((await page.locator('.af_sidebarCol').boundingBox()).width,0)
+  assert.equal(await page.locator('[data-dcb-sidebar-ghost]').count(),0)
+  await page.locator('.sb_toggle').click();await patch({sidebarMotion:true,sidebarStyle:'milk'});await page.waitForTimeout(600)
+  writeFileSync(resolve(output,'drawer-motion.json'),JSON.stringify({close,open},null,2))
+ })
  await page.evaluate(()=>{window.overlayCanvas=document.querySelector('.dcb-particle-layer canvas');window.overlayEditor=document.querySelector('textarea');window.overlayMessage=document.querySelector('.message');document.querySelector('[data-conversation-scroll]').scrollTop=900;window.overlayEditor.focus();window.overlayEditor.setSelectionRange(2,7)})
  await check('native left and right toggles overlay the chat without changing any sampled message or editor geometry',async()=>{
   await sample(()=>page.locator('.sb_toggle').click())

@@ -1,3 +1,5 @@
+import {motion} from './motion.js'
+
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const FRAME='data-dcb-sidebar-overlay',PART='data-dcb-sidebar-overlay-part'
 const WIDTH='--dcb-overlay-left-width',RAIL='--dcb-overlay-rail',TOP='--dcb-overlay-top',BOTTOM='--dcb-overlay-bottom'
@@ -5,12 +7,14 @@ const WIDTH='--dcb-overlay-left-width',RAIL='--dcb-overlay-rail',TOP='--dcb-over
 export const sidebarOverlayCss=`
   body [${FRAME}]:not([data-dcb-focus-frame=on]) { grid-template-columns:var(${RAIL},0px) minmax(0px,1fr) 0px!important; column-gap:0!important; transition:none!important; }
   [${FRAME}] > [${PART}=center] { grid-area:1/2; min-width:0; isolation:isolate; }
-  [${FRAME}] > [${PART}=left] { position:absolute!important; top:var(${TOP},0px); bottom:var(${BOTTOM},0px); left:0; width:var(${WIDTH},280px); min-width:0; z-index:16; box-shadow:6px 0 18px #0000000d; }
+  [${FRAME}] > [${PART}=left] { position:absolute!important; top:var(${TOP},0px); bottom:var(${BOTTOM},0px); left:0; width:var(${WIDTH},280px); min-width:0; z-index:16; overflow:clip; box-shadow:6px 0 18px #0000000d; transition:none; }
+  [${FRAME}][data-dcb-sidebar-frame-motion=true]:not([data-dragging],[data-dcb-sidebar-resizing],[data-rightbar-instant],[data-rightbar-fullscreen]) > [${PART}=left] { transition:width ${motion.time.sidebar}ms ${motion.ease.smooth}; }
   [${FRAME}][data-sidebar-collapsed=true] > [${PART}=left] { box-shadow:none; }
   [${FRAME}] > [${PART}=right] { grid-area:1/3; width:0; min-width:0; z-index:16; overflow:visible; }
   [${FRAME}] > [data-side] { z-index:18; }
   [${FRAME}] > [data-shell-leading] { z-index:19; }
   @media(forced-colors:active) { [${FRAME}] > [${PART}=left] { box-shadow:none; } }
+  @media(prefers-reduced-motion:reduce), (forced-colors:active) { [${FRAME}] > [${PART}=left][${PART}=left] { transition:none; } }
 `
 
 // Keep native state, controls and occupants. Only remove their grid tracks;
@@ -39,7 +43,9 @@ export function createSidebarOverlay(doc,win,schedule=()=>{}){
         record.observer=new win.MutationObserver(schedule)
         record.observer.observe(frame,{attributes:true,attributeFilter:['style','class','data-sidebar-collapsed','data-rightbar-collapsed','data-dcb-focus-frame'],childList:true})
         record.resize=new win.ResizeObserver(schedule);record.resize.observe(frame)
-        const root=left.firstElementChild;if(root){record.observer.observe(root,{attributes:true,attributeFilter:['style','class']});record.resize.observe(root)}
+        // Native expanded width is published inline. Watching the collapsed
+        // auto-width root would rescan the whole UI on every drawer frame.
+        const root=left.firstElementChild;if(root)record.observer.observe(root,{attributes:true,attributeFilter:['style','class']})
         const bottom=children.find(child=>child.hasAttribute('data-shell-bottom'));if(bottom)record.resize.observe(bottom)
         for(const [node,kind]of [[left,'left'],[center,'center'],[right,'right']])if(node){record.parts.push([node,node.getAttribute(PART)]);node.setAttribute(PART,kind)}
         records.set(frame,record);frame.setAttribute(FRAME,'')

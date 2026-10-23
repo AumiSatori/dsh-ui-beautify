@@ -178,7 +178,7 @@ try{
    await page.mouse.move(1100,850)
    const open=root.getByRole('button',{name:'展开左侧栏',exact:true});assert.equal(await open.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),true)
    const iconState=await open.locator('.sb_panelIcon').evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {display:s.display,visibility:s.visibility,opacity:Number(s.opacity),width:r.width,height:r.height,color:s.color}});assert.notEqual(iconState.display,'none');assert.equal(iconState.visibility,'visible');assert.equal(iconState.opacity,1);assert.ok(iconState.width>=14&&iconState.height>=14,'the real native panel SVG remains visible without hover')
-   const pulse=await open.evaluate(el=>{el.click();return {scale:el.getAnimations().some(a=>a.effect.getKeyframes().some(frame=>Number(frame.scale)===.94)),ring:el.querySelector('.dcb-sidebar-toggle-ripple')!==null}})
+   const pulse=await open.evaluate(el=>{el.click();return {scale:el.getAnimations().some(a=>a.effect.getKeyframes().some(frame=>Number(frame.scale)===.97)),ring:el.querySelector('.dcb-sidebar-toggle-ripple')!==null}})
    assert.deepEqual(pulse,{scale:true,ring:false},'the installed native React toggle starts restrained feedback immediately without a ring')
    await settled();assert.equal(await root.getByRole('button',{name:'收起左侧栏',exact:true}).count(),1);assert.equal(await root.evaluate(el=>el.parentElement.getBoundingClientRect().width),260)
   }

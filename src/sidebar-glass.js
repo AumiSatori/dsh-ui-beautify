@@ -86,13 +86,12 @@ export function createSidebarGlass(doc,win,schedule){
     const button=record.button
     if(!button||typeof button.animate!=='function')return
     const icon=button.querySelector('[class$="_panelIcon"], [class*="_panelIcon "], svg')
-    const running=record.animations.size>0
-    const scale=running?win.getComputedStyle(button).scale:'.94'
-    const fromIcon=icon&&running?win.getComputedStyle(icon).transform:null
+    const scale=win.getComputedStyle(button).scale
+    const fromIcon=icon&&win.getComputedStyle(icon).transform
     stopAnimations(record)
-    const options={duration:motion.time.standard,easing:motion.ease.snappy}
-    const animations=[button.animate([{scale},{scale:'1'}],options)]
-    if(icon)animations.push(icon.animate([{transform:fromIcon||`translateX(${collapsed?-6:6}px) scaleX(${collapsed?-1:1}) scale(.94)`,opacity:.65},{transform:`scaleX(${collapsed?-1:1})`,opacity:1}],options))
+    const options={duration:motion.time.standard,easing:motion.ease.smooth}
+    const animations=[button.animate([{scale},{scale:'.97',offset:.2},{scale:'1'}],options)]
+    if(icon)animations.push(icon.animate([{transform:fromIcon||'none',opacity:1},{transform:`translateX(${collapsed?-2:2}px) scaleX(${collapsed?-1:1})`,opacity:.75,offset:.45},{transform:`scaleX(${collapsed?-1:1})`,opacity:1}],options))
     for(const animation of animations){record.animations.add(animation);animation.finished.then(()=>{record.animations.delete(animation);animation.cancel()},()=>record.animations.delete(animation))}
   }
   function startMoving(record){
@@ -102,7 +101,8 @@ export function createSidebarGlass(doc,win,schedule){
     else layout.release(record.frame)
     // Wait for the native grid track before initializing the refraction map.
     // Keep a bounded timer so interrupted transitions and hidden windows settle.
-    const style=win.getComputedStyle(record.frame),times=value=>value.split(',').map(s=>parseFloat(s)*(s.trim().endsWith('ms')?1:1000)||0)
+    const seat=record.frame.hasAttribute('data-dcb-sidebar-overlay')?record.column:record.frame
+    const style=win.getComputedStyle(seat),times=value=>value.split(',').map(s=>parseFloat(s)*(s.trim().endsWith('ms')?1:1000)||0)
     const durations=times(style.transitionDuration),delays=times(style.transitionDelay)
     const duration=Math.max(0,...durations.map((value,i)=>value+delays[i%delays.length]))
     if(!duration){layout.release(record.frame);record.settleTimer=0;record.moving=false;restore(record.root,MOVING,record.movingMark);stopContent(record);return}
@@ -115,7 +115,7 @@ export function createSidebarGlass(doc,win,schedule){
     record.settleTimer=win.setTimeout(()=>{
       // Under long-history load, style resolution can start the grid transition
       // later than the click. Do not release against an estimated wall clock.
-      const tracks=record.frame.getAnimations().filter(animation=>animation.transitionProperty==='grid-template-columns'&&['pending','running'].includes(animation.playState))
+      const tracks=seat.getAnimations().filter(animation=>['width','grid-template-columns'].includes(animation.transitionProperty)&&['pending','running'].includes(animation.playState))
       if(tracks.length)Promise.allSettled(tracks.map(animation=>animation.finished)).then(settle)
       else settle()
     },Math.min(1000,duration+40))
@@ -129,7 +129,7 @@ export function createSidebarGlass(doc,win,schedule){
       if(record&&(record.column!==column||record.frame!==frame)){release(record);records.delete(root);record=null}
       if(!record){
         record={root,column,frame,collapsed,inlineWidth:root.style.width,animations:new Set(),contentAnimations:new Set(),dirty:true,moving:false,movingMark:root.getAttribute(MOVING),frameMark:frame.getAttribute(FRAME),resizingMark:frame.getAttribute(RESIZING)}
-        record.resize=new win.ResizeObserver(()=>{record.dirty=true;schedule()});record.resize.observe(root)
+        record.resize=new win.ResizeObserver(()=>{record.dirty=true;if(!record.moving)schedule()});record.resize.observe(root)
         record.observer=new win.MutationObserver(entries=>{
           if(frame.matches('[data-dragging], [data-rightbar-instant], [data-rightbar-fullscreen]'))layout.release(frame)
           else if(record.animate&&entries.some(entry=>entry.target===frame&&entry.attributeName==='data-sidebar-collapsed'))layout.hold(frame)

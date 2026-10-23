@@ -2,7 +2,7 @@ import {motion} from './motion.js'
 
 const tabs=[['panel','任务面板'],['composer','输入栏'],['sidebar','侧栏'],['welcome','开屏欢迎'],['background','全图背景'],['particles','粒子背景'],['messages','对话动效']]
 export const settingsTabsCss=`
-  .dcb-settings-tabs { min-width:0; position:relative; }
+  .dcb-settings-tabs { min-width:0; position:relative; container:dcb-settings-tabs / inline-size; }
   .dcb-settings-tabbar { position:sticky; top:0; z-index:10; display:flex; flex-wrap:wrap; gap:4px; margin:0 0 16px; padding:5px; border:1px solid var(--dsh-settings-border); border-radius:12px; background:var(--dsh-settings-surface); box-shadow:0 2px 8px #00000007; }
   .dcb-settings-tabbar button { flex:1 1 86px; min-width:0; padding:9px 12px; border:1px solid transparent; border-radius:8px; background:transparent; color:var(--dsh-settings-secondary); font:500 13px/20px system-ui,sans-serif; white-space:nowrap; cursor:pointer; transition:background-color 220ms ${motion.ease.color},color 220ms ${motion.ease.color},border-color 220ms ${motion.ease.color},transform 220ms ${motion.ease.smooth}; }
   .dcb-settings-tabbar button:hover { background:#8881; color:var(--dsh-settings-text); }
@@ -12,6 +12,11 @@ export const settingsTabsCss=`
   .dcb-settings-tab-stage,.dcb-settings-tab-page { min-width:0; }
   .dcb-settings-tab-page { container:dcb-settings-page / inline-size; }
   .dcb-settings-tab-page > .dcb-settings-card { animation:none; }
+  @container dcb-settings-tabs (max-width:580px) {
+    .dcb-settings-tabbar { flex-wrap:nowrap; overflow-x:auto; overscroll-behavior-x:contain; scrollbar-width:none; }
+    .dcb-settings-tabbar::-webkit-scrollbar { display:none; }
+    .dcb-settings-tabbar button { flex:0 0 auto; min-width:84px; min-height:44px; padding:9px 14px; }
+  }
   @container dcb-settings-page (max-width:640px) { .dcb-style-options { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; } }
   @container dcb-settings-page (max-width:340px) { .dcb-style-options { grid-template-columns:minmax(0,1fr); } }
   @media(prefers-reduced-motion:reduce) { .dcb-settings-tabbar button { transition:none; } }
@@ -26,8 +31,21 @@ export function createSettingsTabs(React,doc,win){
   return function SettingsTabs({children,onLeave}){
     const [selected,setSelected]=React.useState(remembered),[shown,setShown]=React.useState(remembered)
     const root=React.useRef(null),stage=React.useRef(null),page=React.useRef(null),selectedRef=React.useRef(selected),shownRef=React.useRef(shown),sequence=React.useRef(0),animations=React.useRef([]),pending=React.useRef(null),live=React.useRef(true)
-    const uid=React.useId(),pages=React.Children.toArray(children)
+    const uid=React.useId(),pages=React.Children.toArray(children),tabReady=React.useRef(false)
     const quiet=()=>doc.hidden||win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)').matches
+    const keepTabVisible=(id,animate=false)=>{
+      const button=doc.getElementById(`${uid}-tab-${id}`),bar=button?.parentElement
+      if(!bar||bar.scrollWidth<=bar.clientWidth)return
+      const item=button.getBoundingClientRect(),box=bar.getBoundingClientRect(),left=item.left-box.left-6,right=item.right-box.right+6
+      const delta=left<0?left:right>0?right:0
+      if(delta)bar.scrollTo({left:bar.scrollLeft+delta,behavior:animate&&!quiet()?'smooth':'auto'})
+    }
+    React.useLayoutEffect(()=>{keepTabVisible(selected,tabReady.current);tabReady.current=true},[selected])
+    React.useEffect(()=>{
+      const resize=new win.ResizeObserver(()=>keepTabVisible(selectedRef.current))
+      resize.observe(root.current)
+      return()=>resize.disconnect()
+    },[])
     const clear=()=>{
       for(const animation of animations.current)animation.cancel();animations.current=[]
       if(stage.current){stage.current.style.removeProperty('height');stage.current.style.removeProperty('overflow');stage.current.setAttribute('data-state','idle')}

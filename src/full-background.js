@@ -1,4 +1,4 @@
-import {normalizeBackground,createBackgroundStore,inspectBackgroundMedia} from './background-media.js'
+import {normalizeBackground,createBackgroundStore,inspectBackgroundMedia,backgroundThumbnail} from './background-media.js'
 export {normalizeBackground} from './background-media.js'
 
 const FLAG='data-dcb-background',SURFACE='data-dcb-background-surface'
@@ -82,8 +82,7 @@ export function createFullBackground(doc,win){
       const ready=()=>{
         if(disposed||token!==generation||loaded)return
         loaded=true;win.clearTimeout(timer);timer=0
-        let preview=''
-        try{const canvas=doc.createElement('canvas'),scale=Math.min(1,480/asset.width);canvas.width=Math.max(1,Math.round(asset.width*scale));canvas.height=Math.max(1,Math.round(asset.height*scale));canvas.getContext('2d').drawImage(player,0,0,canvas.width,canvas.height);preview=canvas.toDataURL('image/jpeg',.75)}catch{/* Preview failure never removes a usable background. */}
+        const preview=asset.preview||backgroundThumbnail(player,asset,doc)
         publish({error:'',preview});syncSurfaces();playback()
       }
       if(assetKind==='video'){player.muted=true;player.defaultMuted=true;player.loop=true;player.playsInline=true;player.preload='auto';player.disablePictureInPicture=true;player.onloadeddata=ready}
@@ -97,9 +96,24 @@ export function createFullBackground(doc,win){
     const next=normalizeBackground(value)
     if(next.backgroundSound!==settings.backgroundSound){soundBlocked=false;publish({notice:''})}
     settings=next
-    if(infoRevision!==settings.backgroundRevision){infoRevision=settings.backgroundRevision;const revision=infoRevision;if(revision)store.read().then(state=>{if(infoRevision===revision)publish({hasPrevious:!!state.previous})},()=>{});else publish({hasPrevious:false})}
+    if(infoRevision!==settings.backgroundRevision){
+      infoRevision=settings.backgroundRevision;const revision=infoRevision
+      publish({preview:''})
+      if(revision)store.read().then(async state=>{
+        if(disposed||infoRevision!==revision)return
+        publish({hasPrevious:!!state.previous})
+        if(state.current?.revision!==revision)return
+        if(state.current.preview)publish({preview:state.current.preview})
+        else if(!settings.backgroundEnabled){
+          // Upgrade older files once in memory. Decode only a first frame and
+          // release it immediately; the settings page never loops a second video.
+          try{const asset=await inspectBackgroundMedia(state.current.blob,doc,win);if(infoRevision===revision)publish({preview:asset.preview})}catch{/* The real player reports any asset error when enabled. */}
+        }
+      },()=>{})
+      else publish({hasPrevious:false})
+    }
     const key=settings.backgroundEnabled?settings.backgroundRevision:''
-    if(key!==wanted){wanted=key;publish({error:'',notice:'',preview:''});if(key)load(key);else{generation++;releaseMedia()}}
+    if(key!==wanted){wanted=key;publish({error:'',notice:''});if(key)load(key);else{generation++;releaseMedia()}}
     appearance();syncSurfaces();playback()
   }
   // Chat scrolling and streaming do not rescan the layout or redraw an image.

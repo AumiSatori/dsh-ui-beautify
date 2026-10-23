@@ -57,6 +57,8 @@ test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize({sidebarStyle:'clear'}).sidebarStyle, 'clear')
   assert.equal(normalize(null).sidebarMotion, true)
   assert.equal(normalize(null).sidebarOverlay, true)
+  assert.equal(normalize(null).headerCentered, true)
+  assert.equal(normalize({headerCentered:false}).headerCentered, false)
   assert.equal(normalize({sidebarOverlay:false}).sidebarOverlay, false)
   assert.equal(normalize({sidebarMotion:false}).sidebarMotion, false)
   assert.equal(normalize({ chatUnderComposer: 'false' }).chatUnderComposer, false)

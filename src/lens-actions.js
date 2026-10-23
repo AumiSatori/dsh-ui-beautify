@@ -6,6 +6,7 @@ export {createContextParticles,normalizeParticles,contextParticlesCss} from './c
 export {createParticleSettings,particleSettingsCss} from './context-particle-settings.js'
 export {createSidebarGlass} from './sidebar-glass.js'
 export {createSidebarOverlay,sidebarOverlayCss} from './sidebar-overlay.js'
+export {createHeaderLayout,headerLayoutCss} from './header-layout.js'
 export {createThemeToggle,themeToggleCss} from './theme-toggle.js'
 export {createFocusMode,focusModeCss} from './focus-mode.js'
 export {createComposerSlots,composerSlotsCss} from './composer-slots.js'

@@ -147,5 +147,34 @@ try{
     assert.equal(await tabAnimations(),0);assert.equal(await page.locator('.dcb-settings-tab-stage').count(),0)
     await page.evaluate(()=>{for(const cb of window.cleanups.reverse())cb?.()})
   })
+  await check('settings categories survive closing and reload without changing appearance preferences; invalid memory returns to the first category',async()=>{
+    const tabKey='dsh-ui-beautify:settings-tab:v1'
+    await page.reload();await mount();await page.evaluate(()=>window.fixture.settings(true))
+    await select('粒子背景');const preferences=await saved()
+    await page.evaluate(()=>window.fixture.settings(false));await page.evaluate(()=>window.fixture.settings(true))
+    assert.equal(await tabs.getByRole('tab',{name:'粒子背景',exact:true}).getAttribute('aria-selected'),'true')
+    assert.equal(await page.evaluate(key=>localStorage.getItem(key),tabKey),'particles')
+    await page.reload();await mount();await page.evaluate(()=>window.fixture.settings(true))
+    assert.equal(await tabs.getByRole('tab',{name:'粒子背景',exact:true}).getAttribute('aria-selected'),'true')
+    assert.equal(await page.locator('[data-dcb-settings-block]').count(),1)
+    assert.deepEqual(await saved(),preferences)
+    await page.evaluate(key=>localStorage.setItem(key,'removed-category'),tabKey)
+    await page.reload();await mount();await page.evaluate(()=>window.fixture.settings(true))
+    assert.equal(await tabs.getByRole('tab',{name:'任务面板',exact:true}).getAttribute('aria-selected'),'true')
+  })
+  await check('blocked browser storage retains the last category within this window and does not stop settings interactions',async()=>{
+    await page.evaluate(()=>localStorage.setItem('dsh-ui-beautify:settings-tab:v1','particles'))
+    await page.reload();await mount();await page.evaluate(()=>window.fixture.settings(true))
+    await page.evaluate(key=>{
+      const get=Storage.prototype.getItem,set=Storage.prototype.setItem
+      Storage.prototype.getItem=function(name){if(name===key)throw new DOMException('blocked','SecurityError');return get.call(this,name)}
+      Storage.prototype.setItem=function(name,value){if(name===key)throw new DOMException('blocked','SecurityError');return set.call(this,name,value)}
+    },'dsh-ui-beautify:settings-tab:v1')
+    await page.evaluate(()=>window.fixture.settings(false));await page.evaluate(()=>window.fixture.settings(true))
+    assert.equal(await tabs.getByRole('tab',{name:'粒子背景',exact:true}).getAttribute('aria-selected'),'true')
+    await select('对话动效');await page.evaluate(()=>window.fixture.settings(false));await page.evaluate(()=>window.fixture.settings(true))
+    assert.equal(await tabs.getByRole('tab',{name:'对话动效',exact:true}).getAttribute('aria-selected'),'true')
+    await select('输入栏');assert.equal(await page.locator('[data-dcb-settings-block="composer"]').count(),1)
+  })
   assert.deepEqual(errors,[]);console.log(JSON.stringify({passed,output}))
 }finally{await browser.close();await new Promise(done=>server.close(done))}

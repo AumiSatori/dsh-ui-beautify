@@ -1,7 +1,7 @@
 {
   "name": "dsh-claude-beautify",
   "displayName": "UI动效美化",
-  "version": "0.3.55",
+  "version": "0.3.56",
   "private": true,
   "type": "module",
   "description": "UI动效美化：独立配置左侧栏、任务卡片与输入栏的玻璃样式、进度与切换动效。",
@@ -24,7 +24,8 @@
     "README.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
-    "vendor/lens/LICENSE"
+    "vendor/lens/LICENSE",
+    "docs/FEATURES.md"
   ],
   "scripts": {
     "build:lens": "node scripts/build-lens.mjs",

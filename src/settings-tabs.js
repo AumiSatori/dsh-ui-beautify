@@ -1,6 +1,7 @@
 import {motion} from './motion.js'
 
 const tabs=[['panel','任务面板'],['composer','输入栏'],['sidebar','侧栏'],['welcome','开屏欢迎'],['background','全图背景'],['particles','粒子背景'],['messages','对话动效']]
+export const SETTINGS_TAB_KEY='dsh-ui-beautify:settings-tab:v1'
 export const settingsTabsCss=`
   .dcb-settings-tabs { min-width:0; position:relative; container:dcb-settings-tabs / inline-size; }
   .dcb-settings-tabbar { position:sticky; top:0; z-index:10; display:flex; flex-wrap:wrap; gap:4px; margin:0 0 16px; padding:5px; border:1px solid var(--dsh-settings-border); border-radius:12px; background:var(--dsh-settings-surface); box-shadow:0 2px 8px #00000007; }
@@ -24,12 +25,16 @@ export const settingsTabsCss=`
 `
 
 // Only the active category mounts: hidden previews cannot keep decoding or drawing.
-// Category memory belongs to this page, separate from appearance preferences.
+// Remember only a validated category id, separate from appearance preferences.
 export function createSettingsTabs(React,doc,win){
   let remembered='panel'
+  const restore=()=>{
+    try{const value=win.localStorage.getItem(SETTINGS_TAB_KEY);remembered=tabs.some(([id])=>id===value)?value:'panel';return remembered}
+    catch{return remembered}
+  }
   const h=React.createElement
   return function SettingsTabs({children,onLeave}){
-    const [selected,setSelected]=React.useState(remembered),[shown,setShown]=React.useState(remembered)
+    const [selected,setSelected]=React.useState(restore),[shown,setShown]=React.useState(selected)
     const root=React.useRef(null),stage=React.useRef(null),page=React.useRef(null),selectedRef=React.useRef(selected),shownRef=React.useRef(shown),sequence=React.useRef(0),animations=React.useRef([]),pending=React.useRef(null),live=React.useRef(true)
     const uid=React.useId(),pages=React.Children.toArray(children),tabReady=React.useRef(false)
     const quiet=()=>doc.hidden||win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)').matches
@@ -89,6 +94,7 @@ export function createSettingsTabs(React,doc,win){
       const height=stage.current.getBoundingClientRect().height,paint=win.getComputedStyle(page.current),from={opacity:paint.opacity,transform:paint.transform,filter:paint.filter}
       sequence.current++;const token=sequence.current;clear()
       selectedRef.current=id;remembered=id;setSelected(id);onLeave?.(shownRef.current,id)
+      try{win.localStorage.setItem(SETTINGS_TAB_KEY,id)}catch{/* Keep this window's category memory when browser storage is unavailable. */}
       // Reset only this settings column when its sticky categories were scrolled.
       for(let parent=root.current.parentElement;parent;parent=parent.parentElement){
         if(!/(auto|scroll)/.test(win.getComputedStyle(parent).overflowY)||parent.scrollHeight<=parent.clientHeight)continue

@@ -22,7 +22,7 @@ function Header({right,settings,kind,leading}){
   if(name==='conversation.session.header')return <ConversationSessionHeader {...props} sessionId="demo" useSessions={selector=>selector({byId:{demo:{id:'demo',displayTitle:'GitHub 仓库能否作 DSH 背景'}}})} useConversationViews={selector=>selector(tabs)} useStore={selector=>selector({view})} renderSlot={renderSlot} selectView={setView} open={()=>{}} t={key=>key}/>;
   if(name==='conversation.header.leading')return leading?<button aria-label="返回工作区" onClick={()=>window.headerActions++}>⌂</button>:null;
   if(name==='conversation.session.header.actions')return <><button>标准模式</button><button>6 个智能体⌄</button></>;
-  if(name==='conversation.session.header.utilities')return <><button aria-label="打开目录" onClick={()=>window.headerActions++}>📁⌄</button><button className="demo-theme" aria-label="日夜切换">☀︎ ━</button><focus.Button/><button aria-label="全部轮次" onClick={()=>window.headerActions++}>◈ 全部 17 轮</button><button aria-label="打开设置" onClick={settings}>设置</button></>;
+  if(name==='conversation.session.header.utilities')return <><button aria-label="打开目录" onClick={()=>window.headerActions++}>📁⌄</button><button className="demo-theme" aria-label="日夜切换">☀︎ ━</button><focus.Button/><span className="dcb-anchor"><button className="dcb-entry" aria-label="全部轮次" onClick={()=>window.headerActions++}>◈ 全部 17 轮</button></span><button aria-label="打开设置" onClick={settings}>设置</button></>;
   if(name==='conversation.session.header.corner')return <button aria-label="切换右侧栏" onClick={right}>▥</button>;
   return null;
  };
@@ -38,7 +38,7 @@ function Demo(){
  const renderSlot=(name,props)=>{
   if(name==='sidebar')return <SidebarRoot {...props} toggleSidebar={left} startSession={()=>{}} selectPanel={()=>{}} usePanels={()=>[]} useShortcuts={()=>[]} usePanelInfo={selector=>selector({activePanelId:null})} t={key=>key==='toggle.open'?'打开左侧栏':key==='toggle.collapse'?'收起左侧栏':key} renderSlot={(slot)=>slot==='sidebar.sessions'?<div style={{height:'100%',overflow:'auto'}}>{Array.from({length:40},(_,i)=><button className="sb_sessionRow" key={i}>会话 {i+1}</button>)}</div>:null}/>;
   if(name==='main')return globalPanel?<div data-testid="global-panel">插件页面</div>:<main className="cr_root" data-phase="active"><Header right={right} settings={()=>setSettings(true)} kind={headerKind} leading={leading}/><div className="cr_body" data-conversation-content="" data-conversation-session="demo"><div data-conversation-scroll="" className="chat-scroll"><article data-chat-flow="">{Array.from({length:180},(_,i)=><p key={i} className="message">演示消息 {i+1}：左右侧栏覆盖主屏幕，正文宽度、滚动位置和输入草稿不会随开合改变。保留真实控件和粒子画布。</p>)}</article></div><div data-composer-seat="" className="composer"><textarea aria-label="输入草稿" defaultValue="保留输入草稿和选区"/></div></div></main>;
-  if(name==='rightbar')return <div className="rb_panel" data-sidebar-right-panel={layout.rightbarFullscreen?'fullscreen':'push'} data-sidebar-right-open={layout.rightbarShown||undefined} style={{width:layout.rightbarFullscreen?'100vw':props.width,'--dsh-sidebar-width':props.width+'px'}}><div data-dockkit-empty="" className="right-content"><button aria-label="收起右侧栏" onClick={right}>关闭右侧栏</button><h2>原生右侧面板</h2><input aria-label="右侧草稿" defaultValue="保留文件面板状态"/></div></div>;
+  if(name==='rightbar')return <div className="rb_panel" data-sidebar-right-panel={layout.rightbarFullscreen?'fullscreen':'push'} data-sidebar-right-open={layout.rightbarShown||undefined} style={{width:layout.rightbarFullscreen?'100vw':props.width,'--dsh-sidebar-width':props.width+'px'}}><div data-dockkit-empty="" className="right-content"><div className="preview-toolbar"><span>preview.html</span><button aria-label="预览布局">▥</button><button aria-label="预览全屏" onClick={()=>window.fixture.fullscreen(!layout.rightbarFullscreen)}>⛶</button><button aria-label="收起右侧栏" onClick={right}>▥</button></div><h2>原生右侧面板</h2><input aria-label="右侧草稿" defaultValue="保留文件面板状态"/></div></div>;
   if(name==='shell.bottom')return <div className="bottom">原生底栏</div>;
   if(name==='shell.overlay'&&settings&&window.fixtureSettings)return <div className="settings-dialog" role="dialog"><button aria-label="关闭设置" onClick={()=>setSettings(false)}>×</button><window.fixtureSettings/></div>;
   return null;
@@ -48,7 +48,7 @@ function Demo(){
 createRoot(document.getElementById('root')).render(<Demo/>);`
 const built=await build({stdin:{contents:demo,loader:'jsx',resolveDir:project},bundle:true,write:false,format:'iife'})
 const html=`<!doctype html><html data-windows-titlebar><meta charset="utf-8"><style>${native.css}
-:root{--dsh-windows-titlebar-height:40px;--dsw-alias-bg-base:#fff;--dsw-specific-sidebar-fill:#f5f6f8;--dsw-alias-label-primary:#23262c;--dsw-alias-label-secondary:#6a707c;--dsw-alias-border-l3:#ccd1da;--ds-transition-duration-slow:320ms;--ds-ease-in-out:ease-in-out}*{box-sizing:border-box}html,body,#root{height:100%;margin:0;font:14px system-ui}.cr_root{display:flex;flex-direction:column;min-height:0;height:100%}button{cursor:pointer;font:inherit}.cr_header button{flex:none;border:0;border-radius:7px;padding:5px 8px;background:transparent;color:inherit;min-height:30px}.cr_header .demo-theme{width:70px;background:#e5f3fd}.cr_body{position:relative;display:flex;flex-direction:column;flex:1;min-height:0}.chat-scroll{flex:1;overflow:auto;min-height:0;overflow-anchor:none}article{max-width:980px;width:calc(100% - 64px);margin:auto;padding:24px 0}.message{line-height:1.9;margin:0 0 14px}.composer{flex:none;padding:14px 28px 20px}textarea{width:100%;height:86px;resize:none;padding:15px;border-radius:16px;border:1px solid #bbb;background:#fff;color:inherit;font:inherit}.sb_sessionRow{display:block;width:100%;height:38px;border:0;background:transparent;text-align:left}.bottom{height:26px;padding:3px 20px}.right-content{height:100%;background:#f3f5f9;padding:20px;pointer-events:auto;border-left:1px solid #ccc}.settings-dialog{position:fixed;inset:40px 10%;background:white;overflow:auto;border-radius:14px;padding:24px;box-shadow:0 8px 80px #0004;pointer-events:auto}.settings-dialog>button{position:absolute;right:10px;top:10px}body[data-ds-dark-theme]{--dsw-alias-bg-base:#202226;--dsw-specific-sidebar-fill:#272a30;--dsw-alias-label-primary:#eee;--dsw-alias-label-secondary:#ccc;color:#eee}body[data-ds-dark-theme] :is(textarea,.right-content,.settings-dialog){background:#272a30;color:#eee}.af_sidebarCol{background:var(--dsw-specific-sidebar-fill)}
+:root{--dsh-windows-titlebar-height:40px;--dsw-alias-bg-base:#fff;--dsw-specific-sidebar-fill:#f5f6f8;--dsw-alias-label-primary:#23262c;--dsw-alias-label-secondary:#6a707c;--dsw-alias-border-l3:#ccd1da;--ds-transition-duration-slow:320ms;--ds-ease-in-out:ease-in-out}*{box-sizing:border-box}html,body,#root{height:100%;margin:0;font:14px system-ui}.cr_root{display:flex;flex-direction:column;min-height:0;height:100%}button{cursor:pointer;font:inherit}.cr_header button{flex:none;border:0;border-radius:7px;padding:5px 8px;background:transparent;color:inherit;min-height:30px}.cr_header .demo-theme{width:70px;background:#e5f3fd}.cr_body{position:relative;display:flex;flex-direction:column;flex:1;min-height:0}.chat-scroll{flex:1;overflow:auto;min-height:0;overflow-anchor:none}article{max-width:980px;width:calc(100% - 64px);margin:auto;padding:24px 0}.message{line-height:1.9;margin:0 0 14px}.composer{flex:none;padding:14px 28px 20px}textarea{width:100%;height:86px;resize:none;padding:15px;border-radius:16px;border:1px solid #bbb;background:#fff;color:inherit;font:inherit}.sb_sessionRow{display:block;width:100%;height:38px;border:0;background:transparent;text-align:left}.bottom{height:26px;padding:3px 20px}.right-content{height:100%;background:#f3f5f9;pointer-events:auto;border-left:1px solid #ccc}.preview-toolbar{display:flex;align-items:center;gap:8px;height:50px;padding:10px 12px;border-bottom:1px solid #ddd;background:white}.preview-toolbar>span{flex:1;min-width:0}.preview-toolbar>button{width:30px;height:30px;flex:none;border:0;background:transparent;padding:0}.right-content>h2,.right-content>input{margin:20px}.settings-dialog{position:fixed;inset:40px 10%;background:white;overflow:auto;border-radius:14px;padding:24px;box-shadow:0 8px 80px #0004;pointer-events:auto}.settings-dialog>button{position:absolute;right:10px;top:10px}body[data-ds-dark-theme]{--dsw-alias-bg-base:#202226;--dsw-specific-sidebar-fill:#272a30;--dsw-alias-label-primary:#eee;--dsw-alias-label-secondary:#ccc;color:#eee}body[data-ds-dark-theme] :is(textarea,.right-content,.settings-dialog){background:#272a30;color:#eee}.af_sidebarCol{background:var(--dsw-specific-sidebar-fill)}
 </style><div id="root"></div><script src="/demo.js"></script></html>`
 const routes={'/':['text/html; charset=utf-8',html],'/demo.js':['text/javascript',built.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'),'utf8')]}
 const server=createServer((req,res)=>{const route=routes[new URL(req.url,'http://localhost').pathname];if(!route)return res.writeHead(404).end();res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
@@ -79,11 +79,24 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
 try{
  await page.addInitScript(key=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,particleProgressMode:'manual',particleManualProgress:65}))},key)
  await mount()
- await check('the native header centers title, controls and tabs without replacing any controls, and its setting persists independently',async()=>{
+ await check('the native title and tabs stay centered while utilities and the sidebar switch dock at the right edge without replacing controls',async()=>{
   await page.locator('.sb_toggle').click();await page.waitForTimeout(400)
   const row=await page.locator('.cr_titleRow').boundingBox(),tabs=await page.locator('[data-conversation-tabs]').boundingBox()
   assert.ok(Math.abs(row.x+row.width/2-720)<.6,JSON.stringify({row,tabs,header:await page.locator('.cr_header').evaluate(el=>({marked:el.hasAttribute('data-dcb-header-centered'),columns:getComputedStyle(el).gridTemplateColumns,leading:el.firstElementChild.outerHTML}))}));assert.ok(row.width<=1160)
   assert.ok(Math.abs(tabs.x+tabs.width/2-720)<.6)
+  const corner=await page.getByRole('button',{name:'切换右侧栏',exact:true}).boundingBox(),tools=await page.locator('.cr_headerUtilities').boundingBox()
+  assert.ok(Math.abs(corner.x+corner.width-1428)<.6,'the right-side switch stays at the actual conversation edge')
+  assert.ok(Math.abs(corner.y+corner.height/2-tools.y-tools.height/2)<.6,'the right-side switch and utilities share a baseline')
+  assert.ok(Math.abs(tools.x+tools.width+8-corner.x)<.6,'the utilities stay beside the right-side switch')
+  await page.getByRole('button',{name:'全部轮次',exact:true}).evaluate(el=>{window.savedEntryText=el.textContent;el.textContent='第 12 步，共 128 步'})
+  await page.waitForTimeout(100)
+  const growing=await page.locator('.cr_headerUtilities').boundingBox(),cluster=await page.locator('.cr_titleCluster').boundingBox()
+  assert.ok(cluster.x+cluster.width+11.5<=growing.x,'title text reserves room for growing live progress labels')
+  assert.ok(Math.abs(growing.x+growing.width+8-corner.x)<.6)
+  await page.getByRole('button',{name:'全部轮次',exact:true}).evaluate(el=>el.textContent=window.savedEntryText)
+  await page.getByRole('button',{name:'打开目录',exact:true}).evaluate(el=>el.style.display='none');await page.waitForTimeout(100)
+  const smaller=await page.locator('.cr_headerUtilities').boundingBox();assert.ok(Math.abs(smaller.x+smaller.width+8-corner.x)<.6)
+  await page.getByRole('button',{name:'打开目录',exact:true,includeHidden:true}).evaluate(el=>el.style.removeProperty('display'))
   await page.getByRole('button',{name:'全部轮次',exact:true}).click();assert.equal(await page.evaluate(()=>window.headerActions),1)
   await page.getByRole('tab',{name:'上下文',exact:true}).click();assert.equal(await page.getByRole('tab',{name:'上下文',exact:true}).getAttribute('aria-selected'),'true')
   await page.evaluate(()=>{window.savedHeaderButton=document.querySelector('[aria-label="全部轮次"]');window.savedDraft=document.querySelector('textarea');window.fixture.settings(true)})
@@ -110,6 +123,8 @@ try{
     for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){const a=boxes[i],b=boxes[j];if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>.5&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>.5)bad.push('overlap '+a.label+'/'+b.label)}
     return bad
    });assert.deepEqual(bad,[],String(width));assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+   const corner=await page.getByRole('button',{name:'切换右侧栏',exact:true}).boundingBox(),center=await page.locator('.af_centerCol').boundingBox()
+   assert.ok(Math.abs(corner.x+corner.width-center.x-center.width+12)<.6,'the right-side switch stays pinned at '+width)
    if(width===2048||width===390)await page.screenshot({path:resolve(output,`header-centered-${width}.png`)})
   }
   await page.getByRole('button',{name:'全部轮次',exact:true}).click();assert.equal(await page.evaluate(()=>window.headerActions),1)
@@ -133,6 +148,11 @@ try{
   await sample(()=>page.getByRole('button',{name:'切换右侧栏',exact:true}).click())
   await page.screenshot({path:resolve(output,'both-overlays.png')})
   const hit=await page.evaluate(()=>{const el=document.querySelector('.right-content'),r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.right-30,r.top+80))});assert.equal(hit,true,'right panel receives input above the chat')
+  assert.equal(await page.getByRole('button',{name:'全部轮次',exact:true}).evaluate(el=>{const r=el.getBoundingClientRect();return !!document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.right-content')}),true,'main-header icons cannot float onto the preview toolbar')
+  await page.getByRole('button',{name:'预览全屏',exact:true}).click();await page.waitForTimeout(120)
+  const previewHit=await page.getByRole('button',{name:'预览全屏',exact:true}).evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))});assert.equal(previewHit,true)
+  await page.screenshot({path:resolve(output,'preview-toolbar-fullscreen.png')})
+  await page.getByRole('button',{name:'预览全屏',exact:true}).click();await page.waitForTimeout(120)
   assert.equal(await page.evaluate(()=>document.querySelector('textarea')===window.overlayEditor&&document.querySelector('.message')===window.overlayMessage),true)
   assert.equal(await page.locator('textarea').inputValue(),'保留输入草稿和选区')
  })
@@ -159,6 +179,7 @@ try{
   await page.evaluate(()=>{window.overlayCanvas=document.querySelector('.dcb-particle-layer canvas');document.querySelector('[data-conversation-scroll]').scrollTop=900})
  })
  await check('focus mode, fullscreen right panel, dark narrow layout and motion preferences preserve native controls',async()=>{
+  if(await page.evaluate(()=>window.fixture.layout().rightbarShown)){await page.getByRole('button',{name:'收起右侧栏',exact:true}).click();await page.waitForTimeout(400)}
   await page.getByRole('button',{name:'进入专注模式',exact:true}).click();await page.waitForTimeout(600)
   assert.equal(await page.locator('textarea').isVisible(),false)
   await page.keyboard.press('Escape');await page.waitForTimeout(600);assert.equal(await page.locator('textarea').isVisible(),true)
@@ -187,6 +208,8 @@ try{
   assert.equal((await page.locator('.af_centerCol').boundingBox()).width,760)
   await page.evaluate(()=>{for(const cleanup of window.cleanups.reverse())if(typeof cleanup==='function')cleanup()})
   assert.equal(await page.locator('[data-dcb-sidebar-overlay],[data-dcb-sidebar-overlay-part],[data-dcb-header-centered]').count(),0)
+  assert.equal(await page.locator('[data-dcb-header-compact]').count(),0)
+  assert.equal(await page.locator('.cr_header').evaluate(el=>[...el.style].filter(name=>name.startsWith('--dcb-header-')).length),0)
   assert.equal(await page.locator('.af_frame').evaluate(el=>[...el.style].filter(name=>name.startsWith('--dcb-overlay-')).length),0)
   assert.ok((await geometry()).center[2]<760)
   assert.deepEqual(errors,[])

@@ -1509,6 +1509,10 @@ void main(){vec4 pixel=texture(u_image,v_uv);outColor=vec4(pixel.rgb,pixel.a*u_o
 
     const GLASS_PANEL = `:is(.dcb-summary, [${MARK}]):is([data-card-style="clear"], [data-card-style="css"], [data-card-style="glass"])`
     const css = `
+      /* Native expanded reasoning headers stay sticky without masking the conversation backdrop. */
+      [data-variant="think"][data-expanded] [data-open] [data-disclosure-header] {
+        background: transparent !important;
+      }
       [${MARK}] {
         position: fixed !important;
         inset: var(--dcb-top) auto auto var(--dcb-left) !important;

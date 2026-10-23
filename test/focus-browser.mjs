@@ -37,7 +37,7 @@ async function idle(){await page.waitForFunction(()=>!document.getAnimations().s
 async function boot({collapsed=false,native=true,glass=false,resident=false}={}){
   await page.goto(url);await page.getByTestId('todo-panel').waitFor()
   await page.evaluate(({key,glass})=>{
-    localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,sidebarStyle:glass?'css':'milk',composerStyle:glass?'css':'milk',composerButtonGlass:false,particleEnabled:false}))
+    localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,sidebarOverlay:false,sidebarStyle:glass?'css':'milk',composerStyle:glass?'css':'milk',composerButtonGlass:false,particleEnabled:false}))
     window.cleanups=[];window[Symbol.for('dsh-ui-beautify.startup-motion.v1')]=true;window.nativeChanges=0
     window.fixture.sidebar(true)
     window.themeListeners=new Set();let dark=false

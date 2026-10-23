@@ -64,6 +64,15 @@ export function backgroundMediaType(bytes){
   return null
 }
 
+export function backgroundThumbnail(media,{width,height},doc){
+  try{
+    const canvas=doc.createElement('canvas'),scale=Math.min(1,480/width,300/height)
+    canvas.width=Math.max(1,Math.round(width*scale));canvas.height=Math.max(1,Math.round(height*scale))
+    canvas.getContext('2d').drawImage(media,0,0,canvas.width,canvas.height)
+    return canvas.toDataURL('image/webp',.78)
+  }catch{return''}
+}
+
 export async function inspectBackgroundMedia(file,doc,win){
   if(!file?.size)throw Error('请选择非空的图片或视频')
   const type=backgroundMediaType(new Uint8Array(await file.slice(0,32).arrayBuffer()))
@@ -75,7 +84,7 @@ export async function inspectBackgroundMedia(file,doc,win){
     const meta=await new Promise((resolve,reject)=>{
       const timer=win.setTimeout(()=>done(Error('读取背景超时，请换一个较小的文件')),8000)
       const done=error=>{
-        win.clearTimeout(timer);media.onload=null;media.onloadedmetadata=null;media.onerror=null
+        win.clearTimeout(timer);media.onload=null;media.onloadeddata=null;media.onerror=null
         if(error){reject(error);return}
         const width=video?media.videoWidth:media.naturalWidth,height=video?media.videoHeight:media.naturalHeight,duration=video?media.duration:null
         if(!width||!height||width>16384||height>16384||width*height>33_554_432){reject(Error('画面过大，请缩小到 3300 万像素以内'));return}
@@ -83,10 +92,10 @@ export async function inspectBackgroundMedia(file,doc,win){
         resolve({width,height,duration})
       }
       media.onerror=()=>done(Error('无法解码这个背景，请换用常见图片、H.264 MP4 或 WebM'))
-      if(video){media.muted=true;media.preload='metadata';media.onloadedmetadata=()=>done()}
+      if(video){media.muted=true;media.preload='auto';media.onloadeddata=()=>done()}
       else media.onload=()=>done()
       media.src=url
     })
-    return{blob:new win.Blob([file],{type}),type,kind:video?'video':'image',name:String(file.name||'全图背景').slice(0,160),revision:win.crypto?.randomUUID?.()||String(Date.now()),...meta}
+    return{blob:new win.Blob([file],{type}),type,kind:video?'video':'image',name:String(file.name||'全图背景').slice(0,160),revision:win.crypto?.randomUUID?.()||String(Date.now()),preview:backgroundThumbnail(media,meta,doc),...meta}
   }finally{if(video)media.pause();media.removeAttribute('src');if(video)media.load();win.URL.revokeObjectURL(url)}
 }

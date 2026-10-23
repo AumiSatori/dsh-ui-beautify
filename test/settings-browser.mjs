@@ -129,7 +129,7 @@ try{
           assert.equal(await control.getAttribute('aria-checked'),original)
         }
       }
-      assert.equal(count,10)
+      assert.equal(count,11)
       await select('开屏欢迎');await page.mouse.move(1,1);await page.waitForTimeout(250)
       await dialog.screenshot({path:resolve(output,`switches-${dark?'dark':'light'}.png`)})
     }

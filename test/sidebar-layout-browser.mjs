@@ -33,13 +33,14 @@ if(process.env.DSH_ASAR){
 }
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'})
 const page=await browser.newPage({viewport:{width:1440,height:940}}),errors=[]
+await page.route('http://sidebar-layout.test/**',route=>route.fulfill({contentType:'text/html',body:'<!doctype html>'}))
 page.on('pageerror',error=>errors.push(error.message))
 const cdp=await page.context().newCDPSession(page);await cdp.send('Performance.enable')
 const evidence=[]
 async function metrics(){return Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map(m=>[m.name,m.value]))}
 async function settled(){await page.waitForFunction(()=>!document.querySelector('[data-dcb-sidebar-layout-lock], [data-dcb-sidebar-moving]'),null,{timeout:5000})}
 async function boot({mode='native',rows=600}={}){
-  await page.goto('about:blank')
+  await page.goto('http://sidebar-layout.test/')
   await page.setContent(`<!doctype html><html data-windows-titlebar><meta charset="utf-8"><style>${css}
   :root{--ds-transition-duration-slow:280ms;--ds-ease-in-out:cubic-bezier(.4,0,.2,1);--dsh-windows-titlebar-height:40px;--dsw-alias-bg-base:#fff;--dsw-specific-sidebar-fill:#f5f6f8;--dsw-alias-label-primary:#252832;--dsw-alias-label-secondary:#6e7483;--dsw-alias-border-l3:#e4e7ec}
   .cr_body{--dsh-chat-content-width:var(--dsh-chat-user-width,clamp(680px,calc(var(--dsh-conversation-column-width,0px) * .64),920px))}
@@ -67,6 +68,7 @@ async function boot({mode='native',rows=600}={}){
     await page.addScriptTag({content:reactBundle.outputFiles[0].text})
     await page.evaluate(()=>{
       window[Symbol.for('dsh-ui-beautify.startup-motion.v1')]=true;window.cleanups=[]
+      localStorage.setItem('dsh-claude-beautify:settings:v1',JSON.stringify({sidebarOverlay:false}))
       window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(()=>window.layoutTestReact)}
     })
     await page.addScriptTag({content:readFileSync(resolve(project,'client.js'),'utf8')})

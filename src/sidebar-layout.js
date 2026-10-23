@@ -52,7 +52,7 @@ export function createSidebarLayout(doc,win){
     else record.root.setAttribute(LOCK,record.mark)
   }
   function hold(frame,{prepare=false}={}){
-    if(frame.matches('[data-dragging], [data-dcb-sidebar-resizing], [data-rightbar-instant], [data-rightbar-fullscreen]')){release(frame);return false}
+    if(frame.matches('[data-dcb-sidebar-overlay], [data-dragging], [data-dcb-sidebar-resizing], [data-rightbar-instant], [data-rightbar-fullscreen]')){release(frame);return false}
     let record=records.get(frame)
     if(record&&(!record.root.isConnected||!record.body.isConnected||!frame.contains(record.root))){release(frame);record=null}
     if(!record){

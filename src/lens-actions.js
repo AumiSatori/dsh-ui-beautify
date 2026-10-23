@@ -1,4 +1,5 @@
 import {GlassRenderer} from '../vendor/lens/internal/renderer.js'
+export {observeReadingTurn} from './reading-turn.js'
 export {createContextParticles,normalizeParticles,contextParticlesCss} from './context-particles.js'
 export {createParticleSettings,particleSettingsCss} from './context-particle-settings.js'
 export {createSidebarGlass} from './sidebar-glass.js'

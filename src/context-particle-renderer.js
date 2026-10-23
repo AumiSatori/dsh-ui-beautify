@@ -44,7 +44,7 @@ return{points:[...ambient,...body],ratio:detail.width/detail.height,count:body.l
 export function createParticleScene(root,doc,win){
 const state={progress:0,target:0,budget:6400,budgetTarget:6400,view:1,light:0,lightTarget:0,time:0,width:1,height:1,dpr:1,ready:false,disposed:false,visible:true,mode:'',frames:0,maxPoints:0,artwork:'default',quality:'low'};
 const media=win.matchMedia('(prefers-reduced-motion: reduce)');
-let canvas=doc.createElement('canvas'),renderer=null,points=[],raf=0,last=0,lastDraw=0,rect=[0,0,1,1],field=[0,0,1,1],detailImage=null,model=null,geometry={width:1,height:1,bottom:1},shapeAnimation=null;
+let canvas=doc.createElement('canvas'),renderer=null,points=[],raf=0,timer=0,last=0,dirty=true,rect=[0,0,1,1],field=[0,0,1,1],detailImage=null,model=null,geometry={width:1,height:1,bottom:1},shapeAnimation=null;
 canvas.setAttribute('aria-hidden','true');root.append(canvas);
 const detailBlend=p=>state.artwork==='whale'?0:smooth(.5,1,p);
 const population=p=>.01+.99*Math.pow(clamp(p),.9);
@@ -126,7 +126,7 @@ function createGPU(){
       if(fidelity>0){gl.useProgram(detailProgram);gl.bindVertexArray(detailVAO);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(detailU.image,0);gl.uniform2f(detailU.view,state.width,state.height);gl.uniform4fv(detailU.rect,rect);gl.uniform1f(detailU.opacity,fidelity*mix(1,.62,state.view));gl.drawArrays(gl.TRIANGLES,0,6)}
       gl.useProgram(program);gl.bindVertexArray(pointVAO);gl.uniform2f(u.view,state.width,state.height);gl.uniform4fv(u.rect,rect);gl.uniform4fv(u.field,field);
       for(const[key,value]of Object.entries({progress:state.progress,time:state.time,budget:state.budget,light:state.light,chat:state.view,dpr:state.dpr,still:media.matches?1:0,custom:state.artwork==='svg'?1:0,whale:state.artwork==='whale'?1:0}))gl.uniform1f(u[key],value);
-      gl.drawArrays(gl.POINTS,0,AMBIENT+Math.min(state.maxPoints,Math.ceil(state.budget*population(state.progress)+100)))},
+      gl.drawArrays(gl.POINTS,0,AMBIENT+(fidelity===1?0:Math.min(state.maxPoints,Math.ceil(state.budget*population(state.progress)+100))))},
     dispose(){canvas.removeEventListener('webglcontextlost',onLost);gl.deleteBuffer(buffer);gl.deleteTexture(texture);gl.deleteVertexArray(pointVAO);gl.deleteVertexArray(detailVAO);gl.deleteProgram(detailProgram);gl.deleteProgram(program);if(!gl.isContextLost())gl.getExtension('WEBGL_lose_context')?.loseContext()}
   };
 }
@@ -138,7 +138,10 @@ function useFallback(){
     const p=state.progress,active=state.budget*population(p),t=media.matches?0:state.time,fidelity=detailBlend(p);
     if(fidelity>0){ctx.globalAlpha=fidelity*mix(1,.62,state.view);ctx.drawImage(detailImage,...rect);ctx.globalAlpha=1}
     for(let i=0;i<AMBIENT+Math.min(state.maxPoints,Math.ceil(active+100));i++){
-      const a=points[i],amb=a.ambient,flow=flowPosition(a,p,t),g=flow.gathered;
+      const a=points[i],amb=a.ambient;
+      // Do not calculate trajectories/colors or rasterize invisible body dots.
+      if(!amb&&(fidelity===1||a.index>=active+32))continue;
+      const flow=flowPosition(a,p,t),g=flow.gathered;
       const x=amb?flow.origin[0]:flow.x,y=amb?flow.origin[1]:flow.y;
       const l=a.r*.2126+a.g*.7152+a.b*.0722;
       const rgb=amb?[.45,.64,.98]:[a.r,a.g,a.b].map((v,k)=>{
@@ -164,31 +167,44 @@ function computeRect(){
 function resize(){
   state.width=geometry.width;state.height=geometry.height;state.dpr=Math.min(win.devicePixelRatio||1,1.25);
   const w=Math.max(1,Math.round(state.width*state.dpr)),h=Math.max(1,Math.round(state.height*state.dpr));
-  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;renderer?.resize()}computeRect();
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;renderer?.resize()}computeRect();dirty=true;
 }
-function requestFrame(){if(!raf&&!doc.hidden&&state.visible&&state.ready&&!state.disposed)raf=win.requestAnimationFrame(frame)}
+function stopFrame(){win.cancelAnimationFrame(raf);win.clearTimeout(timer);raf=timer=0;last=0}
+function requestFrame(delay=0){
+  if(doc.hidden||!state.visible||!state.ready||state.disposed||raf)return;
+  if(timer){if(delay)return;win.clearTimeout(timer);timer=0}
+  if(delay)timer=win.setTimeout(()=>{timer=0;requestFrame()},delay);
+  else raf=win.requestAnimationFrame(frame);
+}
+const moving=()=>Math.abs(state.progress-state.target)>.0002||Math.abs(state.light-state.lightTarget)>.001||Math.abs(state.budget-Math.min(state.maxPoints,state.budgetTarget))>.6;
 function frame(now){
   raf=0;if(state.disposed||doc.hidden||!state.visible)return;
-  const dt=last?Math.min((now-last)/1000,.1):1/60;last=now;
+  const dt=last?Math.min((now-last)/1000,.25):1/60;last=now;
   const q=media.matches?1:1-Math.exp(-dt*4.4),budget=Math.min(state.maxPoints,state.budgetTarget);
   state.progress=mix(state.progress,state.target,q);state.light=mix(state.light,state.lightTarget,q);state.budget=mix(state.budget,budget,q);
   if(!media.matches)state.time+=dt;
-  const moving=Math.abs(state.progress-state.target)>.0002||Math.abs(state.light-state.lightTarget)>.001||Math.abs(state.budget-budget)>.6;
-  if(now-lastDraw>=1000/(state.mode==='Canvas 2D'?24:30)-.8||!lastDraw||media.matches){renderer.draw();state.frames++;lastDraw=now}
-  if(!media.matches||moving)requestFrame();
+  const changing=moving();
+  if(!changing){state.progress=state.target;state.light=state.lightTarget;state.budget=budget}
+  renderer.draw();state.frames++;dirty=false;
+  // A slow ambient flow needs no display-refresh-rate polling (often 165 Hz).
+  // Keep transitions smooth, lower the stable cadence, and sleep once gathered.
+  if(!media.matches&&(changing||state.progress<1))requestFrame(1000/(changing?(state.mode==='Canvas 2D'?24:30):(state.mode==='Canvas 2D'?8:12)));
 }
-const changed=()=>{last=0;requestFrame()};media.addEventListener('change',changed);doc.addEventListener('visibilitychange',changed);
+const changed=()=>{stopFrame();dirty=true;requestFrame()};media.addEventListener('change',changed);doc.addEventListener('visibilitychange',changed);
 return{
   setModel(next,kind){if(state.disposed)return;model=next;points=next.points;detailImage=next.detail;state.maxPoints=next.count;state.artwork=kind;
     if(!renderer){try{renderer=createGPU()}catch{renderer=null}if(!renderer)useFallback()}else renderer.update?.();
     state.ready=true;resize();shapeAnimation?.cancel();if(!media.matches){const incoming=canvas.animate([{opacity:0,transform:'translateY(8px)'},{opacity:1,transform:'none'}],{duration:280,easing:'cubic-bezier(.22,.8,.26,1)'});shapeAnimation=incoming;incoming.finished.then(()=>{if(shapeAnimation===incoming){incoming.cancel();shapeAnimation=null}},()=>{})}requestFrame();
   },
-  configure({progress,count,light,visible=true,width,height,bottom}){if(state.disposed)return;state.target=clamp(progress);state.budgetTarget=state.mode==='Canvas 2D'?Math.min(4500,count):count;state.lightTarget=light?1:0;state.visible=visible;
-    if(width!==geometry.width||height!==geometry.height||bottom!==geometry.bottom){geometry={width,height,bottom};resize()}
-    if(!visible){win.cancelAnimationFrame(raf);raf=0;last=0}else requestFrame();
+  configure({progress,count,light,visible=true,width,height,bottom}){if(state.disposed)return;
+    const target=clamp(progress),budget=state.mode==='Canvas 2D'?Math.min(4500,count):count,lightTarget=light?1:0;
+    if(target!==state.target||budget!==state.budgetTarget||lightTarget!==state.lightTarget||visible!==state.visible)dirty=true;
+    state.target=target;state.budgetTarget=budget;state.lightTarget=lightTarget;state.visible=visible;
+    if(width!==geometry.width||height!==geometry.height||bottom!==geometry.bottom||state.dpr!==Math.min(win.devicePixelRatio||1,1.25)){geometry={width,height,bottom};resize()}
+    if(!visible)stopFrame();else if(dirty)requestFrame();
   },
-  pause(){state.visible=false;win.cancelAnimationFrame(raf);raf=0;last=0},
+  pause(){state.visible=false;stopFrame()},
   snapshot:()=>({ready:state.ready,mode:state.mode,progress:state.progress,target:state.target,count:Math.round(state.budget*population(state.progress)+AMBIENT),budget:state.budget,frames:state.frames,time:state.time,visible:state.visible,rect:[...rect],field:[...field],reducedMotion:media.matches}),
-  dispose(){state.disposed=true;win.cancelAnimationFrame(raf);shapeAnimation?.cancel();renderer?.dispose();media.removeEventListener('change',changed);doc.removeEventListener('visibilitychange',changed);canvas.remove();points=[];detailImage=null;model=null}
+  dispose(){state.disposed=true;stopFrame();shapeAnimation?.cancel();renderer?.dispose();media.removeEventListener('change',changed);doc.removeEventListener('visibilitychange',changed);canvas.remove();points=[];detailImage=null;model=null}
 };
 }

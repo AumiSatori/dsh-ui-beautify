@@ -8,7 +8,7 @@ import {chromium} from '@playwright/test'
 const project=fileURLToPath(new URL('..',import.meta.url))
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','..','outputs','dsh-ui-beautify'),'performance')
 mkdirSync(output,{recursive:true})
-const bundle=await build({entryPoints:[resolve(project,'src/lens-actions.js')],bundle:true,write:false,format:'iife',globalName:'Managers',loader:{'.jpg':'dataurl'}})
+const bundle=await build({entryPoints:[resolve(project,'src/lens-actions.js')],bundle:true,write:false,format:'iife',globalName:'Managers',loader:{'.jpg':'dataurl','.png':'dataurl'}})
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'})
 const page=await browser.newPage({viewport:{width:1100,height:800}}),errors=[],evidence=[]
 page.on('pageerror',e=>errors.push(e.message))

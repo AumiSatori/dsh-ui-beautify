@@ -1,4 +1,6 @@
 import {GlassRenderer} from '../vendor/lens/internal/renderer.js'
+export {createFullBackground,normalizeBackground,fullBackgroundCss} from './full-background.js'
+export {createBackgroundSettings,backgroundSettingsCss} from './background-settings.js'
 export {observeReadingTurn} from './reading-turn.js'
 export {createContextParticles,normalizeParticles,contextParticlesCss} from './context-particles.js'
 export {createParticleSettings,particleSettingsCss} from './context-particle-settings.js'

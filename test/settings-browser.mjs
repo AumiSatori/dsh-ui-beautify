@@ -18,7 +18,7 @@ const url=`http://127.0.0.1:${server.address().port}`,key='dsh-claude-beautify:s
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'}),context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[]
 page.on('pageerror',error=>errors.push(error.message))
 let passed=0
-const categories=['任务面板','输入栏','侧栏','开屏欢迎','粒子背景','对话动效'],select=name=>selectSettingsCategory(page,name),dialog=page.getByRole('dialog'),tabs=page.getByRole('tablist',{name:'美化设置分类'})
+const categories=['任务面板','输入栏','侧栏','开屏欢迎','全图背景','粒子背景','对话动效'],select=name=>selectSettingsCategory(page,name),dialog=page.getByRole('dialog'),tabs=page.getByRole('tablist',{name:'美化设置分类'})
 async function check(name,fn){await fn();passed++;console.log('PASS '+name)}
 async function mount(){
   await page.getByTestId('todo-panel').waitFor();await page.evaluate(installLogoFixture,logo)
@@ -32,7 +32,7 @@ const saved=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key)
 try{
   await page.goto(url);await page.evaluate(key=>localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,composerButtonGlass:true,cardStyle:'milk'})),key);await mount()
   await page.evaluate(()=>window.fixture.settings(true));await select('任务面板')
-  await check('six accessible categories mount one page and use uniform preview cards in all three material scopes',async()=>{
+  await check('seven accessible categories mount one page and use uniform preview cards in all three material scopes',async()=>{
     assert.deepEqual(await tabs.getByRole('tab').allTextContents(),categories)
     const geometry=[]
     for(const [name,label]of[['任务面板','卡片样式'],['输入栏','输入栏样式'],['侧栏','侧栏样式']]){
@@ -129,7 +129,7 @@ try{
           assert.equal(await control.getAttribute('aria-checked'),original)
         }
       }
-      assert.equal(count,9)
+      assert.equal(count,10)
       await select('开屏欢迎');await page.mouse.move(1,1);await page.waitForTimeout(250)
       await dialog.screenshot({path:resolve(output,`switches-${dark?'dark':'light'}.png`)})
     }

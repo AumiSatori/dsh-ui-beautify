@@ -1,6 +1,6 @@
 import {motion} from './motion.js'
 
-const tabs=[['panel','任务面板'],['composer','输入栏'],['sidebar','侧栏'],['welcome','开屏欢迎'],['particles','粒子背景'],['messages','对话动效']]
+const tabs=[['panel','任务面板'],['composer','输入栏'],['sidebar','侧栏'],['welcome','开屏欢迎'],['background','全图背景'],['particles','粒子背景'],['messages','对话动效']]
 export const settingsTabsCss=`
   .dcb-settings-tabs { min-width:0; position:relative; }
   .dcb-settings-tabbar { position:sticky; top:0; z-index:10; display:flex; flex-wrap:wrap; gap:4px; margin:0 0 16px; padding:5px; border:1px solid var(--dsh-settings-border); border-radius:12px; background:var(--dsh-settings-surface); box-shadow:0 2px 8px #00000007; }

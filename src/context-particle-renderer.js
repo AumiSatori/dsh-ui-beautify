@@ -1,16 +1,16 @@
 // Bounded canvas renderer shared by visible DSH conversation backgrounds.
-export async function sampleParticleArtwork(source,{vector=false}={}) { return sampleImage(source,{vector}) }
+export async function sampleParticleArtwork(source,{vector=false,transparent=false}={}) { return sampleImage(source,{vector,transparent}) }
 const clamp=(v,lo=0,hi=1)=>Math.max(lo,Math.min(hi,v)),mix=(a,b,p)=>a+(b-a)*p;
 const smooth=(a,b,x)=>{const p=clamp((x-a)/(b-a));return p*p*(3-2*p)};
 let seed=184327;const random=()=>{seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;return(seed>>>0)/4294967296};
 const AMBIENT=48;
-async function sampleImage(source,{vector=false}={}){const image=new Image();image.src=source;await image.decode();seed=184327;
+async function sampleImage(source,{vector=false,transparent=false}={}){const image=new Image();image.src=source;await image.decode();seed=184327;
 const scale=vector?Math.min(768/image.naturalWidth,768/image.naturalHeight):576/image.naturalWidth;
 const w=Math.max(1,Math.round(image.naturalWidth*scale)),h=Math.max(1,Math.round(image.naturalHeight*scale));const map=document.createElement('canvas');map.width=w;map.height=h;const c=map.getContext('2d',{willReadFrequently:true});c.drawImage(image,0,0,w,h);const data=c.getImageData(0,0,w,h).data;
 // Flood only the near-white region connected to the image edge. Interior
 // apron/lace highlights remain foreground, unlike global white thresholding.
 const background=new Uint8Array(w*h),queue=new Int32Array(w*h);let head=0,tail=0;const pale=i=>{const k=i*4,r=data[k],g=data[k+1],b=data[k+2];return Math.min(r,g,b)>232&&Math.max(r,g,b)-Math.min(r,g,b)<28};const push=i=>{if(i>=0&&i<w*h&&!background[i]&&pale(i)){background[i]=1;queue[tail++]=i}};
-if(!vector){for(let x=0;x<w;x++){push(x);push((h-1)*w+x)}for(let y=0;y<h;y++){push(y*w);push(y*w+w-1)}while(head<tail){const i=queue[head++],x=i%w;if(x)push(i-1);if(x<w-1)push(i+1);if(i>=w)push(i-w);if(i<w*(h-1))push(i+w)}}
+if(!vector&&!transparent){for(let x=0;x<w;x++){push(x);push((h-1)*w+x)}for(let y=0;y<h;y++){push(y*w);push(y*w+w-1)}while(head<tail){const i=queue[head++],x=i%w;if(x)push(i-1);if(x<w-1)push(i+1);if(i>=w)push(i-w);if(i<w*(h-1))push(i+w)}}
 const visible=i=>!background[i]&&data[i*4+3]>16;
 let minX=w,minY=h,maxX=0,maxY=0,area=0;for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(visible(y*w+x)){minX=Math.min(x,minX);maxX=Math.max(x,maxX);minY=Math.min(y,minY);maxY=Math.max(y,maxY);area++}
 if(area<4)throw new Error('SVG 中没有可见图形，请检查填充、描边或透明度');
@@ -20,7 +20,7 @@ for(let y=minY;y<=maxY;y+=step)for(let x=minX;x<=maxX;x+=step){
   const i=y*w+x;if(!visible(i))continue;
   const k=i*4,r=data[k]/255,g=data[k+1]/255,b=data[k+2]/255;
   const nx=(x-minX)/Math.max(1,maxX-minX),ny=(y-minY)/Math.max(1,maxY-minY);
-  const edge=background[i-1]||background[i+1]||background[i-w]||background[i+w];
+  const edge=[i-1,i+1,i-w,i+w].some(next=>next<0||next>=w*h||!visible(next));
   let contrast=0;for(const next of [i-2,i+2,i-w*2,i+w*2])if(next>=0&&next<w*h){
     const n=next*4;contrast=Math.max(contrast,(Math.abs(data[k]-data[n])+Math.abs(data[k+1]-data[n+1])+Math.abs(data[k+2]-data[n+2]))/765);
   }
@@ -46,7 +46,7 @@ const state={progress:0,target:0,budget:6400,budgetTarget:6400,view:1,light:0,li
 const media=win.matchMedia('(prefers-reduced-motion: reduce)');
 let canvas=doc.createElement('canvas'),renderer=null,points=[],raf=0,last=0,lastDraw=0,rect=[0,0,1,1],field=[0,0,1,1],detailImage=null,model=null,geometry={width:1,height:1,bottom:1},shapeAnimation=null;
 canvas.setAttribute('aria-hidden','true');root.append(canvas);
-const detailBlend=p=>smooth(.5,1,p);
+const detailBlend=p=>state.artwork==='whale'?0:smooth(.5,1,p);
 const population=p=>.01+.99*Math.pow(clamp(p),.9);
 const gather=(p,s)=>smooth(0,.16+.84*s,p);
 const notify=()=>{};
@@ -63,7 +63,7 @@ function flowPosition(a,p,time){
 const vertex=`#version 300 es
 precision highp float;
 in vec2 a_pos;in vec3 a_color;in vec4 a_data;in vec2 a_extra;
-uniform vec2 u_view;uniform vec4 u_rect,u_field;uniform float u_progress,u_time,u_budget,u_light,u_chat,u_dpr,u_still,u_custom;
+uniform vec2 u_view;uniform vec4 u_rect,u_field;uniform float u_progress,u_time,u_budget,u_light,u_chat,u_dpr,u_still,u_custom,u_whale;
 out vec4 v_color;out float v_glow;
 void main(){float idx=a_data.x,s1=a_data.y,s2=a_data.z,s3=a_data.w,ambient=a_extra.x;float p=u_progress;
 float gathered=smoothstep(0.,.16+.84*s3,p);float spread=1.-gathered;
@@ -85,7 +85,7 @@ darkColor=mix(vec3(.50,.72,1.),darkColor,gathered);
 vec3 lightColor=mix(vec3(.17,.32,.64),mix(a_color,vec3(.57,.63,.74),smoothstep(.85,1.,lightness)*.12),gathered);
 vec3 color=mix(darkColor,lightColor,u_light);
 alpha*=mix(.72,1.,gathered);alpha*=mix(1.,.78,u_chat);alpha*=a_extra.y*streamFade;
-alpha*=1.-smoothstep(.5,1.,p);
+alpha*=mix(1.-smoothstep(.5,1.,p),.86+.14*sin(time*.9+s1*23.),u_whale);
 float size=mix(2.1,3.7,gathered)*mix(mix(.76,1.22,s3),mix(.94,1.06,s3),gathered);
 if(ambient>.5){pos=origin;alpha=(.10+.13*s3)*(.35+.65*p)*(.8+.2*sin(time*.45+s1*23.));color=mix(vec3(.45,.64,.98),vec3(.28,.40,.60),u_light);size=1.3+1.1*s3;}
 vec2 clip=pos/u_view*2.-1.;gl_Position=vec4(clip.x,-clip.y,0.,1.);gl_PointSize=size*u_dpr;v_color=vec4(clamp(color,0.,1.),alpha);v_glow=gathered;
@@ -114,7 +114,7 @@ function createGPU(){
     gl.bindTexture(gl.TEXTURE_2D,texture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,detailImage)};
   upload();const stride=44;
   for(const[name,n,offset]of[['a_pos',2,0],['a_color',3,8],['a_data',4,20],['a_extra',2,36]]){const loc=gl.getAttribLocation(program,name);if(loc>=0){gl.enableVertexAttribArray(loc);gl.vertexAttribPointer(loc,n,gl.FLOAT,false,stride,offset)}}
-  const u={};for(const key of['view','rect','field','progress','time','budget','light','chat','dpr','still','custom'])u[key]=gl.getUniformLocation(program,'u_'+key);
+  const u={};for(const key of['view','rect','field','progress','time','budget','light','chat','dpr','still','custom','whale'])u[key]=gl.getUniformLocation(program,'u_'+key);
   // The transparent drawing buffer stores premultiplied RGB. Alpha must use ONE
   // instead of SRC_ALPHA, so browser compositing does not dim the image again.
   gl.enable(gl.BLEND);gl.blendFuncSeparate(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA,gl.ONE,gl.ONE_MINUS_SRC_ALPHA);gl.clearColor(0,0,0,0);
@@ -125,7 +125,7 @@ function createGPU(){
       const fidelity=detailBlend(state.progress);
       if(fidelity>0){gl.useProgram(detailProgram);gl.bindVertexArray(detailVAO);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,texture);gl.uniform1i(detailU.image,0);gl.uniform2f(detailU.view,state.width,state.height);gl.uniform4fv(detailU.rect,rect);gl.uniform1f(detailU.opacity,fidelity*mix(1,.62,state.view));gl.drawArrays(gl.TRIANGLES,0,6)}
       gl.useProgram(program);gl.bindVertexArray(pointVAO);gl.uniform2f(u.view,state.width,state.height);gl.uniform4fv(u.rect,rect);gl.uniform4fv(u.field,field);
-      for(const[key,value]of Object.entries({progress:state.progress,time:state.time,budget:state.budget,light:state.light,chat:state.view,dpr:state.dpr,still:media.matches?1:0,custom:state.artwork==='svg'?1:0}))gl.uniform1f(u[key],value);
+      for(const[key,value]of Object.entries({progress:state.progress,time:state.time,budget:state.budget,light:state.light,chat:state.view,dpr:state.dpr,still:media.matches?1:0,custom:state.artwork==='svg'?1:0,whale:state.artwork==='whale'?1:0}))gl.uniform1f(u[key],value);
       gl.drawArrays(gl.POINTS,0,AMBIENT+Math.min(state.maxPoints,Math.ceil(state.budget*population(state.progress)+100)))},
     dispose(){canvas.removeEventListener('webglcontextlost',onLost);gl.deleteBuffer(buffer);gl.deleteTexture(texture);gl.deleteVertexArray(pointVAO);gl.deleteVertexArray(detailVAO);gl.deleteProgram(detailProgram);gl.deleteProgram(program);if(!gl.isContextLost())gl.getExtension('WEBGL_lose_context')?.loseContext()}
   };
@@ -148,7 +148,7 @@ function useFallback(){
         return mix(clamp(dark),mix([.17,.32,.64][k],mix(v,[.57,.63,.74][k],smooth(.85,1,l)*.12),g),state.light);
       });
       let alpha=amb?.13*(.35+.65*p):(1-smooth(active-32,active+32,a.index))*mix(.72,1,g)*(a.alpha??1)*flow.fade;
-      alpha*=mix(1,.78,state.view)*(amb?1:1-fidelity);
+      alpha*=mix(1,.78,state.view)*(amb?1:1-fidelity)*(state.artwork==='whale'&&!amb ? .86+.14*Math.sin(t*.9+a.s1*23) : 1);
       ctx.fillStyle=`rgba(${rgb.map(v=>Math.round(v*255)).join(',')},${alpha})`;ctx.beginPath();ctx.arc(x,y,amb?.7:mix(.8,1.4,g)*mix(.76,1.22,a.s3),0,Math.PI*2);ctx.fill();
     }
     ctx.restore();
@@ -187,7 +187,8 @@ return{
     if(width!==geometry.width||height!==geometry.height||bottom!==geometry.bottom){geometry={width,height,bottom};resize()}
     if(!visible){win.cancelAnimationFrame(raf);raf=0;last=0}else requestFrame();
   },
-  snapshot:()=>({ready:state.ready,mode:state.mode,progress:state.progress,target:state.target,count:Math.round(state.budget*population(state.progress)+AMBIENT),budget:state.budget,frames:state.frames,visible:state.visible,rect:[...rect],field:[...field],reducedMotion:media.matches}),
+  pause(){state.visible=false;win.cancelAnimationFrame(raf);raf=0;last=0},
+  snapshot:()=>({ready:state.ready,mode:state.mode,progress:state.progress,target:state.target,count:Math.round(state.budget*population(state.progress)+AMBIENT),budget:state.budget,frames:state.frames,time:state.time,visible:state.visible,rect:[...rect],field:[...field],reducedMotion:media.matches}),
   dispose(){state.disposed=true;win.cancelAnimationFrame(raf);shapeAnimation?.cancel();renderer?.dispose();media.removeEventListener('change',changed);doc.removeEventListener('visibilitychange',changed);canvas.remove();points=[];detailImage=null;model=null}
 };
 }

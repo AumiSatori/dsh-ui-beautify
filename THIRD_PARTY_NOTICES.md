@@ -2,7 +2,8 @@
 
 ## Optional whale-girl context background
 
-`assets/context-whale.jpg` is the supplied DeepSeek girl illustration by
+`assets/context-whale.jpg` and its transparent foreground adaptation
+`assets/context-whale-cutout.png` use the supplied DeepSeek girl illustration by
 ZipZipPipe, based on the original character 溟月 by 上善无形. The supplied
 character-reference package identifies it as CC BY-NC-SA 4.0:
 https://creativecommons.org/licenses/by-nc-sa/4.0/

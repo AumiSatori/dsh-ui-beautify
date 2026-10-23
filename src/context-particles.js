@@ -1,9 +1,12 @@
-import whaleImage from '../assets/context-whale.jpg'
+import whaleImage from '../assets/context-whale-cutout.png'
 import {createParticleScene,sampleParticleArtwork} from './context-particle-renderer.js'
 import {createParticleSVG} from './context-particle-svg.js'
-
 import {normalizeParticles,particleOccupancy,particleProgress} from './context-particle-config.js'
 export {normalizeParticles} from './context-particle-config.js'
+
+// Native sidebar transitions can briefly hide/remount the conversation or its
+// header publisher. Keep at most two scenes alive across that layout gap.
+const RETAIN_MS=1500,MAX_SCENES=2
 
 export const contextParticlesCss=`
   [data-dcb-particles-host] { isolation:isolate; }
@@ -35,9 +38,22 @@ function svgStorage(win){
 }
 
 export function createContextParticles(doc,win,{logoPath,logoBox}={}){
-  const readings=new Map(),scenes=new Map(),models=new Map(),listeners=new Set(),store=svgStorage(win),sanitize=createParticleSVG(doc,win)
+  const readings=new Map(),scenes=new Map(),retained=new Set(),watchedHosts=new Set(),models=new Map(),listeners=new Set(),store=svgStorage(win),sanitize=createParticleSVG(doc,win)
   const forced=win.matchMedia('(forced-colors: active)')
-  let settings=normalizeParticles(null),disposed=false,frame=0,lastStatus='',svgCache=null,svgKey=''
+  // Keep watching connected hidden hosts even after their cached scene expires.
+  // Restoring display alone otherwise has no publisher or DOM mount to wake us.
+  const hostResize=new win.ResizeObserver(schedule)
+  let settings=normalizeParticles(null),disposed=false,frame=0,retentionTimer=0,lastStatus='',svgCache=null,svgKey=''
+  const now=()=>win.performance.now()
+  function readingFor(entry){
+    const percent=[...entry.owners.values()].at(-1)??null
+    if(percent!==null){entry.last=percent;entry.expires=0;win.clearTimeout(entry.timer);entry.timer=0;return percent}
+    if(entry.last!==null&&entry.expires===0){
+      entry.expires=now()+RETAIN_MS
+      entry.timer=win.setTimeout(()=>{entry.last=null;entry.expires=0;entry.timer=0;if(!entry.owners.size)readings.delete(entry.session);schedule()},RETAIN_MS)
+    }
+    return entry.expires>now()?entry.last:null
+  }
   const artworkKey=()=>settings.particleShape==='custom'?'custom:'+settings.particleSvgRevision:settings.particleShape
   const status=()=>[...scenes.values()].map(scene=>({percent:scene.percent,shape:scene.shape,waiting:scene.waiting,error:scene.error||null,...scene.renderer.snapshot()}))
   const emit=()=>{const key=JSON.stringify(status().map(({percent,shape,waiting,error})=>({percent,shape,waiting,error})));if(lastStatus===key)return;lastStatus=key;for(const listener of listeners)listener()}
@@ -54,7 +70,7 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   function modelFor(key){
     if(!models.has(key)){
       const pending=(async()=>{
-        if(key==='whale')return sampleParticleArtwork(whaleImage)
+      if(key==='whale')return sampleParticleArtwork(whaleImage,{transparent:true})
         if(key.startsWith('custom:'))return sampleParticleArtwork(await custom(),{vector:true})
         if(typeof logoPath!=='string'||!logoBox?.width||!logoBox?.height)throw Error('宿主 DeepSeek Logo 尚未就绪')
         // Brand geometry comes from the host's public primitive, not a redraw.
@@ -64,29 +80,62 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
     }
     return models.get(key)
   }
-  function remove(host){const scene=scenes.get(host);if(!scene)return;scene.revision++;scene.resize.disconnect();scene.intersection.disconnect();scene.renderer.dispose();scene.layer.remove();host.removeAttribute('data-dcb-particles-host');scenes.delete(host)}
+  function unbind(scene){
+    scene.resize.disconnect();scene.intersection.disconnect();scene.renderer.pause()
+    if(scenes.get(scene.host)===scene){scenes.delete(scene.host);scene.host.removeAttribute('data-dcb-particles-host')}
+    scene.layer.remove()
+  }
+  function release(scene){
+    scene.released=true;scene.revision++;unbind(scene);retained.delete(scene);scene.renderer.dispose()
+  }
+  function armRetention(){
+    win.clearTimeout(retentionTimer);retentionTimer=0
+    if(retained.size)retentionTimer=win.setTimeout(()=>{
+      retentionTimer=0
+      for(const scene of retained)if(scene.expires<=now())release(scene)
+      armRetention()
+    },Math.max(1,Math.min(...[...retained].map(scene=>scene.expires))-now()))
+  }
+  function park(scene){unbind(scene);scene.expires=now()+RETAIN_MS;retained.add(scene);armRetention()}
+  function bind(scene,host){
+    retained.delete(scene);scene.resize.disconnect();scene.host=host;scene.visible=true;scene.expires=0
+    host.setAttribute('data-dcb-particles-host','');host.prepend(scene.layer)
+    const composer=host.querySelector('[data-composer-seat]');if(composer)scene.resize.observe(composer)
+    scene.intersection.observe(host);scenes.set(host,scene);armRetention();return scene
+  }
   function create(host){
     const layer=doc.createElement('div');layer.className='dcb-particle-layer';layer.setAttribute('aria-hidden','true');layer.setAttribute('data-waiting','');
-    host.setAttribute('data-dcb-particles-host','');host.prepend(layer)
-    const scene={host,session:host.dataset.conversationSession,layer,renderer:createParticleScene(layer,doc,win),key:null,percent:null,shape:null,waiting:true,visible:true,revision:0,resize:new win.ResizeObserver(schedule),intersection:new win.IntersectionObserver(entries=>{scene.visible=entries[0].isIntersecting;schedule()})}
-    scene.resize.observe(host);const composer=host.querySelector('[data-composer-seat]');if(composer)scene.resize.observe(composer)
-    scene.intersection.observe(host);scenes.set(host,scene);return scene
+    const scene={host,session:host.dataset.conversationSession,layer,renderer:createParticleScene(layer,doc,win),key:null,percent:null,shape:null,waiting:true,visible:true,revision:0,released:false,expires:0,resize:new win.ResizeObserver(schedule),intersection:new win.IntersectionObserver(entries=>{const entry=entries.find(entry=>entry.target===scene.host);if(entry&&scenes.get(scene.host)===scene){scene.visible=entry.isIntersecting;schedule()}})}
+    return bind(scene,host)
   }
   async function changeModel(scene,key){
     scene.key=key;scene.waiting=true;scene.error=null;const token=++scene.revision
-    try{const model=await modelFor(key);if(disposed||token!==scene.revision||!scenes.has(scene.host))return;scene.renderer.setModel(model,key.startsWith('custom:')?'svg':'default');scene.shape=key.startsWith('custom:')?'custom':key;scene.waiting=false}
+    try{const model=await modelFor(key);if(disposed||scene.released||token!==scene.revision)return;scene.renderer.setModel(model,key.startsWith('custom:')?'svg':key==='whale'?'whale':'default');scene.shape=key.startsWith('custom:')?'custom':key;scene.waiting=false}
     catch(error){if(token===scene.revision){scene.error=error.message;scene.waiting=true}}
     schedule();emit()
   }
   function sync(value=settings){
     if(disposed)return;settings=normalizeParticles(value)
-    const hosts=settings.particleEnabled&&!forced.matches?[...doc.querySelectorAll('[data-conversation-content][data-conversation-session]')].filter(host=>host.getClientRects().length&&readings.has(host.dataset.conversationSession)).slice(0,2):[]
-    for(const host of scenes.keys())if(!hosts.includes(host))remove(host)
+    const enabled=settings.particleEnabled&&!forced.matches
+    const candidates=enabled?[...doc.querySelectorAll('[data-conversation-content][data-conversation-session]')].filter(host=>!host.closest('[data-dcb-sidebar-layout-probe]')&&readings.has(host.dataset.conversationSession)):[]
+    for(const host of watchedHosts)if(!candidates.includes(host)){hostResize.unobserve(host);watchedHosts.delete(host)}
+    for(const host of candidates)if(!watchedHosts.has(host)){watchedHosts.add(host);hostResize.observe(host)}
+    const hosts=candidates.filter(host=>host.getClientRects().length).slice(0,MAX_SCENES)
+    if(!enabled){for(const scene of [...scenes.values(),...retained])release(scene);armRetention()}
+    else for(const [host,scene]of scenes)if(!hosts.includes(host)){
+      if(host.isConnected&&host.dataset.conversationSession!==scene.session)release(scene)
+      else park(scene)
+    }
     const previewOpen=!!doc.querySelector('.dcb-settings')?.getClientRects().length,key=artworkKey()
     for(const host of hosts){
-      if(scenes.has(host)&&scenes.get(host).session!==host.dataset.conversationSession)remove(host)
-      const scene=scenes.get(host)||create(host),reading=readings.get(host.dataset.conversationSession)
-      scene.percent=[...reading.values()].at(-1);scene.layer.toggleAttribute('data-waiting',scene.percent===null||scene.waiting)
+      if(scenes.has(host)&&scenes.get(host).session!==host.dataset.conversationSession)release(scenes.get(host))
+      let scene=scenes.get(host)
+      if(!scene){
+        const cached=[...retained].find(scene=>scene.session===host.dataset.conversationSession&&scene.expires>now())
+        if(cached)scene=bind(cached,host)
+        else{while(scenes.size+retained.size>=MAX_SCENES&&retained.size)release(retained.values().next().value);scene=create(host)}
+      }
+      scene.percent=readingFor(readings.get(host.dataset.conversationSession));scene.layer.toggleAttribute('data-waiting',scene.percent===null||scene.waiting)
       if(scene.percent!==null&&scene.key!==key)changeModel(scene,key)
       const box=host.getBoundingClientRect(),composer=host.querySelector('[data-composer-seat]')?.getBoundingClientRect()
       const bottom=composer&&composer.top>box.top+40?Math.min(box.height,composer.top-box.top):box.height
@@ -99,8 +148,8 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   forced.addEventListener('change',schedule)
   const changed=()=>schedule();doc.addEventListener('visibilitychange',changed)
   return{
-    sync,publish(sessionId,pressure,owner){if(disposed)return;if(!readings.has(sessionId))readings.set(sessionId,new Map());readings.get(sessionId).set(owner,particleOccupancy(pressure));schedule()},
-    forget(sessionId,owner){if(disposed)return;const owners=readings.get(sessionId);owners?.delete(owner);if(!owners?.size)readings.delete(sessionId);schedule()},
+    sync,publish(sessionId,pressure,owner){if(disposed)return;if(!readings.has(sessionId))readings.set(sessionId,{session:sessionId,owners:new Map(),last:null,expires:0,timer:0});const entry=readings.get(sessionId);entry.owners.set(owner,particleOccupancy(pressure));readingFor(entry);schedule()},
+    forget(sessionId,owner){if(disposed)return;const entry=readings.get(sessionId);if(entry){entry.owners.delete(owner);readingFor(entry);if(!entry.owners.size&&entry.last===null)readings.delete(sessionId)}schedule()},
     subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener)},getStatus:()=>lastStatus,
     snapshot:probe.snapshot,
     async importSVG(file){
@@ -112,6 +161,6 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
       return{particleShape:'custom',particleSvgRevision:asset.revision,particleSvgName:asset.name}
     },
     async clearSVG(){await store.remove();svgCache=null;svgKey='';for(const key of models.keys())if(key.startsWith('custom:'))models.delete(key)},
-    dispose(){disposed=true;win.cancelAnimationFrame(frame);for(const host of scenes.keys())remove(host);readings.clear();models.clear();listeners.clear();store.dispose();forced.removeEventListener('change',schedule);doc.removeEventListener('visibilitychange',changed);if(win[diagnostic]===probe){if(oldDiagnostic)Object.defineProperty(win,diagnostic,oldDiagnostic);else delete win[diagnostic]}}
+    dispose(){disposed=true;win.cancelAnimationFrame(frame);win.clearTimeout(retentionTimer);hostResize.disconnect();watchedHosts.clear();for(const scene of [...scenes.values(),...retained])release(scene);for(const entry of readings.values())win.clearTimeout(entry.timer);readings.clear();models.clear();listeners.clear();store.dispose();forced.removeEventListener('change',schedule);doc.removeEventListener('visibilitychange',changed);if(win[diagnostic]===probe){if(oldDiagnostic)Object.defineProperty(win,diagnostic,oldDiagnostic);else delete win[diagnostic]}}
   }
 }

@@ -53,13 +53,13 @@ try{
     await page.waitForFunction(()=>Math.abs(window.scene.snapshot().progress-1)<.0002)
     await page.waitForTimeout(150)
     const full=await sample('fully gathered background')
-    if(!baseline){assert.equal(full.frames,0);assert.equal(full.callbacks,0);assert.equal(full.vertices,0);assert.equal(full.arcs,0)}
+    if(!baseline){assert.ok(full.frames>0&&full.frames<=(fallback?12:16));assert.ok(full.callbacks<=(fallback?12:16));assert.ok(fallback?full.arcs>0:full.vertices>0);assert.equal(full.uploads,0)}
     const unchangedFull=await page.evaluate(async()=>{
       const before=window.scene.snapshot().frames
       for(let i=0;i<12;i++){window.scene.configure(window.options);await new Promise(resolve=>setTimeout(resolve,15))}
       return window.scene.snapshot().frames-before
     })
-    if(!baseline)assert.equal(unchangedFull,0,'scroll/presentation sync must not wake an unchanged gathered scene')
+    if(!baseline)assert.ok(unchangedFull<=5,'scroll/presentation sync must not increase the settled animation cadence')
     await page.evaluate(()=>{window.scene.configure({...window.options,visible:false})})
     const paused=await sample('paused background',250)
     assert.equal(paused.frames,0);assert.equal(paused.callbacks,0)

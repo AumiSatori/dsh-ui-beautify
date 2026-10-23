@@ -173,7 +173,7 @@ try{
   })
   await check('local SVG import strips active/external content, persists and leaves original on invalid input',async()=>{
     await settings()
-    const upload=async(text,name)=>{await page.locator('[data-dcb-settings-block=particles] input[type=file]').setInputFiles({name,mimeType:'image/svg+xml',buffer:Buffer.from(text)});await page.waitForTimeout(600)}
+    const upload=async(text,name)=>{await page.locator('[data-dcb-settings-block=particles] input[accept*="svg"]').setInputFiles({name,mimeType:'image/svg+xml',buffer:Buffer.from(text)});await page.waitForTimeout(600)}
     await upload('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" onload="window.svgExecuted=true"><script>fetch("https://example.invalid/evil")</script><image href="https://example.invalid/a.png"/><path d="M10 80Q100 -50 190 80L100 110Z" fill="#4d6bfe"/></svg>','测试图形.svg')
     await page.getByRole('radio',{name:'自定义 SVG',exact:true}).waitFor();assert.equal(await page.getByRole('radio',{name:'自定义 SVG',exact:true}).getAttribute('aria-checked'),'true')
     assert.equal(await page.evaluate(()=>window.svgExecuted),undefined)

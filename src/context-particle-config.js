@@ -6,7 +6,7 @@ export function normalizeParticles(value){
   const count=value?.particleDensityVersion===undefined&&value?.particleCount===6400?PARTICLE_COUNTS.default:value?.particleCount
   return{
     particleEnabled:value?.particleEnabled!==false,
-    particleShape:['logo','whale','custom'].includes(value?.particleShape)?value.particleShape:'logo',
+    particleShape:['logo','whale','custom','image'].includes(value?.particleShape)?value.particleShape:'logo',
     particleCount:Math.round(bounded(count,PARTICLE_COUNTS.min,PARTICLE_COUNTS.max,PARTICLE_COUNTS.default)/PARTICLE_COUNTS.step)*PARTICLE_COUNTS.step,
     particleDensityVersion:1,
     particleProgressMode:value?.particleProgressMode==='manual'?'manual':'context',
@@ -14,6 +14,8 @@ export function normalizeParticles(value){
     particleStart:start,particleFull:Math.round(bounded(value?.particleFull,start+1,100,80)),
     particleSvgRevision:typeof value?.particleSvgRevision==='string'?value.particleSvgRevision.slice(0,100):'',
     particleSvgName:typeof value?.particleSvgName==='string'?value.particleSvgName.slice(0,160):'',
+    particleImageRevision:typeof value?.particleImageRevision==='string'?value.particleImageRevision.slice(0,100):'',
+    particleImageName:typeof value?.particleImageName==='string'?value.particleImageName.slice(0,160):'',
   }
 }
 // Same numerator precedence, integer rounding and clamp as the host ContextMeter.

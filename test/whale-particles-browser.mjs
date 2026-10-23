@@ -83,13 +83,15 @@ try{
     await page.screenshot({path:resolve(output,fallback?'whale-gathering-canvas2d.png':'whale-gathering-webgl.png')})
     // Isolate one red body dot: measure real shader readback / canvas arc
     // coordinates so brightness changes alone cannot pass the movement check.
-    await page.evaluate(()=>{
+    result.motion=[]
+    for(const kind of ['whale','default','svg','image']){
+    await page.evaluate(kind=>{
       const ambient=Array.from({length:48},(_,i)=>({x:0,y:0,r:0,g:0,b:0,index:i,s1:0,s2:.9,s3:.8,ambient:1,alpha:1}))
       const dot={x:.5,y:.5,r:1,g:0,b:0,index:0,s1:.15,s2:.4,s3:.8,ambient:0,alpha:1}
       document.querySelector('#root').style.cssText='width:240px;height:240px'
-      window.scene.setModel({...window.model,points:[...ambient,dot],count:1,ratio:1},'whale')
+      window.scene.setModel({...window.model,points:[...ambient,dot],count:1,ratio:1},kind)
       window.scene.configure({progress:1,count:500,light:false,visible:true,width:240,height:240,bottom:240})
-    })
+    },kind)
     await page.waitForFunction(()=>window.scene.snapshot().progress===1)
     await page.evaluate(()=>window.motionPositions=[])
     await page.waitForTimeout(1600)
@@ -100,7 +102,9 @@ try{
     assert.ok(motion.samples>3,'the isolated particle renders continuously')
     assert.ok(Math.max(motion.x,motion.y)>.45,'a gathered particle actually moves in space')
     assert.ok(motion.x<12&&motion.y<12,'motion stays local to the formed silhouette')
-    result.motion=motion
+    result.motion.push({kind,...motion})
+    assert.equal(await page.evaluate(()=>window.audit.triangles+window.audit.images),0,'no artwork type may overlay an image')
+    }
     await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(180)
     const still=await page.evaluate(()=>window.scene.snapshot().frames);await page.waitForTimeout(250)
     assert.equal(await page.evaluate(()=>window.scene.snapshot().frames),still,'reduced motion still stops continuous drawing')

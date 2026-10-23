@@ -1,6 +1,7 @@
 import whaleImage from '../assets/context-whale-cutout.png'
 import {createParticleScene,sampleParticleArtwork} from './context-particle-renderer.js'
 import {createParticleSVG} from './context-particle-svg.js'
+import {inspectParticleImage} from './context-particle-image.js'
 import {normalizeParticles,particleOccupancy,particleConversion} from './context-particle-config.js'
 export {normalizeParticles} from './context-particle-config.js'
 
@@ -17,33 +18,39 @@ export const contextParticlesCss=`
   @media(forced-colors:active) { .dcb-particle-layer { visibility:hidden; } }
 `
 
-function svgStorage(win){
+function artworkStorage(win){
   let opening=null,database=null,disposed=false
   const open=()=>{
+    if(disposed)return Promise.reject(Error('粒子素材存储已关闭'))
     if(opening)return opening
     opening=new Promise((resolve,reject)=>{
-      if(!win.indexedDB){reject(Error('浏览器未开放本机 SVG 存储'));return}
+      if(!win.indexedDB){reject(Error('浏览器未开放本机素材存储'));return}
       const request=win.indexedDB.open('dsh-ui-context-particles',1)
       request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains('artwork'))request.result.createObjectStore('artwork')}
-      request.onerror=()=>{opening=null;reject(Error('无法打开本机 SVG 存储'))}
-      request.onblocked=()=>{opening=null;reject(Error('SVG 存储被占用，请关闭其他设置窗口后重试'))}
+      request.onerror=()=>{opening=null;reject(Error('无法打开本机粒子素材存储'))}
+      request.onblocked=()=>{opening=null;reject(Error('粒子素材存储被占用，请关闭其他设置窗口后重试'))}
       request.onsuccess=()=>{
-        if(disposed){request.result.close();reject(Error('SVG 存储已关闭'));return}
+        if(disposed){request.result.close();reject(Error('粒子素材存储已关闭'));return}
         database=request.result;database.onversionchange=()=>{database.close();database=null;opening=null};resolve(database)
       }
     });return opening
   }
-  async function run(mode,action){const db=await open();return new Promise((resolve,reject)=>{const tx=db.transaction('artwork',mode),request=action(tx.objectStore('artwork'));let result;request.onsuccess=()=>result=request.result;tx.oncomplete=()=>resolve(result);tx.onerror=tx.onabort=()=>reject(Error('无法保存 SVG，请检查本机可用空间'))})}
-  return{load:()=>run('readonly',store=>store.get('current')),save:asset=>run('readwrite',store=>store.put(asset,'current')),remove:()=>run('readwrite',store=>store.delete('current')),dispose(){disposed=true;database?.close();database=null}}
+  async function run(mode,action){const db=await open();return new Promise((resolve,reject)=>{const tx=db.transaction('artwork',mode),request=action(tx.objectStore('artwork'));let result;request.addEventListener('success',()=>result=request.result);tx.oncomplete=()=>resolve(result);tx.onerror=tx.onabort=()=>reject(Error('无法保存粒子素材，请检查本机可用空间'))})}
+  return{
+    load:(key='current')=>run('readonly',store=>store.get(key)),save:asset=>run('readwrite',store=>store.put(asset,'current')),remove:()=>run('readwrite',store=>store.delete('current')),
+    saveImage:(asset,keep)=>run('readwrite',store=>{const request=store.getAllKeys();request.onsuccess=()=>{for(const key of request.result)if(typeof key==='string'&&key.startsWith('image:')&&key!=='image:'+keep)store.delete(key);store.put(asset,'image:'+asset.revision)};return request}),
+    removeImages:()=>run('readwrite',store=>{const request=store.getAllKeys();request.onsuccess=()=>{for(const key of request.result)if(typeof key==='string'&&key.startsWith('image:'))store.delete(key)};return request}),
+    dispose(){disposed=true;database?.close();database=null}
+  }
 }
 
 export function createContextParticles(doc,win,{logoPath,logoBox}={}){
-  const readings=new Map(),scenes=new Map(),retained=new Set(),watchedHosts=new Set(),models=new Map(),listeners=new Set(),store=svgStorage(win),sanitize=createParticleSVG(doc,win)
+  const readings=new Map(),scenes=new Map(),retained=new Set(),watchedHosts=new Set(),models=new Map(),listeners=new Set(),store=artworkStorage(win),sanitize=createParticleSVG(doc,win)
   const forced=win.matchMedia('(forced-colors: active)')
   // Keep watching connected hidden hosts even after their cached scene expires.
   // Restoring display alone otherwise has no publisher or DOM mount to wake us.
   const hostResize=new win.ResizeObserver(schedule)
-  let settings=normalizeParticles(null),disposed=false,frame=0,retentionTimer=0,lastStatus='',svgCache=null,svgKey='',contextPercent=null
+  let settings=normalizeParticles(null),disposed=false,frame=0,retentionTimer=0,lastStatus='',svgCache=null,svgKey='',contextPercent=null,imageSequence=0
   const now=()=>win.performance.now()
   function readingFor(entry){
     const percent=[...entry.owners.values()].at(-1)??null
@@ -54,7 +61,7 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
     }
     return entry.expires>now()?entry.last:null
   }
-  const artworkKey=()=>settings.particleShape==='custom'?'custom:'+settings.particleSvgRevision:settings.particleShape
+  const artworkKey=()=>settings.particleShape==='custom'?'custom:'+settings.particleSvgRevision:settings.particleShape==='image'?'image:'+settings.particleImageRevision:settings.particleShape
   const status=()=>[...scenes.values()].map(scene=>({percent:scene.percent,shape:scene.shape,waiting:scene.waiting,error:scene.error||null,...scene.renderer.snapshot()}))
   const emit=()=>{const key=JSON.stringify({contextPercent,progressMode:settings.particleProgressMode,manualProgress:settings.particleManualProgress,scenes:status().map(({percent,shape,waiting,error})=>({percent,shape,waiting,error}))});if(lastStatus===key)return;lastStatus=key;for(const listener of listeners)listener()}
   const diagnostic=Symbol.for('dsh-ui-beautify.context-particles.v1'),oldDiagnostic=Object.getOwnPropertyDescriptor(win,diagnostic)
@@ -71,6 +78,12 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
     if(!models.has(key)){
       const pending=(async()=>{
       if(key==='whale')return sampleParticleArtwork(whaleImage,{transparent:true})
+        if(key.startsWith('image:')){
+          const asset=await store.load(key)
+          if(!asset?.blob||asset.revision!==key.slice(6))throw Error('找不到这张本机图片，请重新导入')
+          const url=win.URL.createObjectURL(asset.blob)
+          try{return await sampleParticleArtwork(url)}finally{win.URL.revokeObjectURL(url)}
+        }
         if(key.startsWith('custom:'))return sampleParticleArtwork(await custom(),{vector:true})
         if(typeof logoPath!=='string'||!logoBox?.width||!logoBox?.height)throw Error('宿主 DeepSeek Logo 尚未就绪')
         // Brand geometry comes from the host's public primitive, not a redraw.
@@ -111,7 +124,7 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   }
   async function changeModel(scene,key){
     scene.key=key;scene.waiting=true;scene.error=null;const token=++scene.revision
-    try{const model=await modelFor(key);if(disposed||scene.released||token!==scene.revision)return;scene.renderer.setModel(model,key.startsWith('custom:')?'svg':key==='whale'?'whale':'default');scene.shape=key.startsWith('custom:')?'custom':key;scene.waiting=false}
+    try{const model=await modelFor(key);if(disposed||scene.released||token!==scene.revision)return;scene.renderer.setModel(model,key.startsWith('custom:')?'svg':key.startsWith('image:')?'image':key==='whale'?'whale':'default');scene.shape=key.startsWith('custom:')?'custom':key.startsWith('image:')?'image':key;scene.waiting=false}
     catch(error){if(token===scene.revision){scene.error=error.message;scene.waiting=true}}
     schedule();emit()
   }
@@ -161,6 +174,18 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
     forget(sessionId,owner){if(disposed)return;const entry=readings.get(sessionId);if(entry){entry.owners.delete(owner);readingFor(entry);if(!entry.owners.size&&entry.last===null)readings.delete(sessionId)}schedule()},
     subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener)},getStatus:()=>lastStatus,
     snapshot:probe.snapshot,
+    async importImage(file){
+      const token=++imageSequence,asset=await inspectParticleImage(file,doc,win),url=win.URL.createObjectURL(asset.blob)
+      let model
+      try{model=await sampleParticleArtwork(url)}finally{win.URL.revokeObjectURL(url)}
+      if(disposed||token!==imageSequence)throw Error('图片导入已取消')
+      await store.saveImage(asset,settings.particleImageRevision)
+      if(disposed||token!==imageSequence)throw Error('图片导入已取消')
+      for(const key of models.keys())if(key.startsWith('image:'))models.delete(key)
+      models.set('image:'+asset.revision,Promise.resolve(model))
+      return{particleShape:'image',particleImageRevision:asset.revision,particleImageName:asset.name}
+    },
+    async clearImage(){imageSequence++;await store.removeImages();for(const key of models.keys())if(key.startsWith('image:'))models.delete(key)},
     async importSVG(file){
       if(!file||file.size>2*1024*1024||!(/\.svg$/i.test(file.name)||file.type==='image/svg+xml'))throw Error('请选择不超过 2 MB 的 SVG 文件')
       const clean=sanitize.sanitize(await file.text());await sampleParticleArtwork(clean.source,{vector:true})

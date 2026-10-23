@@ -1,7 +1,7 @@
 {
   "name": "dsh-claude-beautify",
   "displayName": "UI动效美化",
-  "version": "0.3.46",
+  "version": "0.3.47",
   "private": true,
   "type": "module",
   "description": "UI动效美化：独立配置左侧栏、任务卡片与输入栏的玻璃样式、进度与切换动效。",
@@ -20,6 +20,7 @@
     "scripts/restore-claude-slider.mjs",
     "scripts/desktop-startup-feedback.mjs",
     "assets/CONTEXT-WHALE-LICENSE.md",
+    "assets/TURN-DIVIDER-ART.md",
     "README.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",

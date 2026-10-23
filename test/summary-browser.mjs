@@ -10,7 +10,7 @@ const project = fileURLToPath(new URL('..', import.meta.url))
 const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '.scratch', 'claude-beautify'))
 const presentationSettingKeys = [
   'backgroundBlur', 'backgroundEnabled', 'backgroundFit', 'backgroundName', 'backgroundOpacity', 'backgroundPosition', 'backgroundRevision', 'backgroundSound',
-  'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'enabled',
+  'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'enabled', 'headerCentered',
   'messageMotion', 'modules', 'particleCount', 'particleDensityVersion', 'particleEnabled', 'particleFull', 'particleManualProgress', 'particleProgressMode', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarOverlay', 'sidebarStyle',
   'skillDetails', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnGlass', 'welcomeDuration',
   'welcomeEnabled', 'welcomeFont', 'welcomeLogo', 'welcomeMediaDuration',

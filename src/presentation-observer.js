@@ -1,6 +1,6 @@
 const SIDEBAR=':is([class$="_sidebarCol"],[class*="_sidebarCol "])'
 const LOCAL=`[data-composer-card], .dcb-summary, .dcb-settings, .dcb-style-swatch, [data-testid="todo-panel"], [data-conversation-tabs], ${SIDEBAR}`
-const STRUCTURE=`${LOCAL}, [data-conversation-content], [data-chat-flow]`
+const STRUCTURE=`${LOCAL}, [data-conversation-content], [data-chat-flow], [data-conversation-header-leading]`
 const element=node=>node?.nodeType===1?node:node?.parentElement
 const containsUI=node=>node?.nodeType===1&&(node.matches(STRUCTURE)||node.querySelector(STRUCTURE))
 

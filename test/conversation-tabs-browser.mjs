@@ -89,7 +89,7 @@ async function boot({reducedMotion='no-preference',forcedColors='none',noAPI=fal
     window.calls=[];window.freeze=true;window.hiddenState=false
     Object.defineProperty(document,'hidden',{configurable:true,get:()=>window.hiddenState})
     const animate=Element.prototype.animate
-    Element.prototype.animate=noAPI?undefined:function(frames,options){const a=animate.call(this,frames,options);window.calls.push({a,el:this,frames,options});if(window.freeze)a.pause();return a}
+    Element.prototype.animate=noAPI?undefined:function(frames,options){const a=animate.call(this,frames,options);window.calls.push({a,el:this,frames,options});if(window.freeze){a.pause();a.currentTime=0}return a}
     window.frameAt=time=>{for(const c of window.calls)if(c.a.playState!=='idle'){c.a.pause();c.a.currentTime=time}}
     window.complete=async()=>{for(const c of window.calls)if(c.a.playState!=='idle')c.a.finish();await Promise.resolve()}
   },noAPI)

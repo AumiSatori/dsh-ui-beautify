@@ -2,7 +2,7 @@ import {motion} from './motion.js'
 
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const FRAME='data-dcb-focus-frame',PART='data-dcb-focus-part',HIDDEN='data-dcb-focus-hidden'
-const STRUCTURE=`[data-composer-seat],[data-conversation-content],[data-rightbar-col],${names('sidebarCol')},${names('rightbarCol')},.dcb-summary,.dcb-file-viewer,.dcb-focus-toggle`
+const STRUCTURE=`[data-composer-seat],[data-conversation-content],[data-rightbar-col],${names('sidebarCol')},${names('rightbarCol')},${names('titleCluster')},.dcb-summary,.dcb-file-viewer,.dcb-focus-toggle`
 export const focusModeCss=`
   .dcb-focus-toggle { display:inline-grid; place-items:center; flex:none; width:30px; height:30px; padding:0; margin-left:6px; border:1px solid #8883; border-radius:9px; background:#ffffff66; color:var(--dsw-alias-label-primary,#303237); cursor:pointer; -webkit-app-region:no-drag; transition:background-color 180ms ${motion.ease.color},border-color 180ms ${motion.ease.color},transform 220ms ${motion.ease.smooth}; }
   .dcb-focus-toggle:hover { background:#8882; border-color:#8886; }
@@ -16,6 +16,12 @@ export const focusModeCss=`
   [${FRAME}] { transition:none!important; }
   [${FRAME}=on] { grid-template-columns:0px minmax(0px,1fr) 0px!important; column-gap:0!important; }
   [${FRAME}=on] > [${PART}=center] { grid-column:2!important; min-width:0; }
+  [${FRAME}=on] header:has(> [data-conversation-header-leading]) { height:auto!important; min-height:0!important; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:0 12px; padding:8px 12px 8px 20px!important; }
+  [${FRAME}=on] header > [data-conversation-header-leading] { position:static!important; grid-area:1/1!important; width:auto; min-width:0; margin:0; }
+  [${FRAME}=on] header:has(> [data-conversation-header-leading]) > ${names('titleRow')} { grid-area:1/3!important; min-height:30px; display:flex; flex-wrap:nowrap; justify-self:end; padding:0!important; gap:8px; container-type:normal; }
+  [${FRAME}=on] header:has(> [data-conversation-header-leading]) ${names('headerUtilities')},[${FRAME}=on] header:has(> [data-conversation-header-leading]) ${names('headerCorner')} { position:static!important; flex:none!important; width:auto; max-width:none!important; min-width:0; min-height:30px; height:30px; flex-wrap:nowrap!important; margin:0; }
+  [${FRAME}=on] header > [data-conversation-tabs] { grid-area:1/2!important; min-width:0; max-width:100%; justify-self:stretch; align-items:center; flex-wrap:nowrap!important; gap:24px; margin:0; padding:0; overflow-x:auto; scrollbar-width:none; }
+  [${FRAME}=on] header > [data-conversation-tabs] > button { flex:none; padding-block:7px; }
   [${HIDDEN}] { display:none!important; }
   [${PART}=composer][data-dcb-focus-moving] { pointer-events:none; }
   @media(prefers-reduced-motion:reduce) { .dcb-focus-toggle,.dcb-focus-toggle path { transition:none; } }
@@ -51,6 +57,7 @@ export function createFocusMode(React,doc,win,schedule=()=>{}){
       else if(child.matches(names('handle')))parts.push([child,'handle'])
     }
     for(const element of center.querySelectorAll('[data-composer-seat],.dcb-summary'))parts.push([element,element.matches('[data-composer-seat]')?'composer':'extra'])
+    for(const element of center.querySelectorAll(`header:has(> [data-conversation-header-leading]) ${names('titleCluster')}`))parts.push([element,'extra'])
     for(const element of doc.querySelectorAll('.dcb-file-viewer'))parts.push([element,'extra'])
     return parts
   }
@@ -88,8 +95,12 @@ export function createFocusMode(React,doc,win,schedule=()=>{}){
   }
   function releaseReading(){for(const [element,record]of reading)restoreReading(element,record)}
   function geometry(){
-    const values=new Map(),add=(element,axis)=>{
-      if(element?.getClientRects().length)values.set(element,{axis,position:element.getBoundingClientRect()[axis==='x'?'left':'top']})
+    const values=new Map(),add=(element,axes)=>{
+      if(!element?.getClientRects().length)return
+      const box=element.getBoundingClientRect(),position={}
+      if(axes.includes('x'))position.x=box.left
+      if(axes.includes('y'))position.y=box.top
+      values.set(element,position)
     }
     for(const body of center?.querySelectorAll('[data-conversation-content]')||[]){
       add(body,'x')
@@ -101,8 +112,8 @@ export function createFocusMode(React,doc,win,schedule=()=>{}){
     const header=center?.querySelector('[data-slot="conversation.header"]')||center?.querySelector('header')
     // The native title row stretches across the grid. Its left edge does not
     // describe the utilities aligned to its right; measure those seats instead.
-    const seats=[...header?.querySelectorAll(['headerLeading','titleCluster','headerUtilities','headerCorner','viewTabs'].map(names).join(','))||[]]
-    for(const child of seats.length?seats:header?.children||[])add(child,'x')
+    const seats=[...header?.querySelectorAll(['headerLeading','titleCluster','headerUtilities','headerCorner','viewTabs','tabs'].map(names).join(','))||[]]
+    for(const child of seats.length?seats:header?.children||[])add(child,'xy')
     return values
   }
   const scrollTo=(scroll,top)=>scroll.scrollTo({top,behavior:'instant'})
@@ -194,10 +205,11 @@ export function createFocusMode(React,doc,win,schedule=()=>{}){
     for(const [element,end]of target){
       const base=natural.get(element),start=before?.get(element)||base
       if(!base||!start)continue
-      const first=start.position-base.position,last=end.position-base.position
-      if(Math.abs(first)<.1&&Math.abs(last)<.1)continue
+      const offset=position=>({x:position.x===undefined?0:position.x-base.x,y:position.y===undefined?0:position.y-base.y})
+      const first=offset(start),last=offset(end)
+      if([first.x,first.y,last.x,last.y].every(value=>Math.abs(value)<.1))continue
       const s=win.getComputedStyle(element),transform=s.transform==='none'?'':` ${s.transform}`
-      const shifted=value=>`translate${end.axis.toUpperCase()}(${value}px)${transform}`
+      const shifted=value=>`translate(${value.x}px, ${value.y}px)${transform}`
       try{const animation=element.animate([{transform:shifted(first)},{transform:shifted(last)}],{duration:motion.time.scene,easing:motion.ease.smooth,fill:'both'});animation.id='dcb-focus-position';animations.set(element,animation)}catch{/* Geometry still settles without motion support. */}
     }
     if(!active&&!prepared&&animations.size){

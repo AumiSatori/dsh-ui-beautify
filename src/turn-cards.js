@@ -25,7 +25,8 @@ export const turnCardsCss=`
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-tail] { padding-block-end:12px; }
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-head]::before { content:none; }
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-first]::before { content:none; }
-  ${ROOT}[data-dcb-turn-surface="line"][data-dcb-divider-preset="whale"] [data-dcb-turn-head]:not([data-dcb-turn-first]) { margin-block-start:112px!important; }
+  ${ROOT}[data-dcb-turn-surface="line"][data-dcb-divider-preset="whale"] [data-dcb-turn-head]:not([data-dcb-turn-first]) { margin-block-start:56px!important; }
+  ${ROOT}[data-dcb-turn-surface="line"][data-dcb-divider-preset="whale"] [data-dcb-turn-head]:not([data-dcb-turn-first]):has(> [data-dcb-turn-divider][data-custom-image]) { margin-block-start:112px!important; }
   ${CARD}[data-dcb-turn-arriving]::before { animation:dcb-turn-card-in ${motion.time.standard}ms ${motion.ease.smooth}; }
   ${CARD}[data-dcb-turn-focused]::before { border-color:#989fa9; }
   ${DARK} [data-dcb-turn-head][data-dcb-turn-row][data-dcb-turn-focused]::before { border-color:#818894; }

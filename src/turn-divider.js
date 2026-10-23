@@ -1,4 +1,3 @@
-import mascotSheet from '../assets/turn-divider-maid.png'
 import {inspectWelcomeMedia,welcomeMediaType} from './welcome-media.js'
 
 export const DIVIDER_CSS_LIMIT=12000
@@ -29,14 +28,13 @@ const artworkCss=`
   :host([data-preset=plain]) .line{background:var(--dcb-turn-rim,#e5e7eb)}
   :host([data-preset=color]) .line{background:linear-gradient(90deg,transparent,var(--divider-color) 22%,var(--divider-color) 78%,transparent)}
   .brand,.mascot{display:none;}
-  :host([data-preset=whale]) .divider{height:98px;bottom:-8px;}
+  :host([data-preset=whale]) .divider{height:36px;bottom:-8px;}
+  :host([data-preset=whale][data-custom-image]) .divider{height:98px;}
   :host([data-preset=whale]) .line{opacity:.55;background:linear-gradient(90deg,var(--divider-color),transparent 80%)}
   :host([data-preset=whale]) .brand{display:flex;align-items:baseline;position:absolute;left:5px;bottom:7px;white-space:pre;font:italic 750 clamp(16px,2.1vw,23px)/1.4 'Trebuchet MS',system-ui,sans-serif;letter-spacing:-.5px;color:var(--divider-text);}
   .letter{display:inline-block;transform-origin:50% 100%;animation:dcb-divider-letter calc(var(--divider-speed) + var(--i)*.027s) ease-in-out infinite;animation-delay:calc(var(--i)*-.16s);}
-  :host([data-preset=whale]) .mascot{display:block;position:absolute;right:0;bottom:0;width:var(--divider-mascot-width);height:calc(var(--divider-mascot-width)*.75);background-image:var(--mascot-sheet);background-size:400% 100%;background-repeat:no-repeat;animation:dcb-divider-feet 1.1s steps(4) infinite;}
+  :host([data-preset=whale][data-custom-image]) .mascot{display:block;position:absolute;right:0;bottom:0;width:var(--divider-mascot-width);height:calc(var(--divider-mascot-width)*.75);}
   .mascot img{width:100%;height:100%;object-fit:contain;display:block;}
-  :host([data-custom-image]) .mascot{background-image:none;animation:none;}
-  @keyframes dcb-divider-feet{to{background-position:133.333333% 0}}
   @keyframes dcb-divider-letter{0%,100%{transform:translateY(0) rotate(-2deg)}30%{transform:translateY(-3px) rotate(2deg)}65%{transform:translateY(1px) rotate(-1deg)}}
   @media(max-width:500px){:host{--divider-mascot-width:96px}.brand{font-size:15px!important;letter-spacing:-.65px!important}}
 `
@@ -64,7 +62,6 @@ export function createTurnDivider(doc,win){
     const {host,custom,mascot,img}=entry
     host.setAttribute('data-preset',options.turnDividerPreset)
     host.style.setProperty('--divider-color',options.turnDividerColor)
-    host.style.setProperty('--mascot-sheet',`url("${mascotSheet}")`)
     if(custom.textContent!==options.turnDividerCss)custom.textContent=options.turnDividerCss
     const playing=entry.visible&&entry.exposed&&options.turnDividerMotion&&!doc.hidden&&!media.matches
     host.toggleAttribute('data-paused',!playing)
@@ -73,7 +70,8 @@ export function createTurnDivider(doc,win){
     if(src&&options.turnDividerPreset==='whale'){
       if(img.src!==src)img.src=src
       if(img.parentElement!==mascot)mascot.append(img)
-    }else{img.removeAttribute('src');img.remove()}
+      if(mascot.parentElement!==entry.divider)entry.divider.append(mascot)
+    }else{img.removeAttribute('src');img.remove();mascot.remove()}
   }
   const redraw=()=>{for(const entry of entries.values())draw(entry)}
   const refreshMedia=async()=>{
@@ -83,7 +81,7 @@ export function createTurnDivider(doc,win){
       const asset=await store('readonly',s=>s.get('mascot'))
       if(disposed||token!==generation||asset?.revision!==options.turnDividerImageRevision)return
       image=win.URL.createObjectURL(asset.blob);poster=win.URL.createObjectURL(asset.poster);redraw()
-    }catch{/* A missing local asset leaves the built-in mascot visible. */}
+    }catch{/* Missing local artwork leaves only the text and divider. */}
   }
   const ensure=head=>{
     if(entries.has(head))return entries.get(head)
@@ -95,8 +93,8 @@ export function createTurnDivider(doc,win){
     const brand=doc.createElement('span');brand.className='brand'
     for(const [index,char]of [...'DeepSeek Harness'].entries()){const letter=doc.createElement('span');letter.className='letter';letter.textContent=char;letter.style.setProperty('--i',index);brand.append(letter)}
     const mascot=doc.createElement('span');mascot.className='mascot';const img=doc.createElement('img');img.alt='';img.draggable=false
-    divider.append(line,brand,mascot);shadow.append(base,custom,guard,divider)
-    const entry={host,custom,mascot,img,visible:false,exposed:false};entries.set(head,entry);hosts.set(host,entry);head.prepend(host);exposure.observe(host);draw(entry);return entry
+    divider.append(line,brand);shadow.append(base,custom,guard,divider)
+    const entry={host,custom,divider,mascot,img,visible:false,exposed:false};entries.set(head,entry);hosts.set(host,entry);head.prepend(host);exposure.observe(host);draw(entry);return entry
   }
   doc.addEventListener('visibilitychange',redraw);media.addEventListener('change',redraw)
   return {
@@ -137,7 +135,8 @@ export const turnDividerSettingsCss=`
   .dcb-divider-settings textarea{box-sizing:border-box;display:block;resize:vertical;width:100%;min-height:125px;border:1px solid #8885;border-radius:8px;background:transparent;color:inherit;padding:10px;font:12px/1.7 Consolas,monospace}
   .dcb-divider-settings p{font-size:12px;color:var(--dsh-settings-secondary);line-height:1.65}
   .dcb-divider-settings input[type=color]{width:42px;height:28px;padding:2px;border:1px solid #8884;border-radius:6px;background:transparent;cursor:pointer}
-  .dcb-divider-demo{position:relative;height:90px;margin:6px 0 15px;pointer-events:none;border-bottom:1px solid transparent}
+  .dcb-divider-demo{position:relative;height:42px;margin:6px 0 15px;pointer-events:none;border-bottom:1px solid transparent}
+  .dcb-divider-demo:has([data-custom-image]){height:90px}
   .dcb-divider-demo>span{position:absolute;left:0;right:0;bottom:5px}
   .dcb-divider-error{color:#b43b4a!important}
 `
@@ -152,11 +151,11 @@ export function createTurnDividerSettings(React,doc,win){
     const run=async fn=>{setBusy(true);setError('');try{const patch=await fn();if(mounted.current)onChange(patch)}catch(error){if(mounted.current)setError(error.message)}finally{if(mounted.current)setBusy(false)}}
     return h('div',{className:'dcb-divider-settings'},h('strong',null,'自定义分隔装饰'),
       h('div',{className:'dcb-divider-demo'},h('span',{ref:demo})),
-      h('div',{className:'dcb-divider-presets',role:'radiogroup','aria-label':'分隔装饰预设'},[['plain','原始细线'],['color','彩色细线'],['whale','鲸鱼娘与艺术字']].map(([key,label])=>h('button',{type:'button',key,role:'radio','aria-checked':value.turnDividerPreset===key,onClick:()=>onChange({turnDividerPreset:key,...(key==='whale'?{turnDividerMotion:true}:{})})},label))),
+      h('div',{className:'dcb-divider-presets',role:'radiogroup','aria-label':'分隔装饰预设'},[['plain','原始细线'],['color','彩色细线'],['whale','艺术字']].map(([key,label])=>h('button',{type:'button',key,role:'radio','aria-checked':value.turnDividerPreset===key,onClick:()=>onChange({turnDividerPreset:key,...(key==='whale'?{turnDividerMotion:true}:{})})},label))),
       h('label',null,'装饰颜色',h('input',{type:'color','aria-label':'分隔装饰颜色',value:value.turnDividerColor,onChange:event=>onChange({turnDividerColor:event.target.value,...(value.turnDividerPreset==='plain'?{turnDividerPreset:'color'}:{})})})),
-      h('label',null,'字母轻晃与小脚摆动',h('button',{type:'button',role:'switch','aria-label':'分隔装饰动效','aria-checked':value.turnDividerMotion,onClick:()=>onChange({turnDividerMotion:!value.turnDividerMotion})},value.turnDividerMotion?'已开启':'已关闭')),
+      h('label',null,'字母轻晃',h('button',{type:'button',role:'switch','aria-label':'分隔装饰动效','aria-checked':value.turnDividerMotion,onClick:()=>onChange({turnDividerMotion:!value.turnDividerMotion})},value.turnDividerMotion?'已开启':'已关闭')),
       h('p',null,'动画仅在可见区域播放，减少动态效果或切到后台时暂停。仅改变分隔装饰，正文和消息操作保持原样。'),
-      h('div',{className:'dcb-divider-actions'},h('button',{type:'button',disabled:busy,onClick:()=>file.current?.click()},busy?'处理中…':'导入自己的动图'),value.turnDividerImageRevision&&h('button',{type:'button',disabled:busy,onClick:()=>run(()=>manager.resetImage())},'恢复鲸鱼娘')),
+      h('div',{className:'dcb-divider-actions'},h('button',{type:'button',disabled:busy,onClick:()=>file.current?.click()},busy?'处理中…':'导入自己的动图'),value.turnDividerImageRevision&&h('button',{type:'button',disabled:busy,onClick:()=>run(()=>manager.resetImage())},'移除自定义动图')),
       h('input',{ref:file,type:'file',accept:'image/gif,image/png,image/webp',hidden:true,'aria-label':'自定义分隔动图',onChange:event=>{const image=event.target.files?.[0];event.target.value='';if(image)run(()=>manager.importImage(image))}}),
       h('p',null,'支持 2MB 以内、1024 像素以内的 GIF / APNG / WebP；只保存在本机。'),
       h('details',null,h('summary',null,'CSS 自定义'),h('p',null,'可自由设置 .line、.brand、.letter、.mascot，也支持 @keyframes。CSS 仅作用于这个装饰区域。'),

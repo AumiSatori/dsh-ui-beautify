@@ -1,5 +1,5 @@
 import whaleImage from '../assets/context-whale.jpg'
-import {PARTICLE_COUNTS} from './context-particle-config.js'
+import {PARTICLE_COUNTS,particleConversion} from './context-particle-config.js'
 
 export const particleSettingsCss=`
   .dcb-particle-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin:14px 0; }
@@ -17,20 +17,28 @@ export const particleSettingsCss=`
   .dcb-particle-number input:focus { border-color:#888b; box-shadow:0 0 0 3px #8882; }
   .dcb-particle-number button { display:grid; place-items:center; width:28px; height:30px; border:1px solid #8884; border-radius:7px; background:transparent; color:inherit; cursor:pointer; transition:background-color 180ms ease,transform 220ms ease; }
   .dcb-particle-number button:active { transform:scale(.9); }
-  .dcb-particle-density { margin:14px 0; padding:14px; border:1px solid #8883; border-radius:10px; }
-  .dcb-particle-density-heading,.dcb-particle-density-ends { display:flex; justify-content:space-between; align-items:center; gap:12px; }
-  .dcb-particle-density-heading { font:600 13px/20px system-ui; }
-  .dcb-particle-density-heading output { font-variant-numeric:tabular-nums; }
-  .dcb-particle-density-slider { display:flex; align-items:center; height:36px; cursor:ew-resize; touch-action:none; user-select:none; border-radius:8px; outline:none; }
-  .dcb-particle-density-slider:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
-  .dcb-particle-density-track { position:relative; display:block; flex:1; margin-inline:10px; height:5px; border-radius:999px; background:#8884; }
-  .dcb-particle-density-fill { position:absolute; inset:0 auto 0 0; width:var(--dcb-density-fill); border-radius:inherit; background:currentColor; }
-  .dcb-particle-density-thumb { position:absolute; top:50%; left:var(--dcb-density-fill); width:17px; height:17px; box-sizing:border-box; border:2px solid currentColor; border-radius:50%; background:var(--dsh-settings-bg,#fff); transform:translate(-50%,-50%); box-shadow:0 1px 5px #0002; }
-  body[data-ds-dark-theme] .dcb-particle-density-thumb { background:#222; }
-  .dcb-particle-density-ends { font:11px/18px system-ui; color:var(--dsh-settings-secondary); }
-  .dcb-particle-density-preview { height:46px; margin-top:10px; border:1px solid #8882; border-radius:7px; background-image:radial-gradient(circle,#7d95c9 1px,transparent 1.5px); background-size:var(--dcb-density-gap) var(--dcb-density-gap); background-position:center; }
-  .dcb-particle-density p { margin:8px 0 0; font:12px/20px system-ui; color:var(--dsh-settings-secondary); }
-  @media(forced-colors:active) { .dcb-particle-density-fill { background:Highlight; } .dcb-particle-density-thumb { background:Canvas; } .dcb-particle-density-track { border:1px solid ButtonText; } }
+  .dcb-particle-conversion { margin:14px 0; padding:14px; border:1px solid #8883; border-radius:10px; }
+  .dcb-particle-conversion-heading,.dcb-particle-conversion-ends { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .dcb-particle-conversion-heading { font:600 13px/20px system-ui; }
+  .dcb-particle-conversion-heading output { font-variant-numeric:tabular-nums; }
+  .dcb-particle-conversion-value { display:flex; align-items:center; gap:6px; }
+  .dcb-particle-modes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-top:12px; }
+  .dcb-particle-modes button { padding:8px 5px; border:1px solid #8884; border-radius:8px; color:inherit; background:transparent; font:12px/20px system-ui; cursor:pointer; transition:background-color 180ms ease,border-color 180ms ease; }
+  .dcb-particle-modes button[aria-checked=true] { background:#8881; border-color:#888a; font-weight:600; }
+  .dcb-particle-modes button:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+  .dcb-particle-conversion-slider { display:flex; align-items:center; height:36px; cursor:ew-resize; touch-action:none; user-select:none; border-radius:8px; outline:none; }
+  .dcb-particle-conversion-slider:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+  .dcb-particle-conversion-track { position:relative; display:block; flex:1; margin-inline:10px; height:5px; border-radius:999px; background:#8884; }
+  .dcb-particle-conversion-fill { position:absolute; inset:0 auto 0 0; width:var(--dcb-conversion-fill); border-radius:inherit; background:currentColor; }
+  .dcb-particle-conversion-thumb { position:absolute; top:50%; left:var(--dcb-conversion-fill); width:17px; height:17px; box-sizing:border-box; border:2px solid currentColor; border-radius:50%; background:var(--dsh-settings-bg,#fff); transform:translate(-50%,-50%); box-shadow:0 1px 5px #0002; }
+  body[data-ds-dark-theme] .dcb-particle-conversion-thumb { background:#222; }
+  .dcb-particle-conversion-ends { font:11px/18px system-ui; color:var(--dsh-settings-secondary); }
+  .dcb-particle-conversion p { margin:8px 0 0; font:12px/20px system-ui; color:var(--dsh-settings-secondary); }
+  .dcb-particle-context { margin-top:14px; padding-top:12px; border-top:1px solid #8883; }
+  .dcb-particle-context .dcb-particle-conversion-heading { font:12px/20px system-ui; }
+  .dcb-particle-context-meter { height:5px; margin-top:8px; overflow:hidden; border-radius:999px; background:#8883; }
+  .dcb-particle-context-meter span { display:block; height:100%; width:var(--dcb-context-fill); border-radius:inherit; background:currentColor; opacity:.6; }
+  @media(forced-colors:active) { .dcb-particle-conversion-fill,.dcb-particle-context-meter span { background:Highlight; opacity:1; } .dcb-particle-conversion-thumb { background:Canvas; } .dcb-particle-conversion-track,.dcb-particle-context-meter { border:1px solid ButtonText; } .dcb-particle-modes button[aria-checked=true] { outline:2px solid Highlight; outline-offset:-2px; } }
   .dcb-particle-control { margin-top:12px; padding:13px; border:1px dashed #8885; border-radius:10px; }
   .dcb-particle-control p { font:12px/20px system-ui; color:var(--dsh-settings-secondary); overflow-wrap:anywhere; }
   .dcb-particle-buttons { display:flex; flex-wrap:wrap; gap:8px; }
@@ -39,26 +47,25 @@ export const particleSettingsCss=`
   .dcb-particle-error { color:var(--dsh-settings-text); font:12px/20px system-ui; padding-block:8px; }
   .dcb-particle-live { font-variant-numeric:tabular-nums; }
   @media(max-width:600px) { .dcb-particle-options { gap:6px; } .dcb-particle-option { padding-inline:4px; font-size:11px; } }
-  @media(prefers-reduced-motion:reduce) { .dcb-particle-option,.dcb-particle-number input,.dcb-particle-number button,.dcb-particle-buttons button { transition:none; } }
+  @media(prefers-reduced-motion:reduce) { .dcb-particle-option,.dcb-particle-number input,.dcb-particle-number button,.dcb-particle-buttons button,.dcb-particle-modes button { transition:none; } }
 `
 
 export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
   const h=React.createElement
-  function DensitySlider({value,onChange}){
+  function ProgressSlider({value,onChange}){
     const drag=React.useRef(null),queued=React.useRef(null),frame=React.useRef(0),change=React.useRef(onChange)
     change.current=onChange
-    const {min,max,step}=PARTICLE_COUNTS,span=max-min
-    const clampCount=count=>Math.max(min,Math.min(max,Math.round(count/step)*step))
-    const flush=()=>{win.cancelAnimationFrame(frame.current);frame.current=0;if(queued.current!==null){const count=queued.current;queued.current=null;change.current(count)}}
-    const point=(x,bounds)=>{queued.current=clampCount(min+(x-bounds.left-10)/Math.max(1,bounds.width-20)*span);if(!frame.current)frame.current=win.requestAnimationFrame(flush)}
+    const clampProgress=progress=>Math.max(0,Math.min(100,Math.round(progress)))
+    const flush=()=>{win.cancelAnimationFrame(frame.current);frame.current=0;if(queued.current!==null){const progress=queued.current;queued.current=null;change.current(progress)}}
+    const point=(x,bounds)=>{queued.current=clampProgress((x-bounds.left-10)/Math.max(1,bounds.width-20)*100);if(!frame.current)frame.current=win.requestAnimationFrame(flush)}
     React.useEffect(()=>()=>win.cancelAnimationFrame(frame.current),[])
-    return h('div',{className:'dcb-particle-density-slider',role:'slider',tabIndex:0,'aria-label':'粒子浓度','aria-orientation':'horizontal','aria-valuemin':min/100,'aria-valuemax':max/100,'aria-valuenow':value/100,'aria-valuetext':`${value/100}%，${value} 颗`,style:{'--dcb-density-fill':`${(value-min)/span*100}%`},
+    return h('div',{className:'dcb-particle-conversion-slider',role:'slider',tabIndex:0,'aria-label':'转换进度','aria-orientation':'horizontal','aria-valuemin':0,'aria-valuemax':100,'aria-valuenow':value,'aria-valuetext':`${value}% 转换进度，0% 散开，100% 完整成形`,style:{'--dcb-conversion-fill':`${value}%`},
       onPointerDown:e=>{if(e.button!==0||e.isPrimary===false)return;e.preventDefault();e.currentTarget.focus();e.currentTarget.setPointerCapture(e.pointerId);drag.current={id:e.pointerId,bounds:e.currentTarget.getBoundingClientRect()};point(e.clientX,drag.current.bounds)},
       onPointerMove:e=>{if(drag.current?.id===e.pointerId)point(e.clientX,drag.current.bounds)},
       onPointerUp:e=>{if(drag.current?.id!==e.pointerId)return;point(e.clientX,drag.current.bounds);flush();drag.current=null;if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId)},
       onPointerCancel:()=>{flush();drag.current=null},onLostPointerCapture:()=>{drag.current=null},
-      onKeyDown:e=>{const steps={ArrowLeft:-step,ArrowDown:-step,ArrowRight:step,ArrowUp:step,PageDown:-step*10,PageUp:step*10};if(e.key==='Home'||e.key==='End'||e.key in steps){e.preventDefault();flush();onChange(clampCount(e.key==='Home'?min:e.key==='End'?max:value+steps[e.key]))}}
-    },h('span',{className:'dcb-particle-density-track','aria-hidden':'true'},h('span',{className:'dcb-particle-density-fill'}),h('span',{className:'dcb-particle-density-thumb'})))
+      onKeyDown:e=>{const steps={ArrowLeft:-1,ArrowDown:-1,ArrowRight:1,ArrowUp:1,PageDown:-10,PageUp:10};if(e.key==='Home'||e.key==='End'||e.key in steps){e.preventDefault();flush();onChange(clampProgress(e.key==='Home'?0:e.key==='End'?100:value+steps[e.key]))}}
+    },h('span',{className:'dcb-particle-conversion-track','aria-hidden':'true'},h('span',{className:'dcb-particle-conversion-fill'}),h('span',{className:'dcb-particle-conversion-thumb'})))
   }
   function NumberField({label,value,min,max,step=1,onChange}){
     const [draft,setDraft]=React.useState(String(value))
@@ -77,7 +84,9 @@ export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
     const input=React.useRef(null),mounted=React.useRef(true),sequence=React.useRef(0)
     React.useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;sequence.current++}},[])
     React.useSyncExternalStore(particles.subscribe,particles.getStatus,particles.getStatus)
-    const snapshots=particles.snapshot().scenes,current=snapshots.find(s=>s.percent!==null),live=current?.percent
+    const snapshot=particles.snapshot(),current=snapshot.scenes[0],live=snapshot.contextPercent??null,manual=value.particleProgressMode==='manual',progress=Math.round(particleConversion(live,value)*100)
+    const setProgress=particleManualProgress=>onChange({particleProgressMode:'manual',particleManualProgress})
+    const modeKey=e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(e.key))return;e.preventDefault();const choices=[...e.currentTarget.parentElement.querySelectorAll('[role=radio]')],at=choices.indexOf(e.currentTarget),next=e.key==='Home'?0:e.key==='End'?choices.length-1:(at+(['ArrowRight','ArrowDown'].includes(e.key)?1:choices.length-1))%choices.length;choices[next].click();choices[next].focus()}
     const row=(label,description,control)=>h('div',{className:'dcb-settings-row'},h('div',{className:'dcb-settings-copy'},h('span',{className:'dcb-settings-row-title'},label),h('p',{className:'dcb-settings-row-desc'},description)),control)
     async function upload(file){
       if(!file)return;const token=++sequence.current;setBusy(true);setError('')
@@ -86,23 +95,27 @@ export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
       finally{if(mounted.current&&token===sequence.current)setBusy(false)}
     }
     return h('section',{className:'dcb-settings-block dcb-settings-card','data-dcb-settings-block':'particles'},
-      h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'上下文粒子背景'),h('p',null,'粒子从四周汇入，跟随当前会话的真实上下文占用'))),
+      h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'会话粒子背景'),h('p',null,'从散开到成形，手动控制转换进度或跟随上下文'))),
       row('会话粒子背景','默认使用 DeepSeek Logo；关闭会释放画布与绘制资源。',h('button',{type:'button',role:'switch',className:'dcb-switch','aria-label':'会话粒子背景','aria-checked':value.particleEnabled,onClick:()=>onChange({particleEnabled:!value.particleEnabled})})),
       h('div',{className:'dcb-particle-options',role:'radiogroup','aria-label':'粒子图形'},[
         ['logo','DeepSeek Logo',FishLogo?h(FishLogo,{size:46}):'◈'],['whale','鲸鱼娘',h('img',{src:whaleImage,alt:''})],['custom','自定义 SVG','◇']
       ].map(([shape,label,icon])=>h('button',{key:shape,type:'button',role:'radio',className:'dcb-particle-option','aria-label':label,'aria-checked':value.particleShape===shape,tabIndex:value.particleShape===shape?0:-1,disabled:shape==='custom'&&!value.particleSvgRevision,onClick:()=>onChange({particleShape:shape}),
         onKeyDown:e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(e.key))return;e.preventDefault();const choices=[...e.currentTarget.parentElement.querySelectorAll('button:not(:disabled)')],at=choices.indexOf(e.currentTarget),next=e.key==='Home'?0:e.key==='End'?choices.length-1:(at+(['ArrowRight','ArrowDown'].includes(e.key)?1:choices.length-1))%choices.length;choices[next].click();choices[next].focus()}
       },h('span',{className:'dcb-particle-icon','aria-hidden':'true'},icon),label))),
-      h('div',{className:'dcb-particle-density'},
-        h('div',{className:'dcb-particle-density-heading'},h('span',null,'粒子浓度'),h('output',null,`${value.particleCount/100}% · ${value.particleCount} 颗`)),
-        h(DensitySlider,{value:value.particleCount,onChange:particleCount=>onChange({particleCount})}),
-        h('div',{className:'dcb-particle-density-ends','aria-hidden':'true'},h('span',null,'稀疏'),h('span',null,'浓密')),
-        h('div',{className:'dcb-particle-density-preview','aria-hidden':'true',style:{'--dcb-density-gap':`${Math.sqrt(420000/value.particleCount)}px`}}),
-        h('p',null,'拖动实时调整点阵密度，与下方粒子数同步并自动保存；浓度越高绘制开销越大。备用绘图最多 4500 颗。')),
-      row('粒子数',`${PARTICLE_COUNTS.min}–${PARTICLE_COUNTS.max}。默认 ${PARTICLE_COUNTS.default}（${PARTICLE_COUNTS.default/100}%）；100% 对应 10000 颗，可继续调至 200%。`,h(NumberField,{label:'粒子数',value:value.particleCount,min:PARTICLE_COUNTS.min,max:PARTICLE_COUNTS.max,step:PARTICLE_COUNTS.step,onChange:particleCount=>onChange({particleCount})})),
-      row('开始显示 (%)','低于这个占用比例时隐藏背景。',h(NumberField,{label:'开始显示百分比',value:value.particleStart,min:0,max:95,onChange:particleStart=>onChange({particleStart})})),
-      row('完整成形 (%)','达到此占用比例时完整成形；之后保持完整，压缩时随占用回退。',h(NumberField,{label:'完整成形百分比',value:value.particleFull,min:value.particleStart+1,max:100,onChange:particleFull=>onChange({particleFull})})),
-      h('div',{className:'dcb-settings-info dcb-particle-live',role:'status'},!value.particleEnabled?'背景已关闭':live===undefined?'等待当前会话的上下文数据；未上报时不模拟占用':`当前上下文 ${live}% · 成形进度 ${Math.round(Math.max(0,Math.min(1,(live-value.particleStart)/(value.particleFull-value.particleStart)))*100)}% · ${value.particleStart}% 开始 / ${value.particleFull}% 完整`,current?.error?` · ${current.error}`:''),
+      h('div',{className:'dcb-particle-conversion'},
+        h('div',{className:'dcb-particle-conversion-heading'},h('span',null,'转换进度'),manual?h('div',{className:'dcb-particle-conversion-value'},h(NumberField,{label:'转换进度百分比',value:value.particleManualProgress,min:0,max:100,onChange:setProgress}),h('span',null,'%')):h('output',null,live===null?'等待数据':`${progress}%`)),
+        h('div',{className:'dcb-particle-modes',role:'radiogroup','aria-label':'转换进度来源'},[['context','跟随上下文'],['manual','手动调整']].map(([id,label])=>h('button',{key:id,type:'button',role:'radio','aria-checked':value.particleProgressMode===id,tabIndex:value.particleProgressMode===id?0:-1,onKeyDown:modeKey,onClick:()=>onChange({particleProgressMode:id})},label))),
+        h(ProgressSlider,{value:progress,onChange:setProgress}),
+        h('div',{className:'dcb-particle-conversion-ends','aria-hidden':'true'},h('span',null,'散开'),h('span',null,'完整成形')),
+        h('p',null,manual?'手动指定 0–100% 的转换进度，不随上下文变化；选择自动保存。':'根据上下文占用自动转换；拖动滑条即可切换为手动调整。'),
+        h('div',{className:'dcb-particle-context'},
+          h('div',{className:'dcb-particle-conversion-heading'},h('span',null,'当前上下文'),h('output',null,live===null?'等待数据':`${live}%`)),
+          h('div',{className:'dcb-particle-context-meter',role:'progressbar','aria-label':'当前上下文占用','aria-valuemin':0,'aria-valuemax':100,'aria-valuenow':live===null?undefined:live,'aria-valuetext':live===null?'等待当前会话的上下文数据':`${live}%`},h('span',{'aria-hidden':'true',style:{'--dcb-context-fill':`${live??0}%`}})),
+          h('p',null,'显示当前会话的真实上下文占用，手动模式下也持续更新。'))),
+      row('粒子数',`${PARTICLE_COUNTS.min}–${PARTICLE_COUNTS.max}，默认 ${PARTICLE_COUNTS.default} 颗。独立调整点阵密度；备用绘图最多 4500 颗。`,h(NumberField,{label:'粒子数',value:value.particleCount,min:PARTICLE_COUNTS.min,max:PARTICLE_COUNTS.max,step:PARTICLE_COUNTS.step,onChange:particleCount=>onChange({particleCount})})),
+      !manual&&row('开始显示 (%)','跟随上下文时，低于这个占用比例隐藏背景。',h(NumberField,{label:'开始显示百分比',value:value.particleStart,min:0,max:95,onChange:particleStart=>onChange({particleStart})})),
+      !manual&&row('完整成形 (%)','跟随上下文时，达到此占用比例完整成形；压缩时随占用回退。',h(NumberField,{label:'完整成形百分比',value:value.particleFull,min:value.particleStart+1,max:100,onChange:particleFull=>onChange({particleFull})})),
+      h('div',{className:'dcb-settings-info dcb-particle-live',role:'status'},!value.particleEnabled?'背景已关闭':manual?`手动转换 ${progress}%`:live===null?'等待当前会话的上下文数据；可切换为手动调整':`跟随上下文 · 转换进度 ${progress}% · ${value.particleStart}% 开始 / ${value.particleFull}% 完整`,current?.error?` · ${current.error}`:''),
       h('div',{className:'dcb-particle-control'},h('strong',null,'本机 SVG'),h('p',null,value.particleSvgName||'支持静态填充、描边、渐变和透明背景，文件不上传。'),
         h('input',{ref:input,type:'file',accept:'.svg,image/svg+xml',hidden:true,onChange:e=>{const file=e.target.files?.[0];e.target.value='';upload(file)}}),
         h('div',{className:'dcb-particle-buttons'},h('button',{type:'button',disabled:busy,onClick:()=>input.current?.click()},busy?'读取中…':'导入 SVG'),value.particleSvgRevision&&h('button',{type:'button',disabled:busy,onClick:async()=>{setBusy(true);try{await particles.clearSVG();if(mounted.current)onChange({particleShape:value.particleShape==='custom'?'logo':value.particleShape,particleSvgRevision:'',particleSvgName:''})}catch(e){if(mounted.current)setError(e.message)}finally{if(mounted.current)setBusy(false)}}},'移除自定义 SVG')),

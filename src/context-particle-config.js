@@ -9,6 +9,8 @@ export function normalizeParticles(value){
     particleShape:['logo','whale','custom'].includes(value?.particleShape)?value.particleShape:'logo',
     particleCount:Math.round(bounded(count,PARTICLE_COUNTS.min,PARTICLE_COUNTS.max,PARTICLE_COUNTS.default)/PARTICLE_COUNTS.step)*PARTICLE_COUNTS.step,
     particleDensityVersion:1,
+    particleProgressMode:value?.particleProgressMode==='manual'?'manual':'context',
+    particleManualProgress:Math.round(bounded(value?.particleManualProgress,0,100,50)),
     particleStart:start,particleFull:Math.round(bounded(value?.particleFull,start+1,100,80)),
     particleSvgRevision:typeof value?.particleSvgRevision==='string'?value.particleSvgRevision.slice(0,100):'',
     particleSvgName:typeof value?.particleSvgName==='string'?value.particleSvgName.slice(0,160):'',
@@ -21,3 +23,4 @@ export function particleOccupancy(pressure){
   return Math.max(0,Math.min(100,Math.round(used/capacity*100)))
 }
 export function particleProgress(percent,start,full){return percent===null?0:Math.max(0,Math.min(1,(percent-start)/(full-start)))}
+export function particleConversion(percent,settings){return settings.particleProgressMode==='manual'?settings.particleManualProgress/100:particleProgress(percent,settings.particleStart,settings.particleFull)}

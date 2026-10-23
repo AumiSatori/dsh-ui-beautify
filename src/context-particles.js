@@ -1,7 +1,7 @@
 import whaleImage from '../assets/context-whale-cutout.png'
 import {createParticleScene,sampleParticleArtwork} from './context-particle-renderer.js'
 import {createParticleSVG} from './context-particle-svg.js'
-import {normalizeParticles,particleOccupancy,particleProgress} from './context-particle-config.js'
+import {normalizeParticles,particleOccupancy,particleConversion} from './context-particle-config.js'
 export {normalizeParticles} from './context-particle-config.js'
 
 // Native sidebar transitions can briefly hide/remount the conversation or its
@@ -43,7 +43,7 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   // Keep watching connected hidden hosts even after their cached scene expires.
   // Restoring display alone otherwise has no publisher or DOM mount to wake us.
   const hostResize=new win.ResizeObserver(schedule)
-  let settings=normalizeParticles(null),disposed=false,frame=0,retentionTimer=0,lastStatus='',svgCache=null,svgKey=''
+  let settings=normalizeParticles(null),disposed=false,frame=0,retentionTimer=0,lastStatus='',svgCache=null,svgKey='',contextPercent=null
   const now=()=>win.performance.now()
   function readingFor(entry){
     const percent=[...entry.owners.values()].at(-1)??null
@@ -56,9 +56,9 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   }
   const artworkKey=()=>settings.particleShape==='custom'?'custom:'+settings.particleSvgRevision:settings.particleShape
   const status=()=>[...scenes.values()].map(scene=>({percent:scene.percent,shape:scene.shape,waiting:scene.waiting,error:scene.error||null,...scene.renderer.snapshot()}))
-  const emit=()=>{const key=JSON.stringify(status().map(({percent,shape,waiting,error})=>({percent,shape,waiting,error})));if(lastStatus===key)return;lastStatus=key;for(const listener of listeners)listener()}
+  const emit=()=>{const key=JSON.stringify({contextPercent,progressMode:settings.particleProgressMode,manualProgress:settings.particleManualProgress,scenes:status().map(({percent,shape,waiting,error})=>({percent,shape,waiting,error}))});if(lastStatus===key)return;lastStatus=key;for(const listener of listeners)listener()}
   const diagnostic=Symbol.for('dsh-ui-beautify.context-particles.v1'),oldDiagnostic=Object.getOwnPropertyDescriptor(win,diagnostic)
-  const probe=Object.freeze({snapshot:()=>({enabled:settings.particleEnabled,shape:settings.particleShape,start:settings.particleStart,full:settings.particleFull,count:settings.particleCount,scenes:status()})})
+  const probe=Object.freeze({snapshot:()=>({enabled:settings.particleEnabled,shape:settings.particleShape,start:settings.particleStart,full:settings.particleFull,count:settings.particleCount,progressMode:settings.particleProgressMode,manualProgress:settings.particleManualProgress,contextPercent,scenes:status()})})
   Object.defineProperty(win,diagnostic,{configurable:true,value:probe})
   async function custom(){
     const key=settings.particleSvgRevision
@@ -116,11 +116,14 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   }
   function sync(value=settings){
     if(disposed)return;settings=normalizeParticles(value)
-    const enabled=settings.particleEnabled&&!forced.matches
-    const candidates=enabled?[...doc.querySelectorAll('[data-conversation-content][data-conversation-session]')].filter(host=>!host.closest('[data-dcb-sidebar-layout-probe]')&&readings.has(host.dataset.conversationSession)):[]
+    const enabled=settings.particleEnabled&&!forced.matches,manual=settings.particleProgressMode==='manual'
+    const contentHosts=[...doc.querySelectorAll('[data-conversation-content][data-conversation-session]')].filter(host=>!host.closest('[data-dcb-sidebar-layout-probe]'))
+    const visibleHosts=new Set(contentHosts.filter(host=>host.getClientRects().length)),currentHost=visibleHosts.values().next().value,currentReading=currentHost&&readings.get(currentHost.dataset.conversationSession)
+    contextPercent=currentReading?readingFor(currentReading):null
+    const candidates=enabled?contentHosts.filter(host=>manual||readings.has(host.dataset.conversationSession)):[]
     for(const host of watchedHosts)if(!candidates.includes(host)){hostResize.unobserve(host);watchedHosts.delete(host)}
     for(const host of candidates)if(!watchedHosts.has(host)){watchedHosts.add(host);hostResize.observe(host)}
-    const hosts=candidates.filter(host=>host.getClientRects().length).slice(0,MAX_SCENES)
+    const hosts=candidates.filter(host=>visibleHosts.has(host)).slice(0,MAX_SCENES)
     if(!enabled){for(const scene of [...scenes.values(),...retained])release(scene);armRetention()}
     else for(const [host,scene]of scenes)if(!hosts.includes(host)){
       if(host.isConnected&&host.dataset.conversationSession!==scene.session)release(scene)
@@ -135,12 +138,15 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
         if(cached)scene=bind(cached,host)
         else{while(scenes.size+retained.size>=MAX_SCENES&&retained.size)release(retained.values().next().value);scene=create(host)}
       }
-      scene.percent=readingFor(readings.get(host.dataset.conversationSession));scene.layer.toggleAttribute('data-waiting',scene.percent===null||scene.waiting)
-      if(scene.percent!==null&&scene.key!==key)changeModel(scene,key)
+      const reading=readings.get(host.dataset.conversationSession)
+      scene.percent=reading?readingFor(reading):null
+      const canShow=manual||scene.percent!==null&&scene.percent>=settings.particleStart
+      scene.layer.toggleAttribute('data-waiting',!canShow||scene.waiting)
+      if(canShow&&scene.key!==key)changeModel(scene,key)
       const box=host.getBoundingClientRect(),composer=host.querySelector('[data-composer-seat]')?.getBoundingClientRect()
       const bottom=composer&&composer.top>box.top+40?Math.min(box.height,composer.top-box.top):box.height
-      scene.renderer.configure({progress:particleProgress(scene.percent,settings.particleStart,settings.particleFull),count:settings.particleCount,light:!doc.body.hasAttribute('data-ds-dark-theme'),visible:scene.visible&&!previewOpen&&scene.percent!==null&&!scene.waiting&&scene.percent>=settings.particleStart,width:Math.max(1,box.width),height:Math.max(1,box.height),bottom})
-      scene.layer.style.opacity=scene.percent!==null&&scene.percent>=settings.particleStart?'':'0'
+      scene.renderer.configure({progress:particleConversion(scene.percent,settings),count:settings.particleCount,light:!doc.body.hasAttribute('data-ds-dark-theme'),visible:scene.visible&&!previewOpen&&!scene.waiting&&canShow,width:Math.max(1,box.width),height:Math.max(1,box.height),bottom})
+      scene.layer.style.opacity=canShow?'':'0'
     }
     emit()
   }

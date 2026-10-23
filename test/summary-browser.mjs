@@ -8,6 +8,13 @@ import { chromium } from '@playwright/test'
 
 const project = fileURLToPath(new URL('..', import.meta.url))
 const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '.scratch', 'claude-beautify'))
+const presentationSettingKeys = [
+  'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'enabled',
+  'messageMotion', 'modules', 'particleCount', 'particleEnabled', 'particleFull', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarStyle',
+  'skillDetails', 'summaryScope', 'toolDetails', 'turnGlass', 'welcomeDuration',
+  'welcomeEnabled', 'welcomeFont', 'welcomeLogo', 'welcomeMediaDuration',
+  'welcomeMediaFit', 'welcomeMediaRevision', 'welcomeMode', 'welcomeText', 'width',
+]
 mkdirSync(output, { recursive: true })
 // Portable runs use a synthetic silhouette. DSH_ASAR borrows the installed
 // primitive's exact path and proportions in memory for visual verification.
@@ -245,7 +252,7 @@ try {
     assert.ok(samples.at(-1).top < samples[0].top, 'The card retracts upward as it fades')
     assert.notEqual(samples.at(-1).clip, samples[0].clip)
     assert.equal(await card.count(), 0)
-    assert.equal(await page.evaluate(() => window.hoverDismissals.at(-1).duration), 180)
+    assert.equal(await page.evaluate(() => window.hoverDismissals.at(-1).duration), 220)
     await entry.hover()
     await settled()
     await outside()
@@ -376,8 +383,8 @@ try {
   await check('matches reference width and typography with three naturally sized modules', async () => {
     const metrics = await card.evaluate(el => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height, rowFont: getComputedStyle(el.querySelector('.dcb-resource')).fontSize }))
     assert.equal(metrics.width, 320)
-    // The three-step default adds one 38px row to the previous two-step fixture.
-    assert.ok(metrics.height > 300 && metrics.height < 540, JSON.stringify(metrics))
+    // Include the scope switch and per-turn navigation above the three modules.
+    assert.ok(metrics.height > 300 && metrics.height < 640, JSON.stringify(metrics))
     assert.equal(metrics.rowFont, '13px')
     const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
     assert.equal((await entry.boundingBox()).height, 24, 'The entry matches the compact 24px header control in the reference')
@@ -503,7 +510,7 @@ try {
     assert.equal(await card.locator('[data-status="in_progress"]').getAttribute('aria-current'), 'step')
     assert.ok((await card.evaluate(el => el.getAnimations({ subtree: true }).map(animation => animation.animationName))).every(name => ['dcb-orbit', 'dcb-ripple', 'dcb-text-shimmer'].includes(name)))
     const reveal = await page.evaluate(() => window.dropdownReveals.at(-1))
-    assert.equal(reveal.duration, 240)
+    assert.equal(reveal.duration, 280)
     assert.ok(reveal.frames[0].clipPath.includes('100%') && reveal.frames[1].transform === 'translateY(0)')
     await card.screenshot({ path: resolve(output, 'summary-working.png') })
     await page.screenshot({ path: resolve(output, 'summary-working-desktop.png') })
@@ -753,7 +760,7 @@ try {
     await card.getByRole('button', { name: '输出', exact: true }).click()
     await card.getByRole('button', { name: '本次会话中已使用' }).click()
     await settled()
-    assert.ok((await card.boundingBox()).height < 180, 'All folded modules leave only compact headings')
+    assert.ok((await card.boundingBox()).height < 260, 'All folded modules leave only the scope toolbar and compact headings')
     assert.deepEqual(await card.locator('.dcb-module-content').evaluateAll(nodes => nodes.map(node => ({ height: node.getBoundingClientRect().height, inert: node.inert }))), Array(3).fill({ height: 0, inert: true }))
     await card.screenshot({ path: resolve(output, 'summary-all-collapsed.png') })
     await card.getByRole('button', { name: '进度', exact: true }).click()
@@ -1017,7 +1024,7 @@ try {
     await settled()
     assert.deepEqual(await toggles(card), ['false', 'false', 'true'], 'A fresh plugin instance restores the saved folds')
     const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))
-    assert.deepEqual(Object.keys(stored).sort(), ['cardStyle', 'chatUnderComposer', 'composerStyle', 'enabled', 'modules', 'progressView', 'toolDetails', 'width'])
+    assert.deepEqual(Object.keys(stored).sort(), presentationSettingKeys)
     assert.deepEqual(stored.modules, { progress: false, outputs: false, resources: true })
     const other = await page.context().newPage()
     other.on('pageerror', error => errors.push(error.message))
@@ -1137,7 +1144,7 @@ try {
     assert.equal(await viewport.locator('.dcb-step-ghost').getAttribute('aria-hidden'), 'true')
     assert.equal(await viewport.evaluate(el => getComputedStyle(el).overflowY), 'hidden')
     const offsets = []
-    for (const time of [0, 80, 170, 260]) {
+    for (const time of [0, 120, 210, 300]) {
       const frame = await page.evaluate(time => {
         document.getAnimations().filter(animation => animation.id.startsWith('dcb-step-roll-')).forEach(animation => { animation.currentTime = time })
         const viewport = document.querySelector('.dcb-step-window')
@@ -1149,7 +1156,7 @@ try {
       await viewport.screenshot({ path: resolve(output, `summary-step-roll-${time}.png`) })
     }
     assert.ok(offsets[0] > 20 && offsets.at(-1) < 2)
-    assert.ok(offsets.slice(1).every((value, index) => value < offsets[index]), 'Rows move upward continuously rather than swapping in place')
+    assert.ok(offsets.slice(1).every((value, index) => value < offsets[index]), 'After the water drop leaves its seat, rows follow upward without swapping in place')
     assert.equal(await page.evaluate(() => window.dropdownReveals.length), beforeReveal, 'A status handoff never replays the panel-opening animation')
     await finishRoll()
     assert.equal(await viewport.locator('.dcb-step-ghost > *').count(), 0)
@@ -1348,7 +1355,7 @@ try {
     await page.mouse.move(40, 400)
     await settled()
     assert.equal(await card.count(), 0)
-    assert.equal(await page.getByRole('button', { name: '会话进度与输出', exact: true }).count(), 0, 'A content-free turn hides its closed entry')
+    assert.equal(await page.getByRole('button', { name: '会话进度与输出', exact: true }).count(), 1, 'An empty selected turn retains access to other loaded rounds through the scope switch')
     assert.equal(await page.getByTestId('todo-panel').isVisible(), false, 'The native live task list must not reappear for an empty historical turn')
     await page.getByRole('button', { name: '跳到第 1 轮', exact: true }).click()
     await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
@@ -1426,7 +1433,7 @@ try {
     assert.equal(await toolDetails().evaluate(el => el.hidden && el.inert && el.getBoundingClientRect().height === 0), true)
     assert.equal(await current.locator('.dcb-resource:visible').count(), 0)
     const compactHeight = (await card.boundingBox()).height
-    assert.ok(compactHeight < 120, `A tools-only card remains compact (${compactHeight}px)`)
+    assert.ok(compactHeight < 200, `A tools-only card with scope navigation remains compact (${compactHeight}px)`)
     await card.screenshot({ path: resolve(output, 'summary-tools-compact.png') })
     const many = [...toolRows]
     for (let index = 0; index < 30; index++) {
@@ -1589,7 +1596,7 @@ try {
       window.materialFoldState = [...document.querySelectorAll('.dcb-module-toggle')].map(node => node.getAttribute('aria-expanded'))
       window.fixture.settings(true)
     })
-    const group = page.getByRole('group', { name: '卡片样式', exact: true })
+    const group = page.getByRole('radiogroup', { name: '卡片样式', exact: true })
     assert.equal(await group.getByRole('radio').count(), 4)
     assert.equal(await page.getByRole('dialog').locator('select,input[type="checkbox"],input[type="radio"],input[type="range"]').count(), 0, 'Settings use themed custom controls instead of native pickers, switches and sliders')
     assert.ok(await group.locator('.dcb-style-swatch').evaluateAll(nodes => nodes.every(node => getComputedStyle(node).opacity === '1')), 'Swatches keep full element opacity so Chromium can render their backdrop blur; transparency comes from the surface color')
@@ -1731,7 +1738,7 @@ try {
     assert.equal(await card.getAttribute('data-card-style'), 'milk')
     const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
     assert.equal(JSON.parse(stored).cardStyle, 'milk')
-    assert.deepEqual(Object.keys(JSON.parse(stored)).sort(), ['cardStyle', 'chatUnderComposer', 'composerStyle', 'enabled', 'modules', 'progressView', 'toolDetails', 'width'])
+    assert.deepEqual(Object.keys(JSON.parse(stored)).sort(), presentationSettingKeys)
     assert.ok(!/outputs|\.png|\.zip|remotion|Character|sessionId/.test(stored.replace('"outputs":true', '').replace('"outputs":false', '')), 'Only material and other presentation choices are saved')
   })
   await check('glass materials stay legible on dark narrow screens, honor motion and high-contrast settings, and restore the native fallback on disable', async () => {
@@ -1872,7 +1879,7 @@ try {
     await settled()
     assert.equal(await card.count(), 0, 'No-content conversations keep their task card hidden')
     await page.evaluate(() => window.fixture.settings(false))
-    assert.deepEqual(Object.keys(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))).sort(), ['cardStyle', 'chatUnderComposer', 'composerStyle', 'enabled', 'modules', 'progressView', 'toolDetails', 'width'])
+    assert.deepEqual(Object.keys(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))).sort(), presentationSettingKeys)
   })
 
   if (process.env.DSH_SLIDER_CLIENT) await check('installed original slider keeps its own settings entry and independent theme beside task-panel settings', async () => {
@@ -1894,7 +1901,7 @@ try {
         } },
       })
     })
-    assert.deepEqual(await page.evaluate(() => window.fixtureSettingsEntries), [{ id: 'dsh-claude-beautify', label: 'dsh-UI美化' }])
+    assert.deepEqual(await page.evaluate(() => window.fixtureSettingsEntries), [{ id: 'dsh-claude-beautify', label: 'UI动效美化' }])
     assert.deepEqual(await page.evaluate(() => window.sliderSettingsEntries), ['claude-reasoning-slider'], 'The unmodified slider registers its own settings section')
     assert.equal(await page.evaluate(() => Object.hasOwn(window, '__dsbHostsClaudeSettings')), false)
     assert.equal(await page.evaluate(() => window.fixtureDependencies.includes('dsh-claude-slider')), false)

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 import {readFileSync, mkdirSync, openSync, readSync, closeSync} from 'node:fs'
 import {createServer} from 'node:http'
 import {fileURLToPath} from 'node:url'
@@ -11,6 +12,7 @@ const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','.s
 mkdirSync(output,{recursive:true})
 let inputCSS='.cf_root{display:flex;flex-direction:column;align-items:center}.cf_card{position:relative;display:flex;flex-direction:column;gap:12px;width:100%;max-width:720px;padding-top:8px;background:var(--dsw-specific-input-major);border:0;border-radius:20px;box-shadow:0 1px 5px #0002}.cf_grow{position:relative}.cf_input{min-height:36px;padding:4px 14px;outline:none;white-space:pre-wrap;color:var(--dsw-alias-label-primary);caret-color:var(--dsw-alias-state-business-primary)}.cf_placeholder{position:absolute;inset:4px 14px auto;pointer-events:none;color:var(--dsw-alias-label-caption)}.cf_row,.cf_tools,.cf_trailing{display:flex;align-items:center;gap:12px}.cf_row{justify-content:space-between;padding:2px 8px 6px}.cf_primary,.cf_add{border:0;border-radius:50%;width:34px;height:34px}.cf_primary{background:#4d6bfe;color:white}.cf_overlayAnchor{position:absolute;inset:0 0 auto;height:0}'
 let source='portable public-marker fixture'
+let modelCSS='.ms_root{min-width:0;position:relative}.ms_trigger{display:flex;align-items:center;gap:4px;min-width:0;max-width:min(360px,45cqw);height:28px;padding:0 4px 0 8px;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:13px/20px system-ui;cursor:pointer}.ms_trigger:disabled{color:var(--dsw-alias-label-caption)}.ms_triggerLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ms_chevron{flex:none;transition:transform .12s}.ms_chevronOpen{transform:rotate(180deg)}'
 let conversationCSS='.cr_body{min-height:0;flex:1;display:flex;flex-direction:column}.cr_scrollBody{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto}.cr_composerSeat{flex:none;position:sticky;bottom:0;z-index:7}'
 if(process.env.DSH_ASAR){
  const fd=openSync(process.env.DSH_ASAR,'r')
@@ -34,14 +36,23 @@ if(process.env.DSH_ASAR){
   const rootCSS=JSON.parse(rootLiteral[1]),rootPrefix=rootCSS.match(/\.([A-Za-z0-9]+)_body\{/)
   assert.ok(rootPrefix,'Installed conversation body selector is discoverable')
   conversationCSS=rootCSS.replaceAll(rootPrefix[1]+'_','cr_')
-  source='installed DSH InputBar and ConversationRoot stylesheets and public DOM markers; synthetic editor behavior'
+  let modelEntry=JSON.parse(json.toString('utf8'))
+  for(const part of 'dsh/node_modules/@deepseek-ai/dsh-client-ui-model-selection/lib/client.js'.split('/'))modelEntry=modelEntry.files[part]
+  const modelBytes=Buffer.alloc(modelEntry.size);readSync(fd,modelBytes,0,modelBytes.length,8+head.readUInt32LE(4)+Number(modelEntry.offset))
+  const modelHost=modelBytes.toString('utf8'),modelAt=modelHost.indexOf('ModelSelect.module.css')
+  const modelLiteral=modelHost.slice(modelHost.lastIndexOf('//#region',modelAt),modelHost.indexOf('//#endregion',modelAt)).match(/const css(?:\$\d+)? = ("(?:[^"\\]|\\.)*");/)
+  assert.ok(modelLiteral,'Installed ModelSelect stylesheet is discoverable')
+  const modelSheet=JSON.parse(modelLiteral[1]),modelPrefix=modelSheet.match(/\.([A-Za-z0-9]+)_trigger\{/)
+  assert.ok(modelPrefix,'Installed model trigger selector is discoverable')
+  modelCSS=modelSheet.replaceAll(modelPrefix[1]+'_','ms_')
+  source='installed DSH InputBar, ModelSelect and ConversationRoot stylesheets and public DOM markers; synthetic editor and menu behavior'
  }finally{closeSync(fd)}
 }
-const fixtureCSS=`:root{--dsw-specific-input-major:#f4f5f7;--dsw-alias-label-primary:#202124;--dsw-alias-label-secondary:#656d78;--dsw-alias-label-caption:#737982;--dsw-alias-state-business-primary:#4d6bfe;--dsw-alias-button-info-fill:#4d6bfe;--dsw-alias-button-info-hover:#3b53d8;--dsw-specific-selector:#202a3c0d;--dsw-alias-border-l2:#d9dde5;--dsw-radius-panel:20px;--dsw-radius-sm:6px;--dsw-font-family:system-ui,sans-serif;--dsw-elevation-soft:0 1px 5px #0002;--dsh-composer-side-clearance:0px;--dsh-composer-card-max-width:720px;--dsh-composer-text-max-height:180px}body[data-ds-dark-theme]{--dsw-specific-input-major:#25272f;--dsw-alias-label-primary:#f2f4f8;--dsw-alias-label-secondary:#c5cbd5;--dsw-alias-label-caption:#aab0bb;--dsw-alias-state-business-primary:#8b9bff}.cf_card{line-height:24px}.cf_fixture_menu{position:absolute;bottom:10px;left:12px;z-index:30;padding:12px;background:var(--dsw-specific-input-major);box-shadow:0 5px 20px #0003;border-radius:10px}.cf_fixture_files{margin:0;padding:4px 24px;color:var(--dsw-alias-label-primary)}.composer-seat{background:radial-gradient(ellipse at 40% 50%,#7b9bb222,transparent 65%),#e7eaf0!important}body[data-ds-dark-theme] .composer-seat{background:radial-gradient(ellipse at 40% 50%,#7b9bb222,transparent 65%),#141414!important}`
+const fixtureCSS=`:root{--dsw-specific-input-major:#f4f5f7;--dsw-alias-label-primary:#202124;--dsw-alias-label-secondary:#656d78;--dsw-alias-label-caption:#737982;--dsw-alias-state-business-primary:#4d6bfe;--dsw-alias-button-info-fill:#4d6bfe;--dsw-alias-button-info-hover:#3b53d8;--dsw-specific-selector:#202a3c0d;--dsw-alias-border-l2:#d9dde5;--dsw-radius-panel:20px;--dsw-radius-sm:6px;--dsw-font-family:system-ui,sans-serif;--dsw-elevation-soft:0 1px 5px #0002;--dsh-composer-side-clearance:0px;--dsh-composer-card-max-width:720px;--dsh-composer-text-max-height:180px}body[data-ds-dark-theme]{--dsw-specific-input-major:#25272f;--dsw-alias-label-primary:#f2f4f8;--dsw-alias-label-secondary:#c5cbd5;--dsw-alias-label-caption:#aab0bb;--dsw-alias-state-business-primary:#8b9bff}.cf_card{line-height:24px}.cf_fixture_menu{z-index:30;display:flex;flex-direction:column;overflow:hidden;padding:4px;background:var(--dsw-specific-input-major);box-shadow:0 5px 20px #0003;border-radius:8px}.cf_fixture_menu .ms_search{border:1px solid var(--dsw-alias-border-l2);border-radius:6px}.cf_fixture_menu .ms_search input{width:100%;min-width:0;border:0;outline:none;background:transparent;color:inherit;font:inherit}.cf_fixture_menu .ms_search:focus-within{box-shadow:0 0 0 2px #8882}.cf_fixture_menu .ms_groups{min-height:0;overflow-y:auto}.cf_fixture_menu .ms_option{display:flex;width:100%;min-height:34px}.cf_fixture_files{margin:0;padding:4px 24px;color:var(--dsw-alias-label-primary)}.composer-seat{background:radial-gradient(ellipse at 40% 50%,#7b9bb222,transparent 65%),#e7eaf0!important}body[data-ds-dark-theme] .composer-seat{background:radial-gradient(ellipse at 40% 50%,#7b9bb222,transparent 65%),#141414!important}`
 const built=await build({entryPoints:[resolve(project,'test/fixture.jsx')],bundle:true,write:false,format:'iife'})
 const actionCSS='.vf_trigger{display:grid;place-items:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;background:var(--dsw-specific-selector);color:var(--dsw-alias-label-primary)}.vf_voice{display:grid;place-items:center;flex:none;width:34px;height:34px;border:0;border-radius:50%;background:var(--dsw-alias-button-info-fill);color:white;padding:0}.vf_voice:disabled{opacity:.4}'
 const routes={
- '/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'),'utf8').replace('</style>',`${inputCSS}${conversationCSS}${fixtureCSS}${actionCSS}</style>`)],
+ '/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'),'utf8').replace('</style>',`${inputCSS}${conversationCSS}${modelCSS}${fixtureCSS}${actionCSS}</style>`)],
  '/fixture.js':['text/javascript',built.outputFiles[0].text],
  '/client.js':['text/javascript',readFileSync(resolve(project,'client.js'),'utf8')],
 }
@@ -65,14 +76,16 @@ async function mount(target=page){
 }
 async function patch(value){await page.evaluate(({key,value})=>{const next=JSON.stringify({...JSON.parse(localStorage.getItem(key)||'{}'),...value});localStorage.setItem(key,next);window.dispatchEvent(new StorageEvent('storage',{key,newValue:next}))},{key,value});await settled()}
 const style=()=>card.evaluate(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return{background:s.backgroundColor,image:s.backgroundImage,filter:s.backdropFilter,shadow:s.boxShadow,transform:s.transform,overflow:s.overflow,border:s.borderWidth,radius:s.borderRadius,width:r.width,height:r.height}})
+async function openSettings(target=page){await target.evaluate(()=>window.fixture.settings(true));await selectSettingsCategory(target,'输入栏')}
 try{
  await page.goto(url);await mount()
  await check('default comes first in both pickers, directly disables input styling and migrates the retired switch without a hidden gate',async()=>{
   assert.equal(await page.locator('body').getAttribute('data-dcb-composer-glass'),null)
   assert.equal(await card.getAttribute('data-dcb-composer-style'),null)
   await input.evaluate(el=>{window.originalEditor=el;window.originalComposer=el.closest('[data-composer-card]')})
-  await page.evaluate(()=>window.fixture.settings(true))
+  await openSettings()
   const motionSwitch=page.getByRole('switch',{name:'新消息入场动效',exact:true})
+  await selectSettingsCategory(page,'对话动效')
   assert.equal(await motionSwitch.getAttribute('aria-checked'),'true')
   await motionSwitch.click();await settled()
   const preview=page.getByRole('button',{name:'播放消息动效预览',exact:true})
@@ -81,17 +94,18 @@ try{
   assert.deepEqual(previewEffects.map(item=>item.kind),['user','assistant'])
   assert.equal(previewEffects[0].animations[0].id,'dcb-message-user')
   assert.equal(previewEffects[1].animations[0].id,'dcb-message-assistant')
-  assert.equal(previewEffects[0].animations[0].duration,420)
-  assert.equal(previewEffects[1].animations[0].duration,480)
+  assert.equal(previewEffects[0].animations[0].duration,280)
+  assert.equal(previewEffects[1].animations[0].duration,300)
   await settled()
   await page.locator('[data-dcb-settings-block="messages"]').screenshot({path:resolve(output,'message-motion-settings.png')})
   assert.equal(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)).messageMotion,key),false)
-  await page.reload();await mount();await page.evaluate(()=>window.fixture.settings(true))
+  await page.reload();await mount();await openSettings()
+  await selectSettingsCategory(page,'对话动效')
   assert.equal(await motionSwitch.getAttribute('aria-checked'),'false')
   await motionSwitch.click();await settled()
   await input.evaluate(el=>{window.originalEditor=el;window.originalComposer=el.closest('[data-composer-card]')})
   assert.equal(await page.getByRole('switch',{name:'启用输入栏美化',exact:true}).count(),0)
-  for(const[scope,prefix]of[['卡片样式',''],['输入栏样式','输入栏：']])assert.deepEqual(await page.getByRole('radiogroup',{name:scope,exact:true}).getByRole('radio').evaluateAll(nodes=>nodes.map(el=>el.getAttribute('aria-label'))),['默认','透明玻璃','轻量玻璃','毛玻璃'].map(name=>prefix+name))
+  for(const[category,scope,prefix]of[['任务面板','卡片样式',''],['输入栏','输入栏样式','输入栏：']]){await selectSettingsCategory(page,category);assert.deepEqual(await page.getByRole('radiogroup',{name:scope,exact:true}).getByRole('radio').evaluateAll(nodes=>nodes.map(el=>el.getAttribute('aria-label'))),['默认','透明玻璃','轻量玻璃','毛玻璃'].map(name=>prefix+name))}
   const group=page.getByRole('radiogroup',{name:'输入栏样式',exact:true}),plain=await style()
   assert.equal(await group.getByRole('radio',{name:'输入栏：默认',exact:true}).getAttribute('aria-checked'),'true')
   await group.getByRole('radio',{name:'输入栏：轻量玻璃',exact:true}).click();await settled();const glass=await style()
@@ -102,7 +116,7 @@ try{
   assert.equal(await card.getAttribute('data-dcb-composer-style'),null)
   assert.equal(await input.evaluate(el=>el===window.originalEditor&&el.closest('[data-composer-card]')===window.originalComposer),true)
   await page.evaluate(key=>localStorage.setItem(key,JSON.stringify({composerGlass:false,composerStyle:'clear'})),key)
-  await page.reload();await mount();await page.evaluate(()=>window.fixture.settings(true))
+  await page.reload();await mount();await openSettings()
   assert.equal(await group.getByRole('radio',{name:'输入栏：默认',exact:true}).getAttribute('aria-checked'),'true')
   await group.getByRole('radio',{name:'输入栏：轻量玻璃',exact:true}).click();await settled()
   assert.match((await style()).filter,/blur\(2px\)/,'Selecting a material after a legacy off preference takes effect immediately')
@@ -110,8 +124,32 @@ try{
   await group.getByRole('radio',{name:'输入栏：默认',exact:true}).click();await settled()
   await page.evaluate(()=>window.fixture.settings(false));await settled()
  })
+ await check('choosing the default composer automatically turns off the underlay and restores its mask across reloads',async()=>{
+  await patch({composerStyle:'clear',chatUnderComposer:true});await openSettings()
+  const group=page.getByRole('radiogroup',{name:'输入栏样式',exact:true}),toggle=page.getByRole('switch',{name:'对话延伸到输入栏后方',exact:true})
+  assert.equal(await toggle.getAttribute('aria-checked'),'true')
+  await group.getByRole('radio',{name:'输入栏：默认',exact:true}).click();await page.waitForTimeout(70)
+  const thumb=await toggle.evaluate(el=>new DOMMatrix(getComputedStyle(el,'::after').transform).m41)
+  assert.ok(thumb>0&&thumb<18,'The switch visibly slides closed instead of jumping')
+  await settled();assert.equal(await toggle.getAttribute('aria-checked'),'false');assert.equal(await toggle.isDisabled(),true)
+  assert.equal(await page.locator('body').getAttribute('data-dcb-chat-under-composer'),null)
+  assert.notEqual(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundImage),'none')
+  assert.equal(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)).chatUnderComposer,key),false)
+  await group.getByRole('radio',{name:'输入栏：轻量玻璃',exact:true}).click();await settled();assert.equal(await toggle.isDisabled(),false);assert.equal(await toggle.getAttribute('aria-checked'),'false')
+  await toggle.click();await settled();assert.equal(await toggle.getAttribute('aria-checked'),'true')
+  await group.getByRole('radio',{name:'输入栏：轻量玻璃',exact:true}).press('Home');await settled();assert.equal(await toggle.getAttribute('aria-checked'),'false')
+  await page.reload();await mount();await openSettings();assert.equal(await toggle.getAttribute('aria-checked'),'false');assert.equal(await toggle.isDisabled(),true)
+  await page.evaluate(key=>{const settings=JSON.parse(localStorage.getItem(key));localStorage.setItem(key,JSON.stringify({...settings,composerStyle:'milk',chatUnderComposer:true}))},key)
+  await page.reload();await mount();await openSettings();assert.equal(await toggle.getAttribute('aria-checked'),'false');assert.equal(await toggle.isDisabled(),true)
+  assert.equal(await page.locator('body').getAttribute('data-dcb-chat-under-composer'),null)
+  await group.getByRole('radio',{name:'输入栏：透明玻璃',exact:true}).click();await toggle.click();await settled();await page.reload();await mount();await openSettings();assert.equal(await toggle.getAttribute('aria-checked'),'true');assert.equal(await toggle.isDisabled(),false)
+  assert.equal(await page.locator('select, input[type="checkbox"], input[type="radio"]').count(),0)
+  await page.locator('[data-dcb-settings-block="composer"]').screenshot({path:resolve(output,'composer-glass-underlay-enabled.png')})
+  await group.getByRole('radio',{name:'输入栏：默认',exact:true}).click();await settled();await page.locator('[data-dcb-settings-block="composer"]').screenshot({path:resolve(output,'composer-default-underlay-disabled.png')})
+  await page.evaluate(()=>window.fixture.settings(false))
+ })
  await check('input styles have their own four-choice picker, keyboard navigation and native fallback without changing the task-card choice',async()=>{
-  await page.evaluate(()=>window.fixture.settings(true))
+  await openSettings()
   const group=page.getByRole('radiogroup',{name:'输入栏样式',exact:true})
   assert.equal(await group.getByRole('radio').count(),4)
   await page.locator('[data-dcb-settings-block="composer"]').screenshot({path:resolve(output,'composer-style-settings.png')})
@@ -201,16 +239,16 @@ try{
   await page.getByRole('button',{name:'合成发送',exact:true}).click()
   assert.equal(await page.evaluate(()=>window.composerTest.sent.at(-1).files.length),2)
  })
- await check('attachment, microphone, voice and send use clear Lens rims with a truly transparent center and native geometry',async()=>{
-  const names=['合成添加附件','合成麦克风','合成语音','合成发送']
+ await check('model, attachment, microphone, voice and send share clear Lens rims with a transparent center and native geometry',async()=>{
+  const names=['合成添加附件','合成麦克风','合成语音','合成发送','合成模型选择']
   const read=()=>Promise.all(names.map(name=>page.getByRole('button',{name,exact:true}).evaluate(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return{width:r.width,height:r.height,radius:s.borderRadius,transform:s.transform,color:s.color,background:s.backgroundColor,image:s.backgroundImage,backdrop:s.backdropFilter,outline:s.outlineWidth,filter:s.filter,mark:el.getAttribute('data-dcb-composer-action')}})))
   await input.fill('按钮材质不影响编辑内容');await input.evaluate(el=>window.actionEditor=el)
   for(const dark of[false,true]){
    await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
-   await patch({composerStyle:'milk'});const native=await read()
+   await patch({composerStyle:'milk',composerButtonGlass:false});const native=await read()
    for(const material of['css','glass','clear']){
-    await patch({composerStyle:material})
-    await page.waitForFunction(()=>document.querySelectorAll('[data-dcb-composer-action="lens"][data-dcb-lens-ready]').length===4)
+    await patch({composerStyle:material,composerButtonGlass:true})
+    await page.waitForFunction(()=>document.querySelectorAll('[data-dcb-composer-action="lens"][data-dcb-lens-ready]').length===5)
     const current=await read()
     for(let i=0;i<current.length;i++){
      assert.equal(current[i].mark,'lens')
@@ -222,12 +260,12 @@ try{
      assert.equal(current[i].background,'rgba(0, 0, 0, 0)')
      assert.equal(current[i].image,'none','Remove the old painted accent and material layers')
     }
-    assert.equal(await page.getByRole('button',{name:'合成模型选择',exact:true}).getAttribute('data-dcb-composer-action'),null)
+    assert.equal(await page.getByRole('button',{name:'合成模型选择',exact:true}).getAttribute('data-dcb-composer-action-kind'),'model')
     assert.equal(await page.getByRole('button',{name:'合成语音',exact:true}).getAttribute('data-dcb-composer-action-kind'),'accent','Recognize a filled voice provider without relying on its CSS class')
-    assert.equal(await page.locator('[data-dcb-lens-stage]').count(),1,'All four buttons share one bounded GPU scene')
+    assert.equal(await page.locator('[data-dcb-lens-stage]').count(),1,'Model and round buttons share one bounded GPU scene')
     assert.equal(await page.locator('[data-dcb-lens-stage] canvas').getAttribute('data-gpu-state'),'active')
-    const tiles=await page.locator('[data-dcb-lens-canvas]').evaluateAll(nodes=>nodes.map(el=>({mask:getComputedStyle(el).maskImage,width:el.width,height:el.height,alpha:el.getContext('2d').getImageData(Math.floor(el.width/2),Math.floor(el.height/2),1,1).data[3]})))
-    assert.ok(tiles.every(el=>/radial-gradient.*rgba\(0, 0, 0, 0\)/.test(el.mask)&&el.width>0&&el.width<=80&&el.height<=80&&el.alpha===255),JSON.stringify(tiles))
+    const tiles=await page.locator('[data-dcb-lens-canvas]').evaluateAll(nodes=>nodes.map(el=>({model:el.parentElement.dataset.dcbComposerActionKind==='model',mask:getComputedStyle(el).maskImage,width:el.width,height:el.height,alpha:el.getContext('2d').getImageData(Math.floor(el.width/2),Math.floor(el.height/2),1,1).data[3]})))
+    assert.ok(tiles.every(el=>/radial-gradient.*rgba\(0, 0, 0, 0\)/.test(el.mask)&&el.width>0&&el.width<=(el.model?360:80)&&el.height<=80&&el.alpha===255),JSON.stringify(tiles))
     assert.equal(await page.locator('[data-dcb-composer-action][data-dcb-liquid]').count(),0,'Small buttons do not create old SVG maps')
     await card.screenshot({path:resolve(output,`composer-actions-${material}-${dark?'dark':'light'}.png`)})
    }
@@ -253,14 +291,170 @@ try{
   await page.getByRole('button',{name:'合成模型选择',exact:true}).click()
   assert.equal(await page.getByRole('menuitem',{name:'合成模型选项'}).getAttribute('data-dcb-composer-action'),null)
   await page.getByRole('menuitem',{name:'合成模型选项'}).click()
-  await patch({composerStyle:'milk'})
-  assert.equal(await page.locator('[data-dcb-lens-stage], [data-dcb-lens-canvas], [data-dcb-lens-ready]').count(),0,'Default releases every GPU stage and button canvas')
+  await patch({composerStyle:'milk',composerButtonGlass:false})
+  assert.equal(await page.locator('[data-dcb-lens-stage], [data-dcb-lens-canvas], [data-dcb-lens-ready]').count(),0,'Disabling button glass releases every GPU stage and button canvas')
   assert.equal(await page.locator('[data-dcb-composer-action], [data-dcb-composer-action-kind]').count(),0)
   assert.equal(await page.locator('[data-dcb-lens-stage], [data-dcb-lens-canvas], [data-dcb-lens-ready]').count(),0)
   assert.ok((await read()).every(control=>!control.backdrop.includes('url(')))
   assert.equal(await input.evaluate(el=>el===window.actionEditor&&el.textContent==='按钮材质不影响编辑内容'),true)
   await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
+  await input.fill('');await patch({composerStyle:'css',composerButtonGlass:true})
+ })
+ await check('model glass preserves labels, keyboard opening, disabled behavior and resized canvases without styling permission controls',async()=>{
+  const model=page.getByRole('button',{name:'合成模型选择',exact:true}),label=model.locator('.ms_triggerLabel > span')
+  const text=await label.textContent()
+  await page.evaluate(()=>{const permission=document.createElement('button');permission.id='synthetic-permission';permission.className='pm_trigger';permission.setAttribute('aria-haspopup','menu');permission.innerHTML='<span class="pm_value">权限</span>';document.querySelector('.cf_tools').append(permission)})
+  assert.equal(await page.locator('#synthetic-permission').getAttribute('data-dcb-composer-action'),null)
+  await input.fill('选择模型时保留草稿');await input.evaluate(el=>{el.focus();const r=document.createRange();r.selectNodeContents(el);getSelection().removeAllRanges();getSelection().addRange(r)})
+  await model.click();await settled()
+  assert.equal(await model.getAttribute('aria-expanded'),'true')
+  assert.equal(await page.evaluate(()=>getSelection().toString()),'选择模型时保留草稿')
+  assert.equal(await page.getByRole('menuitem',{name:'合成模型选项'}).getAttribute('data-dcb-composer-action'),null)
+  await page.getByRole('menuitem',{name:'合成模型选项'}).click()
+  await model.focus();await model.press('Enter');await settled()
+  assert.equal(await model.getAttribute('aria-expanded'),'true')
+  assert.ok(await model.locator('svg').isVisible(),'The native chevron stays visible over glass')
+  await page.getByRole('menuitem',{name:'合成模型选项'}).click()
+  await model.evaluate(el=>el.disabled=true)
+  const disabledBox=await model.boundingBox();await page.mouse.click(disabledBox.x+disabledBox.width/2,disabledBox.y+disabledBox.height/2)
+  assert.equal(await model.getAttribute('aria-expanded'),'false')
+  await model.evaluate(el=>el.disabled=false)
+  await label.evaluate(el=>{el.removeAttribute('data-model-id');el.textContent='加载模型…'})
+  await settled();assert.equal(await model.getAttribute('data-dcb-composer-action-kind'),'model','The label structure identifies the model trigger before model data is available')
+  await label.evaluate((el,text)=>{el.setAttribute('data-model-id','synthetic-model');el.textContent=text},text)
+  for(const dark of[false,true])for(const width of[1200,760]){
+   await page.setViewportSize({width,height:950});await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
+   await model.locator('[data-model-id]').evaluate((el,text)=>el.textContent=text+' · Synthetic extended model name',text)
+   await patch({composerStyle:'milk',composerButtonGlass:false})
+   const native=await model.evaluate(el=>{const r=el.getBoundingClientRect();return{width:r.width,height:r.height,radius:getComputedStyle(el).borderRadius}})
+   await patch({composerButtonGlass:true})
+   await page.waitForFunction(()=>{const el=document.querySelector('.ms_trigger'),c=el.querySelector('[data-dcb-lens-canvas]'),r=el.getBoundingClientRect();return el.hasAttribute('data-dcb-lens-ready')&&c.width===Math.round(r.width*devicePixelRatio)&&c.height===Math.round(r.height*devicePixelRatio)})
+   const current=await model.evaluate(el=>{const r=el.getBoundingClientRect();return{width:r.width,height:r.height,radius:getComputedStyle(el).borderRadius}})
+   assert.deepEqual(current,native)
+   assert.equal(await model.locator('.ms_triggerLabel').evaluate(el=>getComputedStyle(el).textOverflow),'ellipsis')
+   assert.equal(await page.locator('[data-dcb-lens-stage]').count(),1)
+   await card.screenshot({path:resolve(output,`model-glass-${dark?'dark':'light'}-${width}.png`)})
+  }
+  await page.setViewportSize({width:1200,height:950});await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
+  await model.locator('[data-model-id]').evaluate((el,text)=>el.textContent=text,text)
+  await page.locator('#synthetic-permission').evaluate(el=>el.remove())
   await input.fill('');await patch({composerStyle:'css'})
+ })
+ await check('portaled model menus and searchable model lists share glass, remain interactive and restore while open',async()=>{
+  const model=page.getByRole('button',{name:'合成模型选择',exact:true}),menu=page.getByRole('menu',{name:'合成模型菜单'})
+  const read=target=>target.evaluate(el=>{const s=getComputedStyle(el),r=el.getBoundingClientRect();return{background:s.backgroundColor,backdrop:s.backdropFilter,width:r.width,height:r.height,radius:s.borderRadius}})
+  for(const dark of[false,true]){
+   await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
+   await patch({composerButtonGlass:false});await model.click();await settled()
+   const native=await read(menu)
+   assert.equal(await menu.getAttribute('data-dcb-model-menu-glass'),null)
+   await patch({composerButtonGlass:true})
+   assert.equal(await menu.getAttribute('data-dcb-model-menu-glass'),'css')
+   const glass=await read(menu)
+   assert.match(glass.background,/rgba\(.+, 0\.\d+\)/);assert.match(glass.backdrop,/blur\(12px\)/)
+   for(const key of['width','height','radius'])assert.equal(glass[key],native[key])
+   assert.equal(await menu.locator('[data-dcb-composer-action],canvas').count(),0)
+   assert.equal(await page.locator('[data-dcb-lens-stage]').count(),1)
+   await menu.screenshot({path:resolve(output,`model-menu-glass-${dark?'dark':'light'}.png`)})
+   await page.getByRole('menuitem',{name:'浏览模型列表'}).click();await settled()
+   const list=page.getByRole('group',{name:'合成模型菜单'}),search=list.getByRole('searchbox',{name:'合成搜索模型'})
+   assert.equal(await list.getAttribute('data-dcb-model-menu-glass'),'css','The model subpane keeps glass when its native role changes')
+   await list.locator('.ms_groups').evaluate(el=>el.scrollTop=100)
+   assert.ok(await list.locator('.ms_groups').evaluate(el=>el.scrollTop)>0)
+   await search.fill('合成模型 12');await settled()
+   assert.equal(await list.getByRole('button',{name:'合成模型 12',exact:true}).count(),1)
+   await list.screenshot({path:resolve(output,`model-list-glass-${dark?'dark':'light'}.png`)})
+   await list.evaluate(el=>window.lastModelMenu=el)
+   await patch({composerButtonGlass:false})
+   assert.equal(await list.getAttribute('data-dcb-model-menu-glass'),null)
+   assert.equal(await search.inputValue(),'合成模型 12')
+   assert.equal(await search.evaluate(el=>el===document.activeElement),true)
+   assert.equal((await read(list)).backdrop,native.backdrop)
+   await patch({composerButtonGlass:true})
+   await list.getByRole('button',{name:'合成模型 12',exact:true}).click();await settled()
+   assert.equal(await model.locator('[data-model-id]').textContent(),'合成模型 12')
+   assert.equal(await page.evaluate(()=>window.lastModelMenu.getAttribute('data-dcb-model-menu-glass')),null,'Closing cleans the detached menu')
+   await model.click();await settled();await page.keyboard.press('Escape');await settled()
+   assert.equal(await page.getByRole('menu',{name:'合成模型菜单'}).count(),0)
+   assert.equal(await model.evaluate(el=>el===document.activeElement),true)
+  }
+  await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
+ })
+ await check('button glass has its own accessible switch, releases rendering resources and stays independent across styles, reload and windows',async()=>{
+  await openSettings()
+  const toggle=page.getByRole('switch',{name:'小按钮玻璃材质',exact:true}),group=page.getByRole('radiogroup',{name:'输入栏样式',exact:true})
+  assert.equal(await toggle.getAttribute('aria-checked'),'true')
+  for(const [category,label]of[['任务面板','卡片样式'],['输入栏','输入栏样式'],['侧栏','侧栏样式']]){
+   await selectSettingsCategory(page,category)
+   const choices=page.getByRole('radiogroup',{name:label,exact:true}).getByRole('radio')
+   assert.equal(await choices.count(),4)
+   assert.ok((await choices.evaluateAll(nodes=>nodes.map(el=>({cost:el.dataset.materialCost,description:document.getElementById(el.getAttribute('aria-describedby'))?.textContent})))).every(item=>item.cost&&item.description))
+  }
+  await selectSettingsCategory(page,'输入栏')
+  for(const dark of[false,true]){
+   await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
+   const high=await page.locator('.dcb-settings .dcb-cost-tag[data-cost="high"]').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).color))
+   assert.ok(high.length===2&&high.every(color=>color===(dark?'rgb(255, 180, 171)':'rgb(180, 35, 24)')))
+   await page.locator('[data-dcb-settings-block="composer"]').screenshot({path:resolve(output,`resource-labels-${dark?'dark':'light'}.png`)})
+  }
+  await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
+  assert.equal(await group.getByRole('radio',{name:'输入栏：轻量玻璃',exact:true}).getAttribute('data-material-cost'),'medium')
+  await toggle.click();await settled()
+  assert.equal(await card.getAttribute('data-dcb-composer-style'),'css')
+  assert.equal(await page.locator('[data-dcb-lens-stage], [data-dcb-lens-canvas], [data-dcb-composer-action]').count(),0)
+  assert.equal(await group.getByRole('radio',{name:'输入栏：轻量玻璃',exact:true}).getAttribute('data-material-cost'),'low')
+  await page.locator('[data-dcb-settings-block="composer"]').screenshot({path:resolve(output,'button-glass-disabled-cost-labels.png')})
+  await group.getByRole('radio',{name:'输入栏：毛玻璃',exact:true}).click();await settled();assert.equal(await toggle.getAttribute('aria-checked'),'false')
+  assert.equal(await page.locator('[data-dcb-lens-stage]').count(),0)
+  await group.getByRole('radio',{name:'输入栏：默认',exact:true}).click();await settled()
+  await toggle.focus();await toggle.press('Space');await settled()
+  await page.waitForFunction(()=>document.querySelectorAll('[data-dcb-composer-action][data-dcb-lens-ready]').length===5)
+  assert.equal(await card.getAttribute('data-dcb-composer-style'),null,'Original input background can be paired with glass buttons')
+  assert.equal(await page.getByRole('button',{name:'合成添加附件',exact:true}).evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)')
+  await page.reload();await mount();await openSettings()
+  assert.equal(await toggle.getAttribute('aria-checked'),'true')
+  assert.equal(await card.getAttribute('data-dcb-composer-style'),null)
+  const other=await context.newPage()
+  try{await other.goto(url);await mount(other);await openSettings(other);await other.getByRole('switch',{name:'小按钮玻璃材质',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('[data-dcb-composer-action]'));assert.equal(await toggle.getAttribute('aria-checked'),'false')}finally{await other.close()}
+  await page.evaluate(()=>window.fixture.settings(false));await input.fill('独立按钮开关保留草稿')
+  await input.evaluate(el=>{el.focus();const range=document.createRange();range.selectNodeContents(el);getSelection().removeAllRanges();getSelection().addRange(range);window.buttonGlassEditor=el;window.buttonGlassSelection=getSelection().toString()})
+  await patch({composerButtonGlass:true});await patch({composerButtonGlass:false})
+  assert.equal(await input.evaluate(el=>el===window.buttonGlassEditor&&el===document.activeElement&&getSelection().toString()===window.buttonGlassSelection),true)
+  assert.equal(await page.locator('select,input[type=checkbox],input[type=radio],input[type=range]').count(),0)
+  await input.fill('');await patch({composerStyle:'css',composerButtonGlass:true})
+ })
+ await check('optional input plugins use no gap while absent and recover their native gap when mounted or shown',async()=>{
+  await page.evaluate(()=>window.fixture.settings(false));await settled()
+  const primary=page.getByRole('button',{name:'合成发送',exact:true}),slot=page.locator('#optional-input-slot')
+  const gap=()=>page.evaluate(()=>{const right=document.querySelector('.cf_primary').getBoundingClientRect(),left=document.querySelector('.vf_voice').getBoundingClientRect();return right.left-left.right})
+  const baseline=await gap()
+  await page.addStyleTag({content:'.cf_activity{display:flex;flex:none;align-items:center}.cf_activity:empty{display:none}'})
+  await page.evaluate(()=>{const slot=document.createElement('div');slot.id='optional-input-slot';slot.className='cf_activity';slot.innerHTML='<span id="optional-input-outlet" style="display:inline-flex;width:28px;height:28px"></span>';document.querySelector('.cf_primary').before(slot);window.optionalPluginClicks=0})
+  await settled();assert.equal(await slot.getAttribute('data-dcb-empty-composer-slot'),'');assert.equal(await gap(),baseline)
+  for(const composerStyle of ['milk','css']){await patch({composerStyle});assert.equal(await gap(),baseline,'Missing optional controls keep no gap in either native or glass appearance')}
+  await card.screenshot({path:resolve(output,'optional-plugin-absent.png')})
+  await page.evaluate(()=>{const button=document.createElement('button');button.textContent='●';button.setAttribute('aria-label','可选插件演示按钮');button.style.cssText='width:28px;height:28px;padding:0;border:0';button.onclick=()=>window.optionalPluginClicks++;document.querySelector('#optional-input-outlet').append(button)})
+  await page.waitForFunction(()=>document.querySelector('#optional-input-slot').hasAttribute('data-dcb-composer-slot-motion'));await page.waitForTimeout(70)
+  const entering=await slot.evaluate(el=>({width:el.getBoundingClientRect().width,opacity:parseFloat(getComputedStyle(el).opacity),blur:parseFloat(getComputedStyle(el).filter.match(/blur\(([\d.]+)px\)/)?.[1]||'0')}))
+  assert.ok(entering.width>0&&entering.width<28);assert.ok(entering.opacity>0&&entering.opacity<1);assert.ok(entering.blur>0)
+  assert.ok(await gap()>baseline&&await gap()<baseline+40)
+  await card.screenshot({path:resolve(output,'optional-plugin-enter-middle.png')})
+  await settled();assert.equal(await gap(),baseline+40);assert.equal(await slot.getAttribute('data-dcb-composer-slot-motion'),null)
+  const control=page.getByRole('button',{name:'可选插件演示按钮',exact:true});await control.click();assert.equal(await page.evaluate(()=>window.optionalPluginClicks),1)
+  await control.evaluate(el=>el.disabled=true);await settled();assert.equal(await gap(),baseline+40,'A visible disabled plugin still keeps its control seat')
+  await page.locator('#optional-input-outlet').evaluate(el=>el.style.display='none')
+  await page.waitForFunction(()=>document.querySelector('#optional-input-slot').hasAttribute('data-dcb-composer-slot-motion'));await page.waitForTimeout(70)
+  assert.ok(await gap()>baseline&&await gap()<baseline+40,'The extra gap really collapses through an intermediate width')
+  await settled();assert.equal(await gap(),baseline);assert.equal(await slot.evaluate(el=>getComputedStyle(el).display),'none')
+  await page.locator('#optional-input-outlet').evaluate(el=>el.style.display='inline-flex');await settled();assert.equal(await gap(),baseline+40)
+  await card.screenshot({path:resolve(output,'optional-plugin-present.png')})
+  await control.evaluate(el=>el.remove());await settled();assert.equal(await gap(),baseline,'An empty outlet keeps no reserved space after plugin removal')
+  await page.locator('#optional-input-outlet').evaluate(el=>{el.style.width='auto';el.style.height='auto';el.textContent='插件状态'})
+  await settled();assert.ok(await gap()>baseline,'A text-only plugin status is content too')
+  await page.emulateMedia({reducedMotion:'reduce'});await page.locator('#optional-input-outlet').evaluate(el=>el.textContent='');await settled();assert.equal(await gap(),baseline);assert.equal(await slot.getAttribute('data-dcb-composer-slot-motion'),null)
+  await page.locator('.cf_row').evaluate(el=>el.style.display='none');await page.locator('#optional-input-outlet').evaluate(el=>el.textContent='延迟加载的插件状态');await settled()
+  await page.locator('.cf_row').evaluate(el=>el.style.display='');await settled();assert.ok(await gap()>baseline,'A plugin mounted while its conversation is hidden becomes visible when the ancestor reopens')
+  await page.emulateMedia({reducedMotion:'no-preference'});await slot.evaluate(el=>el.remove());await settled();assert.equal(await primary.count(),1)
  })
  await check('composer preference is independent from task-panel enablement and material',async()=>{
   await patch({enabled:false,cardStyle:'clear',composerStyle:'css'})
@@ -275,7 +469,7 @@ try{
   assert.equal(await page.locator('body').getAttribute('data-dcb-composer-glass'),null)
   assert.equal(await page.locator('body').getAttribute('data-dcb-chat-under-composer'),null)
   const other=await page.context().newPage()
-  try{await other.goto(url);await mount(other);await other.evaluate(()=>window.fixture.settings(true));await other.getByRole('switch',{name:'对话延伸到输入栏后方',exact:true}).click();await other.getByRole('radio',{name:'输入栏：毛玻璃',exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-composer-card]')?.getAttribute('data-dcb-composer-style')==='glass'&&document.body.hasAttribute('data-dcb-chat-under-composer'));await settled();assert.match((await style()).filter,/blur\(22px\)/)}finally{await other.close()}
+  try{await other.goto(url);await mount(other);await openSettings(other);await other.getByRole('radio',{name:'输入栏：毛玻璃',exact:true}).click();await other.getByRole('switch',{name:'对话延伸到输入栏后方',exact:true}).click();await page.waitForFunction(()=>document.querySelector('[data-composer-card]')?.getAttribute('data-dcb-composer-style')==='glass'&&document.body.hasAttribute('data-dcb-chat-under-composer'));await settled();assert.match((await style()).filter,/blur\(22px\)/)}finally{await other.close()}
   await page.reload();await mount();assert.match((await style()).filter,/blur\(22px\)/)
   await patch({composerStyle:'css'})
  })
@@ -305,6 +499,7 @@ try{
  await check('the real underlay switch reveals scrolling chat through the bottom input row without changing layout or tail clearance',async()=>{
   await patch({chatUnderComposer:true,composerStyle:'css'})
   await page.evaluate(()=>{window.fixture.history({initial:1,turns:[1,2,3,4].map(turn=>({turn,prompt:`第 ${turn} 段：滚动中的对话内容`}))});window.fixture.settings(true)})
+  await selectSettingsCategory(page,'输入栏')
   const toggle=page.getByRole('switch',{name:'对话延伸到输入栏后方',exact:true})
   assert.equal(await toggle.getAttribute('aria-checked'),'true')
   await toggle.click();await settled()
@@ -320,7 +515,7 @@ try{
    await settled();const before=await geometry(),bounds=await card.boundingBox()
    const clip={x:bounds.x+bounds.width*.45,y:bounds.y+bounds.height-24,width:100,height:8}
    const blocked=await pixels(await page.screenshot({clip}))
-   await page.evaluate(()=>window.fixture.settings(true));await toggle.click();await settled()
+   await openSettings();await toggle.click();await settled()
    assert.equal(await toggle.getAttribute('aria-checked'),'true')
    await page.evaluate(()=>window.fixture.settings(false));await settled()
    assert.deepEqual(await geometry(),before,'Keep the native scroll range, offset, input size and bottom reservation')
@@ -336,7 +531,9 @@ try{
   }
   await texture.evaluate(el=>el.remove())
   await patch({enabled:false,composerStyle:'milk'})
-  assert.equal(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundImage),'none','The underlay switch works independently of the task switch and input material')
+  assert.notEqual(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundImage),'none','The default input automatically restores the native mask')
+  await patch({composerStyle:'css',chatUnderComposer:true})
+  assert.equal(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundImage),'none','Glass underlay remains independent of the task-panel switch')
   await page.locator('[data-conversation-content]').evaluate(el=>el.dataset.contentPhase='hero')
   assert.notEqual(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundImage),'none','Leave the new-chat hero unchanged')
   await page.locator('[data-conversation-content]').evaluate(el=>el.dataset.contentPhase='active')
@@ -358,7 +555,10 @@ try{
  })
  await check('disposal restores the host appearance and original body marker without removing the editor or its events',async()=>{
   await input.evaluate(el=>window.disposalEditor=el)
+  await page.evaluate(()=>{const slot=document.createElement('div');slot.id='dispose-optional-input';slot.className='cf_activity';slot.innerHTML='<span></span>';document.querySelector('.cf_primary').before(slot)});await settled()
+  assert.equal(await page.locator('#dispose-optional-input').getAttribute('data-dcb-empty-composer-slot'),'')
   await page.evaluate(()=>{for(const cleanup of [...window.cleanups].reverse())if(typeof cleanup==='function')cleanup()});await settled()
+  assert.equal(await page.locator('[data-dcb-empty-composer-slot], [data-dcb-composer-slot-motion]').count(),0);assert.equal(await page.locator('#dispose-optional-input').count(),1)
   assert.equal(await page.locator('body').getAttribute('data-dcb-composer-glass'),null)
   assert.equal(await page.locator('body').getAttribute('data-dcb-chat-under-composer'),null)
   assert.equal(await page.locator('[data-dcb-composer-action], [data-dcb-composer-action-kind]').count(),0)

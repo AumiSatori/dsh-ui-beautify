@@ -1,39 +1,90 @@
 {
   "name": "dsh-claude-beautify",
-  "displayName": "dsh-UI美化",
-  "version": "0.3.31",
+  "displayName": "UI动效美化",
+  "version": "0.3.32",
   "private": true,
   "type": "module",
-  "description": "dsh-UI美化：独立配置左侧栏、任务卡片与输入栏的玻璃样式、进度与切换动效。",
+  "description": "UI动效美化：独立配置左侧栏、任务卡片与输入栏的玻璃样式、进度与切换动效。",
   "license": "MIT",
   "main": "index.js",
-  "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },
-  "files": ["index.js", "client.js", "cordis.patch.yml", "scripts/profile.mjs", "scripts/restore-claude-slider.mjs", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "vendor/lens/LICENSE"],
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "scripts/profile.mjs",
+    "scripts/restore-claude-slider.mjs",
+    "scripts/desktop-startup-feedback.mjs",
+    "assets/CONTEXT-WHALE-LICENSE.md",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "vendor/lens/LICENSE"
+  ],
   "scripts": {
     "build:lens": "node scripts/build-lens.mjs",
     "check:lens": "node scripts/build-lens.mjs --check",
     "test": "node --test test/*.test.mjs",
     "test:browser": "node test/browser.mjs",
     "test:summary": "node test/summary-browser.mjs",
+    "test:progress-liquid": "node test/progress-liquid-browser.mjs",
+    "test:skills": "node test/skills-browser.mjs",
+    "test:scope": "node test/summary-scope-browser.mjs",
+    "test:artifact": "node test/artifact-browser.mjs",
     "test:materials": "node test/material-browser.mjs",
     "test:theme-palette": "node test/theme-palette-browser.mjs",
+    "test:theme-switch": "node test/theme-switch-browser.mjs",
+    "test:focus": "node test/focus-browser.mjs",
+    "test:focus-performance": "node test/focus-performance-browser.mjs",
+    "test:startup": "node test/startup-motion-browser.mjs",
+    "test:welcome": "node test/welcome-settings-browser.mjs",
+    "test:welcome-media": "node test/welcome-media-browser.mjs",
+    "test:settings": "node test/settings-browser.mjs",
+    "test:tabs": "node test/conversation-tabs-browser.mjs",
     "test:composer": "node test/composer-browser.mjs",
+    "test:slider-glass": "node test/slider-glass-browser.mjs",
+    "test:performance": "node test/performance-browser.mjs",
     "test:sidebar": "node test/sidebar-browser.mjs",
+    "test:sidebar-layout": "node test/sidebar-layout-browser.mjs",
     "test:messages": "node test/message-motion-browser.mjs",
+    "test:turn-cards": "node test/turn-cards-browser.mjs",
     "install-plugin": "node scripts/profile.mjs install",
     "uninstall-plugin": "node scripts/profile.mjs uninstall",
     "check-plugin": "node scripts/profile.mjs check",
     "restore-slider": "node scripts/restore-claude-slider.mjs",
-    "check-slider": "node scripts/restore-claude-slider.mjs --check"
+    "check-slider": "node scripts/restore-claude-slider.mjs --check",
+    "test:context-particles": "node test/context-particles-browser.mjs"
   },
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
-      "inject": ["@deepseek-ai/dsh-client-ui-conversation", "@deepseek-ai/dsh-client-ui-settings", "@deepseek-ai/dsh-client-ui-sidebar"]
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-ui-workspace"
+      ]
     }
   },
-  "engines": { "node": ">=22.13.0" },
-  "devDependencies": { "@playwright/test": "^1.56.1", "react": "^19.2.0", "react-dom": "^19.2.0", "esbuild": "^0.25.11" },
-  "repository": { "type": "git", "url": "https://github.com/AumiSatori/dsh-claude-beautify.git" }
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "esbuild": "^0.25.11"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AumiSatori/dsh-ui-beautify.git"
+  }
 }

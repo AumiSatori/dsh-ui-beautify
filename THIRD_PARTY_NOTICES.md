@@ -1,5 +1,22 @@
 # Third-party notices
 
+## Optional whale-girl context background
+
+`assets/context-whale.jpg` is the supplied DeepSeek girl illustration by
+ZipZipPipe, based on the original character 溟月 by 上善无形. The supplied
+character-reference package identifies it as CC BY-NC-SA 4.0:
+https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+The original raster, its foreground extraction, sampled point cloud and detail
+rendering retain this attribution and the same noncommercial share-alike terms.
+They are not covered by this repository's MIT license. This optional asset is
+for personal noncommercial use. The plugin defaults to DeepSeek's Logo geometry
+provided at runtime by the host's public FishLogo primitive; the host Logo is
+not re-created or copied into this source tree.
+
+Custom SVG artwork stays in the current browser's local storage and is not
+distributed with the plugin.
+
 The Liquid Glass surface adapts SVG displacement-map and rounded-rectangle
 distance-field techniques from the following MIT-licensed projects. The DSH
 integration uses a bounded, edge-only map and keeps foreground content separate.

@@ -175,7 +175,7 @@ try {
         if (value !== 'milk') {
           for (const [name, element] of Object.entries(data.elements)) assert.ok(element.contrast >= 4.5, `${theme}/${value} ${name} contrast ${element.contrast.toFixed(2)} must be at least 4.5`)
         } else {
-          assert.equal(data.background, dark ? 'rgb(41, 40, 36)' : 'rgb(255, 253, 249)', 'Default keeps its original surface')
+          assert.equal(data.background, dark ? 'rgb(41, 40, 36)' : 'rgb(255, 255, 255)', 'Default uses white in the light theme and retains its dark surface')
           assert.equal(data.color, dark ? 'rgb(238, 234, 226)' : 'rgb(36, 36, 36)', 'Default keeps its original primary foreground')
           assert.equal(data.elements.completed.color, dark ? 'rgb(141, 141, 141)' : 'rgb(154, 154, 154)', 'Default keeps its original inactive foreground')
           assert.equal(data.elements.fileType.color, 'rgb(149, 145, 138)', 'Default keeps its original secondary foreground')

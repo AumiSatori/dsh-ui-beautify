@@ -1,5 +1,23 @@
 import {GlassRenderer} from '../vendor/lens/internal/renderer.js'
+export {createContextParticles,normalizeParticles,contextParticlesCss} from './context-particles.js'
+export {createParticleSettings,particleSettingsCss} from './context-particle-settings.js'
 export {createSidebarGlass} from './sidebar-glass.js'
+export {createThemeToggle,themeToggleCss} from './theme-toggle.js'
+export {createFocusMode,focusModeCss} from './focus-mode.js'
+export {createComposerSlots,composerSlotsCss} from './composer-slots.js'
+export {createStartupMotion} from './startup-motion.js'
+export {normalizeWelcome} from './welcome-font.js'
+export {createWelcomeSettings,welcomeSettingsCss} from './welcome-settings.js'
+export {createWelcomeMediaStore} from './welcome-media.js'
+export {createSettingsTabs,settingsTabsCss} from './settings-tabs.js'
+export {createConversationTabs,conversationTabsCss} from './conversation-tabs.js'
+export {createTurnCards,turnCardsCss} from './turn-cards.js'
+export {createScopeSwitch,scopeSwitchCss} from './scope-switch.js'
+export {createOutputPreviewBridge,createOutputArtifact,outputPreviewReader,outputPreviewCss,isHtmlOutput} from './output-preview.js'
+export {createOutputViewer,outputContentReader,outputViewerCss} from './output-viewer.js'
+export {motion} from './motion.js'
+export {createProgressLiquid, progressRollEase} from './progress-liquid.js'
+export {affectsPresentation, affectsScroll} from './presentation-observer.js'
 
 const MARK='data-dcb-composer-action',CANVAS='data-dcb-lens-canvas'
 
@@ -59,7 +77,7 @@ export function createLensActions(doc,win) {
         if(tile.width!==w||tile.height!==h){tile.width=w;tile.height=h}
         const ctx=tile.getContext('2d');ctx.clearRect(0,0,w,h)
         ctx.drawImage(canvas,(r.left-origin.left)*s,(r.top-origin.top)*s,r.width*s,r.height*s,0,0,w,h)
-        button.setAttribute('data-dcb-lens-ready','')
+        if(!button.hasAttribute('data-dcb-lens-ready'))button.setAttribute('data-dcb-lens-ready','')
       }
     }
     group.pointer=event=>{const r=stage.getBoundingClientRect(),s=group.renderer.dpr;group.renderer.pointer={x:(event.clientX-r.left)*s,y:(r.bottom-event.clientY)*s};group.renderer.invalidate(180,false)}
@@ -77,9 +95,23 @@ export function createLensActions(doc,win) {
     const rects=buttons.map(button=>button.getBoundingClientRect()),pad=10
     const left=Math.max(0,Math.min(...rects.map(r=>r.left))-pad),top=Math.max(0,Math.min(...rects.map(r=>r.top))-pad)
     const right=Math.min(win.innerWidth,Math.max(...rects.map(r=>r.right))+pad),bottom=Math.min(win.innerHeight,Math.max(...rects.map(r=>r.bottom))+pad)
-    for(const [key,value] of Object.entries({left,top,width:Math.max(1,right-left),height:Math.max(1,bottom-top)}))assign(group.stage,key,`${value}px`)
-    group.colors=buttons.map(button=>({rect:button.getBoundingClientRect(),color:backdrop(button)}))
-    group.renderer.resize();group.renderer.setScene('grid');group.renderer.invalidate(100)
+    const bounds={left,top,width:Math.max(1,right-left),height:Math.max(1,bottom-top)}
+    const geometryKey=[win.devicePixelRatio,...Object.values(bounds),...rects.flatMap(r=>[r.left,r.top,r.width,r.height])].join(':')
+    const colors=buttons.map((button,i)=>({rect:rects[i],color:backdrop(button)}))
+    // The sampled tint is local to the button row. Moving the row as a whole
+    // changes geometry, but does not require a new artwork canvas or texture.
+    const artworkKey=[doc.body.hasAttribute('data-ds-dark-theme'),bounds.width,bounds.height,win.devicePixelRatio,
+      ...colors.flatMap(({rect,color})=>[rect.left-left,rect.width,...color])].join(':')
+    const geometryChanged=group.geometryKey!==geometryKey,artworkChanged=group.artworkKey!==artworkKey
+    group.colors=colors
+    if(!geometryChanged&&!artworkChanged&&!group.buttonsChanged)return
+    for(const [key,value] of Object.entries(bounds))assign(group.stage,key,`${value}px`)
+    const width=group.renderer.width,height=group.renderer.height
+    group.renderer.resize()
+    // resize() already uploads artwork when the raster size changes.
+    if(artworkChanged&&width===group.renderer.width&&height===group.renderer.height)group.renderer.setScene('grid')
+    group.geometryKey=geometryKey;group.artworkKey=artworkKey;group.buttonsChanged=false
+    group.renderer.invalidate()
   }
   function schedule(group){if(!group.frame&&!group.destroyed)group.frame=win.requestAnimationFrame(()=>refresh(group))}
   function sync(actions) {
@@ -90,6 +122,7 @@ export function createLensActions(doc,win) {
     for(const [composer,group] of groups)if(!wanted.has(composer)){destroy(group);groups.delete(composer)}
     for(const [composer,buttons] of wanted){
       let group=groups.get(composer);if(!group){group=create(composer);groups.set(composer,group)}
+      group.buttonsChanged=group.buttonsChanged||group.buttons.length!==buttons.length||group.buttons.some((button,i)=>button!==buttons[i])
       group.buttons=buttons
       for(const [button,tile] of group.tiles)if(!buttons.includes(button)){tile.remove();button.removeAttribute('data-dcb-lens-ready');group.tiles.delete(button)}
       for(const button of buttons){

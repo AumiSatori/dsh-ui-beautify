@@ -73,7 +73,7 @@ try{
   await page.getByRole('textbox').fill('这是一条刚发送的新消息。');await page.getByRole('textbox').press('Enter');await tick()
   assert.equal(await count(),1)
   const middle=await page.evaluate(()=>{const a=window.animationObjects[0];a.pause();a.currentTime=100;const target=window.pendingRow.firstElementChild,s=getComputedStyle(target);return{opacity:Number(s.opacity),translate:s.translate,height:target.offsetHeight,scroll:document.querySelector('[data-conversation-scroll]').scrollTop,focus:document.activeElement===document.querySelector('textarea'),options:window.calls[0].options}})
-  assert.ok(middle.opacity>0&&middle.opacity<1);assert.notEqual(middle.translate,'0px');assert.equal(middle.scroll,0);assert.equal(middle.focus,true);assert.equal(middle.options.duration,420)
+  assert.ok(middle.opacity>0&&middle.opacity<1);assert.notEqual(middle.translate,'0px');assert.equal(middle.scroll,0);assert.equal(middle.focus,true);assert.equal(middle.options.duration,280)
   await page.screenshot({path:resolve(output,'message-user-enter-middle.png')})
   await page.evaluate(()=>window.animationObjects[0].play());await finish()
  })

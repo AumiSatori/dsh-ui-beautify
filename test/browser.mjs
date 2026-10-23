@@ -152,7 +152,8 @@ try {
   await check('task-panel settings have an independent entry without loading or hosting the reasoning slider', async () => {
     await page.evaluate(() => window.fixture.settings(true))
     await settled()
-    assert.deepEqual(await page.evaluate(() => window.fixtureSettingsEntries), [{ id: 'dsh-claude-beautify', label: 'dsh-UI美化' }])
+    assert.deepEqual(await page.evaluate(() => window.fixtureSettingsEntries), [{ id: 'dsh-claude-beautify', label: 'UI动效美化' }])
+    assert.equal(await page.locator('.dcb-settings-hero h1').textContent(), 'UI动效美化')
     assert.equal(await page.evaluate(() => window.fixtureDependencies.includes('dsh-claude-slider')), false)
     assert.equal(await page.evaluate(() => Object.hasOwn(window, '__dsbHostsClaudeSettings')), false)
     assert.equal(await page.locator('[data-dcb-settings-block="slider"], .dcs-settings-card').count(), 0)
@@ -217,7 +218,7 @@ try {
     await page.keyboard.press('ArrowRight')
     assert.equal(await glass.getAttribute('aria-checked'), 'true')
     assert.equal(await glass.evaluate(node => node === document.activeElement), true)
-    await page.keyboard.press('End')
+    await page.keyboard.press('Home')
     assert.equal(await milk.getAttribute('aria-checked'), 'true')
     assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')).cardStyle), 'milk')
     await page.evaluate(() => window.fixture.settings(false))
@@ -238,11 +239,11 @@ try {
         header: node.querySelector('.dcb-settings-header h2')?.textContent,
         info: node.querySelector('.dcb-settings-info')?.textContent }
     })
-    assert.equal(layout.radius, '20px')
-    assert.equal(layout.padding, '20px 24px 24px')
+    assert.equal(layout.radius, '16px')
+    assert.equal(layout.padding, '20px 22px')
     assert.equal(layout.filter, 'none', 'The entrance releases its blur rather than leaving a permanent backdrop root')
     assert.equal(layout.transform, 'none', 'The entrance releases its transform after settling')
-    assert.equal(layout.header, 'dsh-UI美化')
+    assert.equal(layout.header, '任务面板')
     assert.ok(layout.groups >= 2, 'The card separates its controls into named visual groups')
     assert.match(layout.info, /默认/)
     assert.match(layout.info, /400/)

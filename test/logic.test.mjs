@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
+import { createHash } from 'node:crypto'
 
 let registration
 vm.runInNewContext(readFileSync(new URL('../client.js', import.meta.url), 'utf8'), {
@@ -12,6 +13,15 @@ const { normalize, placement } = exports.__test
 test('registers a client-only plugin with the matching loader id', () => {
   assert.equal(registration.id, 'dsh-claude-beautify')
   assert.equal(typeof exports.apply, 'function')
+})
+test('independent button glass migrates existing appearance once and preserves explicit choices for every input style', () => {
+  assert.equal(normalize(null).composerButtonGlass, false)
+  for (const composerStyle of ['milk', 'css', 'glass', 'clear']) {
+    assert.equal(normalize({ composerStyle }).composerButtonGlass, composerStyle !== 'milk')
+    for (const composerButtonGlass of [false, true]) assert.equal(normalize({ composerStyle, composerButtonGlass }).composerButtonGlass, composerButtonGlass)
+  }
+  assert.equal(normalize({ composerGlass: false, composerStyle: 'clear' }).composerButtonGlass, false)
+  assert.equal(normalize({ composerGlass: true }).composerButtonGlass, true)
 })
 test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize(null).width, 320)
@@ -27,6 +37,12 @@ test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize(null).toolDetails, false)
   assert.equal(normalize({ toolDetails: 'true' }).toolDetails, false)
   assert.equal(normalize({ toolDetails: true }).toolDetails, true)
+  assert.equal(normalize(null).skillDetails, false)
+  assert.equal(normalize({ skillDetails: 'true', toolDetails: true }).skillDetails, false)
+  assert.equal(normalize({ skillDetails: true, toolDetails: false }).skillDetails, true)
+  assert.equal(normalize(null).summaryScope, 'turn')
+  assert.equal(normalize({ summaryScope: 'unknown' }).summaryScope, 'turn')
+  assert.equal(normalize({ summaryScope: 'all' }).summaryScope, 'all')
   assert.equal(normalize(null).composerStyle, 'milk', 'New preferences start with the original input appearance')
   assert.equal('composerGlass' in normalize({ composerGlass: false }), false, 'The retired gate is not persisted')
   assert.equal(normalize({ composerGlass: false, composerStyle: 'clear' }).composerStyle, 'milk', 'Legacy disabled preferences migrate to the default option')
@@ -35,18 +51,34 @@ test('validates corrupted and out-of-range preferences', () => {
   assert.equal(normalize({ composerStyle: 'unknown' }).composerStyle, 'milk')
   assert.equal(normalize({ composerStyle: 'milk' }).composerStyle, 'milk')
   assert.equal(normalize({ composerStyle: 'glass', cardStyle: 'css' }).composerStyle, 'glass')
-  assert.equal(normalize(null).chatUnderComposer, true)
+  assert.equal(normalize(null).chatUnderComposer, false)
   assert.equal(normalize(null).sidebarStyle, 'milk')
   assert.equal(normalize({sidebarStyle:'unknown'}).sidebarStyle, 'milk')
   assert.equal(normalize({sidebarStyle:'clear'}).sidebarStyle, 'clear')
   assert.equal(normalize(null).sidebarMotion, true)
   assert.equal(normalize({sidebarMotion:false}).sidebarMotion, false)
-  assert.equal(normalize({ chatUnderComposer: 'false' }).chatUnderComposer, true)
+  assert.equal(normalize({ chatUnderComposer: 'false' }).chatUnderComposer, false)
   assert.equal(normalize({ chatUnderComposer: false }).chatUnderComposer, false)
   assert.equal(normalize(null).messageMotion, true)
   assert.equal(normalize({ messageMotion: false }).messageMotion, false)
   assert.equal(normalize({ messageMotion: 'false' }).messageMotion, true)
-  assert.equal(normalize({ enabled: false, composerGlass: false, chatUnderComposer: true }).chatUnderComposer, true)
+  assert.equal(normalize(null).turnGlass, true)
+  assert.equal(normalize({ turnGlass: false }).turnGlass, false)
+  assert.equal(normalize({ turnGlass: 'false' }).turnGlass, true)
+  assert.equal(normalize({ enabled: false, composerGlass: false, chatUnderComposer: true }).chatUnderComposer, false)
+})
+
+test('the default composer restores its mask while glass materials retain an independent underlay choice', () => {
+  for (const value of [{ composerStyle: 'milk', chatUnderComposer: true }, { composerStyle: 'unknown', chatUnderComposer: true }, { composerGlass: false, composerStyle: 'clear', chatUnderComposer: true }]) {
+    const settings = normalize(value)
+    assert.equal(settings.composerStyle, 'milk')
+    assert.equal(settings.chatUnderComposer, false)
+  }
+  for (const composerStyle of ['clear', 'css', 'glass']) {
+    assert.equal(normalize({ composerStyle, chatUnderComposer: true, enabled: false }).chatUnderComposer, true)
+    assert.equal(normalize({ composerStyle, chatUnderComposer: false }).chatUnderComposer, false)
+    assert.equal(normalize({ composerStyle, chatUnderComposer: 'false' }).chatUnderComposer, true)
+  }
 })
 
 test('card styles migrate to milk by default and retain all four supported presentation values', () => {
@@ -76,6 +108,14 @@ test('liquid normal maps keep the center neutral and bend opposing edges smoothl
   assert.ok(new Set(edgeRamp).size >= 10, 'The curved edge has a graded normal instead of one hard displacement step')
   assert.ok(edgeRamp.slice(1).every((value, index) => Math.abs(value - edgeRamp[index]) < 40), 'Adjacent edge pixels avoid angular jumps')
   for (let index = 3; index < map.data.length; index += 4) assert.equal(map.data[index], 255)
+})
+test('the bounded normal-map calculation preserves the original pixel output for small, card, composer and sidebar shapes', () => {
+  for (const [shape, expected] of [
+    [[32, 24, 6], '09aae1896236a667e848b90030eeee95516aeb95086c53c63f697a7c074e55f5'],
+    [[320, 220, 14], 'd7ca653dec5ef514df73cd21eb2c5ffe35418d27a92ea559935bf038be7ce778'],
+    [[720, 160, 20], '40e8f77b69a1b9aa040c27854d1e76c6f3f3da173289482b1ed6b4f92e4ae11f'],
+    [[280, 900, 20], '34bb76b18fc0542af833c136f4a08ad63c6fc06db59e2dd5bfe65c80459fda45'],
+  ]) assert.equal(createHash('sha256').update(exports.__test.createLiquidNormalMap(...shape).data).digest('hex'), expected)
 })
 
 test('liquid normal maps bound raster memory for large cards and retain a neutral center on small cards', () => {
@@ -264,6 +304,56 @@ test('turn snapshots retain the latest valid plan and isolate delivered files an
   assert.equal(second.activity.resources[0].kind, 'web')
   assert.equal(activity.files[0].description, 'second turn', 'The compatibility activity fields represent only the latest turn')
   assert.equal(firstPlan[0].content, 'first draft', 'Projection snapshots must not mutate recorded plans')
+})
+
+test('all-turn totals deduplicate tool calls and shared resources, retain final per-turn plans and only activate live tool calls', () => {
+  const rows = [
+    entry('turn/start', { turn: 1 }),
+    entry('todo/write', { todos: [{ content: 'replaced plan', status: 'pending' }] }),
+    call('skill-1', 'skill', { name: 'shared' }), result('skill-1'),
+    call('old-running', 'ops_bash', {}),
+    call('bad', 'write', {}), result('bad', true),
+    entry('todo/write', { todos: [{ content: 'same task', status: 'completed' }, { content: 'unfinished', status: 'in_progress' }] }),
+    entry('deliverables/presented', { files: [{ path: '/example/shared.zip', description: 'old' }] }),
+    entry('turn/end', {}),
+    entry('turn/start', { turn: 2 }),
+    entry('todo/write', { todos: [{ content: 'same task', status: 'pending' }] }),
+    call('skill-2', 'skill', { name: 'shared' }), result('skill-2'),
+    call('new-running', 'write', {}),
+    entry('deliverables/presented', { files: [{ path: '/example/shared.zip', description: 'new' }] }),
+  ]
+  const history = exports.__test.turnActivityFrom([...rows, ...rows.slice(-2)])
+  const view = exports.__test.allTurnView(history, [{ content: 'untrusted projection', status: 'completed' }], 2, [1, 2])
+  assert.equal(view.turnCount, 2)
+  assert.equal(view.partial, false)
+  assert.equal(view.taskCount, 3)
+  assert.equal(view.completed, 1)
+  assert.deepEqual(Array.from(view.groups, group => [group.turn, group.todos.length, group.completed]), [[1, 2, 1], [2, 1, 0]])
+  assert.equal(view.groups[0].todos[1].status, 'in_progress', 'display must preserve recorded task states')
+  assert.ok(!view.groups.some(group => group.todos.some(todo => todo.content === 'replaced plan' || todo.content === 'untrusted projection')))
+  assert.equal(view.activity.resources.filter(item => item.kind === 'skill').length, 1)
+  assert.equal(view.activity.files.length, 1)
+  assert.equal(view.activity.files[0].description, 'new')
+  const summary = exports.__test.toolSummary(view.activity.resources)
+  assert.equal(summary.calls, 3)
+  assert.equal(summary.failed, 1)
+  assert.deepEqual(Array.from(summary.active, item => [item.label, item.activeRunning]), [['write', 1]])
+  assert.equal(summary.tools.find(item => item.label === 'ops_bash').running, 1)
+})
+
+test('an empty next turn never inherits the previous plan, cleared plans disappear and partial totals remain explicit', () => {
+  const history = exports.__test.turnActivityFrom([
+    entry('turn/start', { turn: 1 }), entry('todo/write', { todos: [{ content: 'keep', status: 'completed' }] }), entry('turn/end', {}),
+    entry('turn/start', { turn: 2 }), entry('todo/write', { todos: [{ content: 'remove', status: 'pending' }] }), entry('todo/write', { todos: [] }), entry('turn/end', {}),
+    entry('turn/start', { turn: 3 }),
+  ], true)
+  const view = exports.__test.allTurnView(history, [{ content: 'stale live projection', status: 'completed' }], 3, [0, 1, 2, 3])
+  assert.deepEqual(Array.from(view.groups, group => group.turn), [1])
+  assert.equal(view.partial, true)
+  assert.equal(view.turnCount, 4)
+  const legacy = exports.__test.allTurnView(exports.__test.activityFrom([]), [{ content: 'legacy plan', status: 'pending' }], null)
+  assert.equal(legacy.groups.length, 1)
+  assert.equal(legacy.groups[0].turn, null)
 })
 test('new and explicitly cleared turns never inherit an earlier plan or outputs', () => {
   const activity = exports.__test.turnActivityFrom([

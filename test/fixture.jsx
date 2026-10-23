@@ -57,6 +57,7 @@ function App() {
   const [detached, setDetached] = React.useState(false)
   const [history, setHistory] = React.useState(null)
   const [reading, setReading] = React.useState(null)
+  const [pressure, setPressure] = React.useState({})
   const historyScroll = React.useRef(null)
   const goToTurn = turn => {
     const scroll = historyScroll.current
@@ -76,6 +77,7 @@ function App() {
     reading: goToTurn,
     records: (entries, hasMore) => window.fixtureBinding(session).eventSource.replace(entries, hasMore),
     refresh: force,
+    pressure: (value, id = session) => setPressure(previous => ({ ...previous, [id]: value })),
   }
   const Settings = window.fixtureSettings
   const Header = window.fixtureHeader
@@ -83,8 +85,8 @@ function App() {
   const source = injected?.hooks.taskActivity
   return <div className={'frame' + (sidebar ? ' sidebar-open' : '')}>
     <aside className="nav"><strong>DeepSeek Harness</strong><small>工作区</small><p>界面优化</p><p>设计与开发</p><button onClick={() => setSettings(true)}>打开设置</button></aside>
-    <main><header data-slot="conversation.header"><span>界面优化</span><span className="header-utilities">{Header && <Header sessionId={session} useProjection={name => name === 'turnOutline' ? history?.outline || history?.turns || [] : todos} useSession={selector => selector({ running })}
-      useTaskActivity={selector => React.useSyncExternalStore(source.subscribe, () => selector(source.getSnapshot()))} openOutput={injected.openOutput} readThumbnail={injected.readThumbnail}/>}<span>···</span></span></header>
+    <main><header data-slot="conversation.header"><span>界面优化</span><span className="header-utilities">{Header && <Header sessionId={session} useProjection={name => name === 'contextPressure' ? pressure[session] ?? null : name === 'turnOutline' ? history?.outline || history?.turns || [] : todos} useSession={selector => selector({ running })}
+      useTaskActivity={selector => React.useSyncExternalStore(source.subscribe, () => selector(source.getSnapshot()))} openOutput={injected.openOutput} readThumbnail={injected.readThumbnail} readPreview={injected.readPreview}/>}<span>···</span></span></header>
       {!detached && <div data-conversation-content="" data-conversation-session={session} data-content-phase={interactiveComposer ? 'active' : undefined} className={'conversation' + (interactiveComposer ? ' cr_body cr_embeddedBody' : '')}>
         {history?.rail !== false && history && <nav aria-label="聊天轮次" style={{ position: 'absolute', right: 12, top: 360, zIndex: 2, display: 'grid', gap: 8 }}>
           {(history.outline || history.turns).map((item, index) => <button key={item.turn} data-index={index} aria-label={`跳到第 ${item.turn} 轮`} aria-current={reading === item.turn ? 'true' : undefined} onClick={() => goToTurn(item.turn)}>{item.turn}</button>)}

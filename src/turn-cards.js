@@ -12,21 +12,22 @@ const ROOT=`body[${ENABLED}] [${SURFACE}]`,DARK=`body[data-ds-dark-theme][${ENAB
 const CARD=`${ROOT} [${HEAD}][${ROW}]`
 
 export const turnCardsCss=`
-  ${ROOT} { position:relative; isolation:isolate; --dcb-turn-fill:rgba(255,255,255,.56); --dcb-turn-rim:rgba(255,255,255,.74); --dcb-turn-shadow:0 5px 18px rgba(26,34,46,.08),inset 0 1px 1px #ffffffe8; --dcb-turn-blur:2px; --dcb-turn-saturation:1.15; }
-  ${DARK} { --dcb-turn-fill:rgba(24,28,36,.78); --dcb-turn-rim:rgba(255,255,255,.24); --dcb-turn-shadow:0 5px 18px #00000038,inset 0 1px 1px #ffffff42; }
-  ${ROOT}[data-dcb-turn-surface="clear"] { --dcb-turn-blur:0px; }
-  ${DARK}[data-dcb-turn-surface="clear"] { --dcb-turn-fill:rgba(24,28,36,.22); --dcb-turn-rim:rgba(255,255,255,.4); }
-  ${ROOT}[data-dcb-turn-surface="glass"] { --dcb-turn-fill:rgba(236,242,248,.62); --dcb-turn-blur:22px; --dcb-turn-saturation:1.45; }
-  ${DARK}[data-dcb-turn-surface="glass"] { --dcb-turn-fill:rgba(160,174,190,.26); --dcb-turn-rim:rgba(255,255,255,.34); }
+  ${ROOT} { position:relative; isolation:isolate; --dcb-turn-fill:#f7f8fa; --dcb-turn-rim:#e5e7eb; }
+  ${DARK} { --dcb-turn-fill:#23252a; --dcb-turn-rim:#373a41; }
   ${ROOT} [data-dcb-turn-row] { position:relative; box-sizing:border-box; padding-inline:clamp(16px,2.2vw,28px); }
   ${CARD} { padding-block-start:22px; }
   ${CARD}:not([data-dcb-turn-first]) { margin-block-start:24px!important; }
   ${ROOT} [data-dcb-turn-tail] { padding-block-end:22px; }
-  ${CARD}::before { content:''; position:absolute; z-index:-1; top:0; left:0; width:100%; height:var(${HEIGHT},100%); box-sizing:border-box; border:1px solid var(--dcb-turn-rim); border-radius:22px; pointer-events:none; background:linear-gradient(135deg,#ffffff24,transparent 42%),var(--dcb-turn-fill); box-shadow:var(--dcb-turn-shadow); transition:background-color ${motion.time.material}ms ${motion.ease.color},border-color ${motion.time.material}ms ${motion.ease.color},box-shadow ${motion.time.material}ms ${motion.ease.color}; }
-  ${CARD}[data-dcb-turn-visible]::before { backdrop-filter:blur(var(--dcb-turn-blur)) saturate(var(--dcb-turn-saturation)); -webkit-backdrop-filter:blur(var(--dcb-turn-blur)) saturate(var(--dcb-turn-saturation)); }
+  ${CARD}::before { content:''; position:absolute; z-index:-1; top:0; left:0; width:100%; height:var(${HEIGHT},100%); box-sizing:border-box; border:1px solid var(--dcb-turn-rim); border-radius:20px; pointer-events:none; background:var(--dcb-turn-fill); box-shadow:none; filter:none; backdrop-filter:none; -webkit-backdrop-filter:none; }
+  ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-row] { padding-inline:4px; }
+  ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-head] { padding-block-start:12px; }
+  ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-tail] { padding-block-end:12px; }
+  ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-head]::before { height:1px; top:-12px; border:0; border-radius:0; background:var(--dcb-turn-rim); }
+  ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-first]::before { content:none; }
   ${CARD}[data-dcb-turn-arriving]::before { animation:dcb-turn-card-in ${motion.time.standard}ms ${motion.ease.smooth}; }
-  ${CARD}[data-dcb-turn-focused]::before { border-color:rgba(99,111,128,.46); box-shadow:var(--dcb-turn-shadow),0 0 0 1px rgba(99,111,128,.18); }
-  ${DARK} [data-dcb-turn-head][data-dcb-turn-row][data-dcb-turn-focused]::before { border-color:#ffffff8c; box-shadow:var(--dcb-turn-shadow),0 0 0 1px #ffffff26; }
+  ${CARD}[data-dcb-turn-focused]::before { border-color:#989fa9; }
+  ${DARK} [data-dcb-turn-head][data-dcb-turn-row][data-dcb-turn-focused]::before { border-color:#818894; }
+  ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-focused]::before { background:#989fa9; }
   ${CARD}[data-dcb-turn-jump="up"]::before { animation:dcb-turn-pull-down ${motion.time.scene}ms ${motion.ease.smooth}; }
   ${CARD}[data-dcb-turn-jump="down"]::before { animation:dcb-turn-pull-up ${motion.time.scene}ms ${motion.ease.smooth}; }
   @keyframes dcb-turn-pull-down { from { transform:translateY(-10px) scale(.985); } to { transform:translateY(0) scale(1); } }
@@ -35,14 +36,64 @@ export const turnCardsCss=`
   @media(max-width:600px) { ${ROOT} [data-dcb-turn-row] { padding-inline:14px; } ${CARD}::before { border-radius:18px; } }
   @media(prefers-reduced-motion:reduce) { ${CARD}::before { animation:none!important; transition:none!important; } }
   @media(forced-colors:active) { ${CARD}::before { background:Canvas!important; border-color:CanvasText!important; box-shadow:none!important; backdrop-filter:none!important; -webkit-backdrop-filter:none!important; animation:none!important; transition:none!important; } }
+  @media(forced-colors:active) { ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-head]::before { background:CanvasText!important; } }
+  .dcb-turn-style-picker { border:0; padding:0; margin:0 0 18px; min-width:0; }
+  .dcb-turn-style-picker legend { font-size:14px; font-weight:600; padding:0; }
+  .dcb-turn-style-picker>p { color:var(--dsh-settings-secondary); font-size:12px; line-height:1.65; margin:6px 0 14px; }
+  .dcb-turn-style-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+  .dcb-turn-style-option { display:grid; gap:7px; justify-items:center; font:inherit; min-width:0; padding:14px 10px; background:var(--dsh-settings-subtle); color:inherit; border:1px solid #8884; border-radius:12px; cursor:pointer; }
+  .dcb-turn-style-option:hover { border-color:#8889; }
+  .dcb-turn-style-option[aria-checked=true] { border-color:currentColor; background:var(--dsh-settings-surface); }
+  .dcb-turn-style-option:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
+  .dcb-turn-style-option strong { font-size:13px; }
+  .dcb-turn-style-option small { color:var(--dsh-settings-secondary); font-size:11px; line-height:1.5; }
+  .dcb-turn-style-preview { display:grid; align-content:center; gap:10px; width:100%; height:58px; padding:8px 12px; box-sizing:border-box; }
+  .dcb-turn-style-preview i { display:block; width:70%; height:3px; background:currentColor; opacity:.22; border-radius:2px; }
+  .dcb-turn-style-preview i:first-child { width:40%; margin-left:auto; }
+  [data-turn-preview=soft] { background:#8888880b; border:1px solid #8883; border-radius:10px; }
+  [data-turn-preview=line] { border-bottom:1px solid #8885; }
+  @media(max-width:480px) { .dcb-turn-style-options { gap:6px; } .dcb-turn-style-option { padding:10px 6px; } .dcb-turn-style-option small { font-size:10px; } }
+  @container dcb-settings-page (max-width:400px) {
+    .dcb-turn-style-options { grid-template-columns:minmax(0,1fr); }
+    .dcb-turn-style-option { grid-template-columns:60px minmax(0,1fr); grid-template-rows:auto auto; column-gap:12px; row-gap:3px; justify-items:start; text-align:left; padding:10px 12px; }
+    .dcb-turn-style-preview { grid-column:1; grid-row:1 / 3; height:46px; padding-inline:6px; gap:7px; }
+    .dcb-turn-style-option strong,.dcb-turn-style-option small { grid-column:2; align-self:center; }
+  }
 `
+
+export function normalizeTurnCards(value){
+  return {turnGlass:value?.turnGlass===true,turnCardStyle:value?.turnCardStyle==='line'?'line':'soft'}
+}
+
+export function createTurnCardSettings(React){
+  const h=React.createElement
+  const choices=[['default','默认','保留原始外观'],['soft','轻盈卡片','浅底色 · 细边框'],['line','极简分隔','留白 · 细分隔线']]
+  return function TurnCardSettings({value,onChange}){
+    const selected=value.turnGlass?value.turnCardStyle:'default'
+    const choose=style=>onChange({turnGlass:style!=='default',...(style!=='default'?{turnCardStyle:style}:{})})
+    return h('fieldset',{className:'dcb-turn-style-picker'},
+      h('legend',null,'对话分轮样式',h('span',{className:'dcb-cost-tag'},'低开销')),
+      h('p',null,'用留白与细节区分每轮提问和回复，无背景模糊、折射或大面积阴影；独立于侧栏材质。'),
+      h('div',{className:'dcb-turn-style-options',role:'radiogroup','aria-label':'对话分轮样式'},choices.map(([style,name,description],index)=>
+        h('button',{type:'button',role:'radio',className:'dcb-turn-style-option',key:style,'aria-label':`对话分轮：${name}`,'aria-checked':selected===style,tabIndex:selected===style?0:-1,
+          onClick:()=>choose(style),onKeyDown:event=>{
+            let next=index
+            if(event.key==='ArrowRight'||event.key==='ArrowDown')next=(index+1)%choices.length
+            else if(event.key==='ArrowLeft'||event.key==='ArrowUp')next=(index+choices.length-1)%choices.length
+            else if(event.key==='Home')next=0
+            else if(event.key==='End')next=choices.length-1
+            else return
+            event.preventDefault();event.currentTarget.parentElement.children[next].focus();choose(choices[next][0])
+          }},h('span',{className:'dcb-turn-style-preview','data-turn-preview':style,'aria-hidden':true},h('i'),h('i'),h('i')),h('strong',null,name),h('small',null,description)))))
+  }
+}
 
 // Paint one background across a run of native siblings. The host owns their
 // parents, order, anchors, scroll and content; nothing is wrapped or copied.
-export function createTurnCards(doc,win,{enabled=true,style='css'}={}){
+export function createTurnCards(doc,win,{enabled=true,style='soft'}={}){
   const records=new Map(),rowGroups=new WeakMap(),pending=new Set(),geometry=new Set()
   const reduced=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
-  let disposed=false,frame=0,measureFrame=0,active=enabled,material=style==='milk'?'css':style,pendingKey=0
+  let disposed=false,frame=0,measureFrame=0,active=enabled,material=style==='line'?'line':'soft',pendingKey=0
   const pendingIds=new WeakMap()
   const navigation=createTurnNavigation(doc,win,{
     groupById:(root,id)=>records.get(root)?.byId?.get(id),
@@ -70,7 +121,7 @@ export function createTurnCards(doc,win,{enabled=true,style='css'}={}){
     node.style.removeProperty(HEIGHT)
   }
   const sweep=root=>{restore(root);for(const node of root.querySelectorAll(OWNED_SELECTOR))restore(node)}
-  const scheduleMeasure=group=>{geometry.add(group);if(!measureFrame&&!disposed)measureFrame=win.requestAnimationFrame(measure)}
+  const scheduleMeasure=group=>{if(material==='line')return;geometry.add(group);if(!measureFrame&&!disposed)measureFrame=win.requestAnimationFrame(measure)}
   function measure(){
     measureFrame=0
     const reads=[]
@@ -127,7 +178,7 @@ export function createTurnCards(doc,win,{enabled=true,style='css'}={}){
     for(const group of changes){
       group.root=root
       group.head=group.rows[0];group.tail=group.rows.at(-1);group.visible=new Set();group.live=true
-      for(const row of group.rows){restore(row);mark(row,ROW);rowGroups.set(row,group);resize.observe(row);exposure.observe(row)}
+      for(const row of group.rows){restore(row);mark(row,ROW);rowGroups.set(row,group);if(material!=='line')resize.observe(row);exposure.observe(row)}
       mark(group.head,HEAD);mark(group.tail,TAIL);scheduleMeasure(group)
       const turn=Number(group.id.split(':')[1])
       if(!reduced.matches&&root.closest('[data-chat-following-tail]')&&(group.id.startsWith('pending:')||!acknowledged&&record.seeded&&turn>record.maxTurn)){
@@ -164,10 +215,17 @@ export function createTurnCards(doc,win,{enabled=true,style='css'}={}){
   if(active)discover(doc.body)
   return {
     setOptions(options){
-      const wasActive=active,next=options.style==='milk'?'css':options.style||'css',changed=active!==options.enabled||next!==material
+      const wasActive=active,next=options.style==='line'?'line':'soft',materialChanged=next!==material,changed=active!==options.enabled||materialChanged
       active=options.enabled;material=next
       if(!changed)return
-      if(active){if(!wasActive)sweep(doc.body);doc.body.setAttribute(ENABLED,'');discover(doc.body)}
+      if(active){
+        if(!wasActive)sweep(doc.body)
+        if(materialChanged)for(const record of records.values())for(const group of record.groups){
+          if(material==='line'){geometry.delete(group);group.head.style.removeProperty(HEIGHT);for(const row of group.rows)resize.unobserve(row)}
+          else{for(const row of group.rows)resize.observe(row);scheduleMeasure(group)}
+        }
+        doc.body.setAttribute(ENABLED,'');discover(doc.body)
+      }
       else{doc.body.removeAttribute(ENABLED);win.cancelAnimationFrame(frame);frame=0;win.cancelAnimationFrame(measureFrame);measureFrame=0;pending.clear();for(const record of records.values())clear(record);records.clear();geometry.clear();sweep(doc.body)}
     },
     dispose(){disposed=true;doc.body.removeAttribute(ENABLED);navigation.dispose();observer.disconnect();resize.disconnect();exposure.disconnect();win.cancelAnimationFrame(frame);win.cancelAnimationFrame(measureFrame);for(const record of records.values())clear(record);records.clear();pending.clear();geometry.clear();sweep(doc.body)},

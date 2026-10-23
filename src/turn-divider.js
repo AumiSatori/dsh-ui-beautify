@@ -127,18 +127,27 @@ export function createTurnDivider(doc,win){
 }
 
 export const turnDividerSettingsCss=`
-  .dcb-divider-settings{margin-top:16px;padding:14px;border:1px solid #8883;border-radius:12px}
-  .dcb-divider-settings label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;margin:12px 0}
-  .dcb-divider-settings button{font:inherit;color:inherit;border:1px solid #8884;background:transparent;border-radius:8px;padding:7px 10px;cursor:pointer}
-  .dcb-divider-presets,.dcb-divider-actions{display:flex;gap:7px;flex-wrap:wrap}
+  .dcb-divider-settings{display:flex;flex-direction:column;gap:22px;min-width:0;margin-top:24px;padding:24px;border:1px solid #8883;border-radius:14px}
+  .dcb-divider-settings>strong{font-size:14px;line-height:1.6}
+  .dcb-divider-settings label{display:flex;align-items:center;justify-content:space-between;gap:18px;min-width:0;min-height:54px;padding:12px 16px;border:1px solid #8882;border-radius:10px;background:var(--dsh-settings-subtle,#88888808);font-size:13px;margin:0}
+  .dcb-divider-settings button{font:inherit;line-height:1.5;color:inherit;border:1px solid #8884;background:transparent;border-radius:8px;padding:9px 14px;cursor:pointer}
+  .dcb-divider-presets,.dcb-divider-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .dcb-divider-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .dcb-divider-media{display:grid;gap:14px;padding-top:20px;border-top:1px solid #8882}
+  .dcb-divider-css{padding-top:20px;border-top:1px solid #8882}
+  .dcb-divider-css-body{display:grid;gap:14px;padding-top:16px}
+  .dcb-divider-css>summary{cursor:pointer;font-size:13px;line-height:1.6}
+  .dcb-divider-css[open]>summary{margin-bottom:2px}
   .dcb-divider-presets button[aria-checked=true]{border-color:currentColor;background:#8881}
   .dcb-divider-settings textarea{box-sizing:border-box;display:block;resize:vertical;width:100%;min-height:125px;border:1px solid #8885;border-radius:8px;background:transparent;color:inherit;padding:10px;font:12px/1.7 Consolas,monospace}
-  .dcb-divider-settings p{font-size:12px;color:var(--dsh-settings-secondary);line-height:1.65}
+  .dcb-divider-settings p{font-size:12px;color:var(--dsh-settings-secondary);line-height:1.8;margin:0}
   .dcb-divider-settings input[type=color]{width:42px;height:28px;padding:2px;border:1px solid #8884;border-radius:6px;background:transparent;cursor:pointer}
-  .dcb-divider-demo{position:relative;height:42px;margin:6px 0 15px;pointer-events:none;border-bottom:1px solid transparent}
-  .dcb-divider-demo:has([data-custom-image]){height:90px}
-  .dcb-divider-demo>span{position:absolute;left:0;right:0;bottom:5px}
+  .dcb-divider-demo{position:relative;height:88px;margin:0;pointer-events:none;background:var(--dsh-settings-subtle,#88888808);border:1px solid #8882;border-radius:10px;overflow:hidden}
+  .dcb-divider-demo:has([data-custom-image]){height:132px}
+  .dcb-divider-demo>span{position:absolute;left:18px;right:18px;bottom:24px}
   .dcb-divider-error{color:#b43b4a!important}
+  @container dcb-settings-page (max-width:560px){.dcb-divider-controls{grid-template-columns:minmax(0,1fr)}.dcb-divider-settings{padding:18px;gap:20px}}
+  @media(max-width:600px){.dcb-divider-controls{grid-template-columns:minmax(0,1fr)}.dcb-divider-settings{padding:18px;gap:20px}}
 `
 export function createTurnDividerSettings(React,doc,win){
   const h=React.createElement
@@ -152,15 +161,16 @@ export function createTurnDividerSettings(React,doc,win){
     return h('div',{className:'dcb-divider-settings'},h('strong',null,'自定义分隔装饰'),
       h('div',{className:'dcb-divider-demo'},h('span',{ref:demo})),
       h('div',{className:'dcb-divider-presets',role:'radiogroup','aria-label':'分隔装饰预设'},[['plain','原始细线'],['color','彩色细线'],['whale','艺术字']].map(([key,label])=>h('button',{type:'button',key,role:'radio','aria-checked':value.turnDividerPreset===key,onClick:()=>onChange({turnDividerPreset:key,...(key==='whale'?{turnDividerMotion:true}:{})})},label))),
-      h('label',null,'装饰颜色',h('input',{type:'color','aria-label':'分隔装饰颜色',value:value.turnDividerColor,onChange:event=>onChange({turnDividerColor:event.target.value,...(value.turnDividerPreset==='plain'?{turnDividerPreset:'color'}:{})})})),
-      h('label',null,'字母轻晃',h('button',{type:'button',role:'switch','aria-label':'分隔装饰动效','aria-checked':value.turnDividerMotion,onClick:()=>onChange({turnDividerMotion:!value.turnDividerMotion})},value.turnDividerMotion?'已开启':'已关闭')),
+      h('div',{className:'dcb-divider-controls'},
+        h('label',null,'装饰颜色',h('input',{type:'color','aria-label':'分隔装饰颜色',value:value.turnDividerColor,onChange:event=>onChange({turnDividerColor:event.target.value,...(value.turnDividerPreset==='plain'?{turnDividerPreset:'color'}:{})})})),
+        h('label',null,'字母轻晃',h('button',{type:'button',role:'switch','aria-label':'分隔装饰动效','aria-checked':value.turnDividerMotion,onClick:()=>onChange({turnDividerMotion:!value.turnDividerMotion})},value.turnDividerMotion?'已开启':'已关闭'))),
       h('p',null,'动画仅在可见区域播放，减少动态效果或切到后台时暂停。仅改变分隔装饰，正文和消息操作保持原样。'),
-      h('div',{className:'dcb-divider-actions'},h('button',{type:'button',disabled:busy,onClick:()=>file.current?.click()},busy?'处理中…':'导入自己的动图'),value.turnDividerImageRevision&&h('button',{type:'button',disabled:busy,onClick:()=>run(()=>manager.resetImage())},'移除自定义动图')),
+      h('div',{className:'dcb-divider-media'},h('div',{className:'dcb-divider-actions'},h('button',{type:'button',disabled:busy,onClick:()=>file.current?.click()},busy?'处理中…':'导入自己的动图'),value.turnDividerImageRevision&&h('button',{type:'button',disabled:busy,onClick:()=>run(()=>manager.resetImage())},'移除自定义动图')),
+        h('p',null,'支持 2MB 以内、1024 像素以内的 GIF / APNG / WebP；只保存在本机。')),
       h('input',{ref:file,type:'file',accept:'image/gif,image/png,image/webp',hidden:true,'aria-label':'自定义分隔动图',onChange:event=>{const image=event.target.files?.[0];event.target.value='';if(image)run(()=>manager.importImage(image))}}),
-      h('p',null,'支持 2MB 以内、1024 像素以内的 GIF / APNG / WebP；只保存在本机。'),
-      h('details',null,h('summary',null,'CSS 自定义'),h('p',null,'可自由设置 .line、.brand、.letter、.mascot，也支持 @keyframes。CSS 仅作用于这个装饰区域。'),
+      h('details',{className:'dcb-divider-css'},h('summary',null,'CSS 自定义'),h('div',{className:'dcb-divider-css-body'},h('p',null,'可自由设置 .line、.brand、.letter、.mascot，也支持 @keyframes。CSS 仅作用于这个装饰区域。'),
         h('textarea',{'aria-label':'分隔装饰 CSS',value:css,maxLength:DIVIDER_CSS_LIMIT,spellCheck:false,onChange:event=>setCss(event.target.value),placeholder:'.line { height: 2px; background: linear-gradient(90deg, #80baff, #c7a4ff); }\n.brand { color: #7699ce; }'}),
-        h('div',{className:'dcb-divider-actions'},h('button',{type:'button',onClick:()=>{try{onChange({turnDividerCss:validateDividerCss(css,win)});setError('')}catch(error){setError(error.message)}}},'应用 CSS'),h('button',{type:'button',onClick:()=>{setCss('');onChange({turnDividerCss:''});setError('')}},'清空 CSS'))),
+        h('div',{className:'dcb-divider-actions'},h('button',{type:'button',onClick:()=>{try{onChange({turnDividerCss:validateDividerCss(css,win)});setError('')}catch(error){setError(error.message)}}},'应用 CSS'),h('button',{type:'button',onClick:()=>{setCss('');onChange({turnDividerCss:''});setError('')}},'清空 CSS')))),
       error&&h('p',{role:'alert',className:'dcb-divider-error'},error))
   }
 }

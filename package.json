@@ -60,6 +60,7 @@
     "restore-slider": "node scripts/restore-claude-slider.mjs",
     "check-slider": "node scripts/restore-claude-slider.mjs --check",
     "test:context-particles": "node test/context-particles-browser.mjs",
+    "test:particle-conversion": "node test/particle-conversion-browser.mjs",
     "test:whale-particles": "node test/whale-particles-browser.mjs"
   },
   "dsh": {

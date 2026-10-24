@@ -25,7 +25,11 @@ dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/relea
 
 ## 维护者交付流程
 
-0.3.71 交付回归结果：**37 组全部通过，445 项具名检查**。其中包含实际宿主组件、已安装推理滑块和外部 Artifact 预览的集成验证；GPU/Canvas 与性能检查也通过。完整无日志摘要见 [validation-0.3.71.json](validation-0.3.71.json)。记录绑定到被验证客户端的 SHA-256，失败的旧检查已修正后复验，不以跳过代替通过。
+0.3.72 重复加载修复：**10 组、176 项针对性检查通过**，包括 64 项 Node 检查、7 项真实宿主页头场景及受影响的 8 组界面回归。旧版 0.3.71 已在相同回归中复现两份展示样式；修复版验证重复调用、改名前后两种加载顺序、禁用与接管、窄屏和草稿保留。结果见 [validation-0.3.72.json](validation-0.3.72.json)。本次为针对性回归，以下另列 0.3.71 的完整交付基线。
+
+已在页面中的无保护旧实例需要完全退出 DSH（含托盘）后重开一次。升级不清除展示偏好或本机媒体。
+
+0.3.71 交付回归结果：**37 组全部通过，445 项具名检查**。其中包含实际宿主组件、已安装推理滑块和外部 Artifact 预览的集成验证；GPU/Canvas 与性能检查也通过。完整无日志摘要见 [validation-0.3.71.json](https://github.com/AumiSatori/dsh-ui-beautify/blob/v0.3.71/docs/validation-0.3.71.json)。记录绑定到被验证客户端的 SHA-256，失败的旧检查已修正后复验，不以跳过代替通过。
 
 ```sh
 npm ci

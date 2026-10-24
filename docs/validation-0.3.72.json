@@ -1,0 +1,80 @@
+{
+  "version": "0.3.72",
+  "testedAt": "2026-10-24T06:29:08.602Z",
+  "scope": "Targeted regression for duplicate presentation initialization and lifetime handover",
+  "host": {
+    "dsh": "0.2.1-rc.2",
+    "platform": "Windows",
+    "browser": "Chrome (headless)"
+  },
+  "clientSha256": "0fced13fc55f7b2478cd11cded3974ad1fe511d1033b6b5be8bcb63cc07a8982",
+  "suites": 10,
+  "passed": 10,
+  "failed": 0,
+  "namedChecks": 176,
+  "baseline": {
+    "version": "0.3.71",
+    "suites": 37,
+    "namedChecks": 445
+  },
+  "results": [
+    {
+      "name": "test",
+      "passed": true,
+      "namedChecks": 64
+    },
+    {
+      "name": "test:header-project",
+      "passed": true,
+      "namedChecks": 7
+    },
+    {
+      "name": "test:browser",
+      "passed": true,
+      "namedChecks": 16,
+      "elapsedMs": 7638
+    },
+    {
+      "name": "test:artifact",
+      "passed": true,
+      "namedChecks": 16,
+      "elapsedMs": 47128
+    },
+    {
+      "name": "test:theme-switch",
+      "passed": true,
+      "namedChecks": 13,
+      "elapsedMs": 10806
+    },
+    {
+      "name": "test:focus",
+      "passed": true,
+      "namedChecks": 10,
+      "elapsedMs": 18530
+    },
+    {
+      "name": "test:startup",
+      "passed": true,
+      "namedChecks": 19,
+      "elapsedMs": 11892
+    },
+    {
+      "name": "test:settings",
+      "passed": true,
+      "namedChecks": 12,
+      "elapsedMs": 38779
+    },
+    {
+      "name": "test:sidebar-overlay",
+      "passed": true,
+      "namedChecks": 10,
+      "elapsedMs": 26229
+    },
+    {
+      "name": "test:context-particles",
+      "passed": true,
+      "namedChecks": 9,
+      "elapsedMs": 31173
+    }
+  ]
+}

@@ -24,6 +24,7 @@ export {createOutputViewer,outputContentReader,outputViewerCss} from './output-v
 export {motion} from './motion.js'
 export {createProgressLiquid, progressRollEase} from './progress-liquid.js'
 export {affectsPresentation, affectsScroll} from './presentation-observer.js'
+export {applyPresentationOnce} from './presentation-owner.js'
 
 const MARK='data-dcb-composer-action',CANVAS='data-dcb-lens-canvas'
 

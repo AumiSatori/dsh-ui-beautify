@@ -28,7 +28,7 @@ function Demo(){
   if(slot==='conversation.header.leading')return <span data-slot="conversation.header.leading">{leading&&<button aria-label="返回工作区">⌂</button>}</span>;
   if(slot==='conversation.session.header')return <div data-slot="conversation.session.header" style={{display:'contents'}}><ConversationSessionHeader {...props} sessionId={id} useSessions={useSessions} useConversationViews={selector=>selector([{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}])} useStore={selector=>selector({view:'chat'})} renderSlot={renderSlot} open={()=>window.nativeOpened=true} selectView={()=>{}} t={key=>key}/></div>;
   if(slot==='conversation.session.header.actions')return <><button>标准模式</button><button>4 个智能体</button></>;
-  if(slot==='conversation.session.header.utilities')return Header&&<Header {...injected} sessionId={id} useSessions={useSessions} useWorkspaces={useWorkspaces} useSession={useSession} useProjection={()=>[]} useTaskActivity={selector=>React.useSyncExternalStore(source.subscribe,()=>selector(source.getSnapshot()))}/>;
+  if(slot==='conversation.session.header.utilities')return (window.fixtureHeaders||[]).map(record=>{const injected=record.spec.inject(id),source=injected.hooks.taskActivity;return <record.component key={record.key} {...injected} sessionId={id} useSessions={useSessions} useWorkspaces={useWorkspaces} useSession={useSession} useProjection={()=>[]} useTaskActivity={selector=>React.useSyncExternalStore(source.subscribe,()=>selector(source.getSnapshot()))}/>});
   if(slot==='conversation.session.header.corner')return <button aria-label="右侧栏">▥</button>;
   return props?.fallback||null;
  };
@@ -39,7 +39,8 @@ const built=await build({stdin:{contents:demo,loader:'jsx',resolveDir:project},b
 const html=`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${native.css}
 *{box-sizing:border-box}body{margin:0;font:14px/1.5 system-ui;color:#25252a;background:#fff}#root{height:100vh}.cr_root{display:flex;flex-direction:column;height:100%;min-height:0}.cr_header{flex:none}.cr_body{flex:1;min-height:0}.chat-scroll{height:100%;overflow:auto}article{margin:0 auto}button{font:inherit;cursor:pointer;min-height:30px;border:0;border-radius:6px;background:transparent;color:inherit}textarea{width:100%;height:80px;border:1px solid #8885;border-radius:10px;padding:14px;font:inherit}body[data-ds-dark-theme]{color:#eee;background:#202020;--dsw-alias-label-primary:#eee;--dsw-alias-label-secondary:#bbb;--dsw-alias-bg-layer-1:#252525}body[data-ds-dark-theme] textarea{color:#eee;background:#252525}
 </style><div id="root"></div><script src="/demo.js"></script>`
-const routes={'/':['text/html; charset=utf-8',html],'/demo.js':['text/javascript',built.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(process.env.DSH_CLAUDE_CLIENT_FILE||resolve(project,'client.js'),'utf8')]}
+const client=readFileSync(process.env.DSH_CLAUDE_CLIENT_FILE||resolve(project,'client.js'),'utf8')
+const routes={'/':['text/html; charset=utf-8',html],'/demo.js':['text/javascript',built.outputFiles[0].text],'/client.js':['text/javascript',client],'/alias.js':['text/javascript',client.replace("id: 'dsh-ui-beautify'","id: 'dsh-claude-beautify'").replace("const NAME = 'dsh-ui-beautify'","const NAME = 'dsh-claude-beautify'")]}
 const server=createServer((req,res)=>{const route=routes[req.url];if(!route)return res.writeHead(404).end();res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const browser=await chromium.launch({headless:true,channel:'chrome'}),page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[]
@@ -54,7 +55,18 @@ try{
  await page.goto(`http://127.0.0.1:${server.address().port}`)
  await page.evaluate(key=>{localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,particleEnabled:false,headerCentered:true}));window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(name=>name==='@deepseek-ai/dsh-client-ui-primitives'?{FishLogo:()=>null}:window.fixtureReact)}},key)
  await page.addScriptTag({url:`http://127.0.0.1:${server.address().port}/client.js`})
- await page.evaluate(()=>{const ctx={slots:{inject(_name,fn){fn()},register(spec,component){if(spec.name==='conversation.session.header.utilities'){window.fixtureHeader=component;window.fixtureHeaderSpec=spec}return()=>{}}},sessions:{binding:window.fixtureBinding},sidebarRight:{openResource(){}},effect(fn){window.cleanups.push(fn())},inject(_names,fn){fn(ctx)}};window.plugin.apply(ctx);window.fixture.refresh()})
+ await page.evaluate(()=>{
+  window.fixtureHeaders=[];let next=0
+  window.createFixtureContext=()=>{
+   const effects=[],ctx={slots:{inject(_name,fn){const stop=fn();if(typeof stop==='function')effects.push(stop)},register(spec,component){
+    if(spec.name!=='conversation.session.header.utilities')return()=>{}
+    const record={spec,component,key:++next};window.fixtureHeaders.push(record);window.fixtureHeader=component;window.fixtureHeaderSpec=spec
+    window.fixture.refresh();return()=>{window.fixtureHeaders=window.fixtureHeaders.filter(item=>item!==record);window.fixture.refresh()}
+   }},sessions:{binding:window.fixtureBinding},sidebarRight:{openResource(){}},effect(fn){effects.push(fn())},inject(_names,fn){fn(ctx)}}
+   return {ctx,effects,dispose(){for(const stop of effects.splice(0).reverse())stop?.()}}
+  }
+  window.primary=window.createFixtureContext();window.cleanups=window.primary.effects;window.plugin.apply(window.primary.ctx);window.fixture.refresh()
+ })
  await check('project prefix, title and tabs follow the real text edge through header, session-header and content slot wrappers',async()=>{
   await expect(page.locator('.dcb-header-project-label')).toHaveText('dsh-project');await aligned()
   assert.equal(await page.locator('.dcb-header-project').evaluate(el=>el.nextElementSibling.className.endsWith('_crumbs')),true)
@@ -62,6 +74,18 @@ try{
   await page.locator('textarea').fill('草稿保持不变')
   await page.evaluate(()=>{window.savedDraft=document.querySelector('textarea');window.savedNativeTitle=document.querySelector('.cr_crumbCurrent')})
   await page.screenshot({path:resolve(output,'aligned-project-light.png')})
+ })
+ await check('reapplying one context or loading a renamed alias cannot duplicate project crumbs, controls or page renderers',async()=>{
+  await page.evaluate(()=>window.plugin.apply(window.primary.ctx))
+  await expect(page.locator('style[data-plugin="dsh-ui-beautify"]')).toHaveCount(1)
+  await page.addScriptTag({url:`http://127.0.0.1:${server.address().port}/alias.js`})
+  await page.evaluate(()=>{window.waiting=window.createFixtureContext();window.plugin.apply(window.waiting.ctx);window.fixture.refresh()})
+  await expect(page.locator('.dcb-header-project')).toHaveCount(1)
+  await expect(page.locator('.dcb-focus-toggle')).toHaveCount(1)
+  assert.equal(await page.evaluate(()=>window.fixtureHeaders.length),1)
+  assert.equal(await page.locator('style[data-plugin="dsh-ui-beautify"],style[data-plugin="dsh-claude-beautify"]').count(),1)
+  await aligned();await page.screenshot({path:resolve(output,'single-owner-header.png')})
+  await page.evaluate(()=>window.waiting.dispose())
  })
  await check('nested conversations and retained hidden chat flows cannot steal the active view alignment',async()=>{
   await page.evaluate(()=>{
@@ -106,6 +130,26 @@ try{
   await page.evaluate(()=>{for(const cleanup of window.cleanups.reverse())cleanup?.()})
   await expect(page.locator('.dcb-header-project')).toHaveCount(0);await expect(page.locator('[data-dcb-header-centered]')).toHaveCount(0)
   assert.equal(await page.locator('textarea').inputValue(),'草稿保持不变');assert.deepEqual(errors,[])
+ })
+ await check('an old-name entry loaded first still leaves one header and safely hands over to the new name on disable',async()=>{
+  await page.setViewportSize({width:1440,height:900})
+  await page.evaluate(key=>{localStorage.setItem('dsh-claude-beautify:settings:v1',localStorage.getItem(key));window.aliasPlugin=window.plugin},key)
+  await page.addScriptTag({url:`http://127.0.0.1:${server.address().port}/client.js`})
+  await page.evaluate(()=>{window.oldName=window.createFixtureContext();window.newName=window.createFixtureContext();window.aliasPlugin.apply(window.oldName.ctx);window.plugin.apply(window.newName.ctx);window.fixture.refresh()})
+  await expect(page.locator('.dcb-header-project')).toHaveCount(1)
+  await expect(page.locator('.dcb-focus-toggle')).toHaveCount(1)
+  await expect(page.locator('style[data-plugin="dsh-claude-beautify"]')).toHaveCount(1)
+  assert.equal(await page.evaluate(()=>window.fixtureHeaders.length),1)
+  await page.evaluate(()=>window.oldName.dispose())
+  await expect(page.locator('style[data-plugin="dsh-ui-beautify"]')).toHaveCount(1)
+  await expect(page.locator('style[data-plugin="dsh-claude-beautify"]')).toHaveCount(0)
+  await expect(page.locator('.dcb-header-project')).toHaveCount(1)
+  await expect(page.locator('.dcb-focus-toggle')).toHaveCount(1)
+  assert.equal(await page.evaluate(()=>window.fixtureHeaders.length),1)
+  await page.evaluate(()=>window.newName.dispose())
+  await expect(page.locator('.dcb-header-project')).toHaveCount(0)
+  assert.equal(await page.locator('style[data-plugin="dsh-ui-beautify"],style[data-plugin="dsh-claude-beautify"]').count(),0)
+  assert.deepEqual(errors,[])
  })
  console.log(JSON.stringify({passed,output}))
 }finally{await browser.close();await new Promise(done=>server.close(done))}

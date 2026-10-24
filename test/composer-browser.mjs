@@ -388,13 +388,15 @@ try{
    await selectSettingsCategory(page,category)
    const choices=page.getByRole('radiogroup',{name:label,exact:true}).getByRole('radio')
    assert.equal(await choices.count(),4)
-   assert.ok((await choices.evaluateAll(nodes=>nodes.map(el=>({cost:el.dataset.materialCost,description:document.getElementById(el.getAttribute('aria-describedby'))?.textContent})))).every(item=>item.cost&&item.description))
+   const descriptions=await choices.evaluateAll(nodes=>nodes.map(el=>({cost:el.dataset.materialCost,description:document.getElementById(el.getAttribute('aria-describedby'))?.textContent})))
+   assert.ok(descriptions.every(item=>item.cost&&item.description))
+   assert.equal(descriptions[3].cost,'medium');assert.match(descriptions[3].description,/随面积和背景变化.*不是功耗测量/)
   }
   await selectSettingsCategory(page,'输入栏')
   for(const dark of[false,true]){
    await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
    const high=await page.locator('.dcb-settings .dcb-cost-tag[data-cost="high"]').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).color))
-   assert.ok(high.length===2&&high.every(color=>color===(dark?'rgb(255, 180, 171)':'rgb(180, 35, 24)')))
+   assert.ok(high.length===1&&high.every(color=>color===(dark?'rgb(255, 180, 171)':'rgb(180, 35, 24)')))
    await page.locator('[data-dcb-settings-block="composer"]').screenshot({path:resolve(output,`resource-labels-${dark?'dark':'light'}.png`)})
   }
   await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))

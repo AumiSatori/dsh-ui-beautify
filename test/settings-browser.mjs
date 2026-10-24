@@ -41,7 +41,8 @@ try{
       assert.equal(await choices.count(),4);assert.equal(await group.locator('.dcb-style-scene').count(),4)
       const row=await choices.evaluateAll(nodes=>nodes.map(el=>({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height,scene:el.querySelector('.dcb-style-scene').getBoundingClientRect().height,border:getComputedStyle(el).borderRadius})))
       assert.ok(row.every(item=>Math.abs(item.height-row[0].height)<1));geometry.push(row.map(({width,scene,border})=>({width,scene,border})))
-      assert.equal(await group.locator('[data-cost=high]').count(),2)
+      assert.equal(await group.locator('[data-cost=high]').count(),1)
+      assert.equal(await group.getByText('随场景变化',{exact:true}).count(),1)
       await dialog.screenshot({path:resolve(output,`settings-${name}.png`)})
     }
     assert.deepEqual(geometry[0],geometry[1]);assert.deepEqual(geometry[1],geometry[2])

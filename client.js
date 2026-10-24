@@ -885,7 +885,7 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
     const MATERIAL_BASE = `${MATERIAL_SURFACE}:is([data-card-style], [${COMPOSER_MARK}], [${COMPOSER_ACTION_MARK}], [${SIDEBAR_MARK}], [${MODEL_MENU_MARK}])`
     const material = value => `${MATERIAL_SURFACE}:is([data-card-style="${value}"], [${COMPOSER_MARK}="${value}"], [${COMPOSER_ACTION_MARK}="${value}"], [${SIDEBAR_MARK}="${value}"], [${MODEL_MENU_MARK}="${value}"])`
     const CARD_STYLES = ['milk', 'clear', 'css', 'glass']
-    const MATERIALS = [['milk', '默认', '保留原始配色与样式'], ['clear', '透明玻璃', '液态折射，通透亮边'], ['css', '轻量玻璃', '柔和亮边，轻微模糊'], ['glass', '毛玻璃', '朦胧磨砂，柔和悬浮']]
+    const MATERIALS = [['milk', '默认', '保留原始配色与样式'], ['clear', '透明玻璃', '液态折射，通透亮边'], ['css', '轻量玻璃', '柔和亮边，轻微模糊'], ['glass', '毛玻璃', '纯净磨砂，柔和悬浮']]
     const DEFAULTS = { enabled: true, sidebarStyle: 'milk', sidebarMotion: true, composerStyle: 'milk', chatUnderComposer: true, messageMotion: true, width: 320, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false }, toolDetails: false }
     const VARIABLES = ['--dcb-left', '--dcb-top', '--dcb-width', '--dcb-list-height']
 
@@ -893,7 +893,8 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
       if (scope === 'composer' && buttonGlass && (style === 'milk' || style === 'css')) return { level: 'medium', label: '中等开销', detail: `${style === 'milk' ? '输入框沿用原样' : '输入框使用轻量模糊'}；小按钮的动态玻璃另有绘制开销，可单独关闭。` }
       if (style === 'milk') return { level: 'low', label: '低开销', detail: '沿用原始外观，不增加玻璃特效。' }
       if (style === 'css') return { level: 'low', label: '较低开销', detail: '轻微模糊与静态亮边，适合希望保留玻璃观感又减少负担时使用。' }
-      const detail = style === 'clear' ? '动态折射与追光会增加显卡负担。' : '较强的背景模糊会增加显卡负担。'
+      if (style === 'glass') return { level: 'medium', label: '随场景变化', detail: '背景模糊有额外绘制开销，实际负担随面积和背景变化；这不是功耗测量。' + (scope === 'sidebar' ? '大面积侧栏需结合设备体验。' : scope === 'composer' && buttonGlass ? '小按钮玻璃的开销另计。' : '') }
+      const detail = '动态折射与追光包含额外绘制。'
       return { level: 'high', label: '较高开销', detail: detail + (scope === 'sidebar' ? '侧栏面积越大，绘制负担越明显。' : scope === 'composer' ? buttonGlass ? '小按钮玻璃还会叠加绘制开销。' : '已关闭小按钮玻璃，仍需绘制输入框背景。' : '任务卡片展开、背景变化时开销更明显。') }
     }
 
@@ -2202,12 +2203,12 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
          Reveal that content without changing scroll geometry or input hit areas. */
       ${CHAT_UNDER_COMPOSER} { background: transparent !important; }
       body ${material('glass')} {
-        --dcb-surface-background: rgba(236,242,248,.62); --dcb-surface-border: rgba(255,255,255,.72); --dcb-backdrop-blur: 22px; --dcb-backdrop-saturation: 1.45; --dcb-sheen-opacity: .22;
-        --dcb-surface-shadow: 0 12px 32px rgba(28,32,40,.1), inset 0 1px 0 rgba(255,255,255,.9), inset 1px 0 0 rgba(255,255,255,.45), inset -1px -1px 0 rgba(255,255,255,.2);
+        --dcb-surface-background: rgba(255,255,255,.62); --dcb-surface-border: rgba(255,255,255,.8); --dcb-backdrop-blur: 22px; --dcb-backdrop-saturation: 1.65; --dcb-sheen-opacity: .14;
+        --dcb-surface-shadow: 0 16px 42px rgba(24,30,42,.13), inset 0 1px 1.5px rgba(255,255,255,.95), inset 1px 0 0 rgba(255,255,255,.4), inset 0 -1px 0 rgba(255,255,255,.18);
       }
       body[data-ds-dark-theme] ${material('glass')} {
-        --dcb-surface-background: rgba(160,174,190,.26); --dcb-surface-border: rgba(255,255,255,.34); --dcb-sheen-opacity: .32;
-        --dcb-surface-shadow: 0 12px 32px #0005, inset 0 1px 0 #ffffff52, inset 1px 0 0 #ffffff24, inset -1px -1px 0 #ffffff14;
+        --dcb-surface-background: rgba(48,54,68,.62); --dcb-surface-border: rgba(255,255,255,.24); --dcb-sheen-opacity: .16;
+        --dcb-surface-shadow: 0 16px 42px rgba(0,0,0,.4), inset 0 1px 1px rgba(255,255,255,.24), inset 1px 0 0 rgba(255,255,255,.1), inset 0 -1px 0 rgba(255,255,255,.06);
       }
       ${COMPOSER_ACTION_SURFACE} {
         /* The center is the real browser backdrop; Lens only paints the rim. */
@@ -2327,8 +2328,8 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
       @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
         body ${material('css')} { --dcb-surface-background: rgba(255,255,255,.96); }
         body[data-ds-dark-theme] ${material('css')} { --dcb-surface-background: rgba(24,28,36,.96); }
-        body ${material('glass')} { --dcb-surface-background: rgba(236,242,248,.96); }
-        body[data-ds-dark-theme] ${material('glass')} { --dcb-surface-background: rgba(65,72,81,.96); }
+        body ${material('glass')} { --dcb-surface-background: rgba(255,255,255,.96); }
+        body[data-ds-dark-theme] ${material('glass')} { --dcb-surface-background: rgba(48,54,68,.96); }
       }
       @media (prefers-reduced-motion: reduce), (forced-colors: active) {
         ${COMPOSER_GLASS} { transition: none; }
@@ -2999,7 +3000,7 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
           h('section', { className: 'dcb-settings-block dcb-settings-card', 'data-dcb-settings-block': 'panel' },
             h('div', { className: 'dcb-settings-header' },
               h('div', null, h('h2', null, '任务面板'), h('p', null, '右上角任务卡片的外观、材质与进度布局'))),
-            h('p', { className: 'dcb-cost-guide' }, '性能提示：透明玻璃与毛玻璃更吃显卡；卡顿时优先改为默认或轻量玻璃。以下为效果的相对开销，实际表现还受分辨率、窗口大小与显卡影响。'),
+            h('p', { className: 'dcb-cost-guide' }, '性能提示描述额外绘制方式，不是设备功耗评级。毛玻璃的实际负担取决于面积、分辨率、背景变化和设备；遇到卡顿时可比较默认或轻量玻璃。'),
             h('div', { className: 'dcb-settings-section' },
               h('div', { className: 'dcb-settings-section-title' }, '面板开关'),
               h('div', { className: 'dcb-settings-row dcb-panel-toggle' },

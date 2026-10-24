@@ -157,7 +157,10 @@ try {
       assert.doesNotMatch(styles.css.filter, /url\(/)
       assert.equal(styles.glass.blur, 22)
       assert.equal(styles.milk.blur, 0)
-      for (const [first, second] of [['clear', 'glass'], ['clear', 'milk'], ['glass', 'milk']]) {
+      // Neutral white clear/frosted surfaces can have the same mean over a
+      // flat backdrop. Their real optical difference is checked on texture below.
+      if (!dark) assert.ok(flat.glass.mean[2] - flat.glass.mean[0] < 6, 'Neutral frost does not add a blue-grey cast to a light backdrop')
+      for (const [first, second] of [['clear', 'milk'], ['glass', 'milk']]) {
         const delta = difference(flat[first], flat[second])
         assert.ok(delta >= 6, `${first} and ${second} must differ in actual flat-background RGB (${delta.toFixed(2)})`)
       }

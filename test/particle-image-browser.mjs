@@ -56,6 +56,33 @@ try{
   await close();await settle('image');await page.screenshot({path:resolve(output,'image-formed-particles.png')})
   await page.reload();await mount();await settle('image');assert.equal((await saved()).particleImageRevision,prefs.particleImageRevision)
  })
+ await check('image guidance stays visible after upload and the full-form preview updates only on edits and releases when closed',async()=>{
+  await settings()
+  await expect(page.getByText('推荐透明背景、单一主体、轮廓清晰、明暗对比强的图片。彩色底图、低对比渐变、复杂背景和细小文字更容易丢失细节。',{exact:true})).toBeVisible()
+  const preview=page.getByRole('img',{name:'自定义图片完整成形预览',exact:true});await preview.locator('canvas').waitFor()
+  await page.evaluate(()=>{window.previewDraws=0;window.previewCanvas=document.querySelector('.dcb-particle-image-preview canvas');const draw=WebGL2RenderingContext.prototype.drawArrays;window.originalPreviewDraw=draw;WebGL2RenderingContext.prototype.drawArrays=function(...args){if(this.canvas===window.previewCanvas)window.previewDraws++;return draw.apply(this,args)}})
+  try{
+   const progress=(await saved()).particleManualProgress,field=page.getByRole('spinbutton',{name:'粒子数',exact:true})
+   await field.fill('16000');await field.press('Enter');await page.waitForFunction(()=>window.previewDraws>0)
+   assert.equal((await saved()).particleManualProgress,progress)
+   const draws=await page.evaluate(()=>window.previewDraws);await page.waitForTimeout(350);assert.equal(await page.evaluate(()=>window.previewDraws),draws,'a settled preview has no continuous drawing loop')
+   await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''));await page.waitForFunction(draws=>window.previewDraws>draws,draws)
+   assert.equal(await preview.locator('canvas').evaluate(el=>el===window.previewCanvas),true)
+   await preview.screenshot({path:resolve(output,'image-preview-dark.png')})
+   await field.fill('9600');await field.press('Enter');await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
+  }finally{await page.evaluate(()=>WebGL2RenderingContext.prototype.drawArrays=window.originalPreviewDraw)}
+  await close();await expect(page.locator('.dcb-particle-image-preview canvas')).toHaveCount(0)
+  assert.equal(await page.evaluate(()=>window[Symbol.for('dsh-ui-beautify.context-particles.v1')].snapshot().previewCount),0)
+ })
+ await check('imported pictures favor fine detail wherever it appears instead of a fixed upper-face rectangle',async()=>{
+  const result=await page.evaluate(async()=>{
+   const c=document.createElement('canvas');c.width=180;c.height=240;const x=c.getContext('2d');x.fillStyle='#7d9cda';x.fillRect(0,0,180,240)
+   x.fillStyle='#fff0d9';x.fillRect(54,149,66,56);x.fillStyle='#24223b';x.fillRect(60,160,18,5);x.fillRect(96,160,18,5);x.fillRect(81,190,14,3)
+   const model=await window.sampleParticleArtwork(c.toDataURL()),points=model.points.filter(p=>!p.ambient).slice(0,1200),count=(y1,y2)=>points.filter(p=>p.x>.3&&p.x<.67&&p.y>y1&&p.y<y2).length
+   return{upper:count(.1,.33),lower:count(.62,.86),lowerFocus:points.filter(p=>p.y>.62&&p.focus>.2).length}
+  })
+  assert.ok(result.lower>result.upper*2,JSON.stringify(result));assert.ok(result.lowerFocus>30,'local detail also receives steadier motion')
+ })
  await check('JPEG and WebP import by actual bytes, while blank, corrupt, oversized and disguised SVG keep the previous image',async()=>{
   await settings()
   for(const [type,name]of[['image/jpeg','主体.jpg'],['image/webp','主体.webp']]){await upload(await synthetic(type),name,'application/octet-stream');assert.equal((await saved()).particleImageName,name)}

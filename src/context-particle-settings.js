@@ -41,6 +41,11 @@ export const particleSettingsCss=`
   @media(forced-colors:active) { .dcb-particle-conversion-fill,.dcb-particle-context-meter span { background:Highlight; opacity:1; } .dcb-particle-conversion-thumb { background:Canvas; } .dcb-particle-conversion-track,.dcb-particle-context-meter { border:1px solid ButtonText; } .dcb-particle-modes button[aria-checked=true] { outline:2px solid Highlight; outline-offset:-2px; } }
   .dcb-particle-control { margin-top:12px; padding:13px; border:1px dashed #8885; border-radius:10px; }
   .dcb-particle-control p { font:12px/20px system-ui; color:var(--dsh-settings-secondary); overflow-wrap:anywhere; }
+  .dcb-particle-image-preview { position:relative; width:100%; height:280px; margin-top:14px; overflow:hidden; border:1px solid #8883; border-radius:12px; background:#e7ebf1; }
+  .dcb-particle-image-preview canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  body[data-ds-dark-theme] .dcb-particle-image-preview { background:#111522; }
+  .dcb-particle-image-caption { margin:8px 0 0; }
+  @media(forced-colors:active) { .dcb-particle-image-preview { display:none; } }
   .dcb-particle-buttons { display:flex; flex-wrap:wrap; gap:8px; }
   .dcb-particle-buttons button { padding:7px 11px; border:1px solid #8884; border-radius:8px; background:transparent; color:inherit; font:12px/18px system-ui; cursor:pointer; transition:background-color 180ms ease,transform 220ms ease; }
   .dcb-particle-buttons button:active { transform:scale(.94); }
@@ -52,6 +57,12 @@ export const particleSettingsCss=`
 
 export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
   const h=React.createElement
+  function ImagePreview({revision,count}){
+    const root=React.useRef(null),handle=React.useRef(null),[error,setError]=React.useState('')
+    React.useEffect(()=>{setError('');handle.current=particles.previewImage(root.current,revision,count,setError);return()=>{handle.current?.dispose();handle.current=null}},[revision])
+    React.useEffect(()=>handle.current?.configure(count),[count])
+    return h('div',null,h('div',{ref:root,className:'dcb-particle-image-preview',role:'img','aria-label':'自定义图片完整成形预览'}),h('p',{className:'dcb-particle-image-caption',role:'status'},error||'完整成形缩略预览 · 随粒子数更新，实际疏密受窗口尺寸影响；聊天仍按转换进度逐渐汇聚。'))
+  }
   function ProgressSlider({value,onChange}){
     const drag=React.useRef(null),queued=React.useRef(null),frame=React.useRef(0),change=React.useRef(onChange)
     change.current=onChange
@@ -116,9 +127,12 @@ export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
       !manual&&row('开始显示 (%)','跟随上下文时，低于这个占用比例隐藏背景。',h(NumberField,{label:'开始显示百分比',value:value.particleStart,min:0,max:95,onChange:particleStart=>onChange({particleStart})})),
       !manual&&row('完整成形 (%)','跟随上下文时，达到此占用比例完整成形；压缩时随占用回退。',h(NumberField,{label:'完整成形百分比',value:value.particleFull,min:value.particleStart+1,max:100,onChange:particleFull=>onChange({particleFull})})),
       h('div',{className:'dcb-settings-info dcb-particle-live',role:'status'},!value.particleEnabled?'背景已关闭':manual?`手动转换 ${progress}%`:live===null?'等待当前会话的上下文数据；可切换为手动调整':`跟随上下文 · 转换进度 ${progress}% · ${value.particleStart}% 开始 / ${value.particleFull}% 完整`,current?.error?` · ${current.error}`:''),
-      h('div',{className:'dcb-particle-control'},h('strong',null,'本机图片'),h('p',null,value.particleImageName||'导入 PNG、JPG 或 WebP，像鲸鱼娘一样汇聚为彩色粒子。透明背景效果更好，边缘相连的白底会自动略去。'),
+      h('div',{className:'dcb-particle-control'},h('strong',null,'本机图片'),h('p',null,value.particleImageName||'导入 PNG、JPG 或 WebP，汇聚为彩色粒子。'),
+        h('p',null,'推荐透明背景、单一主体、轮廓清晰、明暗对比强的图片。彩色底图、低对比渐变、复杂背景和细小文字更容易丢失细节。'),
+        h('p',null,'优先保留线条与局部细节，不固定假定人脸位置。只自动略去边缘相连的近白色背景；彩色背景需要先处理为透明。'),
         h('input',{ref:imageInput,type:'file','aria-label':'粒子图片文件',accept:'.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp',hidden:true,onChange:e=>{const file=e.target.files?.[0];e.target.value='';upload(file,true)}}),
         h('div',{className:'dcb-particle-buttons'},h('button',{type:'button',disabled:busy,onClick:()=>imageInput.current?.click()},busy?'读取中…':'导入图片'),value.particleImageRevision&&h('button',{type:'button',disabled:busy,onClick:async()=>{setBusy(true);setError('');try{await particles.clearImage();if(mounted.current)onChange({particleShape:value.particleShape==='image'?'logo':value.particleShape,particleImageRevision:'',particleImageName:''})}catch(e){if(mounted.current)setError(e.message)}finally{if(mounted.current)setBusy(false)}}},'移除自定义图片')),
+        value.particleImageRevision&&h(ImagePreview,{revision:value.particleImageRevision,count:value.particleCount}),
         h('p',null,'最大 10 MB，宽高不超过 4096 像素。只保存在本机，刷新后保留；完整成形后仍由漂浮粒子绘制。')),
       h('div',{className:'dcb-particle-control'},h('strong',null,'本机 SVG'),h('p',null,value.particleSvgName||'兼容已有 SVG 图形；也可以直接使用上方的图片导入。'),
         h('input',{ref:input,type:'file',accept:'.svg,image/svg+xml',hidden:true,onChange:e=>{const file=e.target.files?.[0];e.target.value='';upload(file)}}),

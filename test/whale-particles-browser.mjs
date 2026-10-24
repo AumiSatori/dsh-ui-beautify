@@ -20,7 +20,7 @@ try{
     await page.setContent('<style>body{margin:0;background:#141416}#root{width:1080px;height:1000px}canvas{width:100%;height:100%}</style><div id=root></div>')
     await page.addScriptTag({content:bundle.outputFiles[0].text})
     await page.evaluate(async({source,fallback})=>{
-      window.model=await Particles.sampleParticleArtwork(source,{transparent:true})
+      window.model=await Particles.sampleParticleArtwork(source,{transparent:true,portrait:true})
       window.audit={triangles:0,points:0,images:0,arcs:0}
       const draw=WebGL2RenderingContext.prototype.drawArrays
       WebGL2RenderingContext.prototype.drawArrays=function(mode,first,count){

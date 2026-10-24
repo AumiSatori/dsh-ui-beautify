@@ -45,7 +45,7 @@ function artworkStorage(win){
 }
 
 export function createContextParticles(doc,win,{logoPath,logoBox}={}){
-  const readings=new Map(),scenes=new Map(),retained=new Set(),watchedHosts=new Set(),models=new Map(),listeners=new Set(),store=artworkStorage(win),sanitize=createParticleSVG(doc,win)
+  const readings=new Map(),scenes=new Map(),retained=new Set(),watchedHosts=new Set(),models=new Map(),listeners=new Set(),previews=new Set(),store=artworkStorage(win),sanitize=createParticleSVG(doc,win)
   const forced=win.matchMedia('(forced-colors: active)')
   // Keep watching connected hidden hosts even after their cached scene expires.
   // Restoring display alone otherwise has no publisher or DOM mount to wake us.
@@ -65,7 +65,7 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   const status=()=>[...scenes.values()].map(scene=>({percent:scene.percent,shape:scene.shape,waiting:scene.waiting,error:scene.error||null,...scene.renderer.snapshot()}))
   const emit=()=>{const key=JSON.stringify({contextPercent,progressMode:settings.particleProgressMode,manualProgress:settings.particleManualProgress,scenes:status().map(({percent,shape,waiting,error})=>({percent,shape,waiting,error}))});if(lastStatus===key)return;lastStatus=key;for(const listener of listeners)listener()}
   const diagnostic=Symbol.for('dsh-ui-beautify.context-particles.v1'),oldDiagnostic=Object.getOwnPropertyDescriptor(win,diagnostic)
-  const probe=Object.freeze({snapshot:()=>({enabled:settings.particleEnabled,shape:settings.particleShape,start:settings.particleStart,full:settings.particleFull,count:settings.particleCount,progressMode:settings.particleProgressMode,manualProgress:settings.particleManualProgress,contextPercent,scenes:status()})})
+  const probe=Object.freeze({snapshot:()=>({enabled:settings.particleEnabled,shape:settings.particleShape,start:settings.particleStart,full:settings.particleFull,count:settings.particleCount,progressMode:settings.particleProgressMode,manualProgress:settings.particleManualProgress,contextPercent,previewCount:previews.size,scenes:status()})})
   Object.defineProperty(win,diagnostic,{configurable:true,value:probe})
   async function custom(){
     const key=settings.particleSvgRevision
@@ -77,7 +77,7 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   function modelFor(key){
     if(!models.has(key)){
       const pending=(async()=>{
-      if(key==='whale')return sampleParticleArtwork(whaleImage,{transparent:true})
+      if(key==='whale')return sampleParticleArtwork(whaleImage,{transparent:true,portrait:true})
         if(key.startsWith('image:')){
           const asset=await store.load(key)
           if(!asset?.blob||asset.revision!==key.slice(6))throw Error('找不到这张本机图片，请重新导入')
@@ -174,6 +174,15 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
     forget(sessionId,owner){if(disposed)return;const entry=readings.get(sessionId);if(entry){entry.owners.delete(owner);readingFor(entry);if(!entry.owners.size&&entry.last===null)readings.delete(sessionId)}schedule()},
     subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener)},getStatus:()=>lastStatus,
     snapshot:probe.snapshot,
+    previewImage(root,revision,count,onError){
+      let cancelled=false,renderer=null,budget=count
+      const configure=()=>{if(!renderer||cancelled)return;const box=root.getBoundingClientRect(),referenceHeight=[...scenes.values()].find(scene=>scene.shape==='image')?.renderer.snapshot().rect[3]||Math.max(320,win.innerHeight*.75);renderer.configure({width:box.width,height:box.height,bottom:box.height,referenceHeight,progress:1,count:budget,light:!doc.body.hasAttribute('data-ds-dark-theme'),visible:!doc.hidden&&!forced.matches})}
+      const resize=new win.ResizeObserver(configure),theme=new win.MutationObserver(configure)
+      const release=()=>{if(cancelled)return;cancelled=true;resize.disconnect();theme.disconnect();forced.removeEventListener('change',configure);doc.removeEventListener('visibilitychange',configure);renderer?.dispose();previews.delete(release)}
+      previews.add(release);resize.observe(root);theme.observe(doc.body,{attributes:true,attributeFilter:['data-ds-dark-theme']});forced.addEventListener('change',configure);doc.addEventListener('visibilitychange',configure)
+      modelFor('image:'+revision).then(model=>{if(cancelled||disposed)return;renderer=createParticleScene(root,doc,win,{preview:true});renderer.setModel(model,'image');configure()}).catch(error=>{if(!cancelled&&!disposed)onError?.(error.message)})
+      return{configure(count){budget=count;configure()},dispose:release}
+    },
     async importImage(file){
       const token=++imageSequence,asset=await inspectParticleImage(file,doc,win),url=win.URL.createObjectURL(asset.blob)
       let model
@@ -195,6 +204,6 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
       return{particleShape:'custom',particleSvgRevision:asset.revision,particleSvgName:asset.name}
     },
     async clearSVG(){await store.remove();svgCache=null;svgKey='';for(const key of models.keys())if(key.startsWith('custom:'))models.delete(key)},
-    dispose(){disposed=true;win.cancelAnimationFrame(frame);win.clearTimeout(retentionTimer);hostResize.disconnect();watchedHosts.clear();for(const scene of [...scenes.values(),...retained])release(scene);for(const entry of readings.values())win.clearTimeout(entry.timer);readings.clear();models.clear();listeners.clear();store.dispose();forced.removeEventListener('change',schedule);doc.removeEventListener('visibilitychange',changed);if(win[diagnostic]===probe){if(oldDiagnostic)Object.defineProperty(win,diagnostic,oldDiagnostic);else delete win[diagnostic]}}
+    dispose(){disposed=true;for(const release of [...previews])release();win.cancelAnimationFrame(frame);win.clearTimeout(retentionTimer);hostResize.disconnect();watchedHosts.clear();for(const scene of [...scenes.values(),...retained])release(scene);for(const entry of readings.values())win.clearTimeout(entry.timer);readings.clear();models.clear();listeners.clear();store.dispose();forced.removeEventListener('change',schedule);doc.removeEventListener('visibilitychange',changed);if(win[diagnostic]===probe){if(oldDiagnostic)Object.defineProperty(win,diagnostic,oldDiagnostic);else delete win[diagnostic]}}
   }
 }

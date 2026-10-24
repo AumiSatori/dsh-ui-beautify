@@ -2,7 +2,8 @@ import {motion} from './motion.js'
 
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const FRAME='data-dcb-focus-frame',PART='data-dcb-focus-part',HIDDEN='data-dcb-focus-hidden'
-const STRUCTURE=`[data-composer-seat],[data-conversation-content],[data-rightbar-col],${names('sidebarCol')},${names('rightbarCol')},${names('titleCluster')},.dcb-summary,.dcb-file-viewer,.dcb-focus-toggle`
+const HEADER_LEFT='--dcb-focus-content-left'
+const STRUCTURE=`[data-composer-seat],[data-conversation-content],[data-chat-flow],[data-dcb-view-width],[data-rightbar-col],${names('sidebarCol')},${names('rightbarCol')},${names('titleCluster')},.dcb-summary,.dcb-file-viewer,.dcb-focus-toggle`
 export const focusModeCss=`
   .dcb-focus-toggle { display:inline-grid; place-items:center; flex:none; width:30px; height:30px; padding:0; margin-left:6px; border:1px solid #8883; border-radius:9px; background:#ffffff66; color:var(--dsw-alias-label-primary,#303237); cursor:pointer; -webkit-app-region:no-drag; transition:background-color 180ms ${motion.ease.color},border-color 180ms ${motion.ease.color},transform 220ms ${motion.ease.smooth}; }
   .dcb-focus-toggle:hover { background:#8882; border-color:#8886; }
@@ -16,11 +17,11 @@ export const focusModeCss=`
   [${FRAME}] { transition:none!important; }
   [${FRAME}=on] { grid-template-columns:0px minmax(0px,1fr) 0px!important; column-gap:0!important; }
   [${FRAME}=on] > [${PART}=center] { grid-column:2!important; min-width:0; }
-  [${FRAME}=on] header:has(> [data-conversation-header-leading]) { height:auto!important; min-height:0!important; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:0 12px; padding:8px 12px 8px 20px!important; }
-  [${FRAME}=on] header > [data-conversation-header-leading] { position:static!important; grid-area:1/1!important; width:auto; min-width:0; margin:0; }
-  [${FRAME}=on] header:has(> [data-conversation-header-leading]) > ${names('titleRow')} { grid-area:1/3!important; min-height:30px; display:flex; flex-wrap:nowrap; justify-self:end; padding:0!important; gap:8px; container-type:normal; }
+  [${FRAME}=on] header:has(> [data-conversation-header-leading]) { height:auto!important; min-height:0!important; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:0 12px; padding:8px 12px 8px var(${HEADER_LEFT},20px)!important; }
+  [${FRAME}=on] header > [data-conversation-header-leading] { position:absolute!important; top:8px; inset-inline-start:12px; width:auto; min-width:0; margin:0; }
+  [${FRAME}=on] header:has(> [data-conversation-header-leading]) > ${names('titleRow')} { grid-area:1/2!important; min-height:30px; display:flex; flex-wrap:nowrap; justify-self:end; padding:0!important; gap:8px; container-type:normal; }
   [${FRAME}=on] header:has(> [data-conversation-header-leading]) ${names('headerUtilities')},[${FRAME}=on] header:has(> [data-conversation-header-leading]) ${names('headerCorner')} { position:static!important; flex:none!important; width:auto; max-width:none!important; min-width:0; min-height:30px; height:30px; flex-wrap:nowrap!important; margin:0; }
-  [${FRAME}=on] header > [data-conversation-tabs] { grid-area:1/2!important; min-width:0; max-width:100%; justify-self:stretch; align-items:center; flex-wrap:nowrap!important; gap:24px; margin:0; padding:0; overflow-x:auto; scrollbar-width:none; }
+  [${FRAME}=on] header > [data-conversation-tabs] { grid-area:1/1!important; min-width:0; max-width:100%; justify-self:stretch; align-items:center; flex-wrap:nowrap!important; gap:24px; margin:0; padding:0; overflow-x:auto; scrollbar-width:none; }
   [${FRAME}=on] header > [data-conversation-tabs] > button { flex:none; padding-block:7px; }
   [${HIDDEN}] { display:none!important; }
   [${PART}=composer][data-dcb-focus-moving] { pointer-events:none; }
@@ -34,7 +35,7 @@ export const focusModeCss=`
 // Measure the destination once and animate its displacement before that handoff,
 // so clearing the animation and releasing the layout land on the same pixels.
 export function createFocusMode(React,doc,win,schedule=()=>{}){
-  const h=React.createElement,listeners=new Set(),records=new Map(),animations=new Map(),reading=new Map()
+  const h=React.createElement,listeners=new Set(),records=new Map(),animations=new Map(),reading=new Map(),headers=new Map()
   const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
   let snapshot={active:false},frame=null,center=null,frameMark=null,centerMark=null,disposed=false,revision=0,raf=0,readingWidth=0,handoff=null
   const restore=(element,key,value)=>value===null?element.removeAttribute(key):element.setAttribute(key,value)
@@ -94,7 +95,35 @@ export function createFocusMode(React,doc,win,schedule=()=>{}){
     for(const [element,record]of reading)if(!wanted.has(element))restoreReading(element,record)
   }
   function releaseReading(){for(const [element,record]of reading)restoreReading(element,record)}
+  function releaseHeader(header,record){
+    record.resize.disconnect()
+    if(record.value)header.style.setProperty(HEADER_LEFT,record.value,record.priority)
+    else header.style.removeProperty(HEADER_LEFT)
+    headers.delete(header)
+  }
+  function alignHeader(){
+    const header=center?.querySelector('header:has(> [data-conversation-header-leading])')
+    for(const [element,record]of headers)if(element!==header)releaseHeader(element,record)
+    if(!header)return
+    const body=header.parentElement?.querySelector('[data-conversation-content]'),chat=body?.querySelector('[data-chat-flow]')
+    const flow=chat?.getClientRects().length?chat:body?.querySelector('[data-dcb-view-width=shared]'),seat=flow?.getClientRects().length?flow:body
+    const leading=header.querySelector('[data-conversation-header-leading]')
+    let record=headers.get(header)
+    if(!record){
+      record={value:header.style.getPropertyValue(HEADER_LEFT),priority:header.style.getPropertyPriority(HEADER_LEFT),widths:new Map()}
+      // Growing streamed text changes the column's height, not its alignment.
+      // Only width changes should wake the focus presentation manager.
+      record.resize=new win.ResizeObserver(entries=>{let changed=false;for(const entry of entries){const width=entry.borderBoxSize?.[0]?.inlineSize??entry.contentRect.width;if(record.widths.get(entry.target)!==width){record.widths.set(entry.target,width);changed=true}}if(changed)queue()})
+      headers.set(header,record)
+    }
+    if(record.seat!==seat||record.body!==body||record.leading!==leading){record.resize.disconnect();record.widths.clear();for(const element of new Set([seat,body,header,leading]))if(element)record.resize.observe(element);record.seat=seat;record.body=body;record.leading=leading}
+    const box=header.getBoundingClientRect(),left=seat?.getClientRects().length?Math.max(0,seat.getBoundingClientRect().left-box.left):20
+    const leadingWidth=leading?.getClientRects().length?leading.getBoundingClientRect().width:0
+    const value=Math.max(left,leadingWidth?leadingWidth+24:0)+'px'
+    if(header.style.getPropertyValue(HEADER_LEFT)!==value)header.style.setProperty(HEADER_LEFT,value)
+  }
   function geometry(){
+    if(snapshot.active&&!animations.size)alignHeader()
     const values=new Map(),add=(element,axes)=>{
       if(!element?.getClientRects().length)return
       const box=element.getBoundingClientRect(),position={}
@@ -152,6 +181,7 @@ export function createFocusMode(React,doc,win,schedule=()=>{}){
       if(frame)restore(frame,FRAME,frameMark)
       if(center)restore(center,PART,centerMark)
       releaseReading()
+      for(const [header,record]of headers)releaseHeader(header,record)
       keep();frame=null;center=null;observer.disconnect()
     }
     handoff=null
@@ -164,12 +194,13 @@ export function createFocusMode(React,doc,win,schedule=()=>{}){
     const parts=collect(),wanted=new Set(parts.map(([element])=>element))
     for(const [element,kind]of parts)if(!records.has(element)){const record=track(element,kind);hide(record)}
     for(const [element,record]of records)if(!wanted.has(element))release(record)
+    if(frame.getAttribute(FRAME)==='on'&&!animations.size)alignHeader()
   }
   function queue(){if(!raf&&!disposed)raf=win.requestAnimationFrame(reconcile)}
   const observer=new win.MutationObserver(entries=>{
     if(!snapshot.active)return
     if(!frame?.isConnected){queue();return}
-    if(entries.some(entry=>[...entry.addedNodes,...entry.removedNodes].some(node=>node.nodeType===1&&(node.matches(STRUCTURE)||!entry.target.closest?.('[data-chat-flow]')&&node.querySelector(STRUCTURE)))))queue()
+    if(entries.some(entry=>entry.type==='attributes'||[...entry.addedNodes,...entry.removedNodes].some(node=>node.nodeType===1&&(node.matches(STRUCTURE)||!entry.target.closest?.('[data-chat-flow]')&&node.querySelector(STRUCTURE)))))queue()
   })
   function move(record,active,from){
     const element=record.element
@@ -237,7 +268,7 @@ export function createFocusMode(React,doc,win,schedule=()=>{}){
     frame.setAttribute(FRAME,'entering');center.setAttribute(PART,'center')
     for(const [element,kind]of collect()){const record=track(element,kind);block(record)}
     handoff=pin()
-    publish(true);observer.observe(doc.body,{childList:true,subtree:true});transition(true)
+    publish(true);observer.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-dcb-view-width']});transition(true)
   }
   function exit(animated=true){
     if(!frame){publish(false);return}

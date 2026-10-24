@@ -66,12 +66,14 @@ async function boot(centered){
 try{
  for(const centered of[false,true]){
   await boot(centered)
-  for(const width of[1440,820,390]){
+  for(const width of[2560,1440,820,390]){
    await page.setViewportSize({width,height:900});await page.waitForTimeout(120)
    const before=await header.boundingBox(),originalTabs=await tabs.boundingBox()
    await page.evaluate(()=>{window.savedFocusDraft=document.querySelector('textarea');window.savedFocusPreferences=localStorage.getItem('dsh-claude-beautify:settings:v1')})
    if(width===1440)await toggle();else{await focus.click();await idle()}
    const compact=await header.boundingBox(),compactTabs=await tabs.boundingBox(),button=await focus.boundingBox(),content=await page.locator('[data-conversation-content]').boundingBox()
+   const flow=await page.locator('[data-chat-flow]').boundingBox()
+   assert.ok(Math.abs(compactTabs.x-flow.x)<1,'Focused tabs follow the text column, not the window edge')
    assert.ok(compact.height<=48,'Focused header fits one row: '+width+' '+centered)
    assert.ok(compact.height<before.height-15,'Focused header releases the old title row')
    assert.ok(compactTabs.y<originalTabs.y-15,'Tabs rise into the old title space')
@@ -82,9 +84,28 @@ try{
    const outside=await header.evaluate(header=>{const box=header.getBoundingClientRect();return [...header.querySelectorAll('button')].filter(el=>el.getClientRects().length).filter(el=>{const b=el.getBoundingClientRect();return b.left<box.left-1||b.right>box.right+1}) .map(el=>el.textContent)})
    assert.deepEqual(outside,[],'Toolbar stays in bounds on narrow windows')
    await page.getByRole('tab',{name:'轨迹',exact:true}).click();await expect(page.getByTestId('view')).toHaveText('trace');await expect(focus).toHaveAttribute('aria-pressed','true')
+   if(width===1440){
+    await page.locator('[data-chat-flow]').evaluate(el=>el.style.width='min(520px,calc(100% - 48px))')
+    const aligned=()=>expect.poll(()=>page.evaluate(()=>Math.abs(document.querySelector('[data-conversation-tabs]').getBoundingClientRect().left-document.querySelector('article').getBoundingClientRect().left))).toBeLessThan(1)
+    await aligned()
+    await page.locator('article').evaluate(el=>{el.removeAttribute('data-chat-flow');el.setAttribute('data-dcb-view-width','shared');el.style.width='min(620px,calc(100% - 48px))'})
+    await aligned()
+    await page.locator('article').evaluate(el=>{el.setAttribute('data-chat-flow','');el.removeAttribute('data-dcb-view-width');el.style.removeProperty('width')})
+    await aligned()
+    if(!centered){
+     const reads=await page.evaluate(async()=>{
+      await new Promise(done=>setTimeout(done,100))
+      const flow=document.querySelector('article'),header=document.querySelector('header'),original=Element.prototype.getBoundingClientRect,paragraph=document.createElement('p');let reads=0
+      Element.prototype.getBoundingClientRect=function(...args){if(this===flow||this===header)reads++;return original.apply(this,args)}
+      try{paragraph.textContent='流式文字追加。'.repeat(1000);flow.append(paragraph);await new Promise(done=>setTimeout(done,160));return reads}finally{Element.prototype.getBoundingClientRect=original;paragraph.remove()}
+     })
+     assert.equal(reads,0,'Streaming height changes do not recalculate header alignment')
+    }
+   }
    await page.screenshot({path:resolve(output,'compact-'+width+'-'+centered+'.png')})
    if(width===1440)await toggle();else{await page.keyboard.press('Escape');await idle()}
    await expect(page.locator('.cr_titleCluster')).toBeVisible()
+   assert.equal(await header.evaluate(el=>el.style.getPropertyValue('--dcb-focus-content-left')),'','Focus-only alignment is released on exit')
    assert.ok(Math.abs((await header.boundingBox()).height-before.height)<1,'Leaving restores the native title and header height')
    assert.equal(await page.evaluate(()=>document.querySelector('textarea')===window.savedFocusDraft&&localStorage.getItem('dsh-claude-beautify:settings:v1')===window.savedFocusPreferences),true)
    checks.push({centered,width,height:compact.height,originalHeight:before.height});console.log('PASS compact focus header '+width+' centered='+centered)

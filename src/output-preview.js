@@ -3,62 +3,37 @@ import {outputKind} from './output-viewer.js'
 
 const MAX_HTML_BYTES=512*1024
 export const isHtmlOutput=path=>/\.x?html?$/i.test(String(path))
-const absolutePath=path=>typeof path==='string'&&/^(?:[a-z]:[/\\]|\/|\\\\)/i.test(path)&&!path.includes('\0')
-
-// Built-in mode owns file support. With it off, retain the optional companion's
-// browser hooks and inspect them at use time to accommodate either load order.
-export function createOutputPreviewBridge(doc,win,viewer,{builtin=false}={}){
+// Only this card's output clicks enter the reader. Do not inspect, replace or
+// call another plugin's browser hooks, registrations or preview windows.
+export function createOutputPreviewBridge(viewer,{enabled=true}={}){
   const listeners=new Set()
-  let available=false,disposed=false,builtinEnabled=builtin===true
+  let available=false,disposed=false,active=enabled===true
   const ownViewer=()=>viewer?.available?.()===true
-  const hooks=()=>{
-    try{return typeof win.__dshOpenFilePreview==='function'&&typeof win.__dshCanPreviewPath==='function'}catch{return false}
-  }
   const sync=()=>{
     if(disposed)return
-    const next=builtinEnabled?ownViewer():hooks()
+    const next=active&&ownViewer()
     if(next!==available){available=next;for(const listener of listeners)listener()}
   }
-  const supports=path=>{
-    if(disposed)return false
-    if(builtinEnabled)return ownViewer()&&outputKind(path)!==null
-    try{return hooks()&&win.__dshCanPreviewPath(path)===true}catch{return false}
-  }
-  // The companion appends its CSS and panel before assigning its hooks.
-  // Recheck after that task; do not poll or watch the conversation subtree.
-  const observer=new win.MutationObserver(()=>win.queueMicrotask(sync))
-  if(doc.head)observer.observe(doc.head,{childList:true})
-  if(doc.body)observer.observe(doc.body,{childList:true})
-  win.addEventListener('focus',sync);doc.addEventListener('visibilitychange',sync)
+  const supports=path=>!disposed&&active&&ownViewer()&&outputKind(path)!==null
   sync()
   return {
     subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener)},
     getSnapshot:()=>available,supports,sync,
-    setBuiltinEnabled(value){
+    setEnabled(value){
       const next=value===true
-      if(disposed||next===builtinEnabled)return
-      builtinEnabled=next
+      if(disposed||next===active)return
+      active=next
       if(!next)viewer?.close?.()
       sync()
     },
-    async open(sessionId,path,resolve,fallback,read){
+    async open(sessionId,path,fallback,read){
       sync()
-      if(!disposed&&supports(path)){
-        if(viewer){
-          try{if(viewer.open({sessionId,path,read,fallback:()=>fallback(path)})!==false)return}catch{}
-          return fallback(path)
-        }
-        try{
-          const resolved=absolutePath(path)?path:await resolve?.(sessionId,path)
-          if(!disposed&&absolutePath(resolved)&&supports(resolved)){
-            const result=await win.__dshOpenFilePreview(resolved)
-            if(result!==false)return
-          }
-        }catch{/* Retain the host's exact session route on unavailable previews. */}
+      if(supports(path)){
+        try{if(viewer.open({sessionId,path,read,fallback:()=>fallback(path)})!==false)return}catch{/* Retain the host's exact session route on unavailable previews. */}
       }
       if(!disposed)return fallback(path)
     },
-    dispose(){disposed=true;observer.disconnect();win.removeEventListener('focus',sync);doc.removeEventListener('visibilitychange',sync);listeners.clear()},
+    dispose(){disposed=true;listeners.clear()},
   }
 }
 

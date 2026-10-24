@@ -197,8 +197,6 @@ export function createOutputViewer(React,doc,win,{createPortal,MarkdownText,Code
   contains(sessionId,target){return state.present&&state.sessionId===sessionId&&!!target?.nodeType&&!!doc.querySelector('.dcb-file-viewer')?.contains(target)},
   open({sessionId,path,read,fallback}){
     if(disposed||failed||typeof createPortal!=='function'||typeof read!=='function'||!outputKind(path))return false
-    const companion=doc.getElementById('__dsh_artifact_preview__')
-    if(companion?.getAttribute('data-open')==='1')companion.__state?.hide?.()
     if(doc.activeElement!==doc.body&&!doc.querySelector('.dcb-file-viewer')?.contains(doc.activeElement)){
       restoreFocus=doc.activeElement
       const id=restoreFocus.closest('.dcb-summary')?.id

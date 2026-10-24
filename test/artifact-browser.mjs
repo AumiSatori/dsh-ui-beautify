@@ -6,6 +6,7 @@ import {fileURLToPath} from 'node:url'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
 import {nativeHeaderFixture} from './native-header.mjs'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 
 const project=fileURLToPath(new URL('..',import.meta.url))
 import {csvPreview,outputContentReader} from '../src/output-viewer.js'
@@ -40,11 +41,11 @@ async function loadCompanion(){
  })
  await settled()
 }
-async function boot({companion=false,noPortal=false,native=false,missingSessionHook=false,viewerCrash=false}={}){
+async function boot({companion=false,noPortal=false,native=false,missingSessionHook=false,viewerCrash=false,artifactMode=false,preserveSettings=false}={}){
  await page.goto(url);await page.getByTestId('todo-panel').waitFor()
- await page.evaluate(({html,png,noPortal,viewerCrash})=>{
+ await page.evaluate(({html,png,noPortal,viewerCrash,artifactMode,preserveSettings})=>{
   window.plugins={};window.cleanups=[];window.opened=[];window.previewRequests=[];window.reads=[];window.stats=[];window.coverScripts=0;window.slowReads=false
-  localStorage.setItem('dsh-claude-beautify:settings:v1',JSON.stringify({welcomeEnabled:false}))
+  if(!preserveSettings)localStorage.setItem('dsh-claude-beautify:settings:v1',JSON.stringify({welcomeEnabled:false,artifactMode}))
   window.addEventListener('message',event=>{if(event.data==='artifact-cover-script-ran')window.coverScripts++})
   window.viewerCrash=viewerCrash
   const originalReact=window.fixtureReact,react={...originalReact,useSyncExternalStore(subscribe,getSnapshot,...rest){const value=getSnapshot();if(window.viewerCrash&&value&&typeof value==='object'&&'present'in value&&'open'in value)throw Error('Synthetic optional viewer render failure');return originalReact.useSyncExternalStore(subscribe,getSnapshot,...rest)}}
@@ -65,7 +66,7 @@ async function boot({companion=false,noPortal=false,native=false,missingSessionH
    slots:{inject(_slot,cb){cb()},register(spec,component){if(spec.name==='settings.section')window.fixtureSettings=component;else{window.fixtureHeader=component;window.fixtureHeaderSpec=spec}return()=>{}}},
    sessions:{binding:id=>window.fixtureBinding(id)},sidebarRight:{openResource:address=>window.opened.push(address)},effect(cb){window.cleanups.push(cb())},inject(_names,cb){cb(window.testCtx)},
   }
- },{html,png:Array.from(png),noPortal,viewerCrash})
+ },{html,png:Array.from(png),noPortal,viewerCrash,artifactMode,preserveSettings})
  if(companion)await loadCompanion()
  await page.addScriptTag({url:url+'/client.js'})
  await page.evaluate(files=>{window.plugins['dsh-claude-beautify'].apply(window.testCtx);window.fixture.refresh();window.fixture.records([{event:{type:'deliverables/presented',seq:1,data:{files}}}])},files)
@@ -274,6 +275,81 @@ try{
   await page.evaluate(()=>{window.slowReads=true;window.fixture.records([{event:{type:'deliverables/presented',seq:10,data:{files:[{path:'outputs/slow.html'}]}}}])});await page.waitForFunction(()=>window.reads.some(file=>file.path.endsWith('slow.html')))
   await page.evaluate(()=>{window.fixtureHeader=null;window.fixture.refresh()});await settled()
   assert.ok(await page.evaluate(()=>window.abortedReads>0));assert.equal(await page.locator('.dcb-artifact iframe').count(),0)
+ })
+ await check('the built-in switch enables independent previews live and persists across reloads',async()=>{
+  await page.setViewportSize({width:1280,height:1000});await page.emulateMedia({reducedMotion:'no-preference',forcedColors:'none'})
+  await boot()
+  await page.evaluate(()=>{window.originalEntry=document.querySelector('[aria-label="会话进度与输出"]');window.fixture.settings(true)})
+  await selectSettingsCategory(page,'任务面板')
+  const toggle=page.getByRole('switch',{name:'内置 Artifact 模式',exact:true})
+  assert.equal(await toggle.getAttribute('aria-checked'),'false')
+  await toggle.click();await settled()
+  assert.equal(await toggle.getAttribute('aria-checked'),'true')
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')).artifactMode),true)
+  await page.getByRole('dialog').screenshot({path:resolve(output,'builtin-settings.png')})
+  await page.evaluate(()=>window.fixture.settings(false));await settled()
+  await clickOutput('Preview page.html');await page.locator('.dcb-file-viewer [data-content-status=ready]').waitFor()
+  assert.equal(await page.evaluate(()=>window.originalEntry===document.querySelector('[aria-label="会话进度与输出"]')),true)
+  assert.equal(await page.evaluate(()=>typeof window.__dshOpenFilePreview),'undefined')
+  await boot({preserveSettings:true})
+  await card.locator('.dcb-artifact[data-preview-state=ready]').waitFor()
+  await clickOutput('report.md');await page.locator('.dcb-file-viewer [data-content-status=ready]').waitFor()
+  assert.equal(await page.getByRole('heading',{name:'Output preview',exact:true}).isVisible(),true)
+ })
+ await check('built-in mode reads every supported format without companion hooks, and keeps source, refresh and native-open controls',async()=>{
+  await boot({artifactMode:true,native:!!nativeHeader})
+  await page.evaluate(()=>{window.__dshCanPreviewPath=()=>{throw Error('must not use companion')};window.__dshOpenFilePreview=()=>{throw Error('must not open companion')}})
+  for(const {path}of files.slice(0,-1)){
+   await clickOutput(path)
+   const viewer=page.getByRole('region',{name:'文件预览',exact:true});await viewer.locator('[data-content-status=ready]').waitFor()
+   assert.deepEqual(await page.evaluate(()=>window.reads.at(-1)),{session:'a',path})
+   if(path.endsWith('.html')){
+    await viewer.frameLocator('iframe').getByRole('heading',{name:'Artifact Preview'}).waitFor()
+    await page.waitForFunction(()=>window.coverScripts>0)
+    await viewer.getByRole('button',{name:'源码',exact:true}).click();assert.match(await viewer.locator('pre').innerText(),/<!doctype html>/)
+    await viewer.getByRole('button',{name:'预览',exact:true}).click()
+    const count=await page.evaluate(()=>window.reads.length)
+    await viewer.getByRole('button',{name:'重新加载文件',exact:true}).click();await viewer.locator('[data-content-status=ready]').waitFor()
+    assert.ok(await page.evaluate(()=>window.reads.length)>count)
+    await viewer.screenshot({path:resolve(output,'builtin-html.png')})
+   }
+   if(path.endsWith('.md'))assert.equal(await viewer.getByRole('heading',{name:'Output preview'}).isVisible(),true)
+   if(path.endsWith('.sql'))assert.match(await viewer.locator('pre').innerText(),/select 1/)
+   if(path.endsWith('.json'))assert.match(await viewer.locator('pre').innerText(),/"preview": true/)
+   if(path.endsWith('.csv'))assert.deepEqual(await viewer.locator('td').allTextContents(),['demo, one','1','two\nlines','2'])
+   if(path.endsWith('.png'))await viewer.locator('img').evaluate(el=>el.decode())
+   await viewer.getByRole('button',{name:'关闭文件预览'}).click();await settled()
+  }
+  assert.equal(await page.evaluate(()=>window.opened.length),0)
+  await clickOutput('archive.zip');assert.equal(await page.evaluate(()=>window.opened.at(-1)),'dsh-resource://file/session/a/outputs/archive.zip')
+  await clickOutput('report.md');await page.locator('.dcb-file-viewer [data-content-status=ready]').waitFor()
+  await page.locator('.dcb-file-viewer-head').getByRole('button',{name:'用 DSH 打开',exact:true}).click();await settled()
+  assert.equal(await page.locator('.dcb-file-viewer').count(),0)
+  assert.equal(await page.evaluate(()=>window.opened.at(-1)),'dsh-resource://file/session/a/outputs/report.md')
+ })
+ await check('disabling built-in mode cancels pending reads, removes covers and restores the exact native route',async()=>{
+  await boot({artifactMode:true})
+  await card.locator('.dcb-artifact[data-preview-state=ready]').waitFor()
+  await page.evaluate(()=>window.slowReads=1500);await clickOutput('query.sql')
+  await page.locator('.dcb-file-viewer [data-content-status=loading]').waitFor()
+  await patch({artifactMode:false})
+  assert.equal(await page.locator('.dcb-file-viewer').count(),0)
+  assert.equal(await card.locator('.dcb-artifact').count(),0)
+  assert.ok(await page.evaluate(()=>window.abortedReads>0))
+  const count=await page.evaluate(()=>window.reads.length)
+  await clickOutput('Preview page.html')
+  assert.equal(await page.evaluate(()=>window.reads.length),count)
+  assert.equal(await page.evaluate(()=>window.opened.at(-1)),'dsh-resource://file/session/a/outputs/Preview%20page.html')
+  await patch({artifactMode:true});await card.locator('.dcb-artifact[data-preview-state=ready]').waitFor()
+  await clickOutput('report.md');await page.locator('.dcb-file-viewer [data-content-status=ready]').waitFor()
+ })
+ await check('built-in mode fails back to DSH when the host portal or optional reader cannot render',async()=>{
+  for(const options of [{noPortal:true},{viewerCrash:true}]){
+   await boot({artifactMode:true,...options})
+   await clickOutput('report.md')
+   assert.equal(await page.locator('.dcb-file-viewer').count(),0)
+   assert.equal(await page.evaluate(()=>window.opened.at(-1)),'dsh-resource://file/session/a/outputs/report.md')
+  }
  })
  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed,companion:process.env.DSH_ARTIFACT_CLIENT?'installed plugin':'hook contract fixture',output}))
 }finally{await browser.close();await new Promise(done=>server.close(done))}

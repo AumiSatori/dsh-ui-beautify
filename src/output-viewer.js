@@ -191,6 +191,8 @@ export function createOutputViewer(React,doc,win,{createPortal,MarkdownText,Code
       h('div',{className:'dcb-file-viewer-body',ref:body,'data-content-status':view.status},content),h('div',{className:'dcb-file-viewer-status'},view.status==='ready'?`${type?.label||'文件'} · ${file.size<1024?`${file.size} B`:`${Math.ceil(file.size/1024)} KB`}`:view.status==='loading'?'加载中':'可重试或用 DSH 打开')),doc.body)
   }
   return{View,
+  available(){return !disposed&&!failed&&typeof createPortal==='function'},
+  close(){if(state.present)close()},
   isOpen(sessionId){return !disposed&&state.open&&state.sessionId===sessionId},
   contains(sessionId,target){return state.present&&state.sessionId===sessionId&&!!target?.nodeType&&!!doc.querySelector('.dcb-file-viewer')?.contains(target)},
   open({sessionId,path,read,fallback}){

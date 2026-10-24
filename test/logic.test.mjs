@@ -24,6 +24,9 @@ test('independent button glass migrates existing appearance once and preserves e
   assert.equal(normalize({ composerGlass: true }).composerButtonGlass, true)
 })
 test('validates corrupted and out-of-range preferences', () => {
+  assert.equal(normalize(null).artifactMode, false)
+  assert.equal(normalize({ artifactMode: true }).artifactMode, true)
+  assert.equal(normalize({ artifactMode: 'true' }).artifactMode, false)
   assert.equal(normalize(null).width, 320)
   assert.equal(normalize({ width: '400', enabled: 'false' }).enabled, true)
   assert.equal(normalize({ width: Infinity }).width, 320)

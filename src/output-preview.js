@@ -1,23 +1,27 @@
 import {motion} from './motion.js'
+import {outputKind} from './output-viewer.js'
 
 const MAX_HTML_BYTES=512*1024
 export const isHtmlOutput=path=>/\.x?html?$/i.test(String(path))
 const absolutePath=path=>typeof path==='string'&&/^(?:[a-z]:[/\\]|\/|\\\\)/i.test(path)&&!path.includes('\0')
 
-// The companion exposes browser hooks, not a required loader module. Inspect
-// them at the moment of use so either load order and standalone users work.
-export function createOutputPreviewBridge(doc,win,viewer){
+// Built-in mode owns file support. With it off, retain the optional companion's
+// browser hooks and inspect them at use time to accommodate either load order.
+export function createOutputPreviewBridge(doc,win,viewer,{builtin=false}={}){
   const listeners=new Set()
-  let available=false,disposed=false
+  let available=false,disposed=false,builtinEnabled=builtin===true
+  const ownViewer=()=>viewer?.available?.()===true
   const hooks=()=>{
     try{return typeof win.__dshOpenFilePreview==='function'&&typeof win.__dshCanPreviewPath==='function'}catch{return false}
   }
   const sync=()=>{
     if(disposed)return
-    const next=hooks()
+    const next=builtinEnabled?ownViewer():hooks()
     if(next!==available){available=next;for(const listener of listeners)listener()}
   }
   const supports=path=>{
+    if(disposed)return false
+    if(builtinEnabled)return ownViewer()&&outputKind(path)!==null
     try{return hooks()&&win.__dshCanPreviewPath(path)===true}catch{return false}
   }
   // The companion appends its CSS and panel before assigning its hooks.
@@ -30,6 +34,13 @@ export function createOutputPreviewBridge(doc,win,viewer){
   return {
     subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener)},
     getSnapshot:()=>available,supports,sync,
+    setBuiltinEnabled(value){
+      const next=value===true
+      if(disposed||next===builtinEnabled)return
+      builtinEnabled=next
+      if(!next)viewer?.close?.()
+      sync()
+    },
     async open(sessionId,path,resolve,fallback,read){
       sync()
       if(!disposed&&supports(path)){

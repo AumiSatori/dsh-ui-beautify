@@ -1,3 +1,4 @@
+import {createHtmlEditor} from './background-html.js'
 import {motion} from './motion.js'
 
 export const backgroundSettingsCss=`
@@ -119,7 +120,7 @@ export const backgroundSettingsCss=`
 `
 
 export function createBackgroundSettings(React,{background}){
-  const h=React.createElement
+  const h=React.createElement,HtmlEditor=createHtmlEditor(React,background)
   const paths={image:'M4 4h16v16H4zM4 15l5-5 5 5 3-3 3 3M15 8h.01',restore:'M3 10a9 9 0 1 1 2 8M3 4v6h6',remove:'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5',upload:'M12 16V4M7 9l5-5 5 5M4 16v4h16v-4'}
   const icon=name=>h('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:paths[name]}))
   return function BackgroundSettings({value,onChange}){
@@ -153,11 +154,12 @@ export function createBackgroundSettings(React,{background}){
             h('button',{type:'button',className:'dcb-background-choose',disabled:busy,onClick:()=>input.current?.click()},icon('upload'),busy?'处理中…':'选择图片或视频'),
             h('button',{type:'button',disabled:busy||!state.hasPrevious,onClick:()=>run(async()=>select(await background.restore()))},icon('restore'),'恢复上一张'),
             h('button',{type:'button',disabled:busy||!value.backgroundRevision,onClick:()=>run(async()=>{await background.clear();select(null)})},icon('remove'),'清除背景')))),
+      h(HtmlEditor,{onSelect:select}),
       (error||state.error)&&h('p',{className:'dcb-background-error',role:'alert'},error||state.error),
       h('section',{className:'dcb-background-library','aria-label':'背景素材库'},
         h('div',{className:'dcb-background-library-heading'},h('strong',null,'最近上传'),h('span',null,state.recent.length?`${state.recent.length} 个 · 仅保存在本机`:'本机素材库')),
         state.recent.length?h('div',{className:'dcb-background-gallery'},state.recent.slice(0,limit).map(item=>h('button',{key:item.revision,type:'button',className:'dcb-background-gallery-item','aria-label':`使用背景：${item.name}`,'aria-pressed':value.backgroundRevision===item.revision,disabled:busy,title:item.name,onClick:()=>run(async()=>select(await background.select(item.revision)))},
-          h('span',{className:'dcb-background-gallery-picture'},item.preview?h('img',{src:item.preview,alt:'',loading:'lazy',decoding:'async'}):icon('image'),h('span',{className:'dcb-background-gallery-kind'},item.kind==='video'?'视频':'图片'),value.backgroundRevision===item.revision&&h('span',{className:'dcb-background-gallery-check','aria-hidden':true},'✓')),
+          h('span',{className:'dcb-background-gallery-picture'},item.preview?h('img',{src:item.preview,alt:'',loading:'lazy',decoding:'async'}):icon('image'),h('span',{className:'dcb-background-gallery-kind'},item.kind==='html'?'HTML':item.kind==='video'?'视频':'图片'),value.backgroundRevision===item.revision&&h('span',{className:'dcb-background-gallery-check','aria-hidden':true},'✓')),
           h('span',{className:'dcb-background-gallery-name'},item.name)))):h('div',{className:'dcb-background-library-empty'},icon('image'),h('span',null,'上传的图片和视频会留在这里，随时点选切换。')),
         state.recent.length>limit&&h('button',{className:'dcb-background-gallery-more',type:'button',onClick:()=>setLimit(value=>value+12)},'显示更多')),
       h('div',{className:'dcb-background-controls'},

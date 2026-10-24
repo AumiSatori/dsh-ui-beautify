@@ -43,6 +43,36 @@ const ready=()=>page.waitForFunction(()=>document.body.hasAttribute('data-dcb-ba
 const picture=async(name,color)=>({name,mimeType:'image/png',buffer:Buffer.from(await page.evaluate(color=>{const canvas=document.createElement('canvas');canvas.width=800;canvas.height=450;const ctx=canvas.getContext('2d'),gradient=ctx.createLinearGradient(0,0,800,450);gradient.addColorStop(0,color);gradient.addColorStop(1,'#efb5c8');ctx.fillStyle=gradient;ctx.fillRect(0,0,800,450);return canvas.toDataURL('image/png').split(',')[1]},color),'base64')})
 try{
   await page.goto(url);await page.evaluate(key=>localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,particleEnabled:false,turnGlass:false})),key);await mount();await settings()
+  await check('HTML editor previews, persists, isolates and releases scripts',async()=>{
+    await section.locator('summary').click();
+    await section.getByRole('button',{name:'预览动效',exact:true}).click();
+    const preview=page.frameLocator('iframe[title="HTML 动态背景预览"]');
+    await preview.locator('canvas').waitFor();
+    await page.screenshot({path:resolve(output,'html-ocean-preview.png')});
+    await section.getByRole('button',{name:'应用 HTML 背景',exact:true}).click();await ready();
+    const frame=wallpaper.locator('iframe');await frame.waitFor();
+    assert.equal(await frame.getAttribute('sandbox'),'allow-scripts');
+    const content=await (await frame.elementHandle()).contentFrame();
+    await content.locator('canvas').waitFor();
+    await content.locator('canvas').screenshot({path:resolve(output,'deep-ocean.png')});
+    assert.equal(await content.evaluate(()=>{try{return !!parent.document}catch{return false}}),false);
+    assert.equal(await content.evaluate(async()=>{try{await fetch('https://example.invalid/');return false}catch{return true}}),true);
+    await page.mouse.move(1100,400);await page.waitForTimeout(100);
+    assert.ok(await content.evaluate(()=>px>.5));
+    await page.evaluate(()=>window.fixture.settings(false));
+    await page.screenshot({path:resolve(output,'html-ocean-chat.png')});
+    await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'))});
+    await page.waitForFunction(()=>!document.querySelector('[data-dcb-background-layer] iframe').srcdoc.includes('canvas'));
+    await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))});
+    await content.locator('canvas').waitFor();
+    await page.reload();await mount();await ready();await wallpaper.locator('iframe').waitFor();await settings();
+    await section.locator('summary').click();await section.getByRole('button',{name:'读取当前 HTML'}).click();
+    assert.match(await section.getByLabel('HTML 背景代码').inputValue(),/const speed/);
+    await section.getByRole('button',{name:'清除背景',exact:true}).click();await wallpaper.waitFor({state:'detached'});
+    // Remove the test-only asset so the existing library count checks remain independent.
+    await page.evaluate(()=>new Promise((resolve,reject)=>{const r=indexedDB.open('dsh-ui-beautify-background',2);r.onsuccess=()=>{const db=r.result,tx=db.transaction(['assets','wallpaper'],'readwrite');tx.objectStore('assets').clear();tx.objectStore('wallpaper').clear();tx.oncomplete=()=>{db.close();resolve()};tx.onerror=reject}}));
+    await page.reload();await mount();await settings();
+  })
   await check('new category starts off and leaves host fills unchanged before import',async()=>{
     assert.equal(await wallpaper.count(),0);assert.equal(await section.getByRole('switch',{name:'启用全图背景'}).getAttribute('aria-checked'),'false')
     assert.equal(await page.getByRole('tab').count(),7);assert.equal(await page.locator('.nav').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(244, 243, 239)')

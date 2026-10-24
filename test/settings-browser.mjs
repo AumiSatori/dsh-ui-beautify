@@ -14,7 +14,7 @@ const fixture=await build({entryPoints:[resolve(project,'test/fixture.jsx')],bun
 const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'),'utf8')],'/fixture.js':['text/javascript',fixture.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'),'utf8')]}
 const server=createServer((req,res)=>{const route=routes[req.url];if(!route){res.writeHead(404).end();return}res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
-const url=`http://127.0.0.1:${server.address().port}`,key='dsh-claude-beautify:settings:v1',logo=nativeLogo()
+const url=`http://127.0.0.1:${server.address().port}`,key='dsh-ui-beautify:settings:v1',logo=nativeLogo()
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'}),context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[]
 page.on('pageerror',error=>errors.push(error.message))
 let passed=0
@@ -30,7 +30,12 @@ async function mount(){
 const tabAnimations=()=>page.evaluate(()=>document.getAnimations().filter(animation=>animation.id==='dcb-settings-tab').length)
 const saved=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key)
 try{
-  await page.goto(url);await page.evaluate(key=>localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,composerButtonGlass:true,cardStyle:'milk'})),key);await mount()
+  await page.goto(url);await page.evaluate(()=>localStorage.setItem('dsh-claude-beautify:settings:v1',JSON.stringify({welcomeEnabled:false,composerButtonGlass:true,cardStyle:'milk',welcomeText:'Legacy welcome'})));await mount()
+  await check('renamed plugin migrates old preferences to the canonical key and retains the fallback record',async()=>{
+    const preferences=await saved()
+    assert.equal(preferences.welcomeText,'Legacy welcome');assert.equal(preferences.composerButtonGlass,true);assert.equal(preferences.welcomeEnabled,false)
+    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')).welcomeText),'Legacy welcome')
+  })
   await page.evaluate(()=>window.fixture.settings(true));await select('任务面板')
   await check('seven accessible categories mount one page and use uniform preview cards in all three material scopes',async()=>{
     assert.deepEqual(await tabs.getByRole('tab').allTextContents(),categories)

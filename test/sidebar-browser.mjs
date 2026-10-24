@@ -36,7 +36,7 @@ const extra=`:root{--dsw-specific-sidebar-fill:#f0f1f4;--dsw-alias-label-primary
 const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'),'utf8').replace('</style>',hostCSS+extra+'</style>')],'/fixture.js':['text/javascript',built.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'),'utf8')]}
 const server=createServer((req,res)=>{const route=routes[req.url.split('?')[0]];if(!route)return res.writeHead(404).end();res.writeHead(200,{'Content-Type':route[0]}).end(route[1])});await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'}),context=await browser.newContext({viewport:{width:1200,height:900}}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message))
-const url=`http://127.0.0.1:${server.address().port}/?composer=interactive`,key='dsh-claude-beautify:settings:v1'
+const url=`http://127.0.0.1:${server.address().port}/?composer=interactive`,key='dsh-ui-beautify:settings:v1'
 const root=page.locator('.sb_root:not([data-dcb-sidebar-ghost])'),indicator=root.locator('.dcb-sidebar-indicator'),group=page.getByRole('radiogroup',{name:'侧栏样式',exact:true})
 async function settled(){await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));await page.waitForFunction(()=>!document.querySelector('[data-dcb-sidebar-moving]'));await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))))}
 async function prepare(){

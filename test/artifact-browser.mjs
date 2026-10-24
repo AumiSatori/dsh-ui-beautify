@@ -46,7 +46,7 @@ async function boot({companion=false,noPortal=false,native=false,missingSessionH
  await page.goto(url);await page.getByTestId('todo-panel').waitFor()
  await page.evaluate(({html,png,noPortal,viewerCrash,enabled,preserveSettings})=>{
   window.plugins={};window.cleanups=[];window.opened=[];window.previewRequests=[];window.reads=[];window.stats=[];window.coverScripts=0;window.slowReads=false
-  if(!preserveSettings)localStorage.setItem('dsh-claude-beautify:settings:v1',JSON.stringify({welcomeEnabled:false,enabled}))
+  if(!preserveSettings)localStorage.setItem('dsh-ui-beautify:settings:v1',JSON.stringify({welcomeEnabled:false,enabled}))
   window.addEventListener('message',event=>{if(event.data==='artifact-cover-script-ran')window.coverScripts++})
   window.viewerCrash=viewerCrash
   const originalReact=window.fixtureReact,react={...originalReact,useSyncExternalStore(subscribe,getSnapshot,...rest){const value=getSnapshot();if(window.viewerCrash&&value&&typeof value==='object'&&'present'in value&&'open'in value)throw Error('Synthetic optional viewer render failure');return originalReact.useSyncExternalStore(subscribe,getSnapshot,...rest)}}
@@ -70,7 +70,7 @@ async function boot({companion=false,noPortal=false,native=false,missingSessionH
  },{html,png:Array.from(png),noPortal,viewerCrash,enabled,preserveSettings})
  if(companion)await loadCompanion()
  await page.addScriptTag({url:url+'/client.js'})
- await page.evaluate(files=>{window.plugins['dsh-claude-beautify'].apply(window.testCtx);window.fixture.refresh();window.fixture.records([{event:{type:'deliverables/presented',seq:1,data:{files}}}])},files)
+ await page.evaluate(files=>{window.plugins['dsh-ui-beautify'].apply(window.testCtx);window.fixture.refresh();window.fixture.records([{event:{type:'deliverables/presented',seq:1,data:{files}}}])},files)
  if(native){
   assert.ok(nativeHeader,'Set DSH_ASAR for native header integration checks')
   await page.addStyleTag({content:nativeHeader.css+' [data-native-header-fixture] > header {height:auto;flex:none;} [data-native-header-fixture] header nav {display:flex;}'});
@@ -79,7 +79,7 @@ async function boot({companion=false,noPortal=false,native=false,missingSessionH
  if(enabled){await page.getByRole('button',{name:'会话进度与输出',exact:true}).click();await settled()}
 }
 async function clickOutput(path){const entry=page.getByRole('button',{name:'会话进度与输出',exact:true});if(await entry.getAttribute('aria-expanded')!=='true'){await entry.click();await settled()}await card.locator('.dcb-output').filter({hasText:path.split(/[/\\]/).at(-1).replace(/\.[^.]+$/,'')}).click();await settled()}
-async function patch(value){await page.evaluate(value=>{const key='dsh-claude-beautify:settings:v1',next=JSON.stringify({...JSON.parse(localStorage.getItem(key)||'{}'),...value});localStorage.setItem(key,next);dispatchEvent(new StorageEvent('storage',{key,newValue:next}))},value);await settled()}
+async function patch(value){await page.evaluate(value=>{const key='dsh-ui-beautify:settings:v1',next=JSON.stringify({...JSON.parse(localStorage.getItem(key)||'{}'),...value});localStorage.setItem(key,next);dispatchEvent(new StorageEvent('storage',{key,newValue:next}))},value);await settled()}
 let passed=0
 async function check(name,fn){await fn();passed++;console.log('PASS '+name)}
 try{

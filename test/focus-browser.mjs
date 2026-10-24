@@ -27,7 +27,7 @@ const fixture=await build({entryPoints:[resolve(project,'test/fixture.jsx')],bun
 const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'),'utf8')],'/fixture.js':['text/javascript',fixture.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'),'utf8')]}
 const server=createServer((req,res)=>{const route=routes[req.url];if(!route){res.writeHead(404).end();return}res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
-const url=`http://127.0.0.1:${server.address().port}/`,key='dsh-claude-beautify:settings:v1'
+const url=`http://127.0.0.1:${server.address().port}/`,key='dsh-ui-beautify:settings:v1'
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'}),page=await browser.newPage({viewport:{width:1440,height:950}}),errors=[]
 page.on('pageerror',error=>errors.push(error.message))
 const button=page.locator('.dcb-focus-toggle'),frame=page.locator('.af_frame'),seat=page.locator('[data-composer-seat]'),editor=page.getByRole('textbox',{name:'专注模式草稿'}),left=page.locator('.af_sidebarCol'),right=page.locator('[data-rightbar-col]')
@@ -68,7 +68,7 @@ async function boot({collapsed=false,native=true,glass=false,resident=false}={})
       window.seatObserver=new ResizeObserver(()=>{scroll.style.setProperty('--dsh-composer-height',`${seat.offsetHeight}px`);scroll.style.setProperty('--dsh-conversation-viewport-height',`${scroll.clientHeight}px`)});window.seatObserver.observe(seat);window.seatObserver.observe(scroll);window.cleanups.push(()=>window.seatObserver.disconnect())
     }
     if(!native){left.classList.remove('af_sidebarCol');right.classList.remove('af_rightbarCol');right.removeAttribute('data-rightbar-col');main.classList.remove('af_centerCol')}
-    window.savedFrameStyle=frame.getAttribute('style');window.savedPreferences=localStorage.getItem('dsh-claude-beautify:settings:v1')
+    window.savedFrameStyle=frame.getAttribute('style');window.savedPreferences=localStorage.getItem('dsh-ui-beautify:settings:v1')
   },{collapsed,native,resident})
   await page.addScriptTag({url:new URL('/client.js',url).href})
   await page.evaluate(()=>{const ctx={theme:window.hostTheme,slots:{inject(_name,cb){cb()},register(spec,component){if(spec.name==='settings.section')window.fixtureSettings=component;else{window.fixtureHeader=component;window.fixtureHeaderSpec=spec}return()=>{}}},sessions:{binding:id=>window.fixtureBinding(id)},sidebarRight:{openResource(){}},effect(cb){window.cleanups.push(cb())},on(name,listener){if(name==='theme/change')window.themeListeners.add(listener)},inject(_names,cb){cb(ctx)}};window.plugin.apply(ctx);window.fixture.refresh()})
@@ -93,7 +93,7 @@ try{
     assert.equal(await frame.getAttribute('data-dcb-focus-frame'),null)
     assert.equal(await editor.evaluate(el=>el===window.savedEditor),true);assert.equal(await editor.inputValue(),'保留这段草稿和选区')
     assert.deepEqual(await editor.evaluate(el=>[el.selectionStart,el.selectionEnd]),[2,6])
-    assert.equal(await page.evaluate(()=>document.querySelector('.frame').getAttribute('style')===window.savedFrameStyle&&window.nativeChanges===0&&localStorage.getItem('dsh-claude-beautify:settings:v1')===window.savedPreferences),true)
+    assert.equal(await page.evaluate(()=>document.querySelector('.frame').getAttribute('style')===window.savedFrameStyle&&window.nativeChanges===0&&localStorage.getItem('dsh-ui-beautify:settings:v1')===window.savedPreferences),true)
   })
   await check('input fades and moves without changing layout every frame, then releases its height; reversal leaves no stale styles',async()=>{
     const height=await seat.evaluate(el=>el.getBoundingClientRect().height)

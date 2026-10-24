@@ -63,7 +63,7 @@ const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGH
 const context=await browser.newContext({viewport:{width:1200,height:950},deviceScaleFactor:1})
 const page=await context.newPage()
 const errors=[];page.on('pageerror',error=>errors.push(error.message))
-const key='dsh-claude-beautify:settings:v1',card=page.locator('[data-composer-card]'),input=page.getByRole('textbox',{name:'合成消息输入'})
+const key='dsh-ui-beautify:settings:v1',card=page.locator('[data-composer-card]'),input=page.getByRole('textbox',{name:'合成消息输入'})
 let passed=0
 async function check(name,run){await run();passed++;console.log('PASS '+name)}
 async function settled(target=page){await target.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));await target.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))))}

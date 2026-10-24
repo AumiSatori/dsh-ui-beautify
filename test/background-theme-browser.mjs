@@ -13,7 +13,7 @@ const fixture=await build({entryPoints:[resolve(root,'test/fixture.jsx')],bundle
 const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(root,'test/fixture.html'),'utf8')],'/fixture.js':['text/javascript',fixture.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(root,'client.js'),'utf8')]}
 const server=createServer((req,res)=>{const row=routes[req.url];if(!row)return res.writeHead(404).end();res.writeHead(200,{'content-type':row[0]}).end(row[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
-const url=`http://127.0.0.1:${server.address().port}`,key='dsh-claude-beautify:settings:v1',browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'})
+const url=`http://127.0.0.1:${server.address().port}`,key='dsh-ui-beautify:settings:v1',browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'})
 const context=await browser.newContext({viewport:{width:1200,height:900}}),page=await context.newPage(),errors=[],checks=[]
 const scene=name=>`<style>html,body{background:${name.startsWith('day')?'#edf3fa':'#10172d'};color:${name.startsWith('day')?'#334':'#ddd'}}</style><div data-scene="${name}">${name}</div><script>window.sceneName=${JSON.stringify(name)};</script>`
 const saved=target=>target.evaluate(key=>JSON.parse(localStorage.getItem(key)),key)

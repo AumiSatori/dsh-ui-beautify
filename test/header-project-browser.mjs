@@ -44,7 +44,7 @@ const server=createServer((req,res)=>{const route=routes[req.url];if(!route)retu
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const browser=await chromium.launch({headless:true,channel:'chrome'}),page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[]
 page.on('pageerror',e=>errors.push(e.message))
-const key='dsh-claude-beautify:settings:v1'
+const key='dsh-ui-beautify:settings:v1'
 let passed=0
 async function check(name,fn){await fn();passed++;console.log('PASS '+name)}
 async function aligned(selector='[data-chat-flow]'){

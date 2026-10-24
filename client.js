@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-claude-beautify',
+  id: 'dsh-ui-beautify',
   factory: (require) => {
     const React = require('react')
     /* DCB_LENS_BUNDLE_START */
@@ -937,9 +937,10 @@ ${e}::before,${e}::after{pointer-events:none!important;}
     let createPortal
     try { createPortal = require('react-dom').createPortal } catch { /* Optional output viewer falls back to the host. */ }
     const MOTION = DcbLens.motion
-    const NAME = 'dsh-claude-beautify'
-    const DISPLAY_NAME = 'UI动效美化'
+    const NAME = 'dsh-ui-beautify'
+    const DISPLAY_NAME = 'dsh-UI美化'
     const KEY = `${NAME}:settings:v1`
+    const LEGACY_KEY = 'dsh-claude-beautify:settings:v1'
     const PANEL = '[data-testid="todo-panel"]'
     const MARK = 'data-dcb-task-panel'
     const COMPOSER_FLAG = 'data-dcb-composer-glass'
@@ -1002,8 +1003,16 @@ ${e}::before,${e}::after{pointer-events:none!important;}
     }
 
     function readSettings() {
-      try { return normalize(JSON.parse(window.localStorage.getItem(KEY))) }
-      catch { return normalize(null) }
+      try {
+        const current = window.localStorage.getItem(KEY)
+        const legacy = current === null ? window.localStorage.getItem(LEGACY_KEY) : null
+        const settings = normalize(JSON.parse(current ?? legacy))
+        // Retain the old record as a fallback; storage failure must not lose preferences.
+        if (current === null && legacy !== null) {
+          try { window.localStorage.setItem(KEY, JSON.stringify(settings)) } catch { /* read-only storage */ }
+        }
+        return settings
+      } catch { return normalize(null) }
     }
 
     function composerActionKind(button) {
@@ -2869,7 +2878,7 @@ ${e}::before,${e}::after{pointer-events:none!important;}
         schedule()
         for (const listener of listeners) listener()
       }
-      const onStorage = event => { if (event.key === KEY || event.key === null) update(readSettings(), false) }
+      const onStorage = event => { if (event.key === KEY || event.key === LEGACY_KEY || event.key === null) update(readSettings(), false) }
       const observer = new MutationObserver(records => { if (DcbLens.affectsPresentation(records)) schedule() })
       observer.observe(document.body, { childList: true, subtree: true, attributes: true,
         attributeFilter: ['data-conversation-session', 'data-content-phase', 'data-sidebar-collapsed', 'data-card-style', 'data-composer-card', 'aria-label', 'aria-selected', 'aria-current', 'aria-pressed', 'aria-expanded', 'aria-controls', 'disabled', 'data-ds-dark-theme', 'hidden', 'class'] })

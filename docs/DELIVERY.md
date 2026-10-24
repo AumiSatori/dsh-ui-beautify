@@ -2,15 +2,15 @@
 
 ## 使用者
 
-在 DSH 的插件页搜索 **UI动效美化** 或内部包名 `dsh-claude-beautify`，确认来源为 **AumiSatori/dsh-ui-beautify**。市场收录以社区目录 PR 合并和索引刷新为准，发布 GitHub Release 不等于已进入市场。
+在 DSH 的插件页搜索 **dsh-UI美化** 或内部包名 `dsh-ui-beautify`，确认来源为 **AumiSatori/dsh-ui-beautify**。市场收录以社区目录 PR 合并和索引刷新为准，发布 GitHub Release 不等于已进入市场。
 
-也可从本仓库最新 Release 下载 `dsh-claude-beautify.tgz`，在 DSH 插件安装入口填写其公开下载地址。Web profile 可使用：
+也可从本仓库最新 Release 下载 `dsh-ui-beautify.tgz`，在 DSH 插件安装入口填写其公开下载地址。Web profile 可使用：
 
 ```sh
-dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/releases/latest/download/dsh-claude-beautify.tgz
+dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/releases/latest/download/dsh-ui-beautify.tgz
 ```
 
-安装包含预构建 `client.js`，不需要开发依赖、不执行安装期构建。首次安装后按宿主提示重载；客户端更新通常 Ctrl+R 即可。展示设置在 **设置 → UI动效美化**。所有样式的默认选项排在前面。
+安装包含预构建 `client.js`，不需要开发依赖、不执行安装期构建。首次安装后按宿主提示重载；客户端更新通常 Ctrl+R 即可。展示设置在 **设置 → dsh-UI美化**。所有样式的默认选项排在前面。
 
 本地源码链接版保留现有安装方式；不要在同一 profile 同时登记源码链接和市场包。切换安装来源时，先在插件管理器移除旧登记，再安装新来源；本机偏好与素材保留在浏览器来源中。
 
@@ -25,7 +25,7 @@ dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/relea
 
 ## 维护者交付流程
 
-0.3.70 交付回归结果：**37 组全部通过，442 项具名检查**。其中包含实际宿主组件、已安装推理滑块和外部 Artifact 预览的集成验证；GPU/Canvas 与性能检查也通过。完整无日志摘要见 [validation-0.3.70.json](validation-0.3.70.json)。记录绑定到被验证客户端的 SHA-256，失败的旧检查已修正后复验，不以跳过代替通过。
+0.3.71 交付回归结果：**37 组全部通过，445 项具名检查**。其中包含实际宿主组件、已安装推理滑块和外部 Artifact 预览的集成验证；GPU/Canvas 与性能检查也通过。完整无日志摘要见 [validation-0.3.71.json](validation-0.3.71.json)。记录绑定到被验证客户端的 SHA-256，失败的旧检查已修正后复验，不以跳过代替通过。
 
 ```sh
 npm ci
@@ -39,7 +39,7 @@ npm run test:release
 
 `test:release` 依次运行 `package.json` 中全部 `test` / `test:*`（自身除外），每项保留日志，输出 `release-verification/report.json`。`npm run test:release -- --rerun-failed` 只复验失败项并合并报告、保留之前尝试；用 `--only=test:settings,test:artifact` 可单独定位。失败不能以旧的通过结果代替。
 
-发版必须包含带版本安装包及固定名 `dsh-claude-beautify.tgz`，并记录 SHA-256。校验工作树、远端提交和下载后的包内容后，更新或提交社区市场条目。市场提交只改本插件的一份 YAML；不要编辑生成的市场 README。
+发版必须包含带版本安装包及固定名 `dsh-ui-beautify.tgz`，并记录 SHA-256。校验工作树、远端提交和下载后的包内容后，更新或提交社区市场条目。市场提交只改本插件的一份 YAML；不要编辑生成的市场 README。
 
 ## 数据与许可
 

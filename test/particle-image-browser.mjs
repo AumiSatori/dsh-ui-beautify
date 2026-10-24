@@ -14,7 +14,7 @@ const fixture=await build({stdin:{contents:`import './test/fixture.jsx';import {
 const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'),'utf8')],'/fixture.js':['text/javascript',fixture.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'),'utf8')]}
 const server=createServer((req,res)=>{const route=routes[req.url];if(!route)return res.writeHead(404).end();res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
-const url=`http://127.0.0.1:${server.address().port}`,key='dsh-claude-beautify:settings:v1',logo=nativeLogo()||{path:'M1 6Q7 1 13 6L22 1V9L17 8Q13 18 5 14Q1 11 1 6Z',width:24,height:18}
+const url=`http://127.0.0.1:${server.address().port}`,key='dsh-ui-beautify:settings:v1',logo=nativeLogo()||{path:'M1 6Q7 1 13 6L22 1V9L17 8Q13 18 5 14Q1 11 1 6Z',width:24,height:18}
 const browser=await chromium.launch({headless:true,channel:'chrome'}),context=await browser.newContext({viewport:{width:1400,height:1000}}),page=await context.newPage(),errors=[],external=[]
 page.on('pageerror',e=>errors.push(e.message));page.on('request',request=>{if(/^https?:/.test(request.url())&&!request.url().startsWith(url))external.push(request.url())})
 const saved=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key)

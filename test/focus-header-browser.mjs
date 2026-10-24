@@ -40,7 +40,7 @@ body[data-ds-dark-theme] #root{color:inherit;background:transparent}
 const routes={'/':['text/html; charset=utf-8',html],'/demo.js':['text/javascript',built.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'),'utf8')]}
 const server=createServer((req,res)=>{const route=routes[req.url];if(!route)return res.writeHead(404).end();res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
-const browser=await chromium.launch({headless:true,channel:'chrome'}),page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[],key='dsh-claude-beautify:settings:v1',checks=[]
+const browser=await chromium.launch({headless:true,channel:'chrome'}),page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[],key='dsh-ui-beautify:settings:v1',checks=[]
 page.on('pageerror',e=>errors.push(e.message))
 const focus=page.locator('.dcb-focus-toggle'),header=page.locator('.cr_header'),tabs=page.locator('[data-conversation-tabs]')
 const idle=()=>page.waitForFunction(()=>!document.getAnimations().some(a=>a.id.startsWith('dcb-focus-')))
@@ -69,7 +69,7 @@ try{
   for(const width of[2560,1440,820,390]){
    await page.setViewportSize({width,height:900});await page.waitForTimeout(120)
    const before=await header.boundingBox(),originalTabs=await tabs.boundingBox()
-   await page.evaluate(()=>{window.savedFocusDraft=document.querySelector('textarea');window.savedFocusPreferences=localStorage.getItem('dsh-claude-beautify:settings:v1')})
+   await page.evaluate(()=>{window.savedFocusDraft=document.querySelector('textarea');window.savedFocusPreferences=localStorage.getItem('dsh-ui-beautify:settings:v1')})
    if(width===1440)await toggle();else{await focus.click();await idle()}
    const compact=await header.boundingBox(),compactTabs=await tabs.boundingBox(),button=await focus.boundingBox(),content=await page.locator('[data-conversation-content]').boundingBox()
    const flow=await page.locator('[data-chat-flow]').boundingBox()
@@ -107,7 +107,7 @@ try{
    await expect(page.locator('.cr_titleCluster')).toBeVisible()
    assert.equal(await header.evaluate(el=>el.style.getPropertyValue('--dcb-focus-content-left')),'','Focus-only alignment is released on exit')
    assert.ok(Math.abs((await header.boundingBox()).height-before.height)<1,'Leaving restores the native title and header height')
-   assert.equal(await page.evaluate(()=>document.querySelector('textarea')===window.savedFocusDraft&&localStorage.getItem('dsh-claude-beautify:settings:v1')===window.savedFocusPreferences),true)
+   assert.equal(await page.evaluate(()=>document.querySelector('textarea')===window.savedFocusDraft&&localStorage.getItem('dsh-ui-beautify:settings:v1')===window.savedFocusPreferences),true)
    checks.push({centered,width,height:compact.height,originalHeight:before.height});console.log('PASS compact focus header '+width+' centered='+centered)
   }
  }

@@ -53,7 +53,7 @@ const html=`<!doctype html><html data-windows-titlebar><meta charset="utf-8"><st
 const routes={'/':['text/html; charset=utf-8',html],'/demo.js':['text/javascript',built.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(process.env.DSH_CLAUDE_CLIENT_FILE||resolve(project,'client.js'),'utf8')]}
 const server=createServer((req,res)=>{const route=routes[new URL(req.url,'http://localhost').pathname];if(!route)return res.writeHead(404).end();res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
-const url=`http://127.0.0.1:${server.address().port}`,key='dsh-claude-beautify:settings:v1',browser=await chromium.launch({headless:true,channel:'chrome'}),context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[],checks=[]
+const url=`http://127.0.0.1:${server.address().port}`,key='dsh-ui-beautify:settings:v1',browser=await chromium.launch({headless:true,channel:'chrome'}),context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[],checks=[]
 page.on('pageerror',error=>errors.push(error.message))
 async function mount(overlay=true){
  await page.goto(url);await page.locator('.sb_toggle').waitFor();await page.evaluate(installLogoFixture,logo)

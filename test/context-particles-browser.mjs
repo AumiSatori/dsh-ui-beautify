@@ -17,7 +17,7 @@ const fixture=await build({entryPoints:[resolve(project,'test/fixture.jsx')],bun
 const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'),'utf8')],'/fixture.js':['text/javascript',fixture.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'),'utf8')]}
 const server=createServer((req,res)=>{const route=routes[new URL(req.url,'http://localhost').pathname];if(!route){res.writeHead(404).end();return}res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
-const url=`http://127.0.0.1:${server.address().port}`,key='dsh-claude-beautify:settings:v1',logo=nativeLogo()||{path:'M1 6Q7 1 13 6L22 1V9L17 8Q13 18 5 14Q1 11 1 6Z',width:24,height:18},native=nativeHeaderFixture()
+const url=`http://127.0.0.1:${server.address().port}`,key='dsh-ui-beautify:settings:v1',logo=nativeLogo()||{path:'M1 6Q7 1 13 6L22 1V9L17 8Q13 18 5 14Q1 11 1 6Z',width:24,height:18},native=nativeHeaderFixture()
 if(native){const occupancy=vm.runInNewContext(native.contextOccupancy+';contextOccupancy');for(const input of[{}, {projectedTokens:0,pressureTokens:900,contextWindow:1000},{projectedTokens:355,contextWindow:1000},{pressureTokens:755,contextWindow:1000},{projectedTokens:1500,contextWindow:1000}])assert.equal(particleOccupancy(input),occupancy(input)?.percent??null)}
 const browser=await chromium.launch({headless:true,channel:'chrome'}),context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[],external=[],checks=[]
 page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/^https?:/.test(r.url())&&!r.url().startsWith(url))external.push(r.url())})

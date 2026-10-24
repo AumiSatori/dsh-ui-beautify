@@ -16,7 +16,7 @@ await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'})
 const context=await browser.newContext({viewport:{width:1200,height:900}}),page=await context.newPage(),errors=[]
 page.on('pageerror',error=>errors.push(error.message))
-const url=`http://127.0.0.1:${server.address().port}`,key='dsh-claude-beautify:settings:v1'
+const url=`http://127.0.0.1:${server.address().port}`,key='dsh-ui-beautify:settings:v1'
 const card=page.getByTestId('dcb-summary'),toggle=card.locator('.dcb-skill-summary'),details=card.getByRole('group',{name:'技能明细',includeHidden:true})
 const events=(names=['browser-ops','browser-skill'])=>{
  let seq=0

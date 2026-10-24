@@ -110,7 +110,7 @@ try{
     assert.equal(await page.getByRole('radio',{name:'鲸鱼娘与艺术字',exact:true}).count(),0)
     await page.getByRole('switch',{name:'分隔装饰动效',exact:true}).click()
     await page.getByText('CSS 自定义',{exact:true}).click();await page.getByRole('textbox',{name:'分隔装饰 CSS',exact:true}).fill('.brand { color: #b78bd2; }');await page.getByRole('button',{name:'应用 CSS',exact:true}).click();await tick()
-    const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))
+    const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('dsh-ui-beautify:settings:v1')))
     assert.equal(saved.turnDividerPreset,'whale');assert.equal(saved.turnDividerMotion,false);assert.equal(saved.turnDividerCss,'.brand { color: #b78bd2; }')
     assert.equal(await page.getByRole('button',{name:'导入自己的动图',exact:true}).count(),1)
     await page.screenshot({path:resolve(output,'divider-settings-light.png')})

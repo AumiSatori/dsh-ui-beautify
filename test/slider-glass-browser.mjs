@@ -17,7 +17,7 @@ const server=createServer((req,res)=>{const route=routes[req.url.split('?')[0]];
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'}),page=await browser.newPage({viewport:{width:1200,height:950}}),errors=[]
 page.on('pageerror',error=>errors.push(error.message))
-const url=`http://127.0.0.1:${server.address().port}/?composer=interactive`,key='dsh-claude-beautify:settings:v1'
+const url=`http://127.0.0.1:${server.address().port}/?composer=interactive`,key='dsh-ui-beautify:settings:v1'
 const model=page.locator('.dcs-root .dcs-model-trigger'),menu=page.locator('.dcs-root .dcs-model-menu'),input=page.getByRole('textbox',{name:'合成消息输入'})
 async function settled(){await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))))}
 async function patch(value){await page.evaluate(({key,value})=>{const next=JSON.stringify({...JSON.parse(localStorage.getItem(key)||'{}'),...value});localStorage.setItem(key,next);dispatchEvent(new StorageEvent('storage',{key,newValue:next}))},{key,value});await settled()}
@@ -29,7 +29,7 @@ try{
  await page.goto(url);await page.getByTestId('todo-panel').waitFor()
  await page.evaluate(()=>{
   window.cleanups=[];window.registrations={};window.sliderSelections=[];window.sliderLoads=0
-  localStorage.setItem('dsh-claude-beautify:settings:v1',JSON.stringify({welcomeEnabled:false}))
+  localStorage.setItem('dsh-ui-beautify:settings:v1',JSON.stringify({welcomeEnabled:false}))
   window.__ModuleLoader__={load(spec){window.registrations[spec.id]=spec.factory(name=>name==='@deepseek-ai/dsh-client-ui-primitives'?{FishLogo:()=>null}:window.fixtureReact)}}
  })
  await page.addScriptTag({url:new URL('/slider.js',url).href})
@@ -46,7 +46,7 @@ try{
  await page.addScriptTag({url:new URL('/client.js',url).href})
  await page.evaluate(()=>{
   const ctx={slots:{inject(_name,cb){cb()},register(spec,Component){if(spec.name==='settings.section')window.fixtureSettings=Component;else{window.fixtureHeader=Component;window.fixtureHeaderSpec=spec}return()=>{}}},sessions:{binding:id=>window.fixtureBinding(id)},sidebarRight:{openResource(){}},effect(cb){window.cleanups.push(cb())},inject(_names,cb){cb(ctx)}}
-  window.registrations['dsh-claude-beautify'].apply(ctx);window.fixture.refresh()
+  window.registrations['dsh-ui-beautify'].apply(ctx);window.fixture.refresh()
  });await settled()
  await check('the actual Claude Slider trigger receives glass without native model classes, ARIA links or changes to its layout',async()=>{
   assert.equal(await model.getAttribute('aria-controls'),null);assert.equal(await model.locator('[data-model-id]').count(),0)

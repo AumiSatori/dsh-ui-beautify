@@ -1,8 +1,8 @@
-# UI动效美化
+# dsh-UI美化
 
 为 DeepSeek Harness 提供独立的任务面板、输入栏与侧栏材质，以及背景、主题切换和对话动效。各区域分别配置，默认样式排在材质选项最前面。
 
-设置入口：**设置 → UI动效美化**。仓库名为 `dsh-ui-beautify`；内部包名仍为 `dsh-claude-beautify`，用于兼容已有安装、插件标识和本机偏好。代码 MIT；可选鲸鱼娘素材为 CC BY-NC-SA 4.0，详见许可说明。
+设置入口：**设置 → dsh-UI美化**。仓库、包名和插件标识统一为 `dsh-ui-beautify`；旧版 `dsh-claude-beautify` 的本机偏好会自动迁移。代码 MIT；可选鲸鱼娘素材为 CC BY-NC-SA 4.0，详见许可说明。
 
 [功能详解](docs/FEATURES.md) · [交付与兼容](docs/DELIVERY.md) · [更新记录](CHANGELOG.md) · [安装](#安装与更新) · [来源与许可](THIRD_PARTY_NOTICES.md)
 
@@ -40,12 +40,12 @@
 
 需要 **Node.js 22.13+**，宿主范围为 **DSH `>=0.2.1-rc.2 <0.3.0-0`**。本机实际回归版本是应用归档内的 DSH 0.2.1-rc.2，桌面外壳版本与其不同。运行时使用宿主提供的 React 和服务；构建、测试依赖仅供开发使用。
 
-**普通安装**：从本仓库 [最新 Release](https://github.com/AumiSatori/dsh-ui-beautify/releases/latest) 获取预构建包 `dsh-claude-beautify.tgz`，在 DSH 插件页按 URL 安装。插件市场的收录以社区目录审核合并为准。包内已有客户端，不需要在使用者机器上构建，也不要求安装配套插件。
+**普通安装**：从本仓库 [最新 Release](https://github.com/AumiSatori/dsh-ui-beautify/releases/latest) 获取预构建包 `dsh-ui-beautify.tgz`，在 DSH 插件页按 URL 安装。插件市场的收录以社区目录审核合并为准。包内已有客户端，不需要在使用者机器上构建，也不要求安装配套插件。
 
 Web profile 也可执行：
 
 ```sh
-dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/releases/latest/download/dsh-claude-beautify.tgz
+dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/releases/latest/download/dsh-ui-beautify.tgz
 ```
 
 **开发者源码链接安装**：在长期保留的源码目录克隆仓库，然后进入该目录：
@@ -59,7 +59,7 @@ node scripts/profile.mjs check --profile desktop
 
 默认 DSH 用户目录为 `~/.dsh`，可通过 `DSH_HOME` 指定其他目录；`--profile` 指向已有 profile。市场包和源码链接请选择一种方式，不要重复登记。
 
-安装器登记 `link:` 依赖、锁文件和 bundle，并建立源码链接；遇到目录被占用、重复加载或未知锁文件结构会保留现场并停止。安装前备份位置见下文。
+安装器登记 `link:` 依赖、锁文件和 bundle，并建立源码链接；遇到目录被占用、重复加载或未知锁文件结构会保留现场并停止。安装前备份位置见下文。旧版源码链接可直接重新运行安装器：只迁移指向本源码的旧链接、依赖与 bundle，其他安装保持原样。旧版市场包请先在插件管理器移除，再安装新名包，避免两个版本同时加载；移除登记不清除本机偏好与素材。
 
 - **首次安装或卸载**：等当前任务结束，完全退出 DSH，包括托盘，再启动。
 - **更新已有链接版**：在源码目录执行 `git pull --ff-only`，再运行安装检查。只有客户端内容变化时，DSH 窗口按 **Ctrl+R** 即可。
@@ -68,7 +68,7 @@ node scripts/profile.mjs check --profile desktop
 
 ## 内置 Artifact 预览
 
-Artifact 预览与任务卡片是一套功能，随 **设置 → UI动效美化 → 任务面板 → 右上角任务面板** 一起启用。所有卡片材质均可使用，从卡片的“输出”点击文件，在右侧覆盖阅读，不挤压聊天。支持预览、源码、刷新和“用 DSH 打开”；图片直接查看，CSV 显示前 500 行。输出只来自当前所选轮次记录的交付文件，不自动扫描聊天正文或磁盘。旧版独立开关的选择不再限制预览。
+Artifact 预览与任务卡片是一套功能，随 **设置 → dsh-UI美化 → 任务面板 → 右上角任务面板** 一起启用。所有卡片材质均可使用，从卡片的“输出”点击文件，在右侧覆盖阅读，不挤压聊天。支持预览、源码、刷新和“用 DSH 打开”；图片直接查看，CSV 显示前 500 行。输出只来自当前所选轮次记录的交付文件，不自动扫描聊天正文或磁盘。旧版独立开关的选择不再限制预览。
 
 HTML 支持单文件内的样式和脚本交互；外部脚本、网络请求及相邻文件依赖暂不加载，这类页面可选择“用 DSH 打开”。文字预览上限 2 MB、图片 8 MB；最近三个 HTML 可显示静态封面，封面上限 512 KB。读取失败会显示重试和原生打开入口。不支持的文件仍交给 DSH。
 
@@ -95,7 +95,7 @@ HTML 支持单文件内的样式和脚本交互；外部脚本、网络请求及
 
 ## 用户消息气泡与 CSS
 
-在 **设置 → UI动效美化 → 对话动效 → 用户消息气泡** 选择样式，默认恢复原始外观。QQ 蓝使用渐变与小尾巴，奶油便签和透明玻璃分别跟随日夜主题；玻璃有背景模糊开销，其余内置例子是静态样式。这里调整的是发送后的提问气泡，底部输入框继续在“输入栏”配置。
+在 **设置 → dsh-UI美化 → 对话动效 → 用户消息气泡** 选择样式，默认恢复原始外观。QQ 蓝使用渐变与小尾巴，奶油便签和透明玻璃分别跟随日夜主题；玻璃有背景模糊开销，其余内置例子是静态样式。这里调整的是发送后的提问气泡，底部输入框继续在“输入栏”配置。
 
 选择 **自定义 CSS** 后可载入 QQ、便签或玻璃的完整例子。草稿先在设置页预览，点 **保存气泡 CSS** 后应用到聊天；切回默认会保留已保存的代码。简单例子：
 
@@ -133,7 +133,7 @@ CSS 编辑器点击“应用 CSS”后保存，点击“清空 CSS”恢复内�
 
 | 内容 | 保存位置与范围 |
 | --- | --- |
-| 材质、布局、动效、面板栏目、粒子与媒体选择 | 当前浏览器来源的 `localStorage["dsh-claude-beautify:settings:v1"]`，经过白名单校验。 |
+| 材质、布局、动效、面板栏目、粒子与媒体选择 | 当前浏览器来源的 `localStorage["dsh-ui-beautify:settings:v1"]`，经过白名单校验。 |
 | 最后打开的美化设置分类 | `localStorage["dsh-ui-beautify:settings-tab:v1"]`，只保存分类 ID。 |
 | 背景、开屏媒体、分隔图片、粒子图片与 SVG | 当前浏览器来源的 IndexedDB，原文件留在本机；设置中只记录选择信息和修订号。 |
 | 任务、输出与工具摘要 | 从宿主已加载的会话投影和事件读取，临时状态留在页面内存。 |
@@ -141,7 +141,7 @@ CSS 编辑器点击“应用 CSS”后保存，点击“清空 CSS”恢复内�
 
 本插件不把展示偏好或本机素材上传到服务器，不另存聊天副本。不同设备、浏览器、站点地址或来源不会自动共享这些数据；清除站点数据会同时清除对应偏好和素材，请保留需要再次导入的原文件。
 
-首次安装的 profile 备份默认位于安装器解析的 `data/dsh-claude-beautify/install-backups/`，可通过 `DSH_CLAUDE_DATA_DIR` 更改。运行配置、备份、截图和测试输出不入仓库。
+首次安装的 profile 备份默认位于`DSH_HOME/data/dsh-ui-beautify/install-backups/`（默认 `~/.dsh/data/dsh-ui-beautify/install-backups/`），可通过 `DSH_UI_DATA_DIR` 更改；旧环境变量 `DSH_CLAUDE_DATA_DIR` 仍兼容。运行配置、备份、截图和测试输出不入仓库。
 
 ## 常见问题
 

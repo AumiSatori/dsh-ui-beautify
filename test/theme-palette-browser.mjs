@@ -29,7 +29,7 @@ const page = await browser.newPage({ viewport: { width: 1000, height: 950 }, dev
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 const card = page.getByTestId('dcb-summary')
-const key = 'dsh-claude-beautify:settings:v1'
+const key = 'dsh-ui-beautify:settings:v1'
 const labels = { clear: '透明玻璃', css: '轻量玻璃', glass: '毛玻璃', milk: '默认' }
 const todos = [
   { content: '确认界面与主题需求', status: 'completed' },

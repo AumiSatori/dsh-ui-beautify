@@ -846,7 +846,7 @@ try {
     assert.equal(await card.getAttribute('data-state'), 'open', 'Module controls stay inside the panel')
     await card.getByRole('button', { name: '进度', exact: true }).click()
     await settled()
-    const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
+    const stored = await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1'))
     await page.locator('article h1').click()
     assert.equal(await card.getAttribute('data-state'), 'closing', 'Clicking the chat begins the existing exit animation')
     assert.equal(await entry.getAttribute('aria-expanded'), 'false')
@@ -901,7 +901,7 @@ try {
       await page.emulateMedia({ reducedMotion: 'no-preference' })
       await page.evaluate(() => window.fixture.running(false))
       await settled()
-      assert.equal(await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1')), stored, 'Outside dismissal preserves module preferences')
+      assert.equal(await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1')), stored, 'Outside dismissal preserves module preferences')
     } finally { await page.evaluate(() => document.getElementById('fixture-outside-control')?.remove()) }
     await entry.click()
     await settled()
@@ -998,7 +998,7 @@ try {
     await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
     await settled()
     assert.ok(await card.isVisible())
-    const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
+    const stored = await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1'))
     assert.ok(!stored.includes('Character') && !stored.includes('Animation'))
   })
   await check('module choices survive reopening and reload, synchronize across windows, and persist no task data', async () => {
@@ -1024,7 +1024,7 @@ try {
     await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
     await settled()
     assert.deepEqual(await toggles(card), ['false', 'false', 'true'], 'A fresh plugin instance restores the saved folds')
-    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-ui-beautify:settings:v1')))
     assert.deepEqual(Object.keys(stored).sort(), presentationSettingKeys)
     assert.deepEqual(stored.modules, { progress: false, outputs: false, resources: true })
     const other = await page.context().newPage()
@@ -1101,7 +1101,7 @@ try {
     await card.getByRole('button', { name: '3 个后续步骤' }).click()
     await settled()
     await card.screenshot({ path: resolve(output, 'summary-steps-future-expanded.png') })
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')).progressView)
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-ui-beautify:settings:v1')).progressView)
     assert.deepEqual(saved, { count: 2, previous: false, future: true })
     await page.reload()
     await mountPlugin()
@@ -1122,7 +1122,7 @@ try {
     await settled()
     assert.equal(await card.getByRole('listitem').count(), 6, 'Previous and future choices each survive a fresh plugin instance')
     assert.equal(await card.getByRole('button', { name: '3 个后续步骤' }).getAttribute('aria-expanded'), 'false')
-    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))
+    const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-ui-beautify:settings:v1')))
     assert.deepEqual(stored.progressView, { count: 2, previous: true, future: false })
     assert.equal(JSON.stringify(stored).includes('任务步骤'), false)
   })
@@ -1132,7 +1132,7 @@ try {
     await settled()
   }
   await check('step handoffs roll through clipped intermediate frames, supersede stale rolls and cancel when hidden or motion is reduced', async () => {
-    await page.evaluate(() => localStorage.removeItem('dsh-claude-beautify:settings:v1'))
+    await page.evaluate(() => localStorage.removeItem('dsh-ui-beautify:settings:v1'))
     await page.reload()
     await mountPlugin()
     await page.evaluate(tasks => { window.fixture.running(true); window.fixture.update(tasks) }, rollingTasks(2))
@@ -1201,7 +1201,7 @@ try {
     await page.evaluate(tasks => window.fixture.update(tasks), rollingTasks(4))
     await settled()
     const viewport = card.getByRole('group', { name: '任务步骤，可上下滚动查看' })
-    const saved = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
+    const saved = await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1'))
     await viewport.hover()
     await page.mouse.wheel(0, -300)
     await page.waitForFunction(() => document.querySelector('.dcb-step-window > ol').start === 1)
@@ -1239,7 +1239,7 @@ try {
     assert.deepEqual(await viewport.getByRole('listitem').allTextContents(), ['交接步骤 6', '交接步骤 7', '交接步骤 8'], 'A real downward touch gesture browses earlier tasks')
     await page.keyboard.press('ArrowUp')
     await settled()
-    assert.equal(await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1')), saved, 'Browsing never persists task content or overwrites fold preferences')
+    assert.equal(await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1')), saved, 'Browsing never persists task content or overwrites fold preferences')
     await page.evaluate(() => window.fixture.session('b'))
     await settled()
     await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
@@ -1272,7 +1272,7 @@ try {
   await check('native rail selects the viewed turn without closing the card; content and height crossfade through real intermediate frames', async () => {
     await page.evaluate(({ turnRows, livePlan, chatTurns }) => {
       window.fixture.session('a')
-      const key = 'dsh-claude-beautify:settings:v1'
+      const key = 'dsh-ui-beautify:settings:v1'
       const value = JSON.stringify({ enabled: true, width: 320, modules: { progress: true, outputs: true, resources: true }, progressView: { count: 3, previous: false, future: false } })
       localStorage.setItem(key, value)
       window.dispatchEvent(new StorageEvent('storage', { key, newValue: value }))
@@ -1527,7 +1527,7 @@ try {
   await check('the tool-detail choice survives reload and stores only a boolean presentation preference', async () => {
     await toolsToggle().click()
     await settled()
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')).toolDetails), true)
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-ui-beautify:settings:v1')).toolDetails), true)
     await page.reload()
     await mountPlugin()
     await page.evaluate(toolRows => { window.fixture.records(toolRows); window.fixture.update([]); window.fixture.running(true) }, toolRows)
@@ -1543,7 +1543,7 @@ try {
     await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
     await settled()
     assert.equal(await toolsToggle().getAttribute('aria-expanded'), 'false')
-    const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
+    const stored = await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1'))
     assert.equal(JSON.parse(stored).toolDetails, false)
     assert.ok(!/ops_bash|job_output|compact|example-skill/.test(stored), 'Tool names, parameters and resources never enter the preference store')
   })
@@ -1570,7 +1570,7 @@ try {
     await page.evaluate(rows => {
       window.fixture.session('a')
       window.fixtureBinding('a').eventSource.replace(rows)
-      const key = 'dsh-claude-beautify:settings:v1'
+      const key = 'dsh-ui-beautify:settings:v1'
       const settings = JSON.parse(localStorage.getItem(key))
       const value = JSON.stringify({ ...settings, cardStyle: 'milk', modules: { progress: true, outputs: true, resources: true } })
       localStorage.setItem(key, value)
@@ -1687,7 +1687,7 @@ try {
     await settled()
   })
   await check('the selected card material survives reload and synchronizes across windows without persisting chat or file data', async () => {
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')).cardStyle), 'glass')
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-ui-beautify:settings:v1')).cardStyle), 'glass')
     await page.reload()
     await mountPlugin()
     await page.evaluate(rows => window.fixture.records(rows), rows)
@@ -1737,7 +1737,7 @@ try {
     await settled()
     assert.equal(await page.getByRole('radio', { name: '默认', exact: true }).getAttribute('aria-checked'), 'true')
     assert.equal(await card.getAttribute('data-card-style'), 'milk')
-    const stored = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
+    const stored = await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1'))
     assert.equal(JSON.parse(stored).cardStyle, 'milk')
     assert.deepEqual(Object.keys(JSON.parse(stored)).sort(), presentationSettingKeys)
     assert.ok(!/outputs|\.png|\.zip|remotion|Character|sessionId/.test(stored.replace('"outputs":true', '').replace('"outputs":false', '')), 'Only material and other presentation choices are saved')
@@ -1818,7 +1818,7 @@ try {
   })
   const fastViewport = () => card.getByRole('group', { name: '任务步骤，可上下滚动查看' })
   await check('settings material preview restores a card dismissed by opening settings without changing its saved open state', async () => {
-    await page.evaluate(() => localStorage.removeItem('dsh-claude-beautify:settings:v1'))
+    await page.evaluate(() => localStorage.removeItem('dsh-ui-beautify:settings:v1'))
     await page.reload()
     await mountPlugin()
     const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
@@ -1880,7 +1880,7 @@ try {
     await settled()
     assert.equal(await card.count(), 0, 'No-content conversations keep their task card hidden')
     await page.evaluate(() => window.fixture.settings(false))
-    assert.deepEqual(Object.keys(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')))).sort(), presentationSettingKeys)
+    assert.deepEqual(Object.keys(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-ui-beautify:settings:v1')))).sort(), presentationSettingKeys)
   })
 
   if (process.env.DSH_SLIDER_CLIENT) await check('installed original slider keeps its own settings entry and independent theme beside task-panel settings', async () => {
@@ -1902,7 +1902,7 @@ try {
         } },
       })
     })
-    assert.deepEqual(await page.evaluate(() => window.fixtureSettingsEntries), [{ id: 'dsh-claude-beautify', label: 'UI动效美化' }])
+    assert.deepEqual(await page.evaluate(() => window.fixtureSettingsEntries), [{ id: 'dsh-ui-beautify', label: 'dsh-UI美化' }])
     assert.deepEqual(await page.evaluate(() => window.sliderSettingsEntries), ['claude-reasoning-slider'], 'The unmodified slider registers its own settings section')
     assert.equal(await page.evaluate(() => Object.hasOwn(window, '__dsbHostsClaudeSettings')), false)
     assert.equal(await page.evaluate(() => window.fixtureDependencies.includes('dsh-claude-slider')), false)
@@ -1913,7 +1913,7 @@ try {
     await settled()
     await page.getByRole('dialog').screenshot({ path: resolve(output, 'settings-independent-task-panel.png') })
     await card.screenshot({ path: resolve(output, 'summary-style-settings-preview.png'), style: '.settings-dialog { visibility: hidden !important; }' })
-    const before = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
+    const before = await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1'))
     await page.getByRole('button', { name: '关闭设置', exact: true }).click()
     await settled()
     await page.evaluate(() => { window.fixtureSettings = window.installedSliderSettings; window.fixture.refresh() })
@@ -1924,7 +1924,7 @@ try {
       await page.locator('.dcs-theme-mode-card').filter({ has: page.locator('.dcs-theme-card-label', { hasText: mode }) }).click()
       await settled()
       assert.equal(await card.count(), 0, 'Slider theme choices do not start a task-card preview')
-      assert.equal(await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1')), before, 'Slider theme preferences never overwrite task-card preferences')
+      assert.equal(await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1')), before, 'Slider theme preferences never overwrite task-card preferences')
     }
     await page.setViewportSize({ width: 1706, height: 1500 })
     const dialog = page.getByRole('dialog')
@@ -1949,7 +1949,7 @@ try {
   })
 
   await check('tool category icons distinguish the screenshot tools and unknown tools across materials and dark narrow layouts', async () => {
-    await page.evaluate(() => localStorage.removeItem('dsh-claude-beautify:settings:v1'))
+    await page.evaluate(() => localStorage.removeItem('dsh-ui-beautify:settings:v1'))
     await page.reload()
     await mountPlugin()
     const cases = [
@@ -1996,7 +1996,7 @@ try {
     }
     for (const cardStyle of ['milk', 'clear', 'glass']) {
       await page.evaluate(cardStyle => {
-        const key = 'dsh-claude-beautify:settings:v1'
+        const key = 'dsh-ui-beautify:settings:v1'
         const value = JSON.stringify({ ...JSON.parse(localStorage.getItem(key)), cardStyle })
         localStorage.setItem(key, value)
         window.dispatchEvent(new StorageEvent('storage', { key, newValue: value }))
@@ -2053,7 +2053,7 @@ try {
       await page.reload()
       await mountPlugin()
       await page.evaluate(({ dark, material }) => {
-        const key = 'dsh-claude-beautify:settings:v1'
+        const key = 'dsh-ui-beautify:settings:v1'
         const value = JSON.stringify({ enabled: true, cardStyle: material })
         localStorage.setItem(key, value)
         window.dispatchEvent(new StorageEvent('storage', { key, newValue: value }))
@@ -2152,7 +2152,7 @@ try {
   const fastStart = () => card.locator('.dcb-step-window > ol').evaluate(el => el.start - 1)
   const waitFastStart = start => page.waitForFunction(start => document.querySelector('.dcb-step-window > ol')?.start === start + 1, start)
   async function resetFastWheel() {
-    await page.evaluate(() => localStorage.removeItem('dsh-claude-beautify:settings:v1'))
+    await page.evaluate(() => localStorage.removeItem('dsh-ui-beautify:settings:v1'))
     await page.reload()
     await mountPlugin()
     await page.evaluate(tasks => { window.fixture.running(true); window.fixture.update(tasks) }, fastTasks)
@@ -2197,7 +2197,7 @@ try {
   await check('fast wheel bursts merge their full distance in one frame, preserve small deltas and release zoom, horizontal and boundary input', async () => {
     const pitch = await resetFastWheel()
     const initial = await fastStart()
-    const saved = await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1'))
+    const saved = await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1'))
     await page.evaluate(() => { window.pauseStepRolls = true; window.fastRollBaseline = window.stepRolls.length })
     assert.ok((await burstWheel(Array(12).fill(pitch))).every(Boolean))
     await waitFastStart(initial + 12)
@@ -2244,7 +2244,7 @@ try {
     await settled()
     assert.equal(await fastStart(), 0, 'Home cancels the wheel target that was pending in the same frame')
     assert.deepEqual(await burstWheel([-pitch]), [false])
-    assert.equal(await page.evaluate(() => localStorage.getItem('dsh-claude-beautify:settings:v1')), saved)
+    assert.equal(await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1')), saved)
     await fastViewport().screenshot({ path: resolve(output, 'summary-fast-wheel-target.png') })
   })
   await check('fast wheel reversals retain the visible row positions and a single bounded staging strip without blank or flashing frames', async () => {
@@ -2343,11 +2343,11 @@ try {
   })
   async function resetLiquidGlass(tasks = [{ content: '确认液态玻璃折射边缘', status: 'pending' }, { content: '保留清晰的任务文字', status: 'pending' }]) {
     await page.emulateMedia({ reducedMotion: 'reduce', forcedColors: 'none' })
-    await page.evaluate(() => localStorage.removeItem('dsh-claude-beautify:settings:v1'))
+    await page.evaluate(() => localStorage.removeItem('dsh-ui-beautify:settings:v1'))
     await page.reload()
     await mountPlugin()
     await page.evaluate(tasks => {
-      const key = 'dsh-claude-beautify:settings:v1'
+      const key = 'dsh-ui-beautify:settings:v1'
       const value = JSON.stringify({ enabled: true, cardStyle: 'clear', width: 320 })
       localStorage.setItem(key, value)
       window.dispatchEvent(new StorageEvent('storage', { key, newValue: value }))
@@ -2468,7 +2468,7 @@ try {
     const original = await liquidState()
     await page.evaluate(async () => {
       for (const width of [330, 340, 350, 360, 370]) {
-        const key = 'dsh-claude-beautify:settings:v1'
+        const key = 'dsh-ui-beautify:settings:v1'
         const value = JSON.stringify({ ...JSON.parse(localStorage.getItem(key)), width })
         localStorage.setItem(key, value)
         window.dispatchEvent(new StorageEvent('storage', { key, newValue: value }))
@@ -2505,7 +2505,7 @@ try {
       await page.emulateMedia({ reducedMotion: 'reduce', forcedColors: 'none' })
       await page.reload()
       await page.evaluate(failure => {
-        const key = 'dsh-claude-beautify:settings:v1'
+        const key = 'dsh-ui-beautify:settings:v1'
         localStorage.setItem(key, JSON.stringify({ enabled: true, cardStyle: 'clear' }))
         window.liquidFallbackAttempts = 0
         if (failure === 'canvas') HTMLCanvasElement.prototype.getContext = () => { window.liquidFallbackAttempts++; return null }
@@ -2528,7 +2528,7 @@ try {
   })
   await check('automatic plans keep their close-button requirement across completion and session switches without changing manual dismissal', async () => {
     await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'none' })
-    await page.evaluate(() => localStorage.removeItem('dsh-claude-beautify:settings:v1'))
+    await page.evaluate(() => localStorage.removeItem('dsh-ui-beautify:settings:v1'))
     await page.reload()
     await mountPlugin()
     await settled()

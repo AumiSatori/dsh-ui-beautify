@@ -11,7 +11,7 @@ vm.runInNewContext(readFileSync(new URL('../client.js', import.meta.url), 'utf8'
 const exports = registration.factory(() => ({}))
 const { normalize, placement } = exports.__test
 test('registers a client-only plugin with the matching loader id', () => {
-  assert.equal(registration.id, 'dsh-claude-beautify')
+  assert.equal(registration.id, 'dsh-ui-beautify')
   assert.equal(typeof exports.apply, 'function')
 })
 test('independent button glass migrates existing appearance once and preserves explicit choices for every input style', () => {

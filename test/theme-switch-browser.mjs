@@ -134,10 +134,10 @@ try{
   await page.evaluate(()=>window.hostTheme.setTheme('light'));await idle();assert.equal(await button.getAttribute('data-scheme'),'light')
   const other=await context.newPage()
   try{await other.goto(url);await other.evaluate(()=>localStorage.setItem('fixture:host-theme','dark'));await page.waitForFunction(()=>document.querySelector('.dcb-theme-toggle')?.getAttribute('data-scheme')==='dark')}finally{await other.close()}
-  assert.equal(await page.evaluate(()=>Object.keys(localStorage).some(key=>key.startsWith('dsh-claude-beautify')&&/theme/.test(key))),false)
+  assert.equal(await page.evaluate(()=>Object.keys(localStorage).some(key=>key.startsWith('dsh-ui-beautify')&&/theme/.test(key))),false)
  })
  await check('theme switching remains available with an empty session and the task panel disabled',async()=>{
-  await page.evaluate(()=>{window.fixture.update([]);const key='dsh-claude-beautify:settings:v1',newValue=JSON.stringify({enabled:false});localStorage.setItem(key,newValue);window.dispatchEvent(new StorageEvent('storage',{key,newValue}))})
+  await page.evaluate(()=>{window.fixture.update([]);const key='dsh-ui-beautify:settings:v1',newValue=JSON.stringify({enabled:false});localStorage.setItem(key,newValue);window.dispatchEvent(new StorageEvent('storage',{key,newValue}))})
   await page.waitForFunction(()=>!document.querySelector('.dcb-entry'));assert.equal(await button.count(),1)
   await button.click();await idle();assert.equal(await button.getAttribute('data-scheme'),'light');await button.click();await idle();assert.equal(await button.getAttribute('data-scheme'),'dark')
  })

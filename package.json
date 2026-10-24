@@ -1,14 +1,23 @@
 {
-  "name": "dsh-claude-beautify",
-  "displayName": "UI动效美化",
-  "version": "0.3.70",
+  "name": "dsh-ui-beautify",
+  "displayName": "dsh-UI美化",
+  "version": "0.3.71",
   "type": "module",
   "description": "DSH UI appearance settings: glass surfaces, task and Artifact cards, custom message bubbles, backgrounds, particles and focus mode. 界面材质、任务与产物卡片、消息气泡和背景动效。",
   "author": "AumiSatori",
   "homepage": "https://github.com/AumiSatori/dsh-ui-beautify#readme",
   "bugs": "https://github.com/AumiSatori/dsh-ui-beautify/issues",
   "icon": "./assets/icon.svg",
-  "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "ui", "theme", "liquid-glass", "artifact", "particles"],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "ui",
+    "theme",
+    "liquid-glass",
+    "artifact",
+    "particles"
+  ],
   "license": "MIT",
   "main": "index.js",
   "exports": {
@@ -33,7 +42,7 @@
     "vendor/lens/LICENSE",
     "docs/FEATURES.md",
     "docs/DELIVERY.md",
-    "docs/validation-0.3.70.json",
+    "docs/validation-0.3.71.json",
     "CHANGELOG.md"
   ],
   "scripts": {

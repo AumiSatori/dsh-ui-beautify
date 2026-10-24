@@ -68,7 +68,7 @@ async function boot({mode='native',rows=600}={}){
     await page.addScriptTag({content:reactBundle.outputFiles[0].text})
     await page.evaluate(()=>{
       window[Symbol.for('dsh-ui-beautify.startup-motion.v1')]=true;window.cleanups=[]
-      localStorage.setItem('dsh-claude-beautify:settings:v1',JSON.stringify({sidebarOverlay:false}))
+      localStorage.setItem('dsh-ui-beautify:settings:v1',JSON.stringify({sidebarOverlay:false}))
       window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(()=>window.layoutTestReact)}
     })
     await page.addScriptTag({content:readFileSync(resolve(project,'client.js'),'utf8')})

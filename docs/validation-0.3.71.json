@@ -1,0 +1,238 @@
+{
+  "version": "0.3.71",
+  "testedAt": "2026-10-24T05:41:58.072Z",
+  "host": {
+    "dsh": "0.2.1-rc.2",
+    "platform": "Windows",
+    "browser": "Chrome (headless)"
+  },
+  "clientSha256": "4356035c87c4ec48b79197b60fea038ad1521d79f996552f352090a351108baf",
+  "suites": 37,
+  "passed": 37,
+  "failed": 0,
+  "namedChecks": 445,
+  "results": [
+    {
+      "name": "test",
+      "passed": true,
+      "namedChecks": 57,
+      "elapsedMs": 3973
+    },
+    {
+      "name": "test:browser",
+      "passed": true,
+      "namedChecks": 16,
+      "elapsedMs": 7816
+    },
+    {
+      "name": "test:summary",
+      "passed": true,
+      "namedChecks": 48,
+      "elapsedMs": 158616
+    },
+    {
+      "name": "test:progress-liquid",
+      "passed": true,
+      "namedChecks": 9,
+      "elapsedMs": 8419
+    },
+    {
+      "name": "test:skills",
+      "passed": true,
+      "namedChecks": 8,
+      "elapsedMs": 16578
+    },
+    {
+      "name": "test:scope",
+      "passed": true,
+      "namedChecks": 13,
+      "elapsedMs": 42061
+    },
+    {
+      "name": "test:artifact",
+      "passed": true,
+      "namedChecks": 16,
+      "elapsedMs": 47464
+    },
+    {
+      "name": "test:materials",
+      "passed": true,
+      "namedChecks": 13,
+      "elapsedMs": 34452
+    },
+    {
+      "name": "test:theme-palette",
+      "passed": true,
+      "namedChecks": 18,
+      "elapsedMs": 11880
+    },
+    {
+      "name": "test:theme-switch",
+      "passed": true,
+      "namedChecks": 13,
+      "elapsedMs": 11265
+    },
+    {
+      "name": "test:focus",
+      "passed": true,
+      "namedChecks": 10,
+      "elapsedMs": 18833
+    },
+    {
+      "name": "test:focus-header",
+      "passed": true,
+      "namedChecks": 8,
+      "elapsedMs": 11327
+    },
+    {
+      "name": "test:focus-performance",
+      "passed": true,
+      "namedChecks": 0,
+      "elapsedMs": 11337
+    },
+    {
+      "name": "test:startup",
+      "passed": true,
+      "namedChecks": 19,
+      "elapsedMs": 13591
+    },
+    {
+      "name": "test:welcome",
+      "passed": true,
+      "namedChecks": 7,
+      "elapsedMs": 10957
+    },
+    {
+      "name": "test:welcome-media",
+      "passed": true,
+      "namedChecks": 9,
+      "elapsedMs": 25155
+    },
+    {
+      "name": "test:settings",
+      "passed": true,
+      "namedChecks": 12,
+      "elapsedMs": 41110
+    },
+    {
+      "name": "test:background",
+      "passed": true,
+      "namedChecks": 12,
+      "elapsedMs": 11863
+    },
+    {
+      "name": "test:background-theme",
+      "passed": true,
+      "namedChecks": 7,
+      "elapsedMs": 20992
+    },
+    {
+      "name": "test:tabs",
+      "passed": true,
+      "namedChecks": 22,
+      "elapsedMs": 5477
+    },
+    {
+      "name": "test:composer",
+      "passed": true,
+      "namedChecks": 19,
+      "elapsedMs": 64825
+    },
+    {
+      "name": "test:slider-glass",
+      "passed": true,
+      "namedChecks": 5,
+      "elapsedMs": 8884
+    },
+    {
+      "name": "test:performance",
+      "passed": true,
+      "namedChecks": 4,
+      "elapsedMs": 5064
+    },
+    {
+      "name": "test:particle-performance",
+      "passed": true,
+      "namedChecks": 0,
+      "elapsedMs": 19103
+    },
+    {
+      "name": "test:reading-performance",
+      "passed": true,
+      "namedChecks": 0,
+      "elapsedMs": 1329
+    },
+    {
+      "name": "test:sidebar",
+      "passed": true,
+      "namedChecks": 13,
+      "elapsedMs": 68604
+    },
+    {
+      "name": "test:sidebar-layout",
+      "passed": true,
+      "namedChecks": 1,
+      "elapsedMs": 26786
+    },
+    {
+      "name": "test:sidebar-overlay",
+      "passed": true,
+      "namedChecks": 10,
+      "elapsedMs": 28418
+    },
+    {
+      "name": "test:messages",
+      "passed": true,
+      "namedChecks": 15,
+      "elapsedMs": 6070
+    },
+    {
+      "name": "test:user-bubbles",
+      "passed": true,
+      "namedChecks": 7,
+      "elapsedMs": 4496
+    },
+    {
+      "name": "test:turn-cards",
+      "passed": true,
+      "namedChecks": 22,
+      "elapsedMs": 12533
+    },
+    {
+      "name": "test:turn-divider",
+      "passed": true,
+      "namedChecks": 7,
+      "elapsedMs": 6601
+    },
+    {
+      "name": "test:context-particles",
+      "passed": true,
+      "namedChecks": 9,
+      "elapsedMs": 32770
+    },
+    {
+      "name": "test:particle-conversion",
+      "passed": true,
+      "namedChecks": 4,
+      "elapsedMs": 25552
+    },
+    {
+      "name": "test:whale-particles",
+      "passed": true,
+      "namedChecks": 0,
+      "elapsedMs": 26100
+    },
+    {
+      "name": "test:header-project",
+      "passed": true,
+      "namedChecks": 5,
+      "elapsedMs": 2438
+    },
+    {
+      "name": "test:particle-images",
+      "passed": true,
+      "namedChecks": 7,
+      "elapsedMs": 22335
+    }
+  ]
+}

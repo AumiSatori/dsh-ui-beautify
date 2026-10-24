@@ -33,7 +33,7 @@ const server=createServer((req,res)=>{const route=routes[req.url];if(!route)retu
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'}),page=await browser.newPage({viewport:{width:1440,height:1050}}),url=`http://127.0.0.1:${server.address().port}`,errors=[],requests=[]
 page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>{if(!request.url().startsWith(url))requests.push(request.url())})
-const key='dsh-claude-beautify:settings:v1',bubble=page.locator('[data-chat-flow-kind=user] [class$=_bubble]'),dialog=page.getByRole('dialog')
+const key='dsh-ui-beautify:settings:v1',bubble=page.locator('[data-chat-flow-kind=user] [class$=_bubble]'),dialog=page.getByRole('dialog')
 const settled=async()=>{await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))))}
 async function boot(preserve=false){
  await page.goto(url);await page.getByTestId('todo-panel').waitFor();await page.addStyleTag({content:nativeCss+' :root{--dsw-specific-bubble:#edf2fb;--dsw-alias-label-primary:#252a32;--dsw-radius-xl:16px} body[data-ds-dark-theme]{--dsw-alias-label-primary:#eee;--dsw-alias-label-secondary:#bbb;--dsw-alias-bg-layer-1:#25252b;--dsw-alias-bg-layer-2:#303038} .settings-dialog{inset:35px 12%;padding:24px} #bubble-fixture{padding:22px} #bubble-fixture>article{margin:18px 0}'});
@@ -69,7 +69,7 @@ try{
  await check('cream and glass examples follow DSH themes and fit narrow settings',async()=>{
   for(const name of['奶油便签','透明玻璃']){
    await choose(name);await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'));const light=await bubble.evaluate(el=>getComputedStyle(el).backgroundColor)
-   await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''));assert.notEqual(await bubble.evaluate(el=>getComputedStyle(el).backgroundColor),light,JSON.stringify(await page.evaluate(()=>({prefs:JSON.parse(localStorage.getItem('dsh-claude-beautify:settings:v1')),style:document.querySelector('style[data-dcb-user-bubbles]').textContent,variable:getComputedStyle(nativeBubble).getPropertyValue('--bubble-cream')}))))
+   await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''));assert.notEqual(await bubble.evaluate(el=>getComputedStyle(el).backgroundColor),light,JSON.stringify(await page.evaluate(()=>({prefs:JSON.parse(localStorage.getItem('dsh-ui-beautify:settings:v1')),style:document.querySelector('style[data-dcb-user-bubbles]').textContent,variable:getComputedStyle(nativeBubble).getPropertyValue('--bubble-cream')}))))
    assert.equal(await bubble.evaluate(el=>getComputedStyle(el).color),'rgb(242, 244, 249)')
   }
   await page.setViewportSize({width:520,height:1000});await page.addStyleTag({content:'.settings-dialog{inset:20px 12px;padding:12px}'});assert.equal(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1),true)

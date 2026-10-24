@@ -29,7 +29,7 @@ const page = await browser.newPage({ viewport: { width: 1000, height: 720 }, dev
 const errors = []
 page.on('pageerror', error => errors.push(error.message))
 const card = page.getByTestId('dcb-summary')
-const key = 'dsh-claude-beautify:settings:v1'
+const key = 'dsh-ui-beautify:settings:v1'
 const labels = { clear: '透明玻璃', css: '轻量玻璃', glass: '毛玻璃', milk: '默认' }
 const records = [
   { event: { type: 'tool/call', seq: 1, data: { callId: 'synthetic-command', name: 'exec_command', arguments: '{"command":"synthetic preview"}' } } },

@@ -1,10 +1,14 @@
 {
   "name": "dsh-claude-beautify",
   "displayName": "UI动效美化",
-  "version": "0.3.69",
-  "private": true,
+  "version": "0.3.70",
   "type": "module",
-  "description": "UI动效美化：独立配置左侧栏、任务卡片与输入栏的玻璃样式、进度与切换动效。",
+  "description": "DSH UI appearance settings: glass surfaces, task and Artifact cards, custom message bubbles, backgrounds, particles and focus mode. 界面材质、任务与产物卡片、消息气泡和背景动效。",
+  "author": "AumiSatori",
+  "homepage": "https://github.com/AumiSatori/dsh-ui-beautify#readme",
+  "bugs": "https://github.com/AumiSatori/dsh-ui-beautify/issues",
+  "icon": "./assets/icon.svg",
+  "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "ui", "theme", "liquid-glass", "artifact", "particles"],
   "license": "MIT",
   "main": "index.js",
   "exports": {
@@ -21,16 +25,23 @@
     "scripts/desktop-startup-feedback.mjs",
     "assets/CONTEXT-WHALE-LICENSE.md",
     "assets/TURN-DIVIDER-ART.md",
+    "assets/icon.svg",
+    "assets/icon.png",
     "README.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
     "vendor/lens/LICENSE",
-    "docs/FEATURES.md"
+    "docs/FEATURES.md",
+    "docs/DELIVERY.md",
+    "docs/validation-0.3.70.json",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build:lens": "node scripts/build-lens.mjs",
     "check:lens": "node scripts/build-lens.mjs --check",
     "test": "node --test test/*.test.mjs",
+    "test:release": "node scripts/verify.mjs",
+    "check:release": "node scripts/check-release.mjs",
     "test:browser": "node test/browser.mjs",
     "test:summary": "node test/summary-browser.mjs",
     "test:progress-liquid": "node test/progress-liquid-browser.mjs",
@@ -89,7 +100,8 @@
     }
   },
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.13.0",
+    "dsh": ">=0.2.1-rc.2 <0.3.0-0"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",

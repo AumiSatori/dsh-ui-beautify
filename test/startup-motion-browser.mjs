@@ -302,7 +302,7 @@ try{
     await boot();await start();await clean();assert.equal(await page.locator('[data-dcb-startup-style],[data-dcb-welcome]').count(),0)
   })
   await check('the generated plugin creates the welcome and cleans it through its real presentation lifecycle',async()=>{
-    await boot();await page.evaluate(()=>{window.cleanups=[];window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(()=>({createElement(){}}))}})
+    await boot();await page.evaluate(()=>{window.cleanups=[];window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(()=>({createElement(){},Component:class{}}))}})
     await page.addScriptTag({content:readFileSync(resolve(project,'client.js'),'utf8')})
     await page.evaluate(()=>window.plugin.apply({slots:{inject(_name,cb){cb()},register(){}},effect(cb){window.cleanups.push(cb())}}));await tick()
     assert.ok(await page.locator('[data-dcb-welcome-stroke]').count()>0)

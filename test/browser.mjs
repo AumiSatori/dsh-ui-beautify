@@ -168,18 +168,16 @@ try {
     assert.equal(await controls.locator('select, input[type="checkbox"], input[type="radio"], input[type="range"]').count(), 0)
     const toggle = controls.getByRole('switch', { name: '启用右上角任务面板' })
     assert.equal(await toggle.getAttribute('aria-checked'), 'true')
-    assert.match(await controls.locator('.dcb-settings-status').textContent(), /已开启/)
-    assert.equal(await controls.locator('.dcb-settings-status').getAttribute('data-enabled'), 'true')
+    assert.match(await controls.locator('.dcb-settings-info').textContent(), /当前生效/)
     await toggle.click()
     await settled()
     assert.equal(await toggle.getAttribute('aria-checked'), 'false')
-    assert.match(await controls.locator('.dcb-settings-status').textContent(), /已关闭/)
-    assert.equal(await controls.locator('.dcb-settings-status').getAttribute('data-enabled'), 'false')
+    assert.match(await controls.locator('.dcb-settings-info').textContent(), /面板已关闭/)
     assert.equal(await page.locator('[data-dcb-task-panel]').count(), 0)
     assert.ok((await bounds()).panel.top > 500)
     await toggle.focus()
     await page.keyboard.press('Space')
-    assert.match(await controls.locator('.dcb-settings-status').textContent(), /已开启/)
+    assert.match(await controls.locator('.dcb-settings-info').textContent(), /当前生效/)
     const width = controls.getByRole('slider', { name: '面板宽度' })
     await width.focus()
     await page.keyboard.press('End')
@@ -298,12 +296,13 @@ try {
           return { left: box.left, right: box.right, top: box.top, width: box.width, height: box.height }
         })
         return { scrollWidth: node.scrollWidth, clientWidth: node.clientWidth, cardScroll: card.scrollWidth, cardWidth: card.clientWidth,
-          options, readability: ['.dcb-settings-header h2', '.dcb-settings-row-title', '.dcb-count-button', '.dcb-settings-row-desc', '.dcb-settings-info', '.dcb-style-option small', '.dcb-settings-status'].map(contrast) }
+          options, readability: ['.dcb-settings-header h2', '.dcb-settings-row-title', '.dcb-count-button', '.dcb-settings-row-desc', '.dcb-settings-info', '.dcb-style-option small', '.dcb-settings-footnote'].map(contrast) }
       })
       assert.ok(layout.scrollWidth <= layout.clientWidth + 1, `${dark ? 'Dark' : 'Light'} settings remain inside the modal`)
       assert.ok(layout.cardScroll <= layout.cardWidth + 1)
       assert.ok(layout.options.every(option => option.left >= 12 && option.right <= 378))
-      assert.ok(layout.options[1].top > layout.options[0].top && layout.options[2].top > layout.options[1].top, 'Narrow material cards stack into a single readable column')
+      assert.equal(layout.options[1].top, layout.options[0].top, 'The container-based narrow layout keeps two readable choices in a row')
+      assert.ok(layout.options[2].top > layout.options[0].top && layout.options[3].top === layout.options[2].top, 'The remaining choices form a second row without overlap')
       assert.ok(layout.options.every(option => Math.abs(option.width - layout.options[0].width) < 1 && Math.abs(option.height - layout.options[0].height) < 1))
       for (const text of layout.readability) assert.ok(text.ratio >= 4.5, `${dark ? 'Dark' : 'Light'} ${text.selector} remains readable without host theme tokens (contrast ${text.ratio.toFixed(2)})`)
       // Keep the narrow width but give the scrolling modal enough height to paint the complete card.

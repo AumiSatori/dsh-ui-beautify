@@ -1,18 +1,16 @@
 # UI动效美化
 
-新增 **对话动效 → 用户消息气泡**：默认、QQ 蓝、奶油便签、透明玻璃和自定义 CSS。提供可载入的完整例子，编辑时实时预览，保存后应用到发送后的用户消息。
-
-**任务卡片自带 Artifact 预览**：卡片开启后即可查看交付的网页、图片、Markdown、代码、CSV 和 JSON，无需另外安装预览插件，也没有独立的预览开关。
-
-新增：日间、夜间主题分别记住 HTML 背景，切换主题后自动恢复；未配置的主题显示原主题背景。在 **全图背景 → HTML 动态背景 · 深海极光** 中可导入、编辑、预览和应用单文件 HTML，也可直接使用内置深海极光。
-
-左右侧栏现在使用一致的镜像滑动、淡入淡出与按钮按压反馈，开合均为 500ms；在 **侧栏 → 侧栏切换动效** 中统一开关。
-
 为 DeepSeek Harness 提供独立的任务面板、输入栏与侧栏材质，以及背景、主题切换和对话动效。各区域分别配置，默认样式排在材质选项最前面。
 
-设置入口：**设置 → UI动效美化**。仓库名为 `dsh-ui-beautify`；内部包名仍为 `dsh-claude-beautify`，用于兼容已有安装、插件标识和本机偏好。
+设置入口：**设置 → UI动效美化**。仓库名为 `dsh-ui-beautify`；内部包名仍为 `dsh-claude-beautify`，用于兼容已有安装、插件标识和本机偏好。代码 MIT；可选鲸鱼娘素材为 CC BY-NC-SA 4.0，详见许可说明。
 
-[功能详解](docs/FEATURES.md) · [安装](#安装与更新) · [保存方式](#设置与素材如何保存) · [排错](#常见问题) · [来源与许可](THIRD_PARTY_NOTICES.md)
+[功能详解](docs/FEATURES.md) · [交付与兼容](docs/DELIVERY.md) · [更新记录](CHANGELOG.md) · [安装](#安装与更新) · [来源与许可](THIRD_PARTY_NOTICES.md)
+
+![独立设置与任务卡片](assets/screenshots/settings.png)
+
+![用户消息气泡示例](assets/screenshots/message-bubbles.png)
+
+截图使用合成内容。Artifact 预览见 [截图](assets/screenshots/artifact.png)。
 
 ## 功能一览
 
@@ -40,9 +38,17 @@
 
 ## 安装与更新
 
-需要 **Node.js 22.13+** 和 DSH Desktop。运行时使用宿主提供的 React 和服务；构建、测试依赖仅供开发使用。
+需要 **Node.js 22.13+**，宿主范围为 **DSH `>=0.2.1-rc.2 <0.3.0-0`**。本机实际回归版本是应用归档内的 DSH 0.2.1-rc.2，桌面外壳版本与其不同。运行时使用宿主提供的 React 和服务；构建、测试依赖仅供开发使用。
 
-在长期保留的源码目录克隆仓库，然后进入该目录：
+**普通安装**：从本仓库 [最新 Release](https://github.com/AumiSatori/dsh-ui-beautify/releases/latest) 获取预构建包 `dsh-claude-beautify.tgz`，在 DSH 插件页按 URL 安装。插件市场的收录以社区目录审核合并为准。包内已有客户端，不需要在使用者机器上构建，也不要求安装配套插件。
+
+Web profile 也可执行：
+
+```sh
+dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/releases/latest/download/dsh-claude-beautify.tgz
+```
+
+**开发者源码链接安装**：在长期保留的源码目录克隆仓库，然后进入该目录：
 
 ```powershell
 git clone https://github.com/AumiSatori/dsh-ui-beautify.git
@@ -51,7 +57,7 @@ node scripts/profile.mjs install --profile desktop
 node scripts/profile.mjs check --profile desktop
 ```
 
-仓库为私有，需要已有访问权限。默认 DSH 用户目录为 `~/.dsh`，可通过 `DSH_HOME` 指定其他目录；`--profile` 指向已有 profile。
+默认 DSH 用户目录为 `~/.dsh`，可通过 `DSH_HOME` 指定其他目录；`--profile` 指向已有 profile。市场包和源码链接请选择一种方式，不要重复登记。
 
 安装器登记 `link:` 依赖、锁文件和 bundle，并建立源码链接；遇到目录被占用、重复加载或未知锁文件结构会保留现场并停止。安装前备份位置见下文。
 
@@ -166,9 +172,9 @@ npm run build:lens
 node --check client.js
 node --check index.js
 npm run check:lens
+npm run check:release
 npm test
-npm run test:settings
-npm run test:turn-divider
+npm run test:release
 ```
 
 浏览器检查需要本机 Chrome；支持该参数的测试可用 `PLAYWRIGHT_CHANNEL` 选择其他已安装渠道。按改动范围运行对应的 `test:*` 脚本，完整清单见 [package.json](package.json)。涉及真实宿主组件的检查可用 `DSH_ASAR` 指定应用归档，只读取代码和样式，使用合成会话数据。

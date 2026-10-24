@@ -12,7 +12,7 @@ const presentationSettingKeys = [
   'backgroundBlur', 'backgroundEnabled', 'backgroundFit', 'backgroundName', 'backgroundOpacity', 'backgroundPosition', 'backgroundRevision', 'backgroundSound', 'backgroundThemes',
   'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'enabled', 'headerCentered',
   'messageMotion', 'modules', 'particleCount', 'particleDensityVersion', 'particleEnabled', 'particleFull', 'particleImageName', 'particleImageRevision', 'particleManualProgress', 'particleProgressMode', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarOverlay', 'sidebarStyle',
-  'skillDetails', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnDividerColor', 'turnDividerCss', 'turnDividerImageRevision', 'turnDividerMotion', 'turnDividerPreset', 'turnGlass', 'welcomeDuration',
+  'skillDetails', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnDividerColor', 'turnDividerCss', 'turnDividerImageRevision', 'turnDividerMotion', 'turnDividerPreset', 'turnGlass', 'userBubbleCss', 'userBubbleStyle', 'welcomeDuration',
   'welcomeEnabled', 'welcomeFont', 'welcomeLogo', 'welcomeMediaDuration',
   'welcomeMediaFit', 'welcomeMediaRevision', 'welcomeMode', 'welcomeText', 'width',
 ]
@@ -1629,7 +1629,7 @@ try {
     assert.equal(glass.alpha, .62)
     assert.ok(glass.alpha > clear.alpha, 'Frosted glass has a denser translucent surface than clear glass')
     assert.equal(glass.blur, 22)
-    assert.match(glass.filter, /saturate\(1\.45\)/)
+    assert.match(glass.filter, /saturate\(1\.65\)/)
     assert.notEqual(glass.shadow, milk.shadow)
     assert.notEqual(glass.shadow, clear.shadow, 'Each material has its own shadow treatment')
     assert.equal(glass.height, milk.height)

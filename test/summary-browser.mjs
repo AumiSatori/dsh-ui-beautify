@@ -9,7 +9,7 @@ import { chromium } from '@playwright/test'
 const project = fileURLToPath(new URL('..', import.meta.url))
 const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '.scratch', 'claude-beautify'))
 const presentationSettingKeys = [
-  'backgroundBlur', 'backgroundEnabled', 'backgroundFit', 'backgroundName', 'backgroundOpacity', 'backgroundPosition', 'backgroundRevision', 'backgroundSound',
+  'backgroundBlur', 'backgroundEnabled', 'backgroundFit', 'backgroundName', 'backgroundOpacity', 'backgroundPosition', 'backgroundRevision', 'backgroundSound', 'backgroundThemes',
   'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'enabled', 'headerCentered',
   'messageMotion', 'modules', 'particleCount', 'particleDensityVersion', 'particleEnabled', 'particleFull', 'particleImageName', 'particleImageRevision', 'particleManualProgress', 'particleProgressMode', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarOverlay', 'sidebarStyle',
   'skillDetails', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnDividerColor', 'turnDividerCss', 'turnDividerImageRevision', 'turnDividerMotion', 'turnDividerPreset', 'turnGlass', 'welcomeDuration',

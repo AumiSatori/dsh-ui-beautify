@@ -10,7 +10,7 @@ const c=document.getElementById('sea'),g=c.getContext('2d');
 let w=0,h=0,t=0,last=0,px=.75,py=.4;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 function resize(){w=innerWidth;h=innerHeight;const d=Math.min(devicePixelRatio,1.25);c.width=w*d;c.height=h*d;c.style.width=w+'px';c.style.height=h+'px';g.setTransform(d,0,0,d,0,0)}
-addEventListener('resize',resize);resize();
+addEventListener('resize',resize);new ResizeObserver(resize).observe(document.documentElement);resize();
 addEventListener('message',e=>{if(e.source===parent&&e.data?.type==='dcb-background-pointer'){px=e.data.x;py=e.data.y}});
 addEventListener('pointermove',e=>{px=e.clientX/w;py=e.clientY/h});
 function draw(now){requestAnimationFrame(draw);if(now-last<33)return;const dt=Math.min((now-last)/1000,.1);last=now;if(!reduced.matches)t+=dt*speed;
@@ -33,16 +33,25 @@ g.globalCompositeOperation='source-over';const veil=g.createRadialGradient(w*.47
 
 export function createHtmlEditor(React,background){
   const h=React.createElement;
-  return function HtmlEditor({onSelect}){
+  return function HtmlEditor({onSelect,theme='light'}){
     const [code,setCode]=React.useState(oceanHtml),[preview,setPreview]=React.useState(''),[error,setError]=React.useState(''),[busy,setBusy]=React.useState(false);
-    const input=React.useRef(null);
+    const input=React.useRef(null),drafts=React.useRef(new Map()),scheme=React.useRef(theme),request=React.useRef(0);
+    const edit=value=>{request.current++;drafts.current.set(theme,value);setCode(value)};
+    React.useEffect(()=>{
+      const token=++request.current;
+      if(scheme.current!==theme)drafts.current.set(scheme.current,code);
+      scheme.current=theme;setPreview('');setError('');
+      if(drafts.current.has(theme))setCode(drafts.current.get(theme));
+      else{setCode(oceanHtml);background.readHtml(theme).then(value=>{if(request.current===token&&scheme.current===theme)setCode(value)},()=>{})}
+      return()=>{request.current++};
+    },[theme]);
     React.useEffect(()=>{const stop=()=>{if(document.hidden)setPreview('')};document.addEventListener('visibilitychange',stop);return()=>document.removeEventListener('visibilitychange',stop)},[]);
     async function apply(){setBusy(true);setError('');try{onSelect(await background.importHtml(code,'自定义 HTML 背景'));setPreview('')}catch(e){setError(e.message)}finally{setBusy(false)}}
     return h('details',{className:'dcb-background-library',onToggle:e=>{if(!e.currentTarget.open)setPreview('')}},h('summary',{style:{cursor:'pointer',padding:'12px 0'}},'✦ HTML 动态背景 · 深海极光'),
       h('p',null,'粘贴 HTML / CSS / JavaScript，或导入单文件 HTML。内置深海极光可直接预览和应用。素材需内嵌，暂不加载外部网址或文件夹。'),
-      h('textarea',{'aria-label':'HTML 背景代码',value:code,onChange:e=>setCode(e.target.value),spellCheck:false,style:{width:'100%',minHeight:220,resize:'vertical',background:'var(--dsh-settings-subtle)',color:'var(--dsh-settings-text)',border:'1px solid var(--dsh-settings-border)',borderRadius:12,padding:14,font:'12px/1.6 monospace'}}),
-      h('input',{ref:input,type:'file',hidden:true,accept:'.html,.htm,text/html','aria-label':'导入 HTML 背景',onChange:async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;try{if(file.size>2*1024*1024)throw Error('HTML 需小于 2MB');setCode(await file.text());setError('')}catch(e){setError(e.message)}}}),
-      h('div',{className:'dcb-background-actions'},h('button',{type:'button',onClick:()=>input.current.click()},'导入 HTML'),h('button',{type:'button',onClick:()=>setCode(oceanHtml)},'载入深海极光'),h('button',{type:'button',onClick:async()=>{try{setCode(await background.readHtml());setError('')}catch(e){setError(e.message)}}},'读取当前 HTML'),h('button',{type:'button',onClick:()=>{if(code.length>2*1024*1024){setError('HTML 需小于 2MB');return}setPreview(preview?'':htmlDocument(code))}},preview?'停止预览':'预览动效'),h('button',{type:'button',disabled:busy,onClick:apply},busy?'保存中…':'应用 HTML 背景')),
+      h('textarea',{'aria-label':'HTML 背景代码',value:code,onChange:e=>edit(e.target.value),spellCheck:false,style:{width:'100%',minHeight:220,resize:'vertical',background:'var(--dsh-settings-subtle)',color:'var(--dsh-settings-text)',border:'1px solid var(--dsh-settings-border)',borderRadius:12,padding:14,font:'12px/1.6 monospace'}}),
+      h('input',{ref:input,type:'file',hidden:true,accept:'.html,.htm,text/html','aria-label':'导入 HTML 背景',onChange:async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;const token=++request.current;try{if(file.size>2*1024*1024)throw Error('HTML 需小于 2MB');const source=await file.text();if(request.current===token){edit(source);setError('')}}catch(e){if(request.current===token)setError(e.message)}}}),
+      h('div',{className:'dcb-background-actions'},h('button',{type:'button',onClick:()=>input.current.click()},'导入 HTML'),h('button',{type:'button',onClick:()=>edit(oceanHtml)},'载入深海极光'),h('button',{type:'button',onClick:async()=>{const token=++request.current;try{const source=await background.readHtml(theme);if(request.current===token){edit(source);setError('')}}catch(e){if(request.current===token)setError(e.message)}}},'读取当前 HTML'),h('button',{type:'button',onClick:()=>{if(code.length>2*1024*1024){setError('HTML 需小于 2MB');return}setPreview(preview?'':htmlDocument(code))}},preview?'停止预览':'预览动效'),h('button',{type:'button',disabled:busy,onClick:apply},busy?'保存中…':'应用 HTML 背景')),
       preview&&h('iframe',{title:'HTML 动态背景预览',sandbox:'allow-scripts',referrerPolicy:'no-referrer',srcDoc:preview,style:{width:'100%',aspectRatio:'16/9',border:0,borderRadius:14}}),error&&h('p',{role:'alert'},error));
   }
 }

@@ -1,5 +1,5 @@
 import {htmlDocument} from './background-html.js'
-import {normalizeBackground,createBackgroundStore,inspectBackgroundMedia,backgroundThumbnail} from './background-media.js'
+import {normalizeBackground,themeBackground,backgroundThemeSelection,createBackgroundStore,inspectBackgroundMedia,backgroundThumbnail} from './background-media.js'
 export {normalizeBackground} from './background-media.js'
 
 const FLAG='data-dcb-background',SURFACE='data-dcb-background-surface'
@@ -14,10 +14,11 @@ export const fullBackgroundCss=`
   body[${FLAG}] ${suffix('sessionList')}::after { background:none!important; }
 `
 
-export function createFullBackground(doc,win){
+export function createFullBackground(doc,win,{onChange=()=>{}}={}){
   const store=createBackgroundStore(win),listeners=new Set(),surfaces=new Map(),forced=win.matchMedia('(forced-colors: active)'),reduced=win.matchMedia('(prefers-reduced-motion: reduce)')
   const priorFlag=doc.body.getAttribute(FLAG)
-  let settings=normalizeBackground(null),snapshot={error:'',notice:'',preview:'',hasPrevious:false,recent:[]},layer=null,media=null,url=null,timer=0,loaded=false,disposed=false,generation=0,wanted='',assetKind='',htmlSource='',htmlActive=false,pointerTime=0,surfacesDirty=true,surfaceFrame=0,appearanceKey='',soundBlocked=false,infoRevision=null,importSequence=0
+  let sourceSettings=normalizeBackground(null),theme=doc.body.hasAttribute('data-ds-dark-theme')?'dark':'light',legacyKind='',legacyPreviousRevision=''
+  let settings=normalizeBackground(null),snapshot={error:'',notice:'',preview:'',hasPrevious:false,recent:[],theme},layer=null,media=null,url=null,timer=0,loaded=false,disposed=false,generation=0,wanted='',assetKind='',htmlSource='',htmlActive=false,htmlFrame=0,pointerTime=0,surfacesDirty=true,surfaceFrame=0,appearanceKey='',soundBlocked=false,infoRevision=null,importSequence=0
   const publish=patch=>{if(disposed)return;const next={...snapshot,...patch};if(Object.keys(next).every(key=>next[key]===snapshot[key]))return;snapshot=next;for(const listener of listeners)listener()}
   const restore=(el,key,value)=>value===null?el.removeAttribute(key):el.setAttribute(key,value)
   function releaseSurfaces(){for(const [node,previous]of surfaces)restore(node,SURFACE,previous);surfaces.clear();restore(doc.body,FLAG,priorFlag);surfacesDirty=true}
@@ -41,6 +42,7 @@ export function createFullBackground(doc,win){
   }
   function releaseMedia(){
     htmlSource='';htmlActive=false
+    win.cancelAnimationFrame(htmlFrame);htmlFrame=0
     win.clearTimeout(timer);timer=0;loaded=false;appearanceKey='';soundBlocked=false
     if(media){media.onload=null;media.onloadeddata=null;media.onerror=null;if(assetKind==='video')media.pause();media.removeAttribute('src');if(assetKind==='video')media.load()}
     layer?.remove();layer=null;media=null
@@ -58,7 +60,15 @@ export function createFullBackground(doc,win){
   function playback(){
     if(media&&assetKind==='html'&&loaded){
       const active=!doc.hidden&&!forced.matches&&!reduced.matches&&settings.backgroundEnabled&&settings.backgroundOpacity>0;
-      if(active!==htmlActive){htmlActive=active;media.srcdoc=active?htmlDocument(htmlSource):'<!doctype html><style>body{background:#061625}</style>'}
+      if(active!==htmlActive){
+        htmlActive=active;win.cancelAnimationFrame(htmlFrame);htmlFrame=0
+        if(!active)media.srcdoc='<!doctype html><style>body{background:#061625}</style>'
+        else{
+          // Let the iframe viewport recover before scripts measure it on resume.
+          const player=media,token=generation
+          htmlFrame=win.requestAnimationFrame(()=>{htmlFrame=0;if(disposed||token!==generation||player!==media||!htmlActive)return;player.getBoundingClientRect();player.srcdoc=htmlDocument(htmlSource)})
+        }
+      }
       return
     }
     if(!media||assetKind!=='video'||!loaded)return
@@ -76,16 +86,16 @@ export function createFullBackground(doc,win){
   async function load(revision){
     const token=++generation
     try{
-      const state=await store.read()
+      const state=await store.read(revision)
       if(disposed||token!==generation)return
-      publish({hasPrevious:!!state.previous,recent:state.recent})
+      publish({hasPrevious:!!(sourceSettings.backgroundThemes?settings.previousRevision:state.previous),recent:state.recent})
       const asset=state.current
       if(!asset?.blob||asset.revision!==revision)throw Error('找不到这张本机背景，请重新导入')
       releaseMedia();assetKind=asset.kind
       if(!['image','video','html'].includes(assetKind))throw Error('背景文件不可用，请重新导入')
       layer=doc.createElement('div');layer.setAttribute('data-dcb-background-layer','');layer.setAttribute('aria-hidden','true');layer.hidden=true
       if(assetKind==='html'){
-        htmlSource=await asset.blob.text();if(disposed||token!==generation)return;
+        const source=await asset.blob.text();if(disposed||token!==generation)return;htmlSource=source;
         media=doc.createElement('iframe');media.title='HTML 动态背景';media.setAttribute('sandbox','allow-scripts');media.setAttribute('referrerpolicy','no-referrer');media.tabIndex=-1;
         layer.append(media);appearance();doc.body.prepend(layer);loaded=true;publish({error:'',preview:''});syncSurfaces();playback();return
       }
@@ -105,26 +115,36 @@ export function createFullBackground(doc,win){
   }
   function sync(value){
     if(disposed)return
-    const next=normalizeBackground(value)
+    sourceSettings=normalizeBackground(value)
+    const next=themeBackground(sourceSettings,theme)
     if(next.backgroundSound!==settings.backgroundSound){soundBlocked=false;publish({notice:''})}
     settings=next
-    if(infoRevision!==settings.backgroundRevision){
-      infoRevision=settings.backgroundRevision;const revision=infoRevision
+    if(sourceSettings.backgroundThemes)publish({hasPrevious:!!settings.previousRevision})
+    const infoKey=theme+':'+settings.backgroundRevision+':'+(settings.previousRevision||'')
+    if(infoRevision!==infoKey){
+      infoRevision=infoKey;const revision=settings.backgroundRevision
       publish({preview:''})
-      store.read().then(async state=>{
-        if(disposed||infoRevision!==revision)return
-        publish({hasPrevious:!!state.previous,recent:state.recent})
+      store.read(revision).then(async state=>{
+        if(disposed||infoRevision!==infoKey)return
+        publish({hasPrevious:!!(sourceSettings.backgroundThemes?settings.previousRevision:state.previous),recent:state.recent})
         if(state.current?.revision!==revision)return
+        if(!sourceSettings.backgroundThemes){
+          legacyKind=state.current.kind;legacyPreviousRevision=state.previous?.revision||''
+          if(legacyKind==='html'){
+            const patch=backgroundThemeSelection(sourceSettings,theme,state.current,{legacyKind,previousRevision:legacyPreviousRevision,enabled:settings.backgroundEnabled})
+            sourceSettings=normalizeBackground({...sourceSettings,...patch});settings=themeBackground(sourceSettings,theme);onChange(patch)
+          }
+        }
         if(state.current.preview)publish({preview:state.current.preview})
         else if(!settings.backgroundEnabled&&state.current.kind!=='html'){
           // Upgrade older files once in memory. Decode only a first frame and
           // release it immediately; the settings page never loops a second video.
-          try{const asset=await inspectBackgroundMedia(state.current.blob,doc,win);if(infoRevision===revision)publish({preview:asset.preview})}catch{/* The real player reports any asset error when enabled. */}
+          try{const asset=await inspectBackgroundMedia(state.current.blob,doc,win);if(infoRevision===infoKey)publish({preview:asset.preview})}catch{/* The real player reports any asset error when enabled. */}
         }
       },()=>{})
     }
     const key=settings.backgroundEnabled?settings.backgroundRevision:''
-    if(key!==wanted){wanted=key;publish({error:'',notice:''});if(key)load(key);else{generation++;releaseMedia()}}
+    if(key!==wanted){wanted=key;publish({error:'',notice:''});releaseMedia();if(key)load(key);else generation++}
     appearance();syncSurfaces();playback()
   }
   // Chat scrolling and streaming do not rescan the layout or redraw an image.
@@ -136,12 +156,21 @@ export function createFullBackground(doc,win){
     if(!surfaceFrame)surfaceFrame=win.requestAnimationFrame(()=>{surfaceFrame=0;syncSurfaces()})
   })
   structure.observe(doc.body,{subtree:true,childList:true})
+  const themeObserver=new win.MutationObserver(()=>{
+    const next=doc.body.hasAttribute('data-ds-dark-theme')?'dark':'light'
+    if(next===theme||disposed)return
+    theme=next;publish({theme});sync(sourceSettings)
+  })
+  themeObserver.observe(doc.body,{attributes:true,attributeFilter:['data-ds-dark-theme']})
   const pointer=event=>{if(assetKind!=='html'||!htmlActive||!media||Date.now()-pointerTime<50)return;pointerTime=Date.now();media.contentWindow?.postMessage({type:'dcb-background-pointer',x:event.clientX/win.innerWidth,y:event.clientY/win.innerHeight},'*')}
   doc.addEventListener('pointermove',pointer,{passive:true});
   doc.addEventListener('visibilitychange',visibility);forced.addEventListener('change',visibility);reduced.addEventListener('change',visibility)
   return{
     sync,subscribe:listener=>{listeners.add(listener);return()=>listeners.delete(listener)},getSnapshot:()=>snapshot,
-    async readHtml(){const state=await store.read();if(state.current?.kind!=='html')throw Error('当前背景不是 HTML');return state.current.blob.text()},
+    resolve:value=>themeBackground(value,theme),
+    selection:(asset,scheme=theme)=>backgroundThemeSelection(sourceSettings,scheme,asset,{legacyKind:legacyKind||snapshot.recent.find(item=>item.revision===sourceSettings.backgroundRevision)?.kind,previousRevision:legacyPreviousRevision}),
+    patch(value,scheme=theme){return sourceSettings.backgroundThemes&&'backgroundEnabled'in value?{...value,backgroundThemes:{...sourceSettings.backgroundThemes,[scheme]:{...sourceSettings.backgroundThemes[scheme],backgroundEnabled:value.backgroundEnabled===true}}}:value},
+    async readHtml(scheme=theme){const state=await store.read(themeBackground(sourceSettings,scheme).backgroundRevision);if(state.current?.kind!=='html')throw Error('当前主题尚未选择 HTML 背景');return state.current.blob.text()},
     async importHtml(source,name){
       if(typeof source!=='string'||!source.trim())throw Error('请输入 HTML 代码');
       const blob=new win.Blob([source],{type:'text/html'});if(blob.size>2*1024*1024)throw Error('HTML 需小于 2MB');
@@ -151,8 +180,8 @@ export function createFullBackground(doc,win){
     },
     async import(file){const request=++importSequence,asset=await inspectBackgroundMedia(file,doc,win);if(disposed||request!==importSequence)throw Error('已取消较早的背景导入');const state=await store.replace(asset);if(disposed)throw Error('背景设置已关闭');publish({hasPrevious:!!state.previous,recent:state.recent});return asset},
     async select(revision){importSequence++;const state=await store.select(revision);publish({hasPrevious:!!state.previous,recent:state.recent});return state.current},
-    async restore(){importSequence++;const state=await store.restore();publish({hasPrevious:!!state.previous,recent:state.recent});return state.current},
+    async restore(){importSequence++;const state=sourceSettings.backgroundThemes?await store.read(settings.previousRevision||''):await store.restore();publish({hasPrevious:!!state.previous,recent:state.recent});return state.current},
     async clear(){importSequence++;await store.clear();publish({hasPrevious:false,preview:''})},
-    dispose(){doc.removeEventListener('pointermove',pointer);disposed=true;generation++;importSequence++;structure.disconnect();win.cancelAnimationFrame(surfaceFrame);releaseMedia();store.dispose();listeners.clear();doc.removeEventListener('visibilitychange',visibility);forced.removeEventListener('change',visibility);reduced.removeEventListener('change',visibility)},
+    dispose(){doc.removeEventListener('pointermove',pointer);disposed=true;generation++;importSequence++;structure.disconnect();themeObserver.disconnect();win.cancelAnimationFrame(surfaceFrame);releaseMedia();store.dispose();listeners.clear();doc.removeEventListener('visibilitychange',visibility);forced.removeEventListener('change',visibility);reduced.removeEventListener('change',visibility)},
   }
 }

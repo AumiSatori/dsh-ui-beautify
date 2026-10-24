@@ -123,11 +123,12 @@ export function createBackgroundSettings(React,{background}){
   const h=React.createElement,HtmlEditor=createHtmlEditor(React,background)
   const paths={image:'M4 4h16v16H4zM4 15l5-5 5 5 3-3 3 3M15 8h.01',restore:'M3 10a9 9 0 1 1 2 8M3 4v6h6',remove:'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5',upload:'M12 16V4M7 9l5-5 5 5M4 16v4h16v-4'}
   const icon=name=>h('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:paths[name]}))
-  return function BackgroundSettings({value,onChange}){
+  return function BackgroundSettings({value:savedValue,onChange:save}){
     const state=React.useSyncExternalStore(background.subscribe,background.getSnapshot),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[limit,setLimit]=React.useState(12),input=React.useRef(null),mounted=React.useRef(true),uid=React.useId()
+    const value=background.resolve(savedValue),onChange=patch=>save(background.patch(patch,state.theme))
     React.useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
     const run=async action=>{setBusy(true);setError('');try{await action()}catch(error){if(mounted.current)setError(error.message)}finally{if(mounted.current)setBusy(false)}}
-    const select=asset=>onChange({backgroundEnabled:!!asset,backgroundRevision:asset?.revision||'',backgroundName:asset?.name||''})
+    const select=asset=>save(background.selection(asset,state.theme))
     const slider=(label,key,max,unit,description)=>h('div',{className:'dcb-background-control'},
       h('div',{className:'dcb-background-control-heading'},h('strong',null,label),h('output',{'aria-hidden':true},value[key]+unit)),
       h('input',{className:'dcb-background-slider',type:'range','aria-label':label,'aria-valuetext':value[key]+unit,min:0,max,step:1,value:value[key],style:{'--dcb-range-fill':value[key]/max*100+'%'},onChange:event=>onChange({[key]:Number(event.target.value)})}),h('p',null,description))
@@ -154,7 +155,8 @@ export function createBackgroundSettings(React,{background}){
             h('button',{type:'button',className:'dcb-background-choose',disabled:busy,onClick:()=>input.current?.click()},icon('upload'),busy?'处理中…':'选择图片或视频'),
             h('button',{type:'button',disabled:busy||!state.hasPrevious,onClick:()=>run(async()=>select(await background.restore()))},icon('restore'),'恢复上一张'),
             h('button',{type:'button',disabled:busy||!value.backgroundRevision,onClick:()=>run(async()=>{await background.clear();select(null)})},icon('remove'),'清除背景')))),
-      h(HtmlEditor,{onSelect:select}),
+      h('p',{className:'dcb-settings-footnote',role:'status'},`当前：${state.theme==='dark'?'夜间':'日间'}背景。两种主题分别记忆选择和启用状态，切换主题后自动恢复；未配置的一侧不应用 HTML。`),
+      h(HtmlEditor,{onSelect:select,theme:state.theme}),
       (error||state.error)&&h('p',{className:'dcb-background-error',role:'alert'},error||state.error),
       h('section',{className:'dcb-background-library','aria-label':'背景素材库'},
         h('div',{className:'dcb-background-library-heading'},h('strong',null,'最近上传'),h('span',null,state.recent.length?`${state.recent.length} 个 · 仅保存在本机`:'本机素材库')),

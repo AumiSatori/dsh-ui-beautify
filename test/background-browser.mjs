@@ -65,6 +65,7 @@ try{
     await page.waitForFunction(()=>!document.querySelector('[data-dcb-background-layer] iframe').srcdoc.includes('canvas'));
     await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))});
     await content.locator('canvas').waitFor();
+    assert.deepEqual(await content.locator('canvas').evaluate(canvas=>[canvas.width,canvas.height]),[1440,1000]);
     await page.reload();await mount();await ready();await wallpaper.locator('iframe').waitFor();await settings();
     await section.locator('summary').click();await section.getByRole('button',{name:'读取当前 HTML'}).click();
     assert.match(await section.getByLabel('HTML 背景代码').inputValue(),/const speed/);
@@ -202,6 +203,7 @@ try{
   })
   await check('dark/narrow settings fit and clearing restores host fills and releases file URLs',async()=>{
     await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''));await page.setViewportSize({width:700,height:1000});await page.addStyleTag({content:'.settings-dialog{inset:16px 8px;padding:16px}'})
+    await wallpaper.waitFor({state:'detached'});await section.getByRole('button',{name:'使用背景：first-local.png',exact:true}).click();await ready()
     assert.equal(await page.getByRole('dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1),true)
     await page.getByRole('dialog').screenshot({path:resolve(output,'background-settings-dark-narrow.png')})
     await section.getByRole('button',{name:'清除背景',exact:true}).click();await wallpaper.waitFor({state:'detached'})

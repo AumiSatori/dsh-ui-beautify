@@ -1,5 +1,11 @@
 const DB='dsh-ui-beautify-background',STORE='wallpaper',ASSETS='assets',KEY='selection'
 const bound=(value,min,max,fallback)=>Number.isFinite(value)?Math.max(min,Math.min(max,value)):fallback
+const selection=value=>({
+  backgroundEnabled:value?.backgroundEnabled===true,
+  backgroundRevision:typeof value?.backgroundRevision==='string'?value.backgroundRevision.slice(0,100):'',
+  backgroundName:typeof value?.backgroundName==='string'?value.backgroundName.slice(0,160):'',
+  previousRevision:typeof value?.previousRevision==='string'?value.previousRevision.slice(0,100):'',
+})
 export function normalizeBackground(value){
   return{
     backgroundEnabled:value?.backgroundEnabled===true,
@@ -10,7 +16,26 @@ export function normalizeBackground(value){
     backgroundOpacity:Math.round(bound(value?.backgroundOpacity,0,100,45)),
     backgroundBlur:Math.round(bound(value?.backgroundBlur,0,20,0)),
     backgroundSound:value?.backgroundSound===true,
+    backgroundThemes:value?.backgroundThemes&&typeof value.backgroundThemes==='object'&&!Array.isArray(value.backgroundThemes)
+      ?{light:selection(value.backgroundThemes.light),dark:selection(value.backgroundThemes.dark)}:null,
   }
+}
+
+export function themeBackground(value,theme){
+  const normalized=normalizeBackground(value)
+  return normalized.backgroundThemes?{...normalized,...normalized.backgroundThemes[theme==='dark'?'dark':'light']}:normalized
+}
+
+// Keep references only; the original HTML/media stays once in IndexedDB.
+// Legacy pictures remain available in both themes, but legacy HTML belongs
+// only to the active theme so it cannot suddenly cover the opposite palette.
+export function backgroundThemeSelection(value,theme,asset,{legacyKind='',previousRevision='',enabled=true}={}){
+  const normalized=normalizeBackground(value),current=themeBackground(normalized,theme)
+  const legacy=selection({...normalized,previousRevision})
+  const themes=normalized.backgroundThemes||{light:legacyKind==='html'&&theme!=='light'?selection(null):legacy,dark:legacyKind==='html'&&theme!=='dark'?selection(null):legacy}
+  const next=selection(asset?{backgroundEnabled:enabled,backgroundRevision:asset.revision,backgroundName:asset.name,
+    previousRevision:asset.revision===current.backgroundRevision?themes[theme].previousRevision:current.backgroundRevision}:null)
+  return{backgroundEnabled:next.backgroundEnabled,backgroundRevision:next.backgroundRevision,backgroundName:next.backgroundName,backgroundThemes:{...themes,[theme]:next}}
 }
 
 const metadata=asset=>({revision:asset.revision,name:asset.name,kind:asset.kind,type:asset.type,preview:asset.preview||'',size:asset.blob?.size||0,uploadedAt:asset.uploadedAt||Date.now()})
@@ -47,7 +72,7 @@ export function createBackgroundStore(win){
     })
     return opening
   }
-  async function transact(change){
+  async function transact(change,revision){
     const db=await open()
     return new Promise((resolve,reject)=>{
       const tx=db.transaction([STORE,ASSETS],change?'readwrite':'readonly'),store=tx.objectStore(STORE),assets=tx.objectStore(ASSETS),request=store.get(KEY)
@@ -57,7 +82,8 @@ export function createBackgroundStore(win){
         try{
           if(change){state=change(state,assets);store.put(state,KEY)}
           result={current:null,previous:null,recent:state.recent||[]}
-          if(state.currentId){const read=assets.get(state.currentId);read.onsuccess=()=>{result.current=read.result||null}}
+          const currentId=revision===undefined?state.currentId:revision
+          if(currentId){const read=assets.get(currentId);read.onsuccess=()=>{result.current=read.result||null}}
           if(state.previousId){const read=assets.get(state.previousId);read.onsuccess=()=>{result.previous=read.result||null}}
         }catch{tx.abort()}
       }
@@ -66,7 +92,7 @@ export function createBackgroundStore(win){
     })
   }
   return{
-    read:()=>transact(),replace:asset=>transact((old,assets)=>{assets.put(asset,asset.revision);return{...old,currentId:asset.revision,previousId:old.currentId,recent:[metadata(asset),...old.recent.filter(item=>item.revision!==asset.revision)]}}),
+    read:revision=>transact(null,revision),replace:asset=>transact((old,assets)=>{assets.put(asset,asset.revision);return{...old,currentId:asset.revision,previousId:old.currentId,recent:[metadata(asset),...old.recent.filter(item=>item.revision!==asset.revision)]}}),
     select:revision=>transact(old=>{if(!old.recent.some(item=>item.revision===revision))throw Error('背景已不存在');return{...old,currentId:revision,previousId:old.currentId===revision?old.previousId:old.currentId}}),
     restore:()=>transact(old=>old.previousId?{...old,currentId:old.previousId,previousId:old.currentId}:old),
     clear:()=>transact(old=>({...old,currentId:'',previousId:''})),

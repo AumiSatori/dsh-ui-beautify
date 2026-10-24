@@ -1160,6 +1160,20 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
       const partial = history.hasMore || snapshots.some(item => !item.complete) || turnNumbers.some(turn => !known.has(turn))
       return { activity, groups, taskCount: groups.reduce((sum, group) => sum + group.todos.length, 0), completed: groups.reduce((sum, group) => sum + group.completed, 0), turnCount: turnNumbers.length || snapshots.length || (groups.length || activity.resources.length || activity.files.length ? 1 : 0), partial: !!partial }
     }
+    // Compare the displayed payload, not scope/turn labels or event sequence IDs.
+    // Collapsed modules keep their heading without replaying hidden changes.
+    function summaryContentKey({ sessionId, todos, groups, files, resources, modules, running, incomplete }) {
+      const plans = groups || (todos.length ? [{ todos }] : [])
+      return JSON.stringify([
+        sessionId,
+        plans.length ? ['progress', modules.progress ? plans.map(group => group.todos.map(item => [item.content, item.status])) : null,
+          modules.progress && running && todos.some(item => item.status === 'in_progress')] : null,
+        files.length ? ['outputs', modules.outputs ? files.map(file => [file.path, file.description || '']) : null] : null,
+        resources.length ? ['resources', modules.resources ? resources.map(item => [item.kind, item.label, item.detail || '', item.path || '',
+          item.count || 0, item.failed || 0, item.running || 0, running ? item.activeRunning ?? item.running ?? 0 : 0]) : null] : null,
+        incomplete,
+      ])
+    }
     function useReadingTurn(sessionId, outline, turns) {
       const [reading, setReading] = React.useState({ sessionId, turn: null })
       const outlineIds = (Array.isArray(outline) ? outline : []).filter(item => Number.isSafeInteger(item?.seq) && item.seq >= 0 && Number.isSafeInteger(item?.turn) && item.turn >= 0).map(item => item.turn)
@@ -1171,7 +1185,7 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
       }), [sessionId, key])
       return reading.sessionId === sessionId ? reading.turn : null
     }
-    function useContextTransition(context, active) {
+    function useContextTransition(context, active, identity) {
       const viewport = React.useRef(null)
       const content = React.useRef(null)
       const ghost = React.useRef(null)
@@ -1208,15 +1222,15 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
         const node = content.current
         const old = state.current.snapshot
         if (!active || !node) { stop(); state.current.snapshot = null; return }
-        if (old?.context === context) return
+        if (old?.context === context) { old.identity = identity; return }
         const fromHeight = state.current.animations ? viewport.current.getBoundingClientRect().height : old?.height
         const fromStyle = state.current.animations ? getComputedStyle(node) : null
         const fromY = fromStyle ? new DOMMatrixReadOnly(fromStyle.transform).m42 : 0
         const fromOpacity = fromStyle?.opacity || 1
         const fromBlur = fromStyle?.filter || 'blur(0px)'
         stop()
-        state.current.snapshot = { context, height: node.offsetHeight, clone: node.cloneNode(true) }
-        if (!old || window.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)').matches) return
+        state.current.snapshot = { context, identity, height: node.offsetHeight, clone: node.cloneNode(true) }
+        if (!old || old.identity === identity || window.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)').matches) return
         for (const item of old.clone.querySelectorAll('.dcb-step-ghost')) item.replaceChildren()
         for (const item of old.clone.querySelectorAll('[id]')) item.removeAttribute('id')
         for (const item of old.clone.querySelectorAll('[data-working]')) item.setAttribute('data-working', 'false')
@@ -3169,7 +3183,11 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
           if (!probe) { cursor.current = start; setBrowsing({ contextKey, plan: planRevision, count: settings.progressView.count, start }) }
           return true
         }, rollActive, contextKey, planRevision, settings.progressView.count)
-        const transition = useContextTransition(contextKey, visible && open)
+        const incomplete = allTurns ? all.partial : !hasContent && selectedTurn !== null ? !turnSnapshot?.complete :
+          turnSnapshot?.complete === false || activity.resources.length > 0 && modules.resources && activity.hasMore && selectedTurn === null
+        const contentKey = visible && open ? summaryContentKey({ sessionId, todos, groups: allTurns ? all.groups : null, files: activity.files,
+          resources: activity.resources, modules, running, incomplete: !!incomplete }) : null
+        const transition = useContextTransition(contextKey, visible && open, contentKey)
         const entryLabel = allTurns ? `全部 ${all.turnCount} 轮` : viewingHistory ? `第 ${selectedTurn} 轮` : working ? `第 ${progress.step} 步，共 ${progress.total} 步` : activity.files.length || todos.length || activity.resources.length
         React.useEffect(() => { listeners.add(refresh); return () => listeners.delete(refresh) }, [])
         // Appearance previews are temporary and never rewrite the per-chat pin state.

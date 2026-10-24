@@ -41,7 +41,7 @@ async function boot(target=page){
  await target.evaluate(()=>{
   window.cleanups=[];window.__ModuleLoader__={load(spec){window.plugin=spec.factory(name=>name==='@deepseek-ai/dsh-client-ui-primitives'?{FishLogo:()=>null}:window.fixtureReact)}}
   const animate=Element.prototype.animate
-  Element.prototype.animate=function(frames,options){const result=animate.call(this,frames,options);if(window.pausePlan&&options?.id?.startsWith('dcb-plan-')||window.pauseScope&&options?.id?.startsWith('dcb-scope-')){result.pause();result.currentTime=0}return result}
+  Element.prototype.animate=function(frames,options){if(options?.id?.startsWith('dcb-context-'))window.contextTransitions?.push(options.id);if(options?.id?.startsWith('dcb-scope-'))window.scopeTransitions?.push(options.id);const result=animate.call(this,frames,options);if(window.pausePlan&&options?.id?.startsWith('dcb-plan-')||window.pauseScope&&options?.id?.startsWith('dcb-scope-')){result.pause();result.currentTime=0}return result}
  })
  await target.addScriptTag({url:url+'/client.js'})
  await target.evaluate(({rows,plan,chatTurns})=>{
@@ -61,8 +61,56 @@ async function scopeSample(){return card.locator('.dcb-scope-switch').evaluate(e
 })}
 let passed=0
 async function check(name,fn){await fn();passed++;console.log('PASS '+name)}
+async function displayTurns(definitions,{hasMore=false,modules={progress:true,outputs:true,resources:true}}={}){
+ const entries=[],outline=[];let seq=0
+ const add=(type,data)=>entries.push({event:{type,data,seq:++seq}})
+ definitions.forEach((definition,index)=>{
+  const turn=index+1;add('turn/start',{turn});outline.push({turn,seq})
+  if(definition.todos)add('todo/write',{todos:definition.todos})
+  for(const [i,call]of (definition.calls||[]).entries()){const callId=`same-${turn}-${i}`;add('tool/call',{callId,name:call.name,arguments:JSON.stringify(call.args||{})});add('tool/result',{callId,isError:call.failed===true})}
+  if(definition.files)add('deliverables/presented',{files:definition.files})
+  add('turn/end',{})
+ })
+ await patch({summaryScope:'turn',modules})
+ await page.evaluate(({entries,outline,todos,hasMore})=>{window.fixture.running(false);window.fixture.update(todos);window.fixture.records(entries,hasMore);window.fixture.history({turns:outline,initial:outline.at(-1).turn,tail:true})},{entries,outline,todos:definitions.at(-1).todos||[],hasMore})
+ await settled();await open()
+}
+async function captureContext(action){
+ await page.evaluate(()=>{window.contextTransitions=[];window.scopeTransitions=[];window.savedContextNode=document.querySelector('.dcb-context-content')})
+ await action();await settled()
+ assert.equal(await page.evaluate(()=>document.querySelector('.dcb-context-content')===window.savedContextNode),true,'Scope changes retain the existing content seat')
+ assert.equal(await card.locator('.dcb-context-ghost > *').count(),0)
+ assert.equal(await content.evaluate(el=>el.style.willChange+el.parentElement.style.willChange),'')
+ return page.evaluate(()=>window.contextTransitions)
+}
 try{
  await boot()
+ await check('identical empty scopes and neighboring empty rounds update their labels without flashing the card',async()=>{
+  await displayTurns([{},{}])
+  assert.deepEqual(await captureContext(()=>allButton().click()),[]);assert.equal(await allButton().getAttribute('aria-pressed'),'true')
+  assert.ok(await page.evaluate(()=>window.scopeTransitions.length>0),'The selector still provides its normal selection feedback')
+  assert.deepEqual(await captureContext(()=>oneButton().click()),[])
+  assert.deepEqual(await captureContext(()=>card.getByRole('button',{name:'上一轮',exact:true}).click()),[]);assert.equal(await card.getAttribute('data-dcb-turn'),'1')
+  assert.deepEqual(await captureContext(()=>card.getByRole('button',{name:'下一轮',exact:true}).click()),[]);assert.equal(await card.getAttribute('data-dcb-turn'),'2')
+ })
+ await check('identical files, skills and one task group do not replay the content transition or replace output controls',async()=>{
+  const files=[{path:'/example/unchanged.txt',description:'同一份输出'}],calls=[{name:'skill',args:{name:'unchanged-skill'}}]
+  await displayTurns([{},{files,calls}]);await page.evaluate(()=>window.savedOutputNode=document.querySelector('.dcb-context-content .dcb-output'))
+  for(const button of [allButton(),oneButton()]){assert.deepEqual(await captureContext(()=>button.click()),[]);assert.equal(await page.evaluate(()=>document.querySelector('.dcb-context-content .dcb-output')===window.savedOutputNode),true)}
+  const todos=[{content:'内容相同的已完成任务',status:'completed'}]
+  await displayTurns([{},{todos}]);assert.deepEqual(await captureContext(()=>allButton().click()),[]);assert.deepEqual(await captureContext(()=>oneButton().click()),[])
+  await displayTurns([{calls},{calls}],{modules:{progress:true,outputs:true,resources:false}})
+  assert.deepEqual(await captureContext(()=>allButton().click()),[],'Hidden resource changes do not animate an unchanged collapsed section')
+ })
+ await check('different outputs, tool counts and incomplete-history warnings still receive the content transition',async()=>{
+  await displayTurns([{files:[{path:'/example/old.txt'}]},{files:[{path:'/example/new.txt'}]}])
+  assert.ok((await captureContext(()=>allButton().click())).includes('dcb-context-in'));assert.equal(await content.locator('.dcb-output').count(),2)
+  const calls=[{name:'ops_bash'}];await displayTurns([{calls},{calls}])
+  assert.ok((await captureContext(()=>allButton().click())).includes('dcb-context-in'));assert.match(await content.locator('.dcb-tool-summary').getAttribute('title'),/2 次/)
+  await displayTurns([{},{}],{hasMore:true})
+  assert.ok((await captureContext(()=>allButton().click())).includes('dcb-context-in'));assert.equal(await content.getByText('仅合计已加载记录；更早轮次尚未完整加载。',{exact:true}).isVisible(),true)
+ })
+ await patch({summaryScope:'turn',modules:{progress:true,outputs:true,resources:true}});await boot()
  await check('single-turn mode follows reading by default and previous/next browse one round without changing the chat',async()=>{
   assert.equal(await oneButton().getAttribute('aria-pressed'),'true');assert.equal(await card.getAttribute('data-dcb-turn'),'3')
   assert.equal(await content.getByText('current-skill',{exact:true}).isVisible(),true);assert.equal(await content.getByText('shared-skill',{exact:true}).count(),0)

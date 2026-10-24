@@ -11,7 +11,7 @@ const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..
 const presentationSettingKeys = [
   'backgroundBlur', 'backgroundEnabled', 'backgroundFit', 'backgroundName', 'backgroundOpacity', 'backgroundPosition', 'backgroundRevision', 'backgroundSound',
   'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'enabled', 'headerCentered',
-  'messageMotion', 'modules', 'particleCount', 'particleDensityVersion', 'particleEnabled', 'particleFull', 'particleManualProgress', 'particleProgressMode', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarOverlay', 'sidebarStyle',
+  'messageMotion', 'modules', 'particleCount', 'particleDensityVersion', 'particleEnabled', 'particleFull', 'particleImageName', 'particleImageRevision', 'particleManualProgress', 'particleProgressMode', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarOverlay', 'sidebarStyle',
   'skillDetails', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnDividerColor', 'turnDividerCss', 'turnDividerImageRevision', 'turnDividerMotion', 'turnDividerPreset', 'turnGlass', 'welcomeDuration',
   'welcomeEnabled', 'welcomeFont', 'welcomeLogo', 'welcomeMediaDuration',
   'welcomeMediaFit', 'welcomeMediaRevision', 'welcomeMode', 'welcomeText', 'width',

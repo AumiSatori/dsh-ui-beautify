@@ -24,6 +24,10 @@ test('independent button glass migrates existing appearance once and preserves e
   assert.equal(normalize({ composerGlass: true }).composerButtonGlass, true)
 })
 test('validates corrupted and out-of-range preferences', () => {
+  assert.equal(normalize(null).userBubbleStyle, 'default')
+  assert.equal(normalize({ userBubbleStyle: 'unknown' }).userBubbleStyle, 'default')
+  assert.equal(normalize({ userBubbleStyle: 'qq' }).userBubbleStyle, 'qq')
+  assert.equal(normalize({ userBubbleStyle: 'custom', userBubbleCss: 'x'.repeat(13000) }).userBubbleCss.length, 12000)
   assert.equal('artifactMode' in normalize(null), false)
   assert.equal('artifactMode' in normalize({ artifactMode: false }), false, 'The retired gate cannot disable previews separately from the card')
   assert.equal(normalize(null).width, 320)

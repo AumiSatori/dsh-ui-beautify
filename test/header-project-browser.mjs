@@ -26,13 +26,13 @@ function Demo(){
  const Header=window.fixtureHeader,injected=Header?window.fixtureHeaderSpec.inject(id):null,source=injected?.hooks.taskActivity;
  const renderSlot=(slot,props)=>{
   if(slot==='conversation.header.leading')return <span data-slot="conversation.header.leading">{leading&&<button aria-label="返回工作区">⌂</button>}</span>;
-  if(slot==='conversation.session.header')return <ConversationSessionHeader {...props} sessionId={id} useSessions={useSessions} useConversationViews={selector=>selector([{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}])} useStore={selector=>selector({view:'chat'})} renderSlot={renderSlot} open={()=>window.nativeOpened=true} selectView={()=>{}} t={key=>key}/>;
+  if(slot==='conversation.session.header')return <div data-slot="conversation.session.header" style={{display:'contents'}}><ConversationSessionHeader {...props} sessionId={id} useSessions={useSessions} useConversationViews={selector=>selector([{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}])} useStore={selector=>selector({view:'chat'})} renderSlot={renderSlot} open={()=>window.nativeOpened=true} selectView={()=>{}} t={key=>key}/></div>;
   if(slot==='conversation.session.header.actions')return <><button>标准模式</button><button>4 个智能体</button></>;
   if(slot==='conversation.session.header.utilities')return Header&&<Header {...injected} sessionId={id} useSessions={useSessions} useWorkspaces={useWorkspaces} useSession={useSession} useProjection={()=>[]} useTaskActivity={selector=>React.useSyncExternalStore(source.subscribe,()=>selector(source.getSnapshot()))}/>;
   if(slot==='conversation.session.header.corner')return <button aria-label="右侧栏">▥</button>;
   return props?.fallback||null;
  };
- return <main className="cr_root" data-phase="active"><ConversationHeader sessionId={id} useSession={useSession} useConversation={selector=>selector({})} renderSlot={renderSlot}/><div className="cr_body" data-conversation-content="" data-conversation-session={id}><div className="chat-scroll" data-conversation-scroll=""><article data-chat-flow="" style={{width:'min('+width+'px, calc(100% - 40px))'}}><p>正文左边界</p><p>用于测量对齐的合成内容。</p><textarea aria-label="输入草稿" defaultValue="保留草稿"/></article></div></div></main>;
+ return <main className="cr_root" data-phase="active"><div data-slot="conversation.header" style={{display:'contents'}}><ConversationHeader sessionId={id} useSession={useSession} useConversation={selector=>selector({})} renderSlot={renderSlot}/></div><div data-slot="conversation.content" style={{display:'contents'}}><div className="cr_body" data-conversation-content="" data-conversation-session={id}><div className="chat-scroll" data-conversation-scroll=""><article data-chat-flow="" style={{width:'min('+width+'px, calc(100% - 40px))'}}><p>正文左边界</p><p>用于测量对齐的合成内容。</p><textarea aria-label="输入草稿" defaultValue="保留草稿"/></article></div></div></div></main>;
 }
 createRoot(document.getElementById('root')).render(<Demo/>);`
 const built=await build({stdin:{contents:demo,loader:'jsx',resolveDir:project},bundle:true,write:false,format:'iife'})
@@ -47,21 +47,35 @@ page.on('pageerror',e=>errors.push(e.message))
 const key='dsh-claude-beautify:settings:v1'
 let passed=0
 async function check(name,fn){await fn();passed++;console.log('PASS '+name)}
-async function aligned(){
- await expect.poll(async()=>{const row=await page.locator('.cr_titleRow').boundingBox(),flow=await page.locator('[data-chat-flow]').boundingBox(),tabs=await page.locator('[data-conversation-tabs]').boundingBox();return Math.abs(row.x-flow.x)+Math.abs(row.width-flow.width)+Math.abs(tabs.x-flow.x)+Math.abs(tabs.width-flow.width)}).toBeLessThan(1)
+async function aligned(selector='[data-chat-flow]'){
+ await expect.poll(async()=>{const row=await page.locator('.cr_titleRow').boundingBox(),flow=await page.locator(selector).boundingBox(),tabs=await page.locator('[data-conversation-tabs]').boundingBox();return Math.abs(row.x-flow.x)+Math.abs(row.width-flow.width)+Math.abs(tabs.x-flow.x)+Math.abs(tabs.width-flow.width)}).toBeLessThan(1)
 }
 try{
  await page.goto(`http://127.0.0.1:${server.address().port}`)
  await page.evaluate(key=>{localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,particleEnabled:false,headerCentered:true}));window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(name=>name==='@deepseek-ai/dsh-client-ui-primitives'?{FishLogo:()=>null}:window.fixtureReact)}},key)
  await page.addScriptTag({url:`http://127.0.0.1:${server.address().port}/client.js`})
  await page.evaluate(()=>{const ctx={slots:{inject(_name,fn){fn()},register(spec,component){if(spec.name==='conversation.session.header.utilities'){window.fixtureHeader=component;window.fixtureHeaderSpec=spec}return()=>{}}},sessions:{binding:window.fixtureBinding},sidebarRight:{openResource(){}},effect(fn){window.cleanups.push(fn())},inject(_names,fn){fn(ctx)}};window.plugin.apply(ctx);window.fixture.refresh()})
- await check('project prefix uses authoritative membership and starts at the real text edge even with an empty native leading wrapper',async()=>{
+ await check('project prefix, title and tabs follow the real text edge through header, session-header and content slot wrappers',async()=>{
   await expect(page.locator('.dcb-header-project-label')).toHaveText('dsh-project');await aligned()
   assert.equal(await page.locator('.dcb-header-project').evaluate(el=>el.nextElementSibling.className.endsWith('_crumbs')),true)
   assert.equal(await page.locator('[data-conversation-header-leading]').isVisible(),false)
   await page.locator('textarea').fill('草稿保持不变')
   await page.evaluate(()=>{window.savedDraft=document.querySelector('textarea');window.savedNativeTitle=document.querySelector('.cr_crumbCurrent')})
   await page.screenshot({path:resolve(output,'aligned-project-light.png')})
+ })
+ await check('nested conversations and retained hidden chat flows cannot steal the active view alignment',async()=>{
+  await page.evaluate(()=>{
+   const nested=document.createElement('div');nested.dataset.conversationContent='nested';nested.dataset.testNested='';nested.style.cssText='position:absolute;width:240px;right:0;top:200px'
+   const flow=document.createElement('div');flow.dataset.chatFlow='';flow.textContent='嵌套会话';nested.append(flow);document.querySelector('.cr_body').prepend(nested)
+  })
+  await aligned('article[data-chat-flow]')
+  await page.evaluate(()=>{
+   document.querySelector('[data-test-nested]').remove();document.querySelector('article').style.display='none'
+   const view=document.createElement('section');view.dataset.dcbViewWidth='shared';view.dataset.testShared='';view.style.cssText='width:620px;max-width:calc(100% - 40px);margin:0 auto';view.textContent='合成上下文视图';document.querySelector('.chat-scroll').append(view)
+  })
+  await aligned('[data-test-shared]')
+  await page.evaluate(()=>{document.querySelector('[data-test-shared]').remove();document.querySelector('article').style.removeProperty('display')})
+  await aligned()
  })
  await check('renames, session switches, subagents and ungrouped sessions cannot retain a stale project name',async()=>{
   await page.evaluate(()=>window.fixture.rename('重命名项目'));await expect(page.locator('.dcb-header-project-label')).toHaveText('重命名项目')

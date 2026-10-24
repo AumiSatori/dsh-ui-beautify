@@ -1,4 +1,5 @@
 import {motion} from './motion.js'
+import {headerConversationBody,conversationVisibleFlow} from './conversation-layout.js'
 
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const FRAME='data-dcb-focus-frame',PART='data-dcb-focus-part',HIDDEN='data-dcb-focus-hidden'
@@ -19,10 +20,10 @@ export const focusModeCss=`
   [${FRAME}=on] > [${PART}=center] { grid-column:2!important; min-width:0; }
   [${FRAME}=on] header:has(> [data-conversation-header-leading]) { height:auto!important; min-height:0!important; display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:0 12px; padding:8px 12px 8px var(${HEADER_LEFT},20px)!important; }
   [${FRAME}=on] header > [data-conversation-header-leading] { position:absolute!important; top:8px; inset-inline-start:12px; width:auto; min-width:0; margin:0; }
-  [${FRAME}=on] header:has(> [data-conversation-header-leading]) > ${names('titleRow')} { grid-area:1/2!important; min-height:30px; display:flex; flex-wrap:nowrap; justify-self:end; padding:0!important; gap:8px; container-type:normal; }
+  [${FRAME}=on] header:has(> [data-conversation-header-leading]) ${names('titleRow')} { grid-area:1/2!important; min-height:30px; display:flex; flex-wrap:nowrap; justify-self:end; padding:0!important; gap:8px; container-type:normal; }
   [${FRAME}=on] header:has(> [data-conversation-header-leading]) ${names('headerUtilities')},[${FRAME}=on] header:has(> [data-conversation-header-leading]) ${names('headerCorner')} { position:static!important; flex:none!important; width:auto; max-width:none!important; min-width:0; min-height:30px; height:30px; flex-wrap:nowrap!important; margin:0; }
-  [${FRAME}=on] header > [data-conversation-tabs] { grid-area:1/1!important; min-width:0; max-width:100%; justify-self:stretch; align-items:center; flex-wrap:nowrap!important; gap:24px; margin:0; padding:0; overflow-x:auto; scrollbar-width:none; }
-  [${FRAME}=on] header > [data-conversation-tabs] > button { flex:none; padding-block:7px; }
+  [${FRAME}=on] header [data-conversation-tabs] { grid-area:1/1!important; min-width:0; max-width:100%; justify-self:stretch; align-items:center; flex-wrap:nowrap!important; gap:24px; margin:0; padding:0; overflow-x:auto; scrollbar-width:none; }
+  [${FRAME}=on] header [data-conversation-tabs] > button { flex:none; padding-block:7px; }
   [${HIDDEN}] { display:none!important; }
   [${PART}=composer][data-dcb-focus-moving] { pointer-events:none; }
   @media(prefers-reduced-motion:reduce) { .dcb-focus-toggle,.dcb-focus-toggle path { transition:none; } }
@@ -105,8 +106,7 @@ export function createFocusMode(React,doc,win,schedule=()=>{}){
     const header=center?.querySelector('header:has(> [data-conversation-header-leading])')
     for(const [element,record]of headers)if(element!==header)releaseHeader(element,record)
     if(!header)return
-    const body=header.parentElement?.querySelector('[data-conversation-content]'),chat=body?.querySelector('[data-chat-flow]')
-    const flow=chat?.getClientRects().length?chat:body?.querySelector('[data-dcb-view-width=shared]'),seat=flow?.getClientRects().length?flow:body
+    const body=headerConversationBody(header),flow=conversationVisibleFlow(body),seat=flow||body
     const leading=header.querySelector('[data-conversation-header-leading]')
     let record=headers.get(header)
     if(!record){

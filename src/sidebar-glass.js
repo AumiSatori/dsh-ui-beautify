@@ -1,5 +1,6 @@
 import {motion} from './motion.js'
 import {createSidebarLayout} from './sidebar-layout.js'
+import {animateSidebarToggle,createRightSidebarMotion} from './sidebar-motion.js'
 const MARK='data-dcb-sidebar-style',COLUMN='data-dcb-sidebar-column',MOTION='data-dcb-sidebar-motion'
 const TOGGLE='data-dcb-sidebar-toggle',STATE='data-dcb-sidebar-toggle-state',MOVING='data-dcb-sidebar-moving'
 const FRAME='data-dcb-sidebar-frame-motion',RESIZING='data-dcb-sidebar-resizing',DURATION=motion.time.sidebar
@@ -8,6 +9,7 @@ const visible=el=>el.isConnected&&el.getClientRects().length&&getComputedStyle(e
 export function createSidebarGlass(doc,win,schedule){
   const records=new Map()
   const layout=createSidebarLayout(doc,win)
+  const rightMotion=createRightSidebarMotion(doc,win)
   const reduced=win.matchMedia('(prefers-reduced-motion: reduce)'),forced=win.matchMedia('(forced-colors: active)')
   const restore=(el,name,value)=>value===null?el.removeAttribute(name):el.setAttribute(name,value)
   const set=(el,name,value)=>{if(el.getAttribute(name)!==value)el.setAttribute(name,value)}
@@ -34,9 +36,12 @@ export function createSidebarGlass(doc,win,schedule){
   }
   function animateContent(record){
     const current=record.ghost||record.enterSeats?.find(el=>suffix(el,'regionArea'))||record.enterSeats?.[0]
-    const sampled=current&&win.getComputedStyle(current),from=sampled?{opacity:sampled.opacity,transform:sampled.transform,filter:sampled.filter}:null
+    const sampled=current&&win.getComputedStyle(current),from=sampled?{opacity:sampled.opacity,transform:sampled.transform}:null
+    const width=parseFloat(record.snapshot?.clone.style.width)||parseFloat(record.root.style.width)||record.root.getBoundingClientRect().width
     stopContent(record)
-    const options={duration:DURATION,easing:motion.ease.smooth},track=(animation,done)=>{
+    const remaining=from?Math.min(1,Math.abs(new win.DOMMatrix(from.transform).m41)/Math.max(1,width)):1
+    const duration=from?DURATION*(record.collapsed?1-remaining:remaining):DURATION
+    const options={duration:Math.max(1,duration),easing:motion.ease.smooth},track=(animation,done)=>{
       record.contentAnimations.add(animation)
       animation.finished.then(()=>{record.contentAnimations.delete(animation);done?.();animation.cancel()},()=>record.contentAnimations.delete(animation))
     }
@@ -46,16 +51,13 @@ export function createSidebarGlass(doc,win,schedule){
       record.ghost=snapshot.clone;record.column.append(record.ghost)
       for(const [el,top,left] of snapshot.scroll){el.scrollTop=top;el.scrollLeft=left}
       const ghost=record.ghost
-      track(ghost.animate([from||{opacity:1,transform:'none',filter:'blur(0px)'},{opacity:0,transform:'translateX(-12px)',filter:'blur(2px)'}],{...options,fill:'forwards'}),()=>{ghost.remove();if(record.ghost===ghost)record.ghost=null})
+      track(ghost.animate([from||{opacity:1,transform:'none'},{opacity:0,transform:`translateX(${-width}px)`}],{...options,fill:'forwards'}),()=>{ghost.remove();if(record.ghost===ghost)record.ghost=null})
     }else{
       // Never transform the root or logo row: the Windows titlebar toggle is
       // fixed inside them. Animate only their content seats.
       const seats=[...record.root.children].flatMap(el=>suffix(el,'logoRow')?[...el.children].filter(child=>suffix(child,'brand')):suffix(el,'newSession')||suffix(el,'panelList')||suffix(el,'regionArea')||suffix(el,'footArea')?[el]:[])
       record.enterSeats=seats
-      for(const [index,seat] of seats.entries()){
-        const delay=from?0:Math.min(index*motion.stagger,96)
-        track(seat.animate([from||{opacity:0,transform:'translateX(-12px)',filter:'blur(2px)'},{opacity:1,transform:'none',filter:'blur(0px)'}],{...options,duration:DURATION-delay,delay,fill:'backwards'}))
-      }
+      for(const seat of seats)track(seat.animate([from||{opacity:0,transform:`translateX(${-width}px)`},{opacity:1,transform:'none'}],{...options,fill:'backwards'}))
     }
   }
   function releaseGlass(record){
@@ -83,16 +85,7 @@ export function createSidebarGlass(doc,win,schedule){
     restore(record.button,TOGGLE,record.buttonMark);restore(record.button,STATE,record.buttonState)
   }
   function animateToggle(record,collapsed){
-    const button=record.button
-    if(!button||typeof button.animate!=='function')return
-    const icon=button.querySelector('[class$="_panelIcon"], [class*="_panelIcon "], svg')
-    const scale=win.getComputedStyle(button).scale
-    const fromIcon=icon&&win.getComputedStyle(icon).transform
-    stopAnimations(record)
-    const options={duration:motion.time.standard,easing:motion.ease.smooth}
-    const animations=[button.animate([{scale},{scale:'.97',offset:.2},{scale:'1'}],options)]
-    if(icon)animations.push(icon.animate([{transform:fromIcon||'none',opacity:1},{transform:`translateX(${collapsed?-2:2}px) scaleX(${collapsed?-1:1})`,opacity:.75,offset:.45},{transform:`scaleX(${collapsed?-1:1})`,opacity:1}],options))
-    for(const animation of animations){record.animations.add(animation);animation.finished.then(()=>{record.animations.delete(animation);animation.cancel()},()=>record.animations.delete(animation))}
+    animateSidebarToggle(record,win,collapsed)
   }
   function startMoving(record){
     win.clearTimeout(record.settleTimer)
@@ -122,6 +115,7 @@ export function createSidebarGlass(doc,win,schedule){
   }
   function sync(style,motion){
     const incoming=roots(),wanted=new Set(incoming.map(item=>item.root)),animate=motion&&!reduced.matches&&!forced.matches
+    rightMotion.sync(animate)
     for(const [root,record] of records)if(!wanted.has(root)){release(record);records.delete(root)}
     for(const {root,column} of incoming){
       const frame=column.parentElement,collapsed=frame.getAttribute('data-sidebar-collapsed')==='true'||suffix(root,'collapsed')
@@ -199,5 +193,5 @@ export function createSidebarGlass(doc,win,schedule){
   const onScroll=event=>{for(const record of records.values())if(record.root.contains(event.target)){record.dirty=true;schedule()}}
   win.addEventListener('resize',onResize);doc.addEventListener('scroll',onScroll,true)
   reduced.addEventListener('change',schedule);forced.addEventListener('change',schedule)
-  return {sync,dispose(){win.removeEventListener('resize',onResize);doc.removeEventListener('scroll',onScroll,true);reduced.removeEventListener('change',schedule);forced.removeEventListener('change',schedule);for(const record of records.values())release(record);records.clear();layout.dispose()}}
+  return {sync,dispose(){win.removeEventListener('resize',onResize);doc.removeEventListener('scroll',onScroll,true);reduced.removeEventListener('change',schedule);forced.removeEventListener('change',schedule);for(const record of records.values())release(record);records.clear();rightMotion.dispose();layout.dispose()}}
 }

@@ -23,7 +23,7 @@ function Header({right,settings,kind,leading}){
   if(name==='conversation.header.leading')return leading?<button aria-label="返回工作区" onClick={()=>window.headerActions++}>⌂</button>:null;
   if(name==='conversation.session.header.actions')return <><button>标准模式</button><button>6 个智能体⌄</button></>;
   if(name==='conversation.session.header.utilities')return <><button aria-label="打开目录" onClick={()=>window.headerActions++}>📁⌄</button><button className="demo-theme" aria-label="日夜切换">☀︎ ━</button><focus.Button/><span className="dcb-anchor"><button className="dcb-entry" aria-label="全部轮次" onClick={()=>window.headerActions++}>◈ 全部 17 轮</button></span><button aria-label="打开设置" onClick={settings}>设置</button></>;
-  if(name==='conversation.session.header.corner')return <button aria-label="切换右侧栏" onClick={right}>▥</button>;
+  if(name==='conversation.session.header.corner')return <button aria-label="切换右侧栏" data-sidebar-right-expand="" onClick={right}><svg width="16" height="16" style={{transform:'scaleX(-1)'}}><rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor"/></svg></button>;
   return null;
  };
  return <ConversationHeader sessionId={kind==='sessionless'?undefined:'demo'} useSession={selector=>selector(kind==='sessionless'?undefined:{blank:kind==='blank'})} useConversation={selector=>selector(kind==='sessionless'?undefined:{})} renderSlot={renderSlot}/>;
@@ -38,7 +38,7 @@ function Demo(){
  const renderSlot=(name,props)=>{
   if(name==='sidebar')return <SidebarRoot {...props} toggleSidebar={left} startSession={()=>{}} selectPanel={()=>{}} usePanels={()=>[]} useShortcuts={()=>[]} usePanelInfo={selector=>selector({activePanelId:null})} t={key=>key==='toggle.open'?'打开左侧栏':key==='toggle.collapse'?'收起左侧栏':key} renderSlot={(slot)=>slot==='sidebar.sessions'?<div style={{height:'100%',overflow:'auto'}}>{Array.from({length:40},(_,i)=><button className="sb_sessionRow" key={i}>会话 {i+1}</button>)}</div>:null}/>;
   if(name==='main')return globalPanel?<div data-testid="global-panel">插件页面</div>:<main className="cr_root" data-phase="active"><Header right={right} settings={()=>setSettings(true)} kind={headerKind} leading={leading}/><div className="cr_body" data-conversation-content="" data-conversation-session="demo"><div data-conversation-scroll="" className="chat-scroll"><article data-chat-flow="">{Array.from({length:180},(_,i)=><p key={i} className="message">演示消息 {i+1}：左右侧栏覆盖主屏幕，正文宽度、滚动位置和输入草稿不会随开合改变。保留真实控件和粒子画布。</p>)}</article></div><div data-composer-seat="" className="composer"><textarea aria-label="输入草稿" defaultValue="保留输入草稿和选区"/></div></div></main>;
-  if(name==='rightbar')return <div className="rb_panel" data-sidebar-right-panel={layout.rightbarFullscreen?'fullscreen':'push'} data-sidebar-right-open={layout.rightbarShown||undefined} style={{width:layout.rightbarFullscreen?'100vw':props.width,'--dsh-sidebar-width':props.width+'px'}}><div data-dockkit-empty="" className="right-content"><div className="preview-toolbar"><span>preview.html</span><button aria-label="预览布局">▥</button><button aria-label="预览全屏" onClick={()=>window.fixture.fullscreen(!layout.rightbarFullscreen)}>⛶</button><button aria-label="收起右侧栏" onClick={right}>▥</button></div><h2>原生右侧面板</h2><input aria-label="右侧草稿" defaultValue="保留文件面板状态"/></div></div>;
+  if(name==='rightbar')return <div className="rb_panel" data-sidebar-right-panel={layout.rightbarFullscreen?'fullscreen':'push'} data-sidebar-right-open={layout.rightbarShown||undefined} style={{width:layout.rightbarFullscreen?'100vw':props.width,'--dsh-sidebar-width':props.width+'px'}}><div data-dockkit-empty="" className="right-content"><div className="preview-toolbar"><span>preview.html</span><button aria-label="预览布局">▥</button><button aria-label="预览全屏" onClick={()=>window.fixture.fullscreen(!layout.rightbarFullscreen)}>⛶</button><button aria-label="收起右侧栏" onClick={right}><svg className="rb_collapseGlyph" width="16" height="16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor"/></svg></button></div><h2>原生右侧面板</h2><input aria-label="右侧草稿" defaultValue="保留文件面板状态"/></div></div>;
   if(name==='shell.bottom')return <div className="bottom">原生底栏</div>;
   if(name==='shell.overlay'&&settings&&window.fixtureSettings)return <div className="settings-dialog" role="dialog"><button aria-label="关闭设置" onClick={()=>setSettings(false)}>×</button><window.fixtureSettings/></div>;
   return null;
@@ -50,7 +50,7 @@ const built=await build({stdin:{contents:demo,loader:'jsx',resolveDir:project},b
 const html=`<!doctype html><html data-windows-titlebar><meta charset="utf-8"><style>${native.css}
 :root{--dsh-windows-titlebar-height:40px;--dsw-alias-bg-base:#fff;--dsw-specific-sidebar-fill:#f5f6f8;--dsw-alias-label-primary:#23262c;--dsw-alias-label-secondary:#6a707c;--dsw-alias-border-l3:#ccd1da;--ds-transition-duration-slow:320ms;--ds-ease-in-out:ease-in-out}*{box-sizing:border-box}html,body,#root{height:100%;margin:0;font:14px system-ui}.cr_root{display:flex;flex-direction:column;min-height:0;height:100%}button{cursor:pointer;font:inherit}.cr_header button{flex:none;border:0;border-radius:7px;padding:5px 8px;background:transparent;color:inherit;min-height:30px}.cr_header .demo-theme{width:70px;background:#e5f3fd}.cr_body{position:relative;display:flex;flex-direction:column;flex:1;min-height:0}.chat-scroll{flex:1;overflow:auto;min-height:0;overflow-anchor:none}article{max-width:980px;width:calc(100% - 64px);margin:auto;padding:24px 0}.message{line-height:1.9;margin:0 0 14px}.composer{flex:none;padding:14px 28px 20px}textarea{width:100%;height:86px;resize:none;padding:15px;border-radius:16px;border:1px solid #bbb;background:#fff;color:inherit;font:inherit}.sb_sessionRow{display:block;width:100%;height:38px;border:0;background:transparent;text-align:left}.bottom{height:26px;padding:3px 20px}.right-content{height:100%;background:#f3f5f9;pointer-events:auto;border-left:1px solid #ccc}.preview-toolbar{display:flex;align-items:center;gap:8px;height:50px;padding:10px 12px;border-bottom:1px solid #ddd;background:white}.preview-toolbar>span{flex:1;min-width:0}.preview-toolbar>button{width:30px;height:30px;flex:none;border:0;background:transparent;padding:0}.right-content>h2,.right-content>input{margin:20px}.settings-dialog{position:fixed;inset:40px 10%;background:white;overflow:auto;border-radius:14px;padding:24px;box-shadow:0 8px 80px #0004;pointer-events:auto}.settings-dialog>button{position:absolute;right:10px;top:10px}body[data-ds-dark-theme]{--dsw-alias-bg-base:#202226;--dsw-specific-sidebar-fill:#272a30;--dsw-alias-label-primary:#eee;--dsw-alias-label-secondary:#ccc;color:#eee}body[data-ds-dark-theme] :is(textarea,.right-content,.settings-dialog){background:#272a30;color:#eee}.af_sidebarCol{background:var(--dsw-specific-sidebar-fill)}
 </style><div id="root"></div><script src="/demo.js"></script></html>`
-const routes={'/':['text/html; charset=utf-8',html],'/demo.js':['text/javascript',built.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'),'utf8')]}
+const routes={'/':['text/html; charset=utf-8',html],'/demo.js':['text/javascript',built.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(process.env.DSH_CLAUDE_CLIENT_FILE||resolve(project,'client.js'),'utf8')]}
 const server=createServer((req,res)=>{const route=routes[new URL(req.url,'http://localhost').pathname];if(!route)return res.writeHead(404).end();res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const url=`http://127.0.0.1:${server.address().port}`,key='dsh-claude-beautify:settings:v1',browser=await chromium.launch({headless:true,channel:'chrome'}),context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[],checks=[]
@@ -166,6 +166,57 @@ try{
   await page.locator('.sb_toggle').click();await patch({sidebarMotion:true,sidebarStyle:'milk'});await page.waitForTimeout(600)
   writeFileSync(resolve(output,'drawer-motion.json'),JSON.stringify({close,open},null,2))
  })
+ await check('left and right drawers share mirrored travel, opacity, timing and toggle feedback',async()=>{
+  await page.locator('.sb_toggle').click();await page.waitForTimeout(650)
+  const pairs=[]
+  for(const direction of['open','close']){
+   const result=await page.evaluate(()=>new Promise(done=>{
+    const samples=[],frame=document.querySelector('.af_frame'),left=document.querySelector('.af_sidebarCol'),right=document.querySelector('.right-content'),start=performance.now()
+    const before=document.querySelector('.af_centerCol').getBoundingClientRect(),canvas=document.querySelector('.dcb-particle-layer canvas')
+    window.fixture.left();window.fixture.right()
+    const tick=()=>{
+     const ghost=document.querySelector('[data-dcb-sidebar-ghost]'),root=document.querySelector('.sb_root'),seat=ghost||root.querySelector('.sb_regionArea'),s=seat&&getComputedStyle(seat),r=getComputedStyle(right),matrix=new DOMMatrix(r.transform),center=document.querySelector('.af_centerCol').getBoundingClientRect()
+     samples.push({time:performance.now()-start,left:left.getBoundingClientRect().width/280,right:1-matrix.m41/right.getBoundingClientRect().width,leftOpacity:s?Number(s.opacity):0,rightOpacity:Number(r.opacity),leftX:s?new DOMMatrix(s.transform).m41:0,centerX:center.x,centerWidth:center.width})
+     if(performance.now()-start<650)requestAnimationFrame(tick)
+     else done({samples,before:{x:before.x,width:before.width},canvas:canvas===document.querySelector('.dcb-particle-layer canvas'),leftStyle:{duration:getComputedStyle(left).transitionDuration,easing:getComputedStyle(left).transitionTimingFunction},rightStyle:{duration:r.transitionDuration,easing:r.transitionTimingFunction},moving:!!document.querySelector('[data-dcb-sidebar-moving],[data-dcb-sidebar-ghost]')})
+    };requestAnimationFrame(tick)
+   }))
+   pairs.push({direction,...result})
+   const middle=result.samples.filter(s=>s.left>.05&&s.left<.95&&s.right>.05&&s.right<.95)
+   assert.ok(middle.length>=3,direction+' has matching intermediate frames')
+   for(const sample of middle){assert.ok(Math.abs(sample.left-sample.right)<.16,'mirrored drawer progress stays synchronized');assert.ok(Math.abs(sample.leftOpacity-sample.rightOpacity)<.16,'content fades with the same progress');assert.ok(sample.leftX<=.1,'the left content slides toward the left edge')}
+   for(const sample of result.samples){assert.ok(Math.abs(sample.centerX-result.before.x)<.6&&Math.abs(sample.centerWidth-result.before.width)<.6,'main chat stays fixed')}
+   assert.equal(result.leftStyle.duration,'0.5s');assert.ok(result.rightStyle.duration.split(',').some(s=>s.trim()==='0.5s'));assert.equal(result.rightStyle.easing.split(/,(?![^()]*\))/)[0],result.leftStyle.easing)
+   assert.equal(result.canvas,true);assert.equal(result.moving,false)
+  }
+  await page.locator('.sb_toggle').click();await page.waitForTimeout(650)
+  for(const name of['切换右侧栏','收起右侧栏']){
+   const button=page.getByRole('button',{name,exact:true,includeHidden:true})
+   const result=await button.evaluate(button=>new Promise(done=>{const icon=button.querySelector('svg'),base=getComputedStyle(icon).transform;button.click();requestAnimationFrame(()=>{const animations=button.getAnimations().filter(a=>!(a instanceof CSSTransition)),values={count:animations.length,duration:animations[0]?.effect.getTiming().duration,scale:parseFloat(getComputedStyle(button).scale)||1,base};done(values)})}))
+   assert.equal(result.count,1,'right control uses the same single pulse');assert.equal(result.duration,280);assert.ok(result.scale>=.969&&result.scale<=1.001)
+   await page.waitForTimeout(650);assert.equal(await button.evaluate(el=>el.getAnimations().filter(a=>!(a instanceof CSSTransition)).length),0)
+  }
+  const reverse=await page.evaluate(()=>new Promise(done=>{window.fixture.right();setTimeout(()=>{const seat=document.querySelector('.right-content'),before=new DOMMatrix(getComputedStyle(seat).transform).m41;window.fixture.right();requestAnimationFrame(()=>done({before,after:new DOMMatrix(getComputedStyle(seat).transform).m41,tracks:seat.getAnimations().filter(a=>a.transitionProperty==='transform').length}))},90)}))
+  assert.ok(Math.abs(reverse.before-reverse.after)<40&&reverse.tracks<=1,'right reversal continues from its current position')
+  await page.waitForTimeout(650)
+  await patch({sidebarMotion:false});await page.getByRole('button',{name:'切换右侧栏',exact:true}).click();await page.waitForTimeout(40)
+  assert.equal(await page.locator('.right-content').evaluate(el=>getComputedStyle(el).transitionDuration),'0s')
+  assert.equal(await page.locator('.right-content').evaluate(el=>new DOMMatrix(getComputedStyle(el).transform).m41),0)
+  await page.getByRole('button',{name:'收起右侧栏',exact:true}).click();await patch({sidebarMotion:true})
+  for(const media of[{reducedMotion:'reduce'},{reducedMotion:'no-preference',forcedColors:'active'}]){
+   await page.emulateMedia(media);await page.waitForTimeout(80)
+   await page.getByRole('button',{name:'切换右侧栏',exact:true}).click();await page.waitForTimeout(40)
+   assert.equal(await page.locator('.right-content').evaluate(el=>getComputedStyle(el).transitionDuration),'0s','accessibility preferences stop both drawers')
+   assert.equal(await page.locator('.right-content').evaluate(el=>new DOMMatrix(getComputedStyle(el).transform).m41),0)
+   assert.equal(await page.getByRole('button',{name:'切换右侧栏',exact:true}).evaluate(el=>el.getAnimations().filter(a=>!(a instanceof CSSTransition)).length),0)
+   await page.getByRole('button',{name:'收起右侧栏',exact:true}).click();await page.waitForTimeout(40)
+  }
+  await page.emulateMedia({reducedMotion:'no-preference',forcedColors:'none'});await page.waitForTimeout(80)
+  await page.evaluate(()=>window.fixture.instant(true));await page.getByRole('button',{name:'切换右侧栏',exact:true}).click();await page.waitForTimeout(40)
+  assert.equal(await page.locator('.right-content').evaluate(el=>getComputedStyle(el).transitionDuration),'0s','native instant presentation is respected')
+  await page.getByRole('button',{name:'收起右侧栏',exact:true}).click();await page.evaluate(()=>window.fixture.instant(false))
+  writeFileSync(resolve(output,'paired-drawer-motion.json'),JSON.stringify(pairs,null,2))
+ })
  await page.evaluate(()=>{window.overlayCanvas=document.querySelector('.dcb-particle-layer canvas');window.overlayEditor=document.querySelector('textarea');window.overlayMessage=document.querySelector('.message');document.querySelector('[data-conversation-scroll]').scrollTop=900;window.overlayEditor.focus();window.overlayEditor.setSelectionRange(2,7)})
  await check('native left and right toggles overlay the chat without changing any sampled message or editor geometry',async()=>{
   await sample(()=>page.locator('.sb_toggle').click())
@@ -238,6 +289,7 @@ try{
   await page.evaluate(()=>{for(const cleanup of window.cleanups.reverse())if(typeof cleanup==='function')cleanup()})
   assert.equal(await page.locator('[data-dcb-sidebar-overlay],[data-dcb-sidebar-overlay-part],[data-dcb-header-centered]').count(),0)
   assert.equal(await page.locator('[data-dcb-header-compact]').count(),0)
+  assert.equal(await page.locator('[data-dcb-sidebar-toggle]').count(),0)
   assert.equal(await page.locator('.cr_header').evaluate(el=>[...el.style].filter(name=>name.startsWith('--dcb-header-')).length),0)
   assert.equal(await page.locator('.af_frame').evaluate(el=>[...el.style].filter(name=>name.startsWith('--dcb-overlay-')).length),0)
   assert.ok((await geometry()).center[2]<760)

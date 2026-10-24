@@ -1,10 +1,12 @@
 import {motion} from './motion.js'
+import {sidebarMotionCss} from './sidebar-motion.js'
 
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const FRAME='data-dcb-sidebar-overlay',PART='data-dcb-sidebar-overlay-part'
 const WIDTH='--dcb-overlay-left-width',RAIL='--dcb-overlay-rail',TOP='--dcb-overlay-top',BOTTOM='--dcb-overlay-bottom'
 
 export const sidebarOverlayCss=`
+  ${sidebarMotionCss}
   body [${FRAME}]:not([data-dcb-focus-frame=on]) { grid-template-columns:var(${RAIL},0px) minmax(0px,1fr) 0px!important; column-gap:0!important; transition:none!important; }
   [${FRAME}] > [${PART}=center] { grid-area:1/2; min-width:0; isolation:isolate; }
   [${FRAME}] > [${PART}=left] { position:absolute!important; top:var(${TOP},0px); bottom:var(${BOTTOM},0px); left:0; width:var(${WIDTH},280px); min-width:0; z-index:16; overflow:clip; box-shadow:6px 0 18px #0000000d; transition:none; }

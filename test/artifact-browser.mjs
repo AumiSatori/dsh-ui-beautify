@@ -75,6 +75,7 @@ async function boot({companion=false,noPortal=false,native=false,missingSessionH
   assert.ok(nativeHeader,'Set DSH_ASAR for native header integration checks')
   await page.addStyleTag({content:nativeHeader.css+' [data-native-header-fixture] > header {height:auto;flex:none;} [data-native-header-fixture] header nav {display:flex;}'});
   await page.evaluate(missingSessionHook=>window.mountNativeHeader({missingSessionHook}),missingSessionHook)
+  if(!await page.getByRole('button',{name:'会话进度与输出',exact:true}).count())throw new Error('Native header fixture failed: '+errors.join('; '))
  }
  if(enabled){await page.getByRole('button',{name:'会话进度与输出',exact:true}).click();await settled()}
 }
@@ -105,6 +106,53 @@ try{
   assert.equal(await card.locator('.dcb-output').count(),files.length)
   assert.equal(await page.evaluate(()=>typeof window.__dshOpenFilePreview),'undefined')
   assert.equal(await page.evaluate(()=>window.coverScripts),0)
+ })
+ await check('one visual output uses one column; multiple image and HTML covers use two while attachments span the row',async()=>{
+  const grid=card.locator('.dcb-output-grid')
+  async function show(paths){
+   await page.evaluate(paths=>window.fixture.records([{event:{type:'deliverables/presented',seq:2,data:{files:paths.map(path=>({path}))}}}]),paths);await settled()
+   await grid.waitFor()
+  }
+  async function boxes(){return grid.locator(':scope > *').evaluateAll(nodes=>nodes.map(node=>{const box=node.getBoundingClientRect();return{x:box.x,y:box.y,width:box.width,height:box.height}}))}
+  await show(['outputs/one.png']);assert.equal(await grid.getAttribute('data-columns'),'1')
+  let rect=await boxes();assert.ok(Math.abs(rect[0].width-(await grid.boundingBox()).width)<1)
+  await show(['outputs/one.png','outputs/two.png','outputs/three.png']);assert.equal(await grid.getAttribute('data-columns'),'2')
+  rect=await boxes();assert.ok(Math.abs(rect[0].y-rect[1].y)<1);assert.ok(rect[2].y>rect[0].y);assert.ok(Math.abs(rect[0].width-rect[1].width)<1)
+  await card.screenshot({path:resolve(output,'image-grid-light.png')})
+  await show(['outputs/one.png','outputs/Preview page.html','outputs/archive.zip']);await card.locator('.dcb-artifact[data-preview-state=ready]').waitFor();await settled()
+  rect=await boxes();assert.ok(Math.abs(rect[0].y-rect[1].y)<1);assert.ok(rect[2].width>rect[0].width*1.9)
+  await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''));await card.screenshot({path:resolve(output,'image-html-grid-dark.png')})
+  await page.setViewportSize({width:390,height:900});await settled();assert.equal(await grid.evaluate(node=>node.scrollWidth<=node.clientWidth+1),true)
+  await card.screenshot({path:resolve(output,'image-grid-narrow.png')})
+  await page.emulateMedia({forcedColors:'active',reducedMotion:'reduce'});await settled();assert.equal(await grid.evaluate(node=>node.scrollWidth<=node.clientWidth+1),true)
+  await page.emulateMedia({forcedColors:'none',reducedMotion:'no-preference'});await page.setViewportSize({width:1280,height:1000});await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
+  await show(['outputs/Preview page.html','outputs/archive.zip']);await card.locator('.dcb-artifact[data-preview-state=ready]').waitFor();assert.equal(await grid.getAttribute('data-columns'),'1')
+  assert.equal(await page.evaluate(()=>window.coverScripts),0)
+  await card.screenshot({path:resolve(output,'single-html-column.png')})
+  await boot()
+ })
+ await check('original glass materials and black-white scope styles survive unfilled inner controls',async()=>{
+  await boot({native:!!nativeHeader})
+  await page.addStyleTag({content:'[data-native-header-fixture]{background:linear-gradient(120deg,#b8e1ef,#b4c3df 55%,#e3cbc5)!important} body[data-ds-dark-theme] [data-native-header-fixture]{background:linear-gradient(120deg,#132e40,#28344c 55%,#463443)!important}'})
+  const row=card.locator('.dcb-output').filter({hasText:'report'})
+  for(const dark of [false,true])for(const cardStyle of ['clear','css','glass']){
+   await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark);await patch({cardStyle,iconStyle:'glass'})
+   await page.mouse.move(10,800);await page.evaluate(()=>document.activeElement?.blur());await settled()
+   assert.notEqual(await card.evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)','The outer glass material must retain its original surface')
+   assert.notEqual(await card.evaluate(node=>getComputedStyle(node).backgroundImage),'none','Retain optical highlights instead of flattening the whole card')
+   assert.equal(await card.locator('.dcb-scope-switch').evaluate(node=>getComputedStyle(node).backgroundColor),dark?'rgb(17, 17, 17)':'rgb(255, 255, 255)')
+   assert.equal(await card.locator('.dcb-scope-indicator path').evaluate(node=>getComputedStyle(node).fill),dark?'rgb(255, 255, 255)':'rgb(17, 17, 17)')
+   assert.equal(await card.locator('[data-dcb-icon]').count(),0,'Nested summary controls must not be classified as header toolbar buttons')
+   const fills=await card.locator('.dcb-module-toggle,.dcb-resource-summary,.dcb-output,.dcb-tile,.dcb-artifact').evaluateAll(nodes=>nodes.map(node=>getComputedStyle(node).backgroundColor))
+   assert.ok(fills.every(value=>value==='rgba(0, 0, 0, 0)'),JSON.stringify(fills))
+   await row.hover();await settled();assert.notEqual(await row.evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)')
+   if(!dark&&cardStyle==='glass')await card.screenshot({path:resolve(output,'transparent-glass-output-hover.png')})
+   await page.mouse.move(10,800);await row.focus();await settled();assert.notEqual(await row.evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)')
+   await page.evaluate(()=>document.activeElement?.blur());await settled()
+   if(cardStyle==='glass')await card.screenshot({path:resolve(output,dark?'transparent-glass-dark.png':'transparent-glass-light.png')})
+  }
+  await page.emulateMedia({forcedColors:'active'});await settled();assert.notEqual(await card.evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)')
+  await page.emulateMedia({forcedColors:'none'});await boot()
  })
  await check('a companion loaded later leaves the existing card, all files and static covers intact',async()=>{
   await page.evaluate(()=>window.originalCard=document.querySelector('.dcb-summary'));await loadCompanion()

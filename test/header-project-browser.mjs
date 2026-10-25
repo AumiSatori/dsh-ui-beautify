@@ -12,7 +12,7 @@ const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','.s
 mkdirSync(output,{recursive:true})
 const demo=`import React from 'react';import*as jsxRuntime from'react/jsx-runtime';import{createRoot}from'react-dom/client';
 const react=React,react_jsx_runtime=jsxRuntime,clsx=(...values)=>values.flat().filter(Boolean).join(' '),localBuildVersion=()=> 'test',conversationPhase=session=>session.blank?'blank':'active';
-const _deepseek_ai_dsh_client_ui_primitives=new Proxy({},{get:()=>()=>null});
+const _deepseek_ai_dsh_client_ui_primitives=new Proxy({Tooltip:({children})=>children},{get:(target,key)=>target[key]||(()=>null)});
 ${native.code}
 window.fixtureReact=React;window.cleanups=[];
 const bindings=new Map();window.fixtureBinding=id=>{if(!bindings.has(id))bindings.set(id,{eventSource:{getSnapshot:()=>snapshot,subscribe:()=>()=>{}}});return bindings.get(id)};
@@ -26,7 +26,7 @@ function Demo(){
  const Header=window.fixtureHeader,injected=Header?window.fixtureHeaderSpec.inject(id):null,source=injected?.hooks.taskActivity;
  const renderSlot=(slot,props)=>{
   if(slot==='conversation.header.leading')return <span data-slot="conversation.header.leading">{leading&&<button aria-label="返回工作区">⌂</button>}</span>;
-  if(slot==='conversation.session.header')return <div data-slot="conversation.session.header" style={{display:'contents'}}><ConversationSessionHeader {...props} sessionId={id} useSessions={useSessions} useConversationViews={selector=>selector([{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}])} useStore={selector=>selector({view:'chat'})} renderSlot={renderSlot} open={()=>window.nativeOpened=true} selectView={()=>{}} t={key=>key}/></div>;
+  if(slot==='conversation.session.header')return <div data-slot="conversation.session.header" style={{display:'contents'}}><ConversationSessionHeader {...props} sessionId={id} useSessions={useSessions} useConversationViews={selector=>selector([{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}])} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={selector=>selector({view:'chat'})} renderSlot={renderSlot} open={()=>window.nativeOpened=true} selectView={()=>{}} t={key=>key}/></div>;
   if(slot==='conversation.session.header.actions')return <><button>标准模式</button><button>4 个智能体</button></>;
   if(slot==='conversation.session.header.utilities')return (window.fixtureHeaders||[]).map(record=>{const injected=record.spec.inject(id),source=injected.hooks.taskActivity;return <record.component key={record.key} {...injected} sessionId={id} useSessions={useSessions} useWorkspaces={useWorkspaces} useSession={useSession} useProjection={()=>[]} useTaskActivity={selector=>React.useSyncExternalStore(source.subscribe,()=>selector(source.getSnapshot()))}/>});
   if(slot==='conversation.session.header.corner')return <button aria-label="右侧栏">▥</button>;
@@ -44,7 +44,7 @@ const routes={'/':['text/html; charset=utf-8',html],'/demo.js':['text/javascript
 const server=createServer((req,res)=>{const route=routes[req.url];if(!route)return res.writeHead(404).end();res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const browser=await chromium.launch({headless:true,channel:'chrome'}),page=await browser.newPage({viewport:{width:1440,height:900}}),errors=[]
-page.on('pageerror',e=>errors.push(e.message))
+page.on('pageerror',e=>(errors.push(e.message),console.error('FIXTURE ERROR', e.message)))
 const key='dsh-ui-beautify:settings:v1'
 let passed=0
 async function check(name,fn){await fn();passed++;console.log('PASS '+name)}

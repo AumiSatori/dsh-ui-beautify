@@ -74,7 +74,7 @@ try {
   await page.evaluate(() => window.plugin.apply({
     slots: {
       inject(name, callback) { callback() },
-      register(spec, component) { window.fixtureSettingsEntries.push({ id: spec.id, label: spec.label }); window.fixtureSettings = component; return () => {} },
+      register(spec, component) { if(spec.name==='settings.section'){window.fixtureSettingsEntries.push({ id: spec.id, label: spec.label }); window.fixtureSettings = component;} return () => {} },
     },
     effect(callback) { window.cleanups.push(callback()) },
   }))

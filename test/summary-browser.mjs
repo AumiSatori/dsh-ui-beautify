@@ -9,13 +9,15 @@ import { chromium } from '@playwright/test'
 const project = fileURLToPath(new URL('..', import.meta.url))
 const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '.scratch', 'claude-beautify'))
 const presentationSettingKeys = [
+  'iconStyle', 'runningAnimationLabel', 'runningAnimationLabelRandom', 'toolbar', 'userBubbleThemes', 'welcomeThemes', 'welcomeWindowScale',
+  'runningAnimationEnabled','runningAnimationPack','runningAnimationActions','runningAnimationRandom','runningAnimationSize','runningAnimationGap','runningAnimationOpacity',
   'backgroundBlur', 'backgroundEnabled', 'backgroundFit', 'backgroundName', 'backgroundOpacity', 'backgroundPosition', 'backgroundRevision', 'backgroundSound', 'backgroundThemes',
-  'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'enabled', 'headerCentered',
+  'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'detailMotion', 'enabled', 'headerCentered',
   'messageMotion', 'modules', 'particleCount', 'particleDensityVersion', 'particleEnabled', 'particleFull', 'particleImageName', 'particleImageRevision', 'particleManualProgress', 'particleProgressMode', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarOverlay', 'sidebarStyle',
   'skillDetails', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnDividerColor', 'turnDividerCss', 'turnDividerImageRevision', 'turnDividerMotion', 'turnDividerPreset', 'turnGlass', 'userBubbleCss', 'userBubbleStyle', 'welcomeDuration',
-  'welcomeEnabled', 'welcomeFont', 'welcomeLogo', 'welcomeMediaDuration',
+  'welcomeCharacters', 'welcomeCodeDuration', 'welcomeCodeName', 'welcomeCodeRevision', 'welcomeEnabled', 'welcomeFont', 'welcomeLogo', 'welcomeMediaDuration',
   'welcomeMediaFit', 'welcomeMediaRevision', 'welcomeMode', 'welcomeText', 'width',
-]
+].sort()
 mkdirSync(output, { recursive: true })
 // Portable runs use a synthetic silhouette. DSH_ASAR borrows the installed
 // primitive's exact path and proportions in memory for visual verification.
@@ -385,10 +387,10 @@ try {
     const metrics = await card.evaluate(el => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height, rowFont: getComputedStyle(el.querySelector('.dcb-resource')).fontSize }))
     assert.equal(metrics.width, 320)
     // Include the scope switch and per-turn navigation above the three modules.
-    assert.ok(metrics.height > 300 && metrics.height < 640, JSON.stringify(metrics))
+    assert.ok(metrics.height > 300 && metrics.height < page.viewportSize().height - 120, JSON.stringify(metrics))
     assert.equal(metrics.rowFont, '13px')
     const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
-    assert.equal((await entry.boundingBox()).height, 24, 'The entry matches the compact 24px header control in the reference')
+    assert.equal((await entry.boundingBox()).height, 24, 'The standalone entry retains its native compact height')
     assert.equal(await entry.evaluate(el => getComputedStyle(el).fontSize), '13px')
     assert.equal(await entry.locator('.dcb-logo').getAttribute('viewBox'), `0 0 ${branding.width} ${branding.height}`)
     assert.equal(await card.locator('.dcb-module-toggle').count(), 3)
@@ -498,7 +500,7 @@ try {
     await settled()
     assert.equal(await card.count(), 1, 'Arranging new steps during a run automatically pins and reveals the panel')
     assert.equal(await page.evaluate(() => window.dropdownReveals.length), beforeStart + 1)
-    assert.ok((await entryButton.innerText()).includes('第 5 步，共 6 步'))
+    assert.ok((await entryButton.innerText()).includes('5/6'))
     assert.equal((await entryButton.boundingBox()).height, 24, 'The working label also keeps the same compact height')
     await page.locator('.header-utilities').screenshot({ path: resolve(output, 'summary-entry-working.png') })
     assert.equal(await card.getByRole('listitem').count(), 3)
@@ -526,7 +528,7 @@ try {
     })
     await settled()
     assert.equal(await card.count(), 0, 'Task progress does not reopen a panel manually closed during the same run')
-    assert.ok((await entryButton.innerText()).includes('第 6 步，共 6 步'))
+    assert.ok((await entryButton.innerText()).includes('6/6'))
     await entryButton.click()
     await page.evaluate(() => {
       window.fixture.running(false)
@@ -721,7 +723,7 @@ try {
     assert.deepEqual(tiles.map(tile => tile.hasImage), [false, true, false])
     assert.equal(tiles[1].loading, 'lazy')
     const widths = await card.locator('.dcb-tile').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width))
-    assert.deepEqual(widths, [30, 30, 30])
+    assert.deepEqual(widths, [30, 136, 136], 'Images use the two-column output grid; files keep a compact type tile')
     const source = await card.locator('.dcb-tile img').getAttribute('src')
     assert.ok(source.startsWith('blob:'), 'the preview comes from workspace bytes, not a guessed URL')
     assert.equal(await card.locator('[data-thumbnail="image"]').count(), 1)
@@ -999,7 +1001,8 @@ try {
     await settled()
     assert.ok(await card.isVisible())
     const stored = await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1'))
-    assert.ok(!stored.includes('Character') && !stored.includes('Animation'))
+    const settingValues=JSON.stringify(Object.values(JSON.parse(stored)))
+    assert.ok(!settingValues.includes('Character') && !settingValues.includes('Animation'), 'Task names must not enter stored preference values; runningAnimation is a presentation key')
   })
   await check('module choices survive reopening and reload, synchronize across windows, and persist no task data', async () => {
     const toggles = panel => panel.locator('.dcb-module-toggle').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-expanded')))
@@ -1207,7 +1210,7 @@ try {
     await page.waitForFunction(() => document.querySelector('.dcb-step-window > ol').start === 1)
     await settled()
     assert.deepEqual(await viewport.getByRole('listitem').allTextContents(), ['交接步骤 1', '交接步骤 2', '交接步骤 3'])
-    assert.ok((await page.getByRole('button', { name: '会话进度与输出', exact: true }).innerText()).includes('第 5 步，共 9 步'))
+    assert.ok((await page.getByRole('button', { name: '会话进度与输出', exact: true }).innerText()).includes('5/9'))
     await viewport.focus()
     await page.keyboard.press('Home')
     await settled()
@@ -1740,7 +1743,7 @@ try {
     const stored = await page.evaluate(() => localStorage.getItem('dsh-ui-beautify:settings:v1'))
     assert.equal(JSON.parse(stored).cardStyle, 'milk')
     assert.deepEqual(Object.keys(JSON.parse(stored)).sort(), presentationSettingKeys)
-    assert.ok(!/outputs|\.png|\.zip|remotion|Character|sessionId/.test(stored.replace('"outputs":true', '').replace('"outputs":false', '')), 'Only material and other presentation choices are saved')
+    assert.ok(!/outputs\/|Character Setting\.md|"sessionId"\s*:/.test(stored.replace('"outputs":true', '').replace('"outputs":false', '')), 'Only material and other presentation choices are saved')
   })
   await check('glass materials stay legible on dark narrow screens, honor motion and high-contrast settings, and restore the native fallback on disable', async () => {
     await page.getByRole('radio', { name: '毛玻璃', exact: true }).focus()

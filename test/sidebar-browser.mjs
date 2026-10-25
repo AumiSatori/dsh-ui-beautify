@@ -27,7 +27,7 @@ if(process.env.DSH_ASAR){
   entry=tree;for(const part of 'dsh/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js'.split('/'))entry=entry.files[part]
   const layoutBytes=Buffer.alloc(entry.size);readSync(fd,layoutBytes,0,layoutBytes.length,8+head.readUInt32LE(4)+Number(entry.offset))
   const layout=layoutBytes.toString(),frameAt=layout.indexOf('AppFrame.module.css'),frameLiteral=layout.slice(layout.lastIndexOf('//#region',frameAt),layout.indexOf('//#endregion',frameAt)).match(/const css\$?\d* = ("(?:[^"\\]|\\.)*");/)
-  assert.ok(frameLiteral,'Installed AppFrame stylesheet found');nativeFrameCSS=JSON.parse(frameLiteral[1]);const framePrefix=nativeFrameCSS.match(/\.([\w]+)_frame\{/)[1];nativeFrameCSS=nativeFrameCSS.replaceAll(framePrefix+'_','af_')
+  assert.ok(frameLiteral,'Installed AppFrame stylesheet found');nativeFrameCSS=JSON.parse(frameLiteral[1]);const framePrefix=nativeFrameCSS.match(/\.([\w-]+)_frame\{/)[1];nativeFrameCSS=nativeFrameCSS.replaceAll(framePrefix+'_','af_')
   source='installed DSH SidebarRoot stylesheet and React component; synthetic frame and navigation'
  }finally{closeSync(fd)}
 }
@@ -41,7 +41,7 @@ const root=page.locator('.sb_root:not([data-dcb-sidebar-ghost])'),indicator=root
 async function settled(){await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))));await page.waitForFunction(()=>!document.querySelector('[data-dcb-sidebar-moving]'));await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))))}
 async function prepare(){
  await page.goto(url);await page.getByTestId('todo-panel').waitFor()
- await page.evaluate(key=>localStorage.setItem(key,JSON.stringify({...JSON.parse(localStorage.getItem(key)||'{}'),sidebarOverlay:false})),key)
+ await page.evaluate(key=>localStorage.setItem(key,JSON.stringify({...JSON.parse(localStorage.getItem(key)||'{}'),sidebarOverlay:false,welcomeEnabled:false})),key)
  await page.evaluate(()=>{
   const nav=document.querySelector('.nav');nav.classList.add('host_sidebarCol');nav.innerHTML='<div class="sb_root" style="width:260px"><div class="sb_logoRow"><span class="sb_brand">DeepSeek Harness</span><button id="collapse-side" aria-label="收起左侧栏">☰</button></div><button class="sb_newSession">＋ 新对话</button><div class="sb_panelList"><button class="sb_panelRow">工作区</button></div><div class="sb_regionArea" role="tree" aria-label="演示会话">'+Array.from({length:8},(_,i)=>`<button class="sb_sessionRow" role="treeitem" aria-selected="${i===0}">演示会话 ${i+1}</button>`).join('')+'</div><div class="sb_footArea"><button id="fixture-settings">打开设置</button></div></div>'
   nav.querySelectorAll('[role=treeitem]').forEach(row=>row.onclick=()=>{nav.querySelectorAll('[role=treeitem]').forEach(el=>el.setAttribute('aria-selected',String(el===row)))})
@@ -62,11 +62,18 @@ const geometry=()=>root.evaluate(el=>{
 let passed=0;async function check(name,fn){if(process.env.DSH_SIDEBAR_TEST&&!new RegExp(process.env.DSH_SIDEBAR_TEST).test(name))return;await fn();passed++;console.log('PASS '+name)}
 try{
  await prepare()
+ await check('plain session selection uses a flat opaque fill in every sidebar material and theme',async()=>{
+  for(const dark of [false,true]){await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark);for(const sidebarStyle of ['css','glass','clear']){await patch({sidebarStyle});const selected=root.locator('[role=treeitem][aria-selected=true]'),material=await root.evaluate(n=>getComputedStyle(n,'::before').backdropFilter),before=await selected.evaluate(n=>({html:n.innerHTML,radius:getComputedStyle(n).borderRadius}));const style=await selected.evaluate(n=>{const s=getComputedStyle(n);return{background:s.backgroundColor,image:s.backgroundImage,shadow:s.boxShadow,filter:s.filter,backdrop:s.backdropFilter}});assert.notEqual(style.background,'rgba(0, 0, 0, 0)');const rgba=await selected.evaluate(n=>{const c=document.createElement('canvas');c.width=c.height=1;const x=c.getContext('2d');x.fillStyle=getComputedStyle(n).backgroundColor;x.fillRect(0,0,1,1);return [...x.getImageData(0,0,1,1).data]});assert.equal(rgba[3],255);assert.equal(rgba[0]<128,dark,'selection follows the host theme');assert.ok(!style.background.includes(' / '),'selection fill is opaque');assert.deepEqual([style.image,style.shadow,style.filter,style.backdrop],['none','none','none','none']);assert.equal(await root.locator('.dcb-sidebar-indicator').count(),0);await selected.screenshot({path:resolve(output,'flat-selection-'+sidebarStyle+'-'+(dark?'dark':'light')+'.png')});const rows=root.locator('[role=treeitem]');await rows.nth(1).click();await settled();assert.equal(await rows.nth(1).getAttribute('aria-selected'),'true');assert.equal(await root.evaluate(n=>getComputedStyle(n,'::before').backdropFilter),material);await rows.first().click();await settled();assert.deepEqual(await rows.first().evaluate(n=>({html:n.innerHTML,radius:getComputedStyle(n).borderRadius})),before)}}
+  await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'));await patch({sidebarStyle:'css'})
+ })
+ await check('plain session selection keeps focus and scroll clipping without a moving overlay',async()=>{
+  const first=root.locator('[role=treeitem]').first();await first.focus();assert.equal(await first.evaluate(n=>document.activeElement===n),true);await root.locator('.sb_regionArea').evaluate(n=>{n.style.height='80px';n.style.flex='none';n.scrollTop=200});await settled();assert.equal(await root.locator('.dcb-sidebar-indicator').count(),0);await root.locator('.sb_regionArea').evaluate(n=>{n.style.height='';n.style.flex='';n.scrollTop=0});await settled();await page.emulateMedia({reducedMotion:'reduce',forcedColors:'active'});await settled();assert.equal(await first.evaluate(n=>getComputedStyle(n).backdropFilter),'none');assert.equal(await first.evaluate(n=>getComputedStyle(n).boxShadow),'none');await first.screenshot({path:resolve(output,'flat-selection-forced-colors.png')});await page.emulateMedia({reducedMotion:'no-preference',forcedColors:'none'});await patch({sidebarStyle:'milk'});await settled()
+ })
  await check('default preserves the original sidebar and all options are keyboard reachable',async()=>{
   assert.equal(await root.getAttribute('data-dcb-sidebar-style'),null);await page.evaluate(()=>window.fixture.settings(true));await selectSettingsCategory(page,'侧栏');assert.deepEqual(await group.getByRole('radio').evaluateAll(buttons=>buttons.map(el=>el.getAttribute('aria-label'))),['侧栏：默认','侧栏：透明玻璃','侧栏：轻量玻璃','侧栏：毛玻璃']);await group.getByRole('radio',{name:'侧栏：默认'}).press('ArrowRight');await settled();assert.equal(await root.getAttribute('data-dcb-sidebar-style'),'clear');await group.getByRole('radio',{name:'侧栏：透明玻璃'}).press('End');await settled();assert.equal(await root.getAttribute('data-dcb-sidebar-style'),'glass')
  })
  await check('all glass materials preserve native corners and independent light/dark palettes',async()=>{
-  for(const dark of[false,true]){await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark);await patch({sidebarStyle:'milk'});const nativeGeometry=await geometry();for(const style of['css','glass','clear']){await patch({sidebarStyle:style});assert.deepEqual(await geometry(),nativeGeometry,'glass must keep native bounds, padding, margins, corners and divider');const s=await root.evaluate(el=>({radius:getComputedStyle(el).borderRadius,filter:getComputedStyle(el,'::before').backdropFilter,rootFilter:getComputedStyle(el).backdropFilter,width:el.getBoundingClientRect().width,fill:getComputedStyle(el,'::before').backgroundColor}));assert.equal(s.radius,'0px');assert.equal(s.width,nativeGeometry.width);assert.equal(s.rootFilter,'none');assert.match(s.fill,/rgba/);assert.match(s.filter,style==='css'?/blur\(2px\)/:style==='glass'?/blur\(22px\)/:/url\(/);await page.evaluate(()=>window.fixture.settings(false));await root.screenshot({path:resolve(output,`sidebar-${style}-${dark?'dark':'light'}.png`)});await page.evaluate(()=>window.fixture.settings(true))}}
+  for(const dark of[false,true]){await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark);await patch({sidebarStyle:'milk'});const nativeGeometry=await geometry();for(const style of['css','glass','clear']){await patch({sidebarStyle:style});const glassGeometry=await geometry();assert.deepEqual({...glassGeometry,radius:nativeGeometry.radius},nativeGeometry,'glass must keep native bounds, padding, margins and divider');const s=await root.evaluate(el=>({radius:getComputedStyle(el).borderRadius,filter:getComputedStyle(el,'::before').backdropFilter,rootFilter:getComputedStyle(el).backdropFilter,width:el.getBoundingClientRect().width,fill:getComputedStyle(el,'::before').backgroundColor}));assert.equal(s.radius,'0px 16px 16px 0px');assert.equal(s.width,nativeGeometry.width);assert.equal(s.rootFilter,'none');assert.match(s.fill,/rgba/);assert.match(s.filter,style==='css'?/blur\(2px\)/:style==='glass'?/blur\(22px\)/:/url\(/);await page.evaluate(()=>window.fixture.settings(false));await root.screenshot({path:resolve(output,`sidebar-${style}-${dark?'dark':'light'}.png`)});await page.evaluate(()=>window.fixture.settings(true))}}
   await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'));await patch({sidebarStyle:'css'})
  })
  await check('dark transparent and frosted sidebars retain a dark tint over bright artwork',async()=>{
@@ -84,8 +91,8 @@ try{
   assert.ok(between<0&&between>-6);assert.equal(await group.locator('.dcb-style-scene').count(),4)
   await group.getByRole('radio',{name:'侧栏：轻量玻璃'}).click();await settled();assert.equal(await plain.evaluate(el=>el===window.originalStyleButton),true)
  })
- await check('selection highlight moves without selecting on hover or replacing native rows',async()=>{
-  await page.evaluate(()=>window.fixture.settings(false));await indicator.evaluate(el=>window.originalNavIndicator=el);await root.getByRole('treeitem',{name:'演示会话 4',exact:true}).hover();assert.equal(await root.getByRole('treeitem',{name:'演示会话 1',exact:true}).getAttribute('aria-selected'),'true');const first=await indicator.evaluate(el=>new DOMMatrix(getComputedStyle(el).transform).m42);await root.getByRole('treeitem',{name:'演示会话 4',exact:true}).click();await page.waitForTimeout(70);const between=await indicator.evaluate(el=>new DOMMatrix(getComputedStyle(el).transform).m42);await root.getByRole('treeitem',{name:'演示会话 2',exact:true}).click();await settled();assert.ok(between>first);assert.equal(await indicator.evaluate(el=>el===window.originalNavIndicator),true);assert.equal(await root.getByRole('treeitem',{name:'演示会话 2',exact:true}).getAttribute('aria-selected'),'true');await root.screenshot({path:resolve(output,'sidebar-selected-motion.png')})
+ await check('selection highlight stays flat, preserves native rows and ignores hover',async()=>{
+  await page.evaluate(()=>window.fixture.settings(false));const first=root.getByRole('treeitem',{name:'演示会话 1',exact:true}),fourth=root.getByRole('treeitem',{name:'演示会话 4',exact:true}),second=root.getByRole('treeitem',{name:'演示会话 2',exact:true});await first.evaluate(n=>window.originalSelectedRow=n);await fourth.hover();assert.equal(await first.getAttribute('aria-selected'),'true');await fourth.click();await second.click();await settled();assert.equal(await second.getAttribute('aria-selected'),'true');assert.equal(await first.evaluate(n=>n===window.originalSelectedRow),true);assert.equal(await indicator.count(),0);await root.screenshot({path:resolve(output,'sidebar-selected-flat.png')})
  })
  await check('Windows titlebar toggle stays at the viewport and reopens a zero-width sidebar for every material',async()=>{
   await page.evaluate(()=>{document.documentElement.setAttribute('data-windows-titlebar','');document.documentElement.style.setProperty('--dsh-windows-titlebar-height','40px')})
@@ -104,10 +111,41 @@ try{
   }
   await page.evaluate(()=>{document.body.removeAttribute('data-ds-dark-theme');document.documentElement.removeAttribute('data-windows-titlebar');document.documentElement.style.removeProperty('--dsh-windows-titlebar-height')});await chromeStyle.evaluate(el=>el.remove());await patch({sidebarStyle:'css'})
  })
- await check('collapse, scroll and remount keep the indicator bounded and native controls usable',async()=>{
-  await patch({sidebarStyle:'milk'});await root.getByRole('button',{name:'收起左侧栏'}).click();await settled();const nativeCollapsed=await geometry();await patch({sidebarStyle:'css'});assert.deepEqual(await geometry(),nativeCollapsed,'the collapsed rail keeps native geometry without extra gaps');assert.equal(await root.evaluate(el=>getComputedStyle(el).borderRadius),'0px');assert.equal(await indicator.isVisible(),false);assert.equal(await root.evaluate(el=>el.parentElement.getBoundingClientRect().width),56);await root.getByRole('button',{name:'展开左侧栏'}).click();await settled();assert.equal(await indicator.isVisible(),true);await root.locator('.sb_regionArea').evaluate(el=>{el.style.height='80px';el.style.flex='none';el.scrollTop=200});await settled();assert.equal(await indicator.isVisible(),false);await root.locator('.sb_regionArea').evaluate(el=>{el.style.height='';el.style.flex='';el.scrollTop=0});await settled();await root.evaluate(el=>{const clone=el.cloneNode(true);clone.querySelector('.dcb-sidebar-indicator')?.remove();clone.removeAttribute('data-dcb-sidebar-style');clone.removeAttribute('data-dcb-sidebar-motion');el.replaceWith(clone)});await settled();assert.equal(await root.getAttribute('data-dcb-sidebar-style'),'css');assert.equal(await indicator.count(),1)
+ await check('collapse, scroll and remount retain native selected rows without an overlay',async()=>{
+  await patch({sidebarStyle:'milk'});await root.getByRole('button',{name:'收起左侧栏'}).click();await settled();const nativeCollapsed=await geometry();await patch({sidebarStyle:'css'});const {radius:nativeRadius,...nativeBounds}=nativeCollapsed,{radius:glassRadius,...glassBounds}=await geometry();assert.deepEqual(glassBounds,nativeBounds);assert.equal(await indicator.count(),0);await root.getByRole('button',{name:'展开左侧栏'}).click();await settled();await root.locator('.sb_regionArea').evaluate(n=>{n.style.height='80px';n.style.flex='none';n.scrollTop=200});await settled();assert.equal(await indicator.count(),0);await root.locator('.sb_regionArea').evaluate(n=>{n.style.height='';n.style.flex='';n.scrollTop=0});await settled();await root.evaluate(n=>{const clone=n.cloneNode(true);clone.removeAttribute('data-dcb-sidebar-style');clone.removeAttribute('data-dcb-sidebar-motion');n.replaceWith(clone)});await settled();assert.equal(await root.getAttribute('data-dcb-sidebar-style'),'css');assert.equal(await indicator.count(),0)
  })
- await check('the toggle animates while opening keeps content width fixed and defers heavy glass until the native track settles',async()=>{
+ await check('glass survives the rendered closing frames, reuses its optical map and releases after the drawer closes',async()=>{
+  await prepare();await patch({sidebarStyle:'css',sidebarMotion:true})
+  await page.evaluate(()=>{document.documentElement.setAttribute('data-windows-titlebar','');document.documentElement.style.setProperty('--dsh-windows-titlebar-height','40px')})
+  const desktop=await page.addStyleTag({content:'[data-windows-titlebar] .frame{padding-top:40px}[data-windows-titlebar] .nav{overflow:hidden;min-width:0;border:0}[data-windows-titlebar] .collapsed-frame{grid-template-columns:0px 1fr}'})
+  const toggle=root.locator('#collapse-side')
+  for(const dark of [false,true])for(const sidebarStyle of ['clear','css','glass']){
+   await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark);await patch({sidebarStyle})
+   if(sidebarStyle==='clear')await page.waitForFunction(()=>document.querySelector('.sb_root:not([data-dcb-sidebar-ghost])')?.style.getPropertyValue('--dcb-liquid-filter').includes('url('))
+   const before=await root.evaluate(el=>({fill:getComputedStyle(el,'::before').backgroundColor,map:el.getAttribute('data-dcb-liquid-map')}))
+   const frames=await toggle.evaluate(el=>new Promise(done=>{
+    const frames=[],start=performance.now();el.click()
+    function sample(){
+     const live=el.closest('.sb_root'),column=live.parentElement,ghost=column.querySelector('[data-dcb-sidebar-ghost]'),owner=ghost||live,style=getComputedStyle(owner,'::before')
+     const id=(style.backdropFilter||'').match(/#([^"\)]+)/)?.[1]
+     frames.push({width:column.getBoundingClientRect().width,ghost:!!ghost,material:owner.getAttribute('data-dcb-sidebar-style'),liveMaterial:live.getAttribute('data-dcb-sidebar-style'),fill:style.backgroundColor,backdrop:style.backdropFilter,liveVisibility:getComputedStyle(live,'::before').visibility,map:live.getAttribute('data-dcb-liquid-map'),filterReady:!id||!!document.getElementById(id)})
+     if(performance.now()-start<120)requestAnimationFrame(sample);else done(frames)
+    }requestAnimationFrame(()=>requestAnimationFrame(sample))
+   }))
+   const middle=frames.filter(frame=>frame.width>1&&frame.width<259)
+   assert.ok(middle.length>=2,'Closing must have several actually rendered intermediate frames')
+   assert.ok(middle.every(frame=>frame.ghost&&frame.material===sidebarStyle&&frame.liveMaterial===sidebarStyle&&frame.fill===before.fill&&frame.backdrop!=='none'&&frame.filterReady&&frame.liveVisibility==='hidden'),JSON.stringify({sidebarStyle,dark,middle}))
+   if(sidebarStyle==='clear')assert.ok(middle.every(frame=>frame.map===before.map),'The same expanded map survives closing')
+   await page.evaluate(()=>{window.pausedSidebarAnimations=document.getAnimations().filter(animation=>animation.playState==='running'&&animation.effect?.getComputedTiming().iterations!==Infinity);window.pausedSidebarAnimations.forEach(animation=>animation.pause())})
+   await page.screenshot({path:resolve(output,`sidebar-glass-closing-${sidebarStyle}-${dark?'dark':'light'}.png`)})
+   await page.evaluate(()=>window.pausedSidebarAnimations.forEach(animation=>animation.play()));await settled()
+   assert.equal(await root.getAttribute('data-dcb-sidebar-style'),null,'Release only after the zero-width desktop drawer has finished closing')
+   assert.equal(await page.locator('[data-dcb-sidebar-ghost]').count(),0)
+   await toggle.click();await settled()
+  }
+  await page.evaluate(()=>{document.body.removeAttribute('data-ds-dark-theme');document.documentElement.removeAttribute('data-windows-titlebar');document.documentElement.style.removeProperty('--dsh-windows-titlebar-height')});await desktop.evaluate(el=>el.remove());await patch({sidebarStyle:'css'})
+ })
+ await check('the toggle keeps content width fixed while glass remains visible without repeated map generation',async()=>{
   // Remount from the previous check with a fresh native click handler.
   await prepare()
   await page.evaluate(()=>{
@@ -135,7 +173,7 @@ try{
    assert.ok(middle.length>=2,'multiple rendered grid-track frames were sampled')
    assert.ok(middle.every(s=>Math.abs(s.row-width)<.5),'the list never reflows to a partially expanded track width')
    assert.ok(middle.some(s=>s.scale>.93&&s.scale<.999&&Math.abs(s.iconX)>.2&&!s.ripple),'button has a restrained spring and directional icon motion without an expanding ring')
-   if(sidebarStyle!=='milk')assert.ok(middle.every(s=>s.moving&&s.map===null&&s.backdrop==='none'&&s.encodes===before),'no SVG map generation or heavy backdrop while the native track moves')
+   if(sidebarStyle!=='milk')assert.ok(middle.every(s=>s.moving&&s.backdrop!=='none'&&s.encodes===before),'Glass stays visible without generating maps for intermediate track widths')
    await page.screenshot({path:resolve(output,`sidebar-toggle-${sidebarStyle}.png`)})
    await settled()
    assert.equal(await toggle.evaluate(el=>el.getAnimations().filter(a=>a instanceof Animation&&!(a instanceof CSSTransition)).length),0,'finished toggle animations release their effects')
@@ -160,36 +198,71 @@ try{
   await page.evaluate(()=>{HTMLCanvasElement.prototype.toDataURL=window.sidebarOriginalEncode;document.documentElement.removeAttribute('data-windows-titlebar');document.documentElement.style.removeProperty('--dsh-windows-titlebar-height')});await chromeStyle.evaluate(el=>el.remove());await patch({sidebarStyle:'css'})
  })
  await check('motion toggle, reduced motion, forced colors and default release work independently',async()=>{
-  await patch({sidebarMotion:false,composerStyle:'css',cardStyle:'glass'});assert.equal(await indicator.evaluate(el=>getComputedStyle(el).transitionDuration),'0s');await patch({sidebarMotion:true});await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await indicator.evaluate(el=>getComputedStyle(el).transitionDuration),'0s');assert.equal(await root.evaluate(el=>getComputedStyle(el,'::before').transitionDuration),'0s');await page.emulateMedia({forcedColors:'active'});assert.equal(await root.evaluate(el=>getComputedStyle(el).backdropFilter),'none');assert.equal(await root.evaluate(el=>getComputedStyle(el,'::before').backdropFilter),'none');await page.emulateMedia({reducedMotion:'no-preference',forcedColors:'none'});await patch({sidebarStyle:'milk'});assert.equal(await indicator.count(),0);assert.equal(await root.getAttribute('data-dcb-sidebar-style'),null);assert.equal(await page.locator('[data-dcb-sidebar-column]').count(),0);assert.equal(await root.evaluate(el=>el.style.getPropertyValue('--dcb-sidebar-expanded-width')),'');assert.equal(await page.locator('[data-dcb-composer-style]').getAttribute('data-dcb-composer-style'),'css');await patch({sidebarStyle:'clear'});await page.evaluate(()=>{for(const c of [...window.cleanups].reverse())if(typeof c==='function')c()});await settled();assert.equal(await indicator.count(),0);assert.equal(await page.locator('[data-dcb-sidebar-style], [data-dcb-sidebar-column], [data-dcb-sidebar-toggle], [data-dcb-sidebar-moving]').count(),0)
+  await patch({sidebarMotion:false,composerStyle:'css',cardStyle:'glass'});assert.equal(await root.locator('[role=treeitem][aria-selected=true]').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');await patch({sidebarMotion:true});await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await root.locator('[role=treeitem][aria-selected=true]').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');assert.equal(await root.evaluate(el=>getComputedStyle(el,'::before').transitionDuration),'0s');await page.emulateMedia({forcedColors:'active'});assert.equal(await root.evaluate(el=>getComputedStyle(el).backdropFilter),'none');assert.equal(await root.evaluate(el=>getComputedStyle(el,'::before').backdropFilter),'none');await page.emulateMedia({reducedMotion:'no-preference',forcedColors:'none'});await patch({sidebarStyle:'milk'});assert.equal(await indicator.count(),0);assert.equal(await root.getAttribute('data-dcb-sidebar-style'),null);assert.equal(await page.locator('[data-dcb-sidebar-column]').count(),0);assert.equal(await root.evaluate(el=>el.style.getPropertyValue('--dcb-sidebar-expanded-width')),'');assert.equal(await page.locator('[data-dcb-composer-style]').getAttribute('data-dcb-composer-style'),'css');await patch({sidebarStyle:'clear'});await page.evaluate(()=>{for(const c of [...window.cleanups].reverse())if(typeof c==='function')c()});await settled();assert.equal(await indicator.count(),0);assert.equal(await page.locator('[data-dcb-sidebar-style], [data-dcb-sidebar-column], [data-dcb-sidebar-toggle], [data-dcb-sidebar-moving]').count(),0)
  })
  await check('preferences survive reload and fit a narrow expanded sidebar',async()=>{
   await prepare();assert.equal(await root.getAttribute('data-dcb-sidebar-style'),'clear');await page.setViewportSize({width:390,height:844});await page.addStyleTag({content:'.nav{display:block!important}.frame{grid-template-columns:260px minmax(0,1fr)!important}'});await settled();assert.ok(await root.evaluate(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth}));await root.screenshot({path:resolve(output,'sidebar-narrow.png')})
  })
+ await check('the right edge switch mirrors the top-left collapse action',async()=>{
+  await page.setViewportSize({width:1200,height:900});await prepare();await patch({sidebarStyle:'css'});await page.waitForTimeout(80)
+  const handle=page.locator('.dcb-sidebar-toggle-right');assert.equal(await handle.count(),1);assert.equal(await handle.getAttribute('aria-label'),'收起左侧栏')
+  assert.equal(await root.evaluate(el=>el.getBoundingClientRect().width),260)
+  await handle.click();await settled()
+  assert.equal(await root.locator('[data-dcb-sidebar-toggle][aria-label="展开左侧栏"]').count(),1);assert.equal(await handle.getAttribute('aria-label'),'展开左侧栏')
+  assert.equal(await root.evaluate(el=>el.getBoundingClientRect().width),56)
+  await handle.click();await settled()
+  assert.equal(await root.locator('[data-dcb-sidebar-toggle][aria-label="收起左侧栏"]').count(),1);assert.equal(await handle.getAttribute('aria-label'),'收起左侧栏')
+  assert.equal(await root.evaluate(el=>el.getBoundingClientRect().width),260)
+  assert.equal(await root.getAttribute('data-dcb-sidebar-style'),'css')
+  await page.screenshot({path:resolve(output,'sidebar-right-toggle.png')})
+  await page.evaluate(()=>{document.documentElement.setAttribute('data-windows-titlebar','');document.documentElement.style.setProperty('--dsh-windows-titlebar-height','40px')})
+  await page.addStyleTag({content:'[data-windows-titlebar] .frame{padding-top:40px;transition:grid-template-columns 240ms cubic-bezier(.4,0,.2,1)}[data-windows-titlebar] .nav{overflow:hidden;min-width:0;border:0}[data-windows-titlebar] .collapsed-frame{grid-template-columns:0px 1fr}'})
+  for(const sidebarStyle of ['css','milk'])for(const sidebarOverlay of [false,true]){
+   await patch({sidebarStyle,sidebarOverlay})
+   await handle.click();await settled();assert.equal(await root.evaluate(el=>el.parentElement.getBoundingClientRect().width),0)
+   assert.equal(await handle.getAttribute('aria-expanded'),'false')
+   const hit=await handle.evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,width:r.width,hit:el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}})
+   assert.ok(hit.left>=0&&hit.width>=44&&hit.hit,'the collapsed desktop edge remains a full reachable control: '+JSON.stringify(hit))
+   await handle.press('Enter');await settled();assert.equal(await root.evaluate(el=>el.parentElement.getBoundingClientRect().width),260)
+   assert.equal(await handle.getAttribute('aria-expanded'),'true')
+  }
+  await patch({sidebarStyle:'css',sidebarOverlay:false})
+  const before=await handle.evaluate(el=>el.getBoundingClientRect().x)
+  await handle.click();await page.waitForTimeout(100)
+  const between=await handle.evaluate(el=>el.getBoundingClientRect().x);assert.ok(between>0&&between<before,'the edge follows an intermediate collapse frame')
+  await handle.click();await settled();assert.equal(await handle.getAttribute('aria-expanded'),'true')
+  await page.emulateMedia({reducedMotion:'reduce'});await settled();assert.equal(await handle.evaluate(el=>getComputedStyle(el).transitionDuration),'0s')
+  await page.emulateMedia({forcedColors:'active'});assert.equal(await handle.locator('span').evaluate(el=>getComputedStyle(el).boxShadow),'none')
+  await page.emulateMedia({reducedMotion:'no-preference',forcedColors:'none'});await settled()
+  await page.evaluate(()=>{for(const c of [...window.cleanups].reverse())if(typeof c==='function')c()});await settled();assert.equal(await handle.count(),0)
+ })
  if(nativeSidebar)await check('the installed React SidebarRoot itself repeatedly collapses and reopens using its native handler',async()=>{
   await page.setViewportSize({width:1200,height:900});await prepare()
   const native=await build({stdin:{contents:`import React from 'react';import * as jsxRuntime from 'react/jsx-runtime';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';const react=React,react_jsx_runtime=jsxRuntime,clsx=(...names)=>names.filter(Boolean).join(' '),localBuildVersion=()=>undefined;const icon=({size=16,...props})=>React.createElement('svg',{...props,width:size,height:size,viewBox:'0 0 24 24','aria-hidden':true},React.createElement('rect',{x:3,y:3,width:18,height:18,rx:2,fill:'none',stroke:'currentColor',strokeWidth:2}),React.createElement('path',{d:'M9 3v18',stroke:'currentColor',strokeWidth:2})),_deepseek_ai_dsh_client_ui_primitives={Tooltip:({children})=>children,isDarwinDesktop:()=>false,FishLogo:icon,IconPanelLeftOutlineRegular:icon,IconNewChatOutlineMedium:icon,IconNewChatOutlineRegular:icon,ShortcutKeys:()=>null};${nativeSidebar}
-   window.mountNativeSidebar=seat=>{const root=createRoot(seat);function Native(){const[collapsed,setCollapsed]=React.useState(false);React.useLayoutEffect(()=>{const frame=document.querySelector('.frame');frame.classList.toggle('collapsed-frame',collapsed);frame.setAttribute('data-sidebar-collapsed',String(collapsed))},[collapsed]);return React.createElement(SidebarRoot,{collapsed,width:260,startSession(){},toggleSidebar:()=>setCollapsed(value=>!value),usePanels:()=>[],useShortcuts:()=>[],t:key=>key==='toggle.open'?'展开左侧栏':key==='toggle.collapse'?'收起左侧栏':key,renderSlot:(name,props,options)=>name==='sidebar.workspaces'?React.createElement('button',{role:'treeitem','aria-selected':true,className:'sb_sessionRow'},'演示会话'):options?.fallback??null})}flushSync(()=>root.render(React.createElement(Native)))};`,resolveDir:project},bundle:true,write:false,format:'iife'})
+   window.mountNativeSidebar=seat=>{const root=createRoot(seat);function Native(){const[collapsed,setCollapsed]=React.useState(false);React.useLayoutEffect(()=>{const frame=document.querySelector('.frame');frame.classList.toggle('collapsed-frame',collapsed);frame.setAttribute('data-sidebar-collapsed',String(collapsed))},[collapsed]);return React.createElement(SidebarRoot,{collapsed,width:260,startSession(){},toggleSidebar:()=>setCollapsed(value=>!value),usePanels:()=>[],useEntryPins:()=>[],useEntryActions:()=>false,usePanelInfo:()=>({activePanelId:null}),trackEntryClick(){},useShortcuts:()=>[],t:key=>key==='toggle.open'?'展开左侧栏':key==='toggle.collapse'?'收起左侧栏':key,renderSlot:(name,props,options)=>name==='sidebar.workspaces'?React.createElement('button',{role:'treeitem','aria-selected':true,className:'sb_sessionRow'},'演示会话'):options?.fallback??null})}flushSync(()=>root.render(React.createElement(Native)))};`,resolveDir:project},bundle:true,write:false,format:'iife'})
   await page.addScriptTag({content:native.outputFiles[0].text});await page.evaluate(()=>{document.documentElement.setAttribute('data-windows-titlebar','');document.documentElement.style.setProperty('--dsh-windows-titlebar-height','40px');window.mountNativeSidebar(document.querySelector('.nav'))})
   await page.addStyleTag({content:'[data-windows-titlebar] .frame{padding-top:40px;transition:grid-template-columns 240ms cubic-bezier(.4,0,.2,1)}[data-windows-titlebar] .nav{overflow:hidden;min-width:0;border:0}[data-windows-titlebar] .collapsed-frame{grid-template-columns:0px 1fr}'})
   await page.addStyleTag({content:nativeFrameCSS});await page.evaluate(()=>{document.querySelector('.frame').classList.add('af_frame');document.querySelector('.nav').classList.add('af_sidebarCol');document.querySelector('main').classList.add('af_centerCol')})
   await patch({sidebarStyle:'milk'});const nativeComponentGeometry=await geometry()
   for(const sidebarStyle of['clear','glass','css','milk']){
-   await patch({sidebarStyle});assert.deepEqual(await geometry(),nativeComponentGeometry,'the actual DSH component keeps its original geometry in every material');await root.getByRole('button',{name:'收起左侧栏',exact:true}).click();await settled();assert.equal(await root.evaluate(el=>el.parentElement.getBoundingClientRect().width),0)
+    await patch({sidebarStyle});assert.deepEqual({...await geometry(),radius:nativeComponentGeometry.radius},nativeComponentGeometry,'the actual DSH component keeps its original geometry in every material');await root.locator('[data-dcb-sidebar-toggle][aria-label="收起左侧栏"]').click();await settled();assert.equal(await root.evaluate(el=>el.parentElement.getBoundingClientRect().width),0)
    await page.mouse.move(1100,850)
-   const open=root.getByRole('button',{name:'展开左侧栏',exact:true});assert.equal(await open.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),true)
+    const open=root.locator('[data-dcb-sidebar-toggle][aria-label="展开左侧栏"]');assert.equal(await open.evaluate(el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}),true)
    const iconState=await open.locator('.sb_panelIcon').evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {display:s.display,visibility:s.visibility,opacity:Number(s.opacity),width:r.width,height:r.height,color:s.color}});assert.notEqual(iconState.display,'none');assert.equal(iconState.visibility,'visible');assert.equal(iconState.opacity,1);assert.ok(iconState.width>=14&&iconState.height>=14,'the real native panel SVG remains visible without hover')
    const pulse=await open.evaluate(el=>{el.click();return {scale:el.getAnimations().some(a=>a.effect.getKeyframes().some(frame=>Number(frame.scale)===.97)),ring:el.querySelector('.dcb-sidebar-toggle-ripple')!==null}})
    assert.deepEqual(pulse,{scale:true,ring:false},'the installed native React toggle starts restrained feedback immediately without a ring')
-   await settled();assert.equal(await root.getByRole('button',{name:'收起左侧栏',exact:true}).count(),1);assert.equal(await root.evaluate(el=>el.parentElement.getBoundingClientRect().width),260)
+    await settled();assert.equal(await root.locator('[data-dcb-sidebar-toggle][aria-label="收起左侧栏"]').count(),1);assert.equal(await root.evaluate(el=>el.parentElement.getBoundingClientRect().width),260)
+    const edge=page.locator('.dcb-sidebar-toggle-right');await edge.click();await settled();assert.equal(await root.evaluate(el=>el.parentElement.getBoundingClientRect().width),0)
+    await edge.press('Enter');await settled();assert.equal(await root.evaluate(el=>el.parentElement.getBoundingClientRect().width),260)
   }
  })
  if(nativeSidebar)await check('the collapsed native rail keeps one panel icon visible without hover with motion on or off',async()=>{
   await page.evaluate(()=>document.documentElement.removeAttribute('data-windows-titlebar'))
   for(const dark of [false,true])for(const sidebarMotion of [true,false])for(const sidebarStyle of ['milk','css','glass','clear']){
    await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
-   await patch({sidebarStyle,sidebarMotion});await root.getByRole('button',{name:'收起左侧栏',exact:true}).click();await settled()
+    await patch({sidebarStyle,sidebarMotion});await root.locator('[data-dcb-sidebar-toggle][aria-label="收起左侧栏"]').click();await settled()
    await page.waitForFunction(()=>document.querySelector('.sb_root:not([data-dcb-sidebar-ghost])')?.classList.contains('sb_collapsed'));await settled();await page.mouse.move(1100,850)
-   const open=root.getByRole('button',{name:'展开左侧栏',exact:true}),panel=open.locator('.sb_panelIcon')
+    const open=root.locator('[data-dcb-sidebar-toggle][aria-label="展开左侧栏"]'),panel=open.locator('.sb_panelIcon')
    assert.notEqual(await panel.evaluate(el=>getComputedStyle(el).display),'none','the collapsed panel icon must be visible before hover')
    assert.ok(await panel.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>=14&&r.height>=14}),'the native SVG has a visible rendered area')
    assert.equal(await open.locator('.sb_railMark').isVisible(),false,'the replacement brand mark must not duplicate the panel icon')

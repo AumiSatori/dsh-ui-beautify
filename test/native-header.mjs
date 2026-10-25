@@ -35,7 +35,8 @@ export function nativeHeaderFixture(){
       throw Error('Unclosed native '+name)
     }
     return {css,contextOccupancy:component('contextOccupancy'),fixture:`
-const react=React,react_jsx_runtime=jsxRuntime,clsx=(...values)=>values.filter(Boolean).join(' ');
+const react=React,react_jsx_runtime=jsxRuntime,clsx=(...values)=>values.filter(Boolean).join(' '),FIXED_VIEW_ID='chat';
+const _deepseek_ai_dsh_client_ui_primitives={Tooltip:({children})=>children};
 const ConversationRoot_module_css_default=new Proxy({},{get:(_,key)=>${JSON.stringify(prefix)}+'_'+key});
 const conversationPhase=()=> 'active',deriveAncestry=()=>[{id:'a',displayTitle:'页头兼容测试'}],equalBreadcrumbs=()=>true;
 ${component('resolveActiveView')}
@@ -49,7 +50,7 @@ window.mountNativeHeader=({missingSessionHook=false}={})=>{
   const session={blank:false,running:false,openState:'open'},useSession=selector=>selector(session),views=[{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}];
   const todos=[{content:'验证顶部入口',status:'completed'}];
   const props={...injected,sessionId:'a',useSession:missingSessionHook?undefined:useSession,useProjection:name=>name==='todos'?todos:[],useTaskActivity:selector=>React.useSyncExternalStore(activity.subscribe,()=>selector(activity.getSnapshot()))};
-  const slots=name=>name==='conversation.session.header'?React.createElement(ConversationSessionHeader,{sessionId:'a',useSessions:selector=>selector({}),useConversationViews:selector=>selector(views),useStore:selector=>selector({view:'chat'}),renderSlot:slots,open(){},selectView(){},t:key=>key}):name==='conversation.session.header.utilities'?React.createElement(PluginHeader,props):name==='conversation.session.header.actions'?React.createElement('button',null,'标准模式'):name==='conversation.session.header.corner'?React.createElement('button',{'aria-label':'右侧栏'},'▣'):null;
+  const slots=name=>name==='conversation.session.header'?React.createElement(ConversationSessionHeader,{sessionId:'a',useSessions:selector=>selector({}),useConversationViews:selector=>selector(views),useStore:selector=>selector({view:'chat'}),useEntryPins:selector=>selector([]),useEntryActions:selector=>selector(false),renderSlot:slots,open(){},selectView(){},setPinned(){},t:key=>key}):name==='conversation.session.header.utilities'?React.createElement(PluginHeader,props):name==='conversation.session.header.actions'?React.createElement('button',null,'标准模式'):name==='conversation.session.header.corner'?React.createElement('button',{'aria-label':'右侧栏'},'▣'):null;
   const root=createRoot(seat);flushSync(()=>root.render(React.createElement(React.Fragment,null,React.createElement(ConversationHeader,{sessionId:'a',useSession,useConversation:selector=>selector({}),renderSlot:slots}),React.createElement('div',{'data-native-content':'',style:{flex:1,padding:'30px'}},'隔离测试正文'))));
   return()=>root.unmount();
 };`}

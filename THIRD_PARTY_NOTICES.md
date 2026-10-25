@@ -109,3 +109,7 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+## Thinking animation pack
+
+`assets/running-whale/` integrates the local `dsh-whalechan-running` animation collection (AumiSatori, MIT code), based on yanzwzz/dsh-whale-girl-pet. Original character: 上善无形; maid derivative: ZipZipPipe. Character rights remain CC BY-NC-SA 4.0 (personal, non-commercial, attribution and share-alike). See `assets/running-whale/LICENSE` for the complete original notice. The plugin's MIT code license does not replace the character's license.

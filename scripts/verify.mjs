@@ -12,9 +12,10 @@ const cases=Object.entries(pkg.scripts).filter(([name,command])=>(name==='test'|
 const report=previous?{...previous,version:pkg.version,completedAt:undefined}:{version:pkg.version,startedAt:new Date().toISOString(),hostArchive:!!process.env.DSH_ASAR,results:[]}
 for(const [name,command]of cases){
  console.log(`START ${name}`)
- const start=Date.now(),args=command.slice(5).split(' '),log=[]
+ const start=Date.now(),log=[]
+ if(!process.env.npm_execpath)throw Error('Run npm run test:release so compound test commands use the configured npm CLI')
  const result=await new Promise(done=>{
-  const child=spawn(process.execPath,args,{cwd:root,env:process.env,windowsHide:true,stdio:['ignore','pipe','pipe']})
+  const child=spawn(process.execPath,[process.env.npm_execpath,'run',name],{cwd:root,env:process.env,windowsHide:true,stdio:['ignore','pipe','pipe']})
   child.stdout.on('data',chunk=>log.push(chunk.toString()));child.stderr.on('data',chunk=>log.push(chunk.toString()))
   const timer=setTimeout(()=>{child.kill();},300000)
   child.on('error',error=>log.push(error.message));child.on('close',(code,signal)=>{clearTimeout(timer);done({code,signal})})

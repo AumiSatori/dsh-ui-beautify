@@ -1,0 +1,402 @@
+{
+  "version": "0.4.0",
+  "baseline": {
+    "tag": "v0.3.72",
+    "commit": "2189a394e1dc70053737b099f3ae96488dfb4a61"
+  },
+  "releaseBranch": "release/v0.4.0",
+  "clientSha256": "295726bf82e0a1aed8fc4daa536522017f9f6fba8370f0b0218f6dae34f0d5ad",
+  "completedAt": "2026-10-25T17:43:02.458Z",
+  "environment": {
+    "platform": "Windows",
+    "node": "v24.16.0",
+    "host": "DSH 0.2.1-rc.2 native UI components from installed archive",
+    "browser": "installed Chrome"
+  },
+  "summary": {
+    "suites": 52,
+    "passed": 52,
+    "failed": 0,
+    "checks": 665
+  },
+  "countNote": "Checks count printed assertions/groups and includes compatibility aliases that intentionally execute the same focus-mode suite.",
+  "livePage": {
+    "settings": "Two-level navigation, only one mounted page, no alert",
+    "runningPack": "51 built-in actions present",
+    "runtimeClientMatches": true,
+    "preferences": "No reset, import or deletion; original page mode and settings category restored"
+  },
+  "package": {
+    "rawAnimationSources": false,
+    "runtimeWhaleActions": 51,
+    "spriteFrame": 64,
+    "installHooks": false,
+    "runtimeDependencies": 0
+  },
+  "suites": [
+    {
+      "name": "test:unified-icons",
+      "passed": true,
+      "checks": 21,
+      "elapsedMs": 18113,
+      "attempts": 1
+    },
+    {
+      "name": "test:fullscreen",
+      "passed": true,
+      "checks": 14,
+      "elapsedMs": 11265,
+      "attempts": 1
+    },
+    {
+      "name": "test",
+      "passed": true,
+      "checks": 90,
+      "elapsedMs": 4882,
+      "attempts": 1
+    },
+    {
+      "name": "test:browser",
+      "passed": true,
+      "checks": 16,
+      "elapsedMs": 8884,
+      "attempts": 1
+    },
+    {
+      "name": "test:summary",
+      "passed": true,
+      "checks": 47,
+      "elapsedMs": 175843,
+      "attempts": 2
+    },
+    {
+      "name": "test:progress-liquid",
+      "passed": true,
+      "checks": 9,
+      "elapsedMs": 13776,
+      "attempts": 1
+    },
+    {
+      "name": "test:skills",
+      "passed": true,
+      "checks": 8,
+      "elapsedMs": 18182,
+      "attempts": 1
+    },
+    {
+      "name": "test:scope",
+      "passed": true,
+      "checks": 13,
+      "elapsedMs": 43600,
+      "attempts": 1
+    },
+    {
+      "name": "test:artifact",
+      "passed": true,
+      "checks": 18,
+      "elapsedMs": 58959,
+      "attempts": 1
+    },
+    {
+      "name": "test:materials",
+      "passed": true,
+      "checks": 13,
+      "elapsedMs": 33944,
+      "attempts": 1
+    },
+    {
+      "name": "test:theme-palette",
+      "passed": true,
+      "checks": 18,
+      "elapsedMs": 12370,
+      "attempts": 1
+    },
+    {
+      "name": "test:theme-switch",
+      "passed": true,
+      "checks": 13,
+      "elapsedMs": 12081,
+      "attempts": 1
+    },
+    {
+      "name": "test:focus",
+      "passed": true,
+      "checks": 12,
+      "elapsedMs": 16427,
+      "attempts": 2
+    },
+    {
+      "name": "test:focus-header",
+      "passed": true,
+      "checks": 12,
+      "elapsedMs": 16248,
+      "attempts": 2
+    },
+    {
+      "name": "test:focus-performance",
+      "passed": true,
+      "checks": 12,
+      "elapsedMs": 17329,
+      "attempts": 2
+    },
+    {
+      "name": "test:startup",
+      "passed": true,
+      "checks": 19,
+      "elapsedMs": 15226,
+      "attempts": 1
+    },
+    {
+      "name": "test:welcome",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 10865,
+      "attempts": 1
+    },
+    {
+      "name": "test:welcome-media",
+      "passed": true,
+      "checks": 9,
+      "elapsedMs": 25441,
+      "attempts": 2
+    },
+    {
+      "name": "test:welcome-code",
+      "passed": true,
+      "checks": 8,
+      "elapsedMs": 14977,
+      "attempts": 2
+    },
+    {
+      "name": "test:settings",
+      "passed": true,
+      "checks": 14,
+      "elapsedMs": 61182,
+      "attempts": 1
+    },
+    {
+      "name": "test:settings-reset",
+      "passed": true,
+      "checks": 12,
+      "elapsedMs": 12354,
+      "attempts": 1
+    },
+    {
+      "name": "test:settings-transfer",
+      "passed": true,
+      "checks": 9,
+      "elapsedMs": 8468,
+      "attempts": 1
+    },
+    {
+      "name": "test:background",
+      "passed": true,
+      "checks": 12,
+      "elapsedMs": 14446,
+      "attempts": 1
+    },
+    {
+      "name": "test:background-surfaces",
+      "passed": true,
+      "checks": 8,
+      "elapsedMs": 4772,
+      "attempts": 1
+    },
+    {
+      "name": "test:background-presented",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 4220,
+      "attempts": 1
+    },
+    {
+      "name": "test:background-names",
+      "passed": true,
+      "checks": 9,
+      "elapsedMs": 10521,
+      "attempts": 1
+    },
+    {
+      "name": "test:background-theme",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 22488,
+      "attempts": 1
+    },
+    {
+      "name": "test:tabs",
+      "passed": true,
+      "checks": 30,
+      "elapsedMs": 12175,
+      "attempts": 1
+    },
+    {
+      "name": "test:composer",
+      "passed": true,
+      "checks": 20,
+      "elapsedMs": 73687,
+      "attempts": 1
+    },
+    {
+      "name": "test:composer-scroll-motion",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 5340,
+      "attempts": 1
+    },
+    {
+      "name": "test:composer-placement",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 4595,
+      "attempts": 1
+    },
+    {
+      "name": "test:slider-glass",
+      "passed": true,
+      "checks": 5,
+      "elapsedMs": 10417,
+      "attempts": 2
+    },
+    {
+      "name": "test:performance",
+      "passed": true,
+      "checks": 4,
+      "elapsedMs": 6983,
+      "attempts": 1
+    },
+    {
+      "name": "test:particle-performance",
+      "passed": true,
+      "checks": 0,
+      "elapsedMs": 20092,
+      "attempts": 1
+    },
+    {
+      "name": "test:reading-performance",
+      "passed": true,
+      "checks": 0,
+      "elapsedMs": 2279,
+      "attempts": 1
+    },
+    {
+      "name": "test:sidebar",
+      "passed": true,
+      "checks": 17,
+      "elapsedMs": 96714,
+      "attempts": 1
+    },
+    {
+      "name": "test:sidebar-layout",
+      "passed": true,
+      "checks": 1,
+      "elapsedMs": 30587,
+      "attempts": 1
+    },
+    {
+      "name": "test:sidebar-overlay",
+      "passed": true,
+      "checks": 10,
+      "elapsedMs": 32583,
+      "attempts": 4
+    },
+    {
+      "name": "test:conversation-width",
+      "passed": true,
+      "checks": 11,
+      "elapsedMs": 7610,
+      "attempts": 1
+    },
+    {
+      "name": "test:messages",
+      "passed": true,
+      "checks": 15,
+      "elapsedMs": 7966,
+      "attempts": 1
+    },
+    {
+      "name": "test:chat-disclosure",
+      "passed": true,
+      "checks": 8,
+      "elapsedMs": 10499,
+      "attempts": 1
+    },
+    {
+      "name": "test:user-bubbles",
+      "passed": true,
+      "checks": 9,
+      "elapsedMs": 9629,
+      "attempts": 1
+    },
+    {
+      "name": "test:turn-cards",
+      "passed": true,
+      "checks": 22,
+      "elapsedMs": 13425,
+      "attempts": 1
+    },
+    {
+      "name": "test:turn-divider",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 8368,
+      "attempts": 1
+    },
+    {
+      "name": "test:context-particles",
+      "passed": true,
+      "checks": 10,
+      "elapsedMs": 33416,
+      "attempts": 1
+    },
+    {
+      "name": "test:particle-conversion",
+      "passed": true,
+      "checks": 4,
+      "elapsedMs": 24818,
+      "attempts": 1
+    },
+    {
+      "name": "test:whale-particles",
+      "passed": true,
+      "checks": 0,
+      "elapsedMs": 26596,
+      "attempts": 1
+    },
+    {
+      "name": "test:header-project",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 3606,
+      "attempts": 1
+    },
+    {
+      "name": "test:particle-images",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 22404,
+      "attempts": 1
+    },
+    {
+      "name": "test:running",
+      "passed": true,
+      "checks": 11,
+      "elapsedMs": 15173,
+      "attempts": 1
+    },
+    {
+      "name": "test:opening-themes",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 11139,
+      "attempts": 1
+    },
+    {
+      "name": "test:settings-hierarchy",
+      "passed": true,
+      "checks": 9,
+      "elapsedMs": 16304,
+      "attempts": 1
+    }
+  ]
+}

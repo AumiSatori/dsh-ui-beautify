@@ -76,7 +76,7 @@ try{
   })
   await check('new category starts off and leaves host fills unchanged before import',async()=>{
     assert.equal(await wallpaper.count(),0);assert.equal(await section.getByRole('switch',{name:'启用全图背景'}).getAttribute('aria-checked'),'false')
-    assert.equal(await page.getByRole('tab').count(),7);assert.equal(await page.locator('.nav').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(244, 243, 239)')
+    assert.equal(await page.getByRole('tab',{name:'全图背景',exact:true}).getAttribute('aria-selected'),'true');assert.equal(await page.locator('.nav').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(244, 243, 239)')
     assert.equal(await section.getByRole('img',{name:'背景效果预览'}).count(),1)
     assert.equal(await section.locator('.dcb-background-placeholder').count(),1)
   })
@@ -86,6 +86,7 @@ try{
     assert.equal((await saved()).backgroundName,'first-local.png');assert.equal(await wallpaper.evaluate(node=>getComputedStyle(node).pointerEvents),'none')
     assert.equal(await page.locator('.nav').evaluate(node=>getComputedStyle(node).backgroundColor),'rgba(0, 0, 0, 0)')
     assert.equal(await page.getByRole('dialog').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 255, 255)')
+    assert.equal(await page.locator('[data-composer-seat]').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(255, 255, 255)','A full-window wallpaper preserves the default composer mask instead of revealing chat behind the input')
     await page.waitForFunction(()=>!document.getAnimations().some(animation=>animation.animationName==='dcb-background-arrive'))
     await section.locator('.dcb-background-preview').screenshot({path:resolve(output,'background-effect-thumbnail.png')})
     await page.getByRole('dialog').screenshot({path:resolve(output,'background-settings-light.png')})
@@ -173,7 +174,7 @@ try{
           return{overflow:node.scrollWidth>node.clientWidth+1,stacked:file.top>=figure.bottom+18,gap:grid.top-actions.bottom,sliderHeight:slider.height,buttons:[...node.querySelectorAll('.dcb-background-actions button,.dcb-background-options button')].map(button=>{const r=button.getBoundingClientRect();return[r.width,r.height]})}
         })
         assert.equal(metrics.overflow,false);assert.equal(metrics.stacked,true);assert.ok(metrics.gap>=20);assert.ok(metrics.sliderHeight>=44);assert.ok(metrics.buttons.every(([w,h])=>w>=44&&h>=44),JSON.stringify(metrics))
-        const tabbar=phone.getByRole('tablist',{name:'美化设置分类'})
+        const tabbar=phone.getByRole('tablist',{name:'美化设置分组'})
         assert.ok((await tabbar.boundingBox()).height<=60,'phone categories must stay in one horizontal row')
         assert.equal(await phone.getByRole('dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1),true)
       }

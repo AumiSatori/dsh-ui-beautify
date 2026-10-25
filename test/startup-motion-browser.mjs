@@ -86,14 +86,10 @@ async function boot({hero=false,collapsed=false,late=false,freeze=true,reducedMo
   await page.addScriptTag({content:built.outputFiles[0].text})
 }
 function composer(){return '<div class="ib_root" data-composer-card><textarea aria-label="演示输入">保留这段草稿</textarea><div class="tools"><span>＋　模型 · 权限</span><button class="send" aria-label="演示发送">↑</button></div></div>'}
-async function start(options={welcomeFont:'hand'}){await page.evaluate(({options,logo})=>{
-  const services={createLogo:()=>{
-    if(!logo)return null
-    const node=document.createElement('div'),svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),path=document.createElementNS('http://www.w3.org/2000/svg','path')
-    svg.setAttribute('viewBox',`0 0 ${logo.width} ${logo.height}`);path.setAttribute('d',logo.path);path.setAttribute('fill','currentColor');svg.append(path);node.append(svg);return{node}
-  }}
+async function start(options={welcomeFont:'hand',welcomeMode:'text'}){await page.evaluate(({options,logo})=>{
+  const services={}
   window.motion=Startup.createStartupMotion(document,window,options,services)
-},{options,logo});await tick()}
+},{options:{welcomeMode:'text',...options},logo});await tick()}
 async function clean(){await page.evaluate(()=>window.motion.dispose());await tick()}
 const status=()=>page.evaluate(()=>window[Symbol.for('dsh-ui-beautify.startup-status.v2')])
 async function reveal(){
@@ -104,18 +100,14 @@ async function reveal(){
 }
 const entrances=()=>page.evaluate(()=>window.calls.filter(c=>/^dcb-startup-(main|composer|sidebar-)/.test(c.a.id)).map(c=>({id:c.a.id,duration:c.options.duration,delay:c.options.delay})))
 try{
-  await check('the welcome is drawn from original strokes in order, then the real content enters in three distinct groups',async()=>{
+  await check('the welcome is written with the local hand font in order, then the real content enters in three distinct groups',async()=>{
     await boot();await start()
     assert.equal((await status()).stage,'writing')
-    assert.equal(await page.getByRole('status',{name:'欢迎回来'}).count(),1)
-    if(logo){
-      assert.equal(await page.locator('[data-dcb-welcome-logo] path').getAttribute('d'),logo.path)
-      const brand=await page.locator('[data-dcb-welcome-logo]').boundingBox(),art=await page.locator('[data-dcb-welcome-art]').boundingBox()
-      assert.ok(brand.y+brand.height<art.y)
-    }
-    assert.deepEqual(await page.locator('[data-welcome-character]').evaluateAll(nodes=>nodes.map(el=>el.getAttribute('data-welcome-character'))),['欢','迎','回','来'])
-    const ink=await page.evaluate(()=>window.calls.filter(c=>c.a.id.startsWith('dcb-startup-ink-')).map(c=>({delay:c.options.delay,duration:c.options.duration})))
-    assert.equal(ink.length,26);assert.ok(ink.every((c,i)=>c.duration>0&&(!i||c.delay>ink[i-1].delay)))
+    assert.equal(await page.getByRole('status',{name:'Deepseek Harness'}).count(),1)
+
+    assert.deepEqual(await page.locator('[data-welcome-character]').evaluateAll(nodes=>nodes.map(el=>el.getAttribute('data-welcome-character'))),[...'Deepseek Harness'])
+    const ink=await page.evaluate(()=>window.calls.filter(c=>c.a.id.startsWith('dcb-startup-ink-')&&!c.a.id.startsWith('dcb-startup-ink-finish-')).map(c=>({delay:c.options.delay,duration:c.options.duration})))
+    assert.ok(ink.length>=8);assert.ok(ink.every((c,i)=>c.duration>0&&(!i||c.delay>ink[i-1].delay)))
     await page.evaluate(()=>window.frameAt(800));await tick()
     const offsets=await page.locator('[data-dcb-welcome-stroke]').evaluateAll(nodes=>nodes.map(el=>Number.parseFloat(getComputedStyle(el).strokeDashoffset)))
     assert.ok(offsets.some(n=>n===0)&&offsets.some(n=>n>0),'An intermediate frame contains both written ink and still-unwritten strokes')
@@ -149,7 +141,7 @@ try{
   await check('the natural welcome renders multiple handwriting and content frames without a permanent rendering loop',async()=>{
     await boot({freeze:false})
     const frames=await page.evaluate(()=>new Promise(resolve=>{
-      window.motion=Startup.createStartupMotion(document,window,{welcomeFont:'hand'});const start=performance.now(),frames=[]
+      window.motion=Startup.createStartupMotion(document,window,{welcomeFont:'hand',welcomeMode:'text'});const start=performance.now(),frames=[]
       function frame(){const stroke=document.querySelector('[data-dcb-welcome-stroke]'),card=document.querySelector('[data-composer-card]');frames.push({t:performance.now()-start,stage:document.documentElement.getAttribute('data-dcb-startup-stage'),ink:stroke?getComputedStyle(stroke).strokeDashoffset:null,opacity:getComputedStyle(card).opacity,y:new DOMMatrix(getComputedStyle(card).transform).m42});if(performance.now()-start<3100)requestAnimationFrame(frame);else resolve(frames)}requestAnimationFrame(frame)
     }))
     assert.ok(new Set(frames.filter(f=>f.ink!==null).map(f=>f.ink)).size>3)
@@ -304,7 +296,7 @@ try{
   await check('the generated plugin creates the welcome and cleans it through its real presentation lifecycle',async()=>{
     await boot();await page.evaluate(()=>{window.cleanups=[];window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(()=>({createElement(){},Component:class{}}))}})
     await page.addScriptTag({content:readFileSync(resolve(project,'client.js'),'utf8')})
-    await page.evaluate(()=>window.plugin.apply({slots:{inject(_name,cb){cb()},register(){}},effect(cb){window.cleanups.push(cb())}}));await tick()
+    await page.evaluate(()=>{const ctx={slots:{inject(_name,cb){cb()},register(){}},effect(cb){window.cleanups.push(cb())},inject(_names,cb){cb(ctx)}};window.plugin.apply(ctx)});await tick()
     assert.ok(await page.locator('[data-dcb-welcome-stroke]').count()>0)
     assert.equal(await page.locator('[data-welcome-font]').getAttribute('data-welcome-font'),'Lolita')
     await page.evaluate(()=>{for(const cleanup of window.cleanups.reverse())cleanup?.()});await tick()

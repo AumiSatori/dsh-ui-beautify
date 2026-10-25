@@ -1,5 +1,6 @@
 import {htmlDocument} from './background-html.js'
-import {normalizeBackground,themeBackground,backgroundThemeSelection,createBackgroundStore,inspectBackgroundMedia,backgroundThumbnail} from './background-media.js'
+import {backgroundChatSurfacesCss} from './background-chat-surfaces.js'
+import {normalizeBackground,themeBackground,backgroundThemeSelection,patchBackgroundTheme,createBackgroundStore,inspectBackgroundMedia,backgroundThumbnail} from './background-media.js'
 export {normalizeBackground} from './background-media.js'
 
 const FLAG='data-dcb-background',SURFACE='data-dcb-background-surface'
@@ -10,8 +11,11 @@ export const fullBackgroundCss=`
   [data-dcb-background-layer] { position:fixed; inset:0; z-index:-1; overflow:hidden; pointer-events:none!important; user-select:none; }
   [data-dcb-background-layer][hidden] { display:none; }
   [data-dcb-background-layer] > :is(img,video,iframe) { display:block; border:0; width:100%; height:100%; object-fit:var(--dcb-bg-fit,cover); object-position:var(--dcb-bg-position,center); opacity:var(--dcb-bg-opacity,.45); filter:blur(var(--dcb-bg-blur,0px)); }
-  body[${FLAG}] [${SURFACE}] { background:transparent!important; }
+  /* The composer owns its mask: the history-underlay option may reveal it,
+     but a wallpaper must not expose live replies beneath the editor. */
+  body[${FLAG}] [${SURFACE}]:not([data-composer-seat]) { background:transparent!important; }
   body[${FLAG}] ${suffix('sessionList')}::after { background:none!important; }
+  ${backgroundChatSurfacesCss}
 `
 
 export function createFullBackground(doc,win,{onChange=()=>{}}={}){
@@ -169,7 +173,7 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
     sync,subscribe:listener=>{listeners.add(listener);return()=>listeners.delete(listener)},getSnapshot:()=>snapshot,
     resolve:value=>themeBackground(value,theme),
     selection:(asset,scheme=theme)=>backgroundThemeSelection(sourceSettings,scheme,asset,{legacyKind:legacyKind||snapshot.recent.find(item=>item.revision===sourceSettings.backgroundRevision)?.kind,previousRevision:legacyPreviousRevision}),
-    patch(value,scheme=theme){return sourceSettings.backgroundThemes&&'backgroundEnabled'in value?{...value,backgroundThemes:{...sourceSettings.backgroundThemes,[scheme]:{...sourceSettings.backgroundThemes[scheme],backgroundEnabled:value.backgroundEnabled===true}}}:value},
+    patch(value,scheme=theme){return patchBackgroundTheme(sourceSettings,value,scheme,{legacyKind,previousRevision:legacyPreviousRevision})},
     async readHtml(scheme=theme){const state=await store.read(themeBackground(sourceSettings,scheme).backgroundRevision);if(state.current?.kind!=='html')throw Error('当前主题尚未选择 HTML 背景');return state.current.blob.text()},
     async importHtml(source,name){
       if(typeof source!=='string'||!source.trim())throw Error('请输入 HTML 代码');
@@ -180,6 +184,19 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
     },
     async import(file){const request=++importSequence,asset=await inspectBackgroundMedia(file,doc,win);if(disposed||request!==importSequence)throw Error('已取消较早的背景导入');const state=await store.replace(asset);if(disposed)throw Error('背景设置已关闭');publish({hasPrevious:!!state.previous,recent:state.recent});return asset},
     async select(revision){importSequence++;const state=await store.select(revision);publish({hasPrevious:!!state.previous,recent:state.recent});return state.current},
+    async rename(revision,name){
+      const state=await store.rename(revision,name)
+      if(disposed)return
+      const asset=state.current,patch={}
+      if(sourceSettings.backgroundRevision===revision)patch.backgroundName=asset.name
+      if(sourceSettings.backgroundThemes){
+        const themes={...sourceSettings.backgroundThemes};let changed=false
+        for(const scheme of ['light','dark'])if(themes[scheme].backgroundRevision===revision){themes[scheme]={...themes[scheme],backgroundName:asset.name};changed=true}
+        if(changed)patch.backgroundThemes=themes
+      }
+      if(Object.keys(patch).length){sourceSettings=normalizeBackground({...sourceSettings,...patch});settings=themeBackground(sourceSettings,theme);onChange(patch)}
+      publish({recent:state.recent});return asset
+    },
     async restore(){importSequence++;const state=sourceSettings.backgroundThemes?await store.read(settings.previousRevision||''):await store.restore();publish({hasPrevious:!!state.previous,recent:state.recent});return state.current},
     async clear(){importSequence++;await store.clear();publish({hasPrevious:false,preview:''})},
     dispose(){doc.removeEventListener('pointermove',pointer);disposed=true;generation++;importSequence++;structure.disconnect();themeObserver.disconnect();win.cancelAnimationFrame(surfaceFrame);releaseMedia();store.dispose();listeners.clear();doc.removeEventListener('visibilitychange',visibility);forced.removeEventListener('change',visibility);reduced.removeEventListener('change',visibility)},

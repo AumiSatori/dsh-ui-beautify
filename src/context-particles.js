@@ -52,6 +52,10 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   const hostResize=new win.ResizeObserver(schedule)
   let settings=normalizeParticles(null),disposed=false,frame=0,retentionTimer=0,lastStatus='',svgCache=null,svgKey='',contextPercent=null,imageSequence=0
   const now=()=>win.performance.now()
+  const seatFor=host=>{
+    const main=host.closest('main')
+    return host.closest('[class$="_centerCol"], [class*="_centerCol "]')||(main?.hasAttribute('data-phase')?main.parentElement:main)||host.parentElement
+  }
   function readingFor(entry){
     const percent=[...entry.owners.values()].at(-1)??null
     if(percent!==null){entry.last=percent;entry.expires=0;win.clearTimeout(entry.timer);entry.timer=0;return percent}
@@ -111,7 +115,7 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
   }
   function park(scene){unbind(scene);scene.expires=now()+RETAIN_MS;retained.add(scene);armRetention()}
   function bind(scene,host){
-    retained.delete(scene);scene.resize.disconnect();scene.phase.disconnect();scene.host=host;scene.visible=true;scene.expires=0
+    retained.delete(scene);scene.resize.disconnect();scene.phase.disconnect();scene.host=host;scene.seat=seatFor(host);scene.session=host.dataset.conversationSession;scene.visible=true;scene.expires=0
     host.setAttribute('data-dcb-particles-host','');host.prepend(scene.layer)
     const composer=host.querySelector('[data-composer-seat]');if(composer)scene.resize.observe(composer)
     scene.phase.observe(host,{attributes:true,attributeFilter:['data-content-phase']})
@@ -139,19 +143,19 @@ export function createContextParticles(doc,win,{logoPath,logoBox}={}){
     for(const host of candidates)if(!watchedHosts.has(host)){watchedHosts.add(host);hostResize.observe(host)}
     const hosts=candidates.filter(host=>visibleHosts.has(host)).slice(0,MAX_SCENES)
     if(!enabled){for(const scene of [...scenes.values(),...retained])release(scene);armRetention()}
-    else for(const [host,scene]of scenes)if(!hosts.includes(host)){
-      if(host.isConnected&&host.dataset.conversationSession!==scene.session)release(scene)
-      else park(scene)
-    }
+    else for(const [host,scene]of scenes)if(!hosts.includes(host))park(scene)
     const previewOpen=!!doc.querySelector('.dcb-settings')?.getClientRects().length,key=artworkKey()
     for(const host of hosts){
-      if(scenes.has(host)&&scenes.get(host).session!==host.dataset.conversationSession)release(scenes.get(host))
       let scene=scenes.get(host)
       if(!scene){
-        const cached=[...retained].find(scene=>scene.session===host.dataset.conversationSession&&scene.expires>now())
+        // A session changes the pressure target, not its artwork or GPU program.
+        // Reuse this conversation seat across route/host replacements as well.
+        const available=[...retained].filter(scene=>scene.seat===seatFor(host)&&scene.expires>now())
+        const cached=available.find(scene=>scene.session===host.dataset.conversationSession)||available.find(scene=>scene.key===key)
         if(cached)scene=bind(cached,host)
         else{while(scenes.size+retained.size>=MAX_SCENES&&retained.size)release(retained.values().next().value);scene=create(host)}
       }
+      scene.session=host.dataset.conversationSession
       const reading=readings.get(host.dataset.conversationSession)
       scene.percent=reading?readingFor(reading):null
       const canShow=manual||scene.percent!==null&&scene.percent>=settings.particleStart

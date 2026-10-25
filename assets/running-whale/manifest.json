@@ -1,0 +1,468 @@
+{
+  "format": "dsh-running-pack",
+  "version": 1,
+  "name": "鲸鱼娘动作包",
+  "author": "AumiSatori / yanzwzz；角色：上善无形 / ZipZipPipe",
+  "license": "素材授权见 LICENSE；角色 CC BY-NC-SA 4.0，个人非商业使用",
+  "actions": [
+    {
+      "id": "a001",
+      "name": "东张西望",
+      "file": "a001.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a002",
+      "name": "举牌不是大肥鱼",
+      "file": "a002.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a003",
+      "name": "偷吃Token",
+      "file": "a003.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a004",
+      "name": "偷吃零食被抓住",
+      "file": "a004.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a005",
+      "name": "原地专心玩魔方",
+      "file": "a005.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a006",
+      "name": "原地小憩沉眠",
+      "file": "a006.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a007",
+      "name": "原地敲击桌面互动",
+      "file": "a007.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a008",
+      "name": "原地漂浮踏步",
+      "file": "a008.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a009",
+      "name": "原地跳跃抓碎头顶物品",
+      "file": "a009.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a010",
+      "name": "原地蹲下玩玩具汽车",
+      "file": "a010.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a011",
+      "name": "原地重力下蹲压缩",
+      "file": "a011.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a012",
+      "name": "原版-敲笔记本电脑",
+      "file": "a012.webp",
+      "type": "sprite",
+      "frames": 30,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a013",
+      "name": "吃小鱼干",
+      "file": "a013.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a014",
+      "name": "吃盒饭",
+      "file": "a014.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a015",
+      "name": "哈欠连天",
+      "file": "a015.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a016",
+      "name": "喝奶茶",
+      "file": "a016.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a017",
+      "name": "女仆屈膝礼仪",
+      "file": "a017.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a018",
+      "name": "女仆扫除",
+      "file": "a018.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a019",
+      "name": "小幅度原地 360 度旋转展示",
+      "file": "a019.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a020",
+      "name": "工作思考",
+      "file": "a020.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a021",
+      "name": "工作摸鱼",
+      "file": "a021.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a022",
+      "name": "工作结束",
+      "file": "a022.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a023",
+      "name": "工作被打扰",
+      "file": "a023.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a024",
+      "name": "开始工作",
+      "file": "a024.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a025",
+      "name": "待机呼吸休闲",
+      "file": "a025.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a026",
+      "name": "悠闲哼歌",
+      "file": "a026.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a027",
+      "name": "打喷嚏",
+      "file": "a027.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a028",
+      "name": "打瞌睡被惊醒",
+      "file": "a028.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a029",
+      "name": "摸鱼被抓",
+      "file": "a029.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a030",
+      "name": "点击回应 - 傲娇生气（侧身展示）",
+      "file": "a030.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a031",
+      "name": "点击回应 - 害羞惊讶",
+      "file": "a031.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a032",
+      "name": "点击回应 - 开心跃动",
+      "file": "a032.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a033",
+      "name": "玩游戏气急败坏",
+      "file": "a033.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a034",
+      "name": "用鲸鱼尾巴拍打地面",
+      "file": "a034.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a035",
+      "name": "看天气",
+      "file": "a035.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a036",
+      "name": "看表叹气",
+      "file": "a036.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a037",
+      "name": "睡眼惺忪",
+      "file": "a037.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a038",
+      "name": "睡觉第一段",
+      "file": "a038.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a039",
+      "name": "睡觉第三段",
+      "file": "a039.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a040",
+      "name": "睡觉第二段",
+      "file": "a040.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a041",
+      "name": "空白举牌",
+      "file": "a041.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a042",
+      "name": "翻钱包",
+      "file": "a042.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a043",
+      "name": "螃蟹走路",
+      "file": "a043.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a044",
+      "name": "被吓一跳（炸毛）",
+      "file": "a044.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a045",
+      "name": "被鼠标拖拽悬空反馈",
+      "file": "a045.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a046",
+      "name": "认真工作",
+      "file": "a046.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a047",
+      "name": "超大伸懒腰",
+      "file": "a047.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a048",
+      "name": "迷糊犯困",
+      "file": "a048.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a049",
+      "name": "长时间工作看表",
+      "file": "a049.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a050",
+      "name": "闲得无聊打游戏",
+      "file": "a050.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    },
+    {
+      "id": "a051",
+      "name": "鲸鱼吐泡泡特效",
+      "file": "a051.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    }
+  ]
+}

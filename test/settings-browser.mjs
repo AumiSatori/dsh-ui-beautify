@@ -38,7 +38,7 @@ try{
   })
   await page.evaluate(()=>window.fixture.settings(true));await select('任务面板')
   await check('hierarchical accessible categories mount one page and use uniform preview cards in all three material scopes',async()=>{
-    assert.deepEqual(await page.getByRole('tablist',{name:'美化设置分组'}).getByRole('tab').allTextContents(),['全局布局','对话布局'])
+    assert.deepEqual(await page.getByRole('tablist',{name:'美化设置分组'}).getByRole('tab').allTextContents(),['组件布局','全局布局','对话布局'])
     const geometry=[]
     for(const [name,label]of[['任务面板','卡片样式'],['输入栏','输入栏样式'],['侧栏','侧栏样式']]){
       await select(name);assert.equal(await dialog.locator('[data-dcb-settings-block]').count(),1)
@@ -93,12 +93,12 @@ try{
   })
   await check('switching categories preserves edited preferences and cancels preview animations',async()=>{
     await select('侧栏');await page.getByRole('radio',{name:'侧栏：轻量玻璃',exact:true}).click()
-    await select('开屏欢迎');const text=page.getByRole('textbox',{name:'欢迎文字'});await text.fill('DeepSeek Harness')
+    await select('开屏欢迎');await page.getByRole('radio',{name:'默认 · Logo 字符填充',exact:true}).click();const text=page.getByRole('textbox',{name:'Logo 填充字符'});await text.fill('DeepSeek Harness')
     await select('输入栏')
-    assert.equal((await saved()).welcomeText,'DeepSeek Harness');assert.equal((await saved()).sidebarStyle,'css')
+    assert.equal((await saved()).welcomeCharacters,'DeepSeek Harness');assert.equal((await saved()).sidebarStyle,'css')
     await select('开屏欢迎');assert.equal(await text.inputValue(),'DeepSeek Harness')
-    await page.getByRole('button',{name:'播放欢迎预览'}).click();assert.ok(await page.evaluate(()=>document.getAnimations().some(animation=>animation.id.startsWith('dcb-startup-ink-'))))
-    await select('对话动效');assert.equal(await page.evaluate(()=>document.getAnimations().filter(animation=>animation.id.startsWith('dcb-startup-ink-')).length),0)
+    await page.getByRole('button',{name:'播放欢迎预览'}).click();assert.ok(await page.evaluate(()=>document.getAnimations().some(animation=>animation.id.startsWith('dcb-startup-characters'))))
+    await select('对话动效');assert.equal(await page.evaluate(()=>document.getAnimations().filter(animation=>animation.id.startsWith('dcb-startup-characters')).length),0)
     await page.getByRole('button',{name:'播放消息动效预览'}).click();await select('侧栏')
     assert.equal(await page.locator('.dcb-message-demo').count(),0)
   })
@@ -107,12 +107,12 @@ try{
     await select('输入栏');await page.evaluate(()=>{window.chatScroll=document.querySelector('[data-conversation-scroll]').scrollTop;document.querySelector('.settings-dialog').scrollTop=450})
     assert.ok(await dialog.evaluate(el=>el.scrollTop)>0)
     const pos=await tabs.boundingBox(),box=await dialog.boundingBox();assert.ok(pos.y>=box.y&&pos.y<box.y+45)
-    await select('侧栏');assert.ok(await dialog.evaluate(el=>el.scrollTop)<130)
+    await select('侧栏');const sectionTop=(await page.locator('[data-dcb-settings-block=sidebar]').boundingBox()).y;const navigation=await tabs.boundingBox();assert.ok(sectionTop>=navigation.y&&sectionTop<navigation.y+navigation.height+100)
     assert.equal(await page.evaluate(()=>document.querySelector('[data-conversation-scroll]').scrollTop===window.chatScroll),true)
     await page.evaluate(()=>window.fixture.settings(false));await page.evaluate(()=>window.fixture.settings(true));await select('侧栏')
     assert.equal(await page.getByRole('tab',{name:'侧栏',exact:true}).getAttribute('aria-selected'),'true')
   })
-  await check('every switch uses a neutral black track and white thumb, with distinct off and disabled states in both themes',async()=>{
+  await check('all settings categories share iOS switches, white circular thumbs and theme-accent on states',async()=>{
     await page.setViewportSize({width:1440,height:1000})
     for(const dark of[false,true]){
       await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
@@ -123,22 +123,61 @@ try{
         for(let i=0;i<await switches.count();i++){
           const control=switches.nth(i);count++
           const original=await control.getAttribute('aria-checked'),disabled=await control.isDisabled()
-          const sample=()=>control.evaluate(el=>{const s=getComputedStyle(el),thumb=getComputedStyle(el,'::after'),rgb=color=>color.match(/[\d.]+/g).map(Number);return{checked:el.getAttribute('aria-checked')==='true',track:rgb(s.backgroundColor),thumb:rgb(thumb.backgroundColor),border:rgb(s.borderColor),x:new DOMMatrix(thumb.transform).m41,width:el.offsetWidth,height:el.offsetHeight,opacity:Number(s.opacity)}})
+          const sample=()=>control.evaluate(el=>{const s=getComputedStyle(el),thumb=getComputedStyle(el,'::after'),rgb=color=>color.match(/[\d.]+/g).map(Number);return{checked:el.getAttribute('aria-checked')==='true',track:rgb(s.backgroundColor),thumb:rgb(thumb.backgroundColor),knobWidth:parseFloat(thumb.width),knobHeight:parseFloat(thumb.height),radius:parseFloat(s.borderRadius),shadow:s.boxShadow,x:new DOMMatrix(thumb.transform).m41,width:el.offsetWidth,height:el.offsetHeight,opacity:Number(s.opacity)}})
           for(let state=0;state<(disabled?1:2);state++){
             await page.mouse.move(1,1);await page.waitForTimeout(250)
             const value=await sample()
-            assert.ok(value.track[0]===value.track[1]&&value.track[1]===value.track[2]);assert.deepEqual(value.thumb,[255,255,255]);assert.deepEqual([value.width,value.height],[42,24])
+            assert.deepEqual(value.thumb,[255,255,255]);assert.deepEqual([value.width,value.height],[44,26]);assert.deepEqual([value.knobWidth,value.knobHeight],[22,22]);assert.ok(value.radius>=value.height/2)
             assert.equal(value.x,value.checked?18:0)
             if(disabled)assert.ok(value.opacity<1)
-            else{assert.ok(value.checked?value.track[0]<=48:value.track[0]>64);if(dark&&value.checked)assert.ok(value.border[0]-value.track[0]>90);await control.click()}
+            else{if(value.checked){assert.ok(Math.max(...value.track.slice(0,3))-Math.min(...value.track.slice(0,3))>30,'enabled track uses the shared accent');assert.notEqual(value.shadow,'none')}else assert.ok(value.track[3]<.5,'off track remains neutral and translucent');await control.click()}
           }
           assert.equal(await control.getAttribute('aria-checked'),original)
         }
       }
-      assert.ok(count>=12)
+      assert.equal(count,21) // Character logo no longer has a separate visibility switch.
       await select('开屏欢迎');await page.mouse.move(1,1);await page.waitForTimeout(250)
       await dialog.screenshot({path:resolve(output,`switches-${dark?'dark':'light'}.png`)})
     }
+  })
+  await check('iOS switch motion reverses from its current position, supports keyboard focus and keeps disabled states inert',async()=>{
+    await select('输入栏')
+    const control=page.getByRole('switch',{name:'小按钮玻璃材质',exact:true})
+    await control.scrollIntoViewIfNeeded();await control.focus();await page.mouse.move(1,1);await page.waitForTimeout(280)
+    const original=await control.getAttribute('aria-checked')
+    const start=await control.evaluate(el=>{window.switchBeforeMotion=el;return new DOMMatrix(getComputedStyle(el,'::after').transform).m41})
+    await control.press('Space');await page.waitForTimeout(65)
+    const middle=await control.evaluate(el=>new DOMMatrix(getComputedStyle(el,'::after').transform).m41)
+    assert.ok(Math.abs(middle-start)>1&&middle>0&&middle<18,'thumb travels through an intermediate frame')
+    await control.press('Space');await page.waitForTimeout(300)
+    assert.equal(await control.getAttribute('aria-checked'),original)
+    const final=await control.evaluate(el=>({x:new DOMMatrix(getComputedStyle(el,'::after').transform).m41,outline:getComputedStyle(el).outlineWidth,same:el===window.switchBeforeMotion,hit:document.elementFromPoint(el.getBoundingClientRect().left+22,el.getBoundingClientRect().top-6)===el}))
+    assert.ok(Math.abs(final.x-start)<.01);assert.equal(final.outline,'2px');assert.equal(final.same,true);assert.equal(final.hit,true,'touch hit area extends above the visual rail')
+    await control.evaluate(el=>el.disabled=true);await page.waitForTimeout(220);await control.press('Space')
+    assert.equal(await control.getAttribute('aria-checked'),original)
+    assert.ok(await control.evaluate(el=>Number(getComputedStyle(el).opacity))<.5)
+    await control.evaluate(el=>el.disabled=false)
+  })
+  await check('selected and informational dots glow locally only in dark settings and do not add idle animations',async()=>{
+    await select('输入栏');await page.getByRole('radio',{name:'输入栏：轻量玻璃',exact:true}).click()
+    const glow=()=>page.evaluate(()=>{
+      const selected=document.querySelector('.dcb-style-option[aria-checked=true]'),off=document.querySelector('.dcb-style-option[aria-checked=false]'),info=document.querySelector('.dcb-settings-info')
+      const dot=getComputedStyle(selected,'::after'),unselected=getComputedStyle(off,'::after'),status=getComputedStyle(info,'::before')
+      return{selected:dot.boxShadow,unselected:unselected.boxShadow,info:status.boxShadow,animation:dot.animationName,statusAnimation:status.animationName}
+    })
+    for(const dark of[false,true]){
+      await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark);await page.mouse.move(1,1);await page.waitForTimeout(350)
+      const value=await glow();assert.equal(value.animation,'none');assert.equal(value.statusAnimation,'none');assert.equal(value.unselected,'none')
+      if(dark){assert.notEqual(value.selected,'none');assert.notEqual(value.info,'none')}
+      else{assert.equal(value.selected,'none');assert.equal(value.info,'none')}
+      assert.equal(await page.locator('.dcb-settings').evaluate(el=>el.getAnimations({subtree:true}).length),0,'settled settings controls do not run animations')
+      await dialog.screenshot({path:resolve(output,`ios-composer-${dark?'dark':'light'}.png`)})
+    }
+    await page.emulateMedia({reducedMotion:'reduce'});assert.notEqual((await glow()).selected,'none','reduced motion keeps a static glow')
+    await page.emulateMedia({forcedColors:'active'})
+    const forced=await glow();assert.equal(forced.selected,'none');assert.equal(forced.info,'none')
+    assert.equal(await page.getByRole('switch',{name:'小按钮玻璃材质',exact:true}).evaluate(el=>getComputedStyle(el).boxShadow),'none')
+    await page.emulateMedia({reducedMotion:'no-preference',forcedColors:'none'})
   })
   await check('narrow and dark settings keep categories and all material cards inside the content column',async()=>{
     await page.setViewportSize({width:520,height:900});await page.addStyleTag({content:'.settings-dialog{inset:24px 12px;padding:14px}'})

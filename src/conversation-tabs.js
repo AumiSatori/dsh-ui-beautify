@@ -12,6 +12,9 @@ const pathValue=value=>`path("${value}")`
 
 export const conversationTabsCss=`
   [${WIDTH}=shared] { box-sizing:border-box; width:min(var(--dsh-chat-content-width,920px),calc(100% - var(--dsh-composer-side-clearance,16px) * 2 - 32px)); max-width:100%; min-width:0; align-self:center; }
+  /* The host hides width handles for composer-overlay views such as Trace.
+     Our shared column needs the same native controls, capture and preference. */
+  [data-conversation-content]:has([${WIDTH}=shared]) > [data-width-handle] { display:block; }
   [${MARK}] { position: relative; }
   [${MARK}] > button[role="tab"]::after { background: transparent !important; }
   [${INDICATOR}] {

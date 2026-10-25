@@ -27,5 +27,5 @@ const [pack]=JSON.parse(execFileSync(process.execPath,[process.env.npm_execpath,
 const files=new Set(pack.files.map(item=>item.path))
 for(const path of['index.js','client.js','cordis.patch.yml','README.md','LICENSE','THIRD_PARTY_NOTICES.md','vendor/lens/LICENSE','assets/CONTEXT-WHALE-LICENSE.md','assets/icon.svg','assets/icon.png','docs/DELIVERY.md','CHANGELOG.md'])assert.ok(files.has(path),`Missing package file ${path}`)
 for(const file of files)assert.ok(!/(?:^|\/)(?:node_modules|test|tests|src|\.git|\.scratch|profiles|cache)(?:\/|$)|(?:^|\/)\.env|\.(?:log|bak|wav|mp3|sqlite|pem|key)$/i.test(file),`Unexpected package content: ${file}`)
-assert.ok(pack.size<4*1024*1024,'Review unexpectedly large package contents before release')
+assert.ok(pack.size<10*1024*1024,'Review unexpectedly large package contents before release')
 console.log(JSON.stringify({name:pkg.name,version:pkg.version,host:pkg.engines.dsh,files:files.size,packedBytes:pack.size,unpackedBytes:pack.unpackedSize,screenshots:screenshots.length,installHooks:false,runtimeDependencies:0}))

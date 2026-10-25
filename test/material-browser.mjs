@@ -157,8 +157,8 @@ try {
       assert.doesNotMatch(styles.css.filter, /url\(/)
       assert.equal(styles.glass.blur, 22)
       assert.equal(styles.milk.blur, 0)
-      // Neutral white clear/frosted surfaces can have the same mean over a
-      // flat backdrop. Their real optical difference is checked on texture below.
+      // Keep the existing material's visual balance, including the frosted
+      // surface, while only its inner buttons and output rows are unfilled.
       if (!dark) assert.ok(flat.glass.mean[2] - flat.glass.mean[0] < 6, 'Neutral frost does not add a blue-grey cast to a light backdrop')
       for (const [first, second] of [['clear', 'milk'], ['glass', 'milk']]) {
         const delta = difference(flat[first], flat[second])
@@ -173,7 +173,7 @@ try {
         const hovered = await readMaterial()
         if (value !== 'milk') {
           const overlay = hovered.toolBackground.match(/[\d.]+/g).map(Number)
-          assert.ok(overlay.length === 4 && overlay[3] > 0 && overlay[3] <= .12, `Hover uses a translucent overlay, not an opaque block (${hovered.toolBackground})`)
+          assert.ok(overlay.length === 4 && overlay[3] === 0, `Tool headers remain unfilled even on hover (${hovered.toolBackground})`)
         }
         await capture(`${theme}-hover-${value}`)
         await page.mouse.move(10, 500)

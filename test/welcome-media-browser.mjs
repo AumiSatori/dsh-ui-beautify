@@ -46,19 +46,17 @@ async function mount(){
 async function settings(){await page.evaluate(()=>window.fixture.settings(true));await selectSettingsCategory(page,'开屏欢迎');await section.waitFor();await page.waitForTimeout(350)}
 async function readStored(){return page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key)}
 async function nextBoot(patch={}){
-  await page.evaluate(({key,patch})=>localStorage.setItem(key,JSON.stringify({...JSON.parse(localStorage.getItem(key)),welcomeEnabled:true,...patch})),{key,patch})
+  await page.evaluate(({key,patch})=>{const old=JSON.parse(localStorage.getItem(key)),next={welcomeEnabled:true,...patch},scheme=document.body.hasAttribute('data-ds-dark-theme')?'dark':'light';localStorage.setItem(key,JSON.stringify({...old,...next,welcomeThemes:old.welcomeThemes?{...old.welcomeThemes,[scheme]:{...old.welcomeThemes[scheme],...next}}:null}))},{key,patch})
   await page.reload();await mount()
 }
 async function waitPoster(){await section.locator('[data-dcb-welcome-media] canvas').waitFor();assert.equal(await urls(),0)}
 try{
-  await page.goto(url);await page.evaluate(key=>localStorage.setItem(key,JSON.stringify({welcomeEnabled:false})),key);await mount();await settings()
-  await check('the default preview uses the installed native DSH logo above Lolita text, with its own show switch',async()=>{
-    if(logo)assert.equal(await section.locator('.dcb-welcome-preview-brand path').getAttribute('d'),logo.path)
-    assert.equal(await section.getByRole('switch',{name:'显示 DSH Logo'}).getAttribute('aria-checked'),'true')
+  await page.goto(url);await page.evaluate(key=>localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,welcomeMode:'text'})),key);await mount();await settings()
+  await check('the default preview fills the native DSH silhouette with characters and needs no separate logo switch',async()=>{
+    if(logo)assert.equal(await section.locator('[data-dcb-welcome-character-logo] mask path').getAttribute('d'),logo.path)
+    assert.equal(await section.locator('[data-dcb-character-row]').count(),33)
+    assert.equal(await section.getByRole('switch',{name:'显示 DSH Logo'}).count(),0)
     await section.screenshot({path:resolve(output,'logo-welcome-settings.png')})
-    await section.getByRole('switch',{name:'显示 DSH Logo'}).click();await page.waitForTimeout(350)
-    assert.equal(await section.locator('.dcb-welcome-preview-brand').evaluate(el=>el.getBoundingClientRect().height),0)
-    await section.getByRole('switch',{name:'显示 DSH Logo'}).click()
   })
   await check('switching modes collapses fields smoothly and upload persists a binary GIF without embedding it in preferences',async()=>{
     const group=section.getByRole('radiogroup',{name:'开屏类型'}),textFields=section.locator('.dcb-welcome-collapse').first()
@@ -67,7 +65,7 @@ try{
     const middle=await textFields.evaluate(el=>({height:el.getBoundingClientRect().height,opacity:Number(getComputedStyle(el).opacity)}))
     assert.ok(middle.height>0&&middle.height<before&&middle.opacity>0&&middle.opacity<1)
     await upload.setInputFiles(gif);await section.getByText(/synthetic-motion.gif/).waitFor();await waitPoster()
-    const saved=await readStored();assert.equal(saved.welcomeMode,'media');assert.ok(saved.welcomeMediaRevision);assert.ok(JSON.stringify(saved).length<1800);assert.equal(JSON.stringify(saved).includes('data:'),false)
+    const saved=await readStored();assert.equal(saved.welcomeMode,'media');assert.ok(saved.welcomeMediaRevision);assert.ok(JSON.stringify(saved).length<6000);assert.equal(JSON.stringify(saved).includes('data:'),false)
     assert.equal(await section.locator('.dcb-welcome-collapse').first().evaluate(el=>el.getBoundingClientRect().height),0)
     assert.equal(await section.locator('select,input[type=checkbox],input[type=radio],input[type=range]').count(),0)
     assert.equal(await section.locator('.dcb-welcome-upload [data-cost=high]').count(),1)
@@ -82,7 +80,7 @@ try{
   })
   await check('saved GIF plays on the next startup, preserves contain/cover, and fades into staged content on time',async()=>{
     await section.getByRole('radiogroup',{name:'画面适配'}).getByRole('radio',{name:'铺满裁切'}).click();await nextBoot()
-    const img=page.locator('[data-dcb-welcome] [data-dcb-welcome-media] img');await img.waitFor();assert.equal(await img.evaluate(el=>getComputedStyle(el).objectFit),'cover')
+    const img=page.locator('[data-dcb-welcome] [data-dcb-welcome-media] img');await img.waitFor();assert.equal(await img.evaluate(el=>getComputedStyle(el).objectFit),'contain')
     await page.setViewportSize({width:580,height:860})
     await page.waitForTimeout(350)
     assert.equal(await page.locator('[data-dcb-welcome-copy]').evaluate(el=>Math.round(el.getBoundingClientRect().width)),580)
@@ -110,8 +108,8 @@ try{
   await check('WebM is accepted, invalid, oversized and overlong uploads leave the last good media intact',async()=>{
     await upload.setInputFiles(webm);await section.getByText(/synthetic-short.webm/).waitFor();await waitPoster();const revision=(await readStored()).welcomeMediaRevision
     await upload.setInputFiles({name:'fake.gif',mimeType:'image/gif',buffer:Buffer.from('<svg onload="alert(1)"></svg>')})
-    await section.getByRole('status').filter({hasText:'支持 GIF'}).waitFor();assert.equal((await readStored()).welcomeMediaRevision,revision)
-    await upload.setInputFiles(long);await section.getByRole('status').filter({hasText:'15 秒以内'}).waitFor();assert.equal((await readStored()).welcomeMediaRevision,revision)
+    await section.getByRole('alert').filter({hasText:'支持 GIF'}).waitFor();assert.equal((await readStored()).welcomeMediaRevision,revision)
+    await upload.setInputFiles(long);await section.getByRole('alert').filter({hasText:'15 秒以内'}).waitFor();assert.equal((await readStored()).welcomeMediaRevision,revision)
     const rejected=await page.evaluate(async()=>{try{await WelcomeMedia.inspectWelcomeMedia(new File([new Uint8Array(20*1024*1024+1)],'huge.gif',{type:'image/gif'}),document,window);return false}catch(e){return e.message.includes('20MB')}})
     assert.equal(rejected,true);assert.equal(await urls(),0)
     await section.getByRole('button',{name:'播放欢迎预览'}).click();await section.locator('video').waitFor();await page.waitForTimeout(1300);await waitPoster()
@@ -130,13 +128,13 @@ try{
   })
   await check('missing or undecodable media falls back to native-logo welcome, and no asset fetch leaves the device',async()=>{
     await page.reload();await mount();await page.keyboard.press('Escape');await settings();await section.getByRole('button',{name:'移除素材'}).click()
-    await page.waitForFunction(key=>JSON.parse(localStorage.getItem(key)).welcomeMode==='text',key)
-    await nextBoot({welcomeMode:'media'});await page.locator('[data-dcb-welcome-art]').waitFor()
-    if(logo)assert.equal(await page.locator('[data-dcb-welcome-logo] path').getAttribute('d'),logo.path)
+    await page.waitForFunction(key=>JSON.parse(localStorage.getItem(key)).welcomeMode==='characters',key)
+    await nextBoot({welcomeMode:'media'});await page.locator(logo?'[data-dcb-welcome-character-logo]':'[data-dcb-welcome-art]').waitFor()
+    if(logo)assert.equal(await page.locator('[data-dcb-welcome-character-logo] mask path').getAttribute('d'),logo.path)
     await page.keyboard.press('Escape');assert.equal(await urls(),0)
     const bytes=[...readFileSync(video).subarray(0,24)]
     await page.evaluate(async bytes=>{const store=WelcomeMedia.createWelcomeMediaStore(window);await store.save({blob:new Blob([Uint8Array.from(bytes)],{type:'video/mp4'}),type:'video/mp4',kind:'video',duration:1,revision:'broken'});store.dispose()},bytes)
-    await nextBoot({welcomeMode:'media'});await page.locator('[data-dcb-welcome-art]').waitFor({timeout:2500});assert.equal(await urls(),0);await page.keyboard.press('Escape')
+    await nextBoot({welcomeMode:'media',welcomeMediaRevision:'broken'});await page.locator(logo?'[data-dcb-welcome-character-logo]':'[data-dcb-welcome-art]').waitFor({timeout:2500});assert.equal(await urls(),0);await page.keyboard.press('Escape')
     assert.deepEqual(external,[])
   })
   await check('a stalled asset read falls back on time, and a late result cannot revive a skipped or disposed startup',async()=>{

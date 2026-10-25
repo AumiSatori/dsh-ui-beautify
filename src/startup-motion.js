@@ -2,6 +2,8 @@ import {motion} from './motion.js'
 import {createWelcomeArt} from './welcome-strokes.js'
 import {normalizeWelcome,playWelcomeInk} from './welcome-font.js'
 import {createWelcomeMediaPlayer,welcomeMediaCss} from './welcome-media.js'
+import {createWelcomeCodePlayer} from './welcome-code.js'
+import {createCharacterWelcomeArt,playCharacterWelcome} from './welcome-characters.js'
 
 const OPENING=Symbol.for('dsh-ui-beautify.startup-motion.v1')
 const STATUS=Symbol.for('dsh-ui-beautify.startup-status.v2')
@@ -17,18 +19,23 @@ export const startupCss=`
   body[data-ds-dark-theme] [data-dcb-welcome] { background:#1b1b1d; color:#ededf0; }
   [data-dcb-welcome-copy] { width:min(540px,72vw); margin:0; transform-origin:50% 55%; display:flex; flex-direction:column; align-items:center; gap:30px; }
   [data-dcb-welcome-copy][data-media] { width:100%; height:100%; gap:0; }
+  [data-dcb-welcome-copy][data-code] { width:100%; height:100%; gap:0; }
   [data-dcb-welcome-logo] { display:grid; place-items:center; height:96px; width:120px; color:#111; flex:none; }
   [data-dcb-welcome-logo] svg { display:block; width:100%; height:100%; }
+  [data-dcb-welcome-character-logo] { display:block; width:min(520px,80vw); max-height:48vh; color:inherit; flex:none; }
+  [data-dcb-welcome-caption] { margin:0; font:600 clamp(18px,3vw,30px)/1.3 system-ui,sans-serif; letter-spacing:.035em; text-align:center; }
   body[data-ds-dark-theme] [data-dcb-welcome-logo] { color:#ededf0; }
   [data-dcb-welcome-art] { display:block; width:100%; height:auto; overflow:visible; color:#111; }
   [data-dcb-welcome-stroke] { fill:none; stroke-width:5.3; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1; stroke-dashoffset:1; }
+  [data-dcb-welcome-code] { width:100%; height:100%; min-height:0; display:block; overflow:hidden; background:transparent; pointer-events:none; }
+  [data-dcb-welcome-code] > iframe { display:block; width:100%; height:100%; border:0; background:transparent; }
   body[data-ds-dark-theme] [data-dcb-welcome-art] { color:#ededf0; }
   [data-dcb-startup-hold] { opacity:0!important; pointer-events:none; }
   .dcb-welcome-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
   button[data-dcb-welcome-skip] { position:absolute; right:28px; bottom:26px; border:1px solid #8883; border-radius:999px; padding:7px 16px; background:#88888809; color:inherit; font:12px/1.5 system-ui,sans-serif; cursor:pointer; transition:background-color 180ms ease,border-color 180ms ease; }
   button[data-dcb-welcome-skip]:hover { background:#8882; border-color:#8886; }
   button[data-dcb-welcome-skip]:focus-visible { outline:2px solid #888; outline-offset:3px; }
-  @media(max-width:600px) { [data-dcb-welcome-copy]:not([data-media]) { width:84vw; } button[data-dcb-welcome-skip] { right:18px; bottom:20px; } }
+  @media(max-width:600px) { [data-dcb-welcome-copy]:not([data-media]):not([data-code]) { width:84vw; } button[data-dcb-welcome-skip] { right:18px; bottom:20px; } }
   @media(prefers-reduced-motion:reduce),(forced-colors:active) { [data-dcb-welcome] { display:none; } }
 `
 
@@ -40,13 +47,13 @@ export function createStartupMotion(doc,win,options,services={}){
   const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
   const status={stage:'waiting-visible',reason:null,entrances:0,strokes:0}
   win[STATUS]=status
-  const settings=normalizeWelcome(options)
+  let settings={...options,...normalizeWelcome(options)}
   if(!settings.welcomeEnabled){status.stage='done';status.reason='disabled';return noop}
   const previousStage=doc.documentElement.getAttribute(STAGE)
   const active=new Map(),strokeAnimations=[],claimed=new Set(),listeners=[],timers=new Set(),held=new Map()
   let disposed=false,observer=null,raf=0,style=null,overlay=null,copy=null,writing=false,introDone=false,revealing=false,contentEntered=false
   let visibleAt=0,viewReadyAt=0,revealAt=0,deadline=0,settleTimer=0,waitTimer=0,restorationExpected=false,sessionState=null,identity=null,homeReady=false
-  let mediaPlayer=null,logo=null,mediaPending=false,mediaLoadTimer=0
+  let mediaPlayer=null,codePlayer=null,logo=null,mediaPending=false,codePending=false,mediaLoadTimer=0,codeLoadTimer=0
   const now=()=>win.performance.now()
   const setStage=value=>{status.stage=value;doc.documentElement.setAttribute(STAGE,value)}
   const on=(target,event,handler,options)=>{target.addEventListener(event,handler,options);listeners.push(()=>target.removeEventListener(event,handler,options))}
@@ -59,7 +66,7 @@ export function createStartupMotion(doc,win,options,services={}){
   }
   const oversized=el=>{const r=el.getBoundingClientRect(),dpr=win.devicePixelRatio||1;return Math.max(r.height,el.scrollHeight)>win.innerHeight*1.5||Math.max(r.width,el.scrollWidth)*Math.max(r.height,el.scrollHeight)*dpr*dpr>MAX_PIXELS}
   function cancel(el){const a=active.get(el);if(a){active.delete(el);a.cancel()}}
-  function releaseWelcome(){mediaPending=false;mediaPlayer?.dispose();mediaPlayer=null;logo?.dispose?.();logo=null}
+  function releaseWelcome(){mediaPending=false;codePending=false;mediaPlayer?.dispose();mediaPlayer=null;codePlayer?.dispose();codePlayer=null;logo?.dispose?.();logo=null;cancelTimer(mediaLoadTimer);cancelTimer(codeLoadTimer);mediaLoadTimer=0;codeLoadTimer=0}
   function hold(el,waiting){
     if(!el)return
     if(waiting){if(!held.has(el))held.set(el,el.getAttribute('data-dcb-startup-hold'));el.setAttribute('data-dcb-startup-hold','')}
@@ -89,6 +96,8 @@ export function createStartupMotion(doc,win,options,services={}){
   }
   function showWelcome(){
     if(writing||disposed||doc.hidden)return
+    const current=services.getSettings?.()||settings;settings={...current,...normalizeWelcome(current)}
+    if(!settings.welcomeEnabled){finish('disabled');return}
     writing=true;visibleAt=now();setStage('writing')
     style=doc.createElement('style');style.setAttribute('data-dcb-startup-style','');style.textContent=startupCss;doc.head.append(style)
     overlay=doc.createElement('div');overlay.setAttribute('data-dcb-welcome','');overlay.setAttribute('role','status');overlay.setAttribute('aria-label',settings.welcomeText)
@@ -104,14 +113,28 @@ export function createStartupMotion(doc,win,options,services={}){
       setStage('loading-media');mediaPending=true
       const fallback=()=>{if(!mediaPending||disposed||revealing)return;mediaPending=false;cancelTimer(mediaLoadTimer);try{showText()}catch{finish('error')}}
       mediaLoadTimer=later(fallback,800)
-      services.mediaStore.load().then(asset=>{
+      services.mediaStore.load(settings.welcomeMediaRevision||(settings.welcomeThemes?'':undefined)).then(asset=>{
         if(!mediaPending||disposed||revealing)return
         if(!asset){fallback();return}
         mediaPending=false;cancelTimer(mediaLoadTimer);copy.setAttribute('data-media','');setStage('playing-media')
         const fail=()=>{if(disposed||revealing)return;mediaPlayer?.dispose();mediaPlayer=null;copy.removeAttribute('data-media');copy.querySelector('[data-dcb-welcome-media]')?.remove();try{showText()}catch{finish('error')}}
         try{
-          mediaPlayer=createWelcomeMediaPlayer(doc,win,asset,settings,{onComplete:()=>{if(!disposed){introDone=true;setStage('waiting-content');schedule()}},onError:fail})
+          mediaPlayer=createWelcomeMediaPlayer(doc,win,asset,settings,{fitToWindow:true,onComplete:()=>{if(!disposed){introDone=true;setStage('waiting-content');schedule()}},onError:fail})
           copy.append(mediaPlayer.node)
+        }catch{fail()}
+      },fallback)
+    }else if(settings.welcomeMode==='code'&&services.codeStore){
+      setStage('loading-code');codePending=true
+      const fallback=()=>{if(!codePending||disposed||revealing)return;codePending=false;cancelTimer(codeLoadTimer);try{showText()}catch{finish('error')}}
+      codeLoadTimer=later(fallback,800)
+      services.codeStore.load(settings.welcomeCodeRevision||(settings.welcomeThemes?'':undefined)).then(asset=>{
+        if(!codePending||disposed||revealing)return
+        if(!asset?.source){fallback();return}
+        codePending=false;cancelTimer(codeLoadTimer);copy.setAttribute('data-code','');setStage('playing-code')
+        const fail=()=>{if(disposed||revealing)return;codePlayer?.dispose();codePlayer=null;copy.removeAttribute('data-code');copy.querySelector('[data-dcb-welcome-code]')?.remove();try{showText()}catch{finish('error')}}
+        try{
+          codePlayer=createWelcomeCodePlayer(doc,win,asset,settings,{onComplete:()=>{if(!disposed){introDone=true;setStage('waiting-content');schedule()}},onError:fail})
+          copy.append(codePlayer.node)
         }catch{fail()}
       },fallback)
     }else showText()
@@ -120,6 +143,17 @@ export function createStartupMotion(doc,win,options,services={}){
   function showText(){
     if(disposed||revealing)return
     setStage('writing')
+    if(services.createLogo){
+      logo=services.createLogo()
+      const art=createCharacterWelcomeArt(doc,logo?.node,settings.welcomeCharacters)
+      if(art){
+        copy.append(art.svg)
+        const caption=doc.createElement('p');caption.setAttribute('data-dcb-welcome-caption','');caption.textContent=settings.welcomeText;copy.append(caption)
+        strokeAnimations.push(...playCharacterWelcome(art,settings.welcomeDuration))
+        later(()=>{introDone=true;setStage('waiting-content');schedule()},settings.welcomeDuration+HOLD)
+        return
+      }
+    }
     if(settings.welcomeLogo&&services.createLogo){
       logo=services.createLogo()
       if(logo?.node){logo.node.setAttribute('data-dcb-welcome-logo','');copy.append(logo.node);animate(logo.node,[{opacity:0,transform:'translateY(-12px) scale(.9)',filter:'blur(2px)'},{opacity:1,transform:'none',filter:'none'}],{duration:420,easing:motion.ease.smooth},'logo-in')}

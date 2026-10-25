@@ -1,23 +1,27 @@
 const DB='dsh-ui-beautify-background',STORE='wallpaper',ASSETS='assets',KEY='selection'
 const bound=(value,min,max,fallback)=>Number.isFinite(value)?Math.max(min,Math.min(max,value)):fallback
-const selection=value=>({
+const selection=(value,fallback)=>({
+  ...appearance({...fallback,...value}),
   backgroundEnabled:value?.backgroundEnabled===true,
   backgroundRevision:typeof value?.backgroundRevision==='string'?value.backgroundRevision.slice(0,100):'',
   backgroundName:typeof value?.backgroundName==='string'?value.backgroundName.slice(0,160):'',
   previousRevision:typeof value?.previousRevision==='string'?value.previousRevision.slice(0,100):'',
 })
-export function normalizeBackground(value){
-  return{
-    backgroundEnabled:value?.backgroundEnabled===true,
-    backgroundRevision:typeof value?.backgroundRevision==='string'?value.backgroundRevision.slice(0,100):'',
-    backgroundName:typeof value?.backgroundName==='string'?value.backgroundName.slice(0,160):'',
+const appearance=value=>({
     backgroundFit:['cover','contain','fill'].includes(value?.backgroundFit)?value.backgroundFit:'cover',
     backgroundPosition:['center','top','bottom','left','right'].includes(value?.backgroundPosition)?value.backgroundPosition:'center',
     backgroundOpacity:Math.round(bound(value?.backgroundOpacity,0,100,45)),
     backgroundBlur:Math.round(bound(value?.backgroundBlur,0,20,0)),
     backgroundSound:value?.backgroundSound===true,
+})
+export function normalizeBackground(value){
+  return{
+    ...appearance(value),
+    backgroundEnabled:value?.backgroundEnabled===true,
+    backgroundRevision:typeof value?.backgroundRevision==='string'?value.backgroundRevision.slice(0,100):'',
+    backgroundName:typeof value?.backgroundName==='string'?value.backgroundName.slice(0,160):'',
     backgroundThemes:value?.backgroundThemes&&typeof value.backgroundThemes==='object'&&!Array.isArray(value.backgroundThemes)
-      ?{light:selection(value.backgroundThemes.light),dark:selection(value.backgroundThemes.dark)}:null,
+      ?{light:selection(value.backgroundThemes.light,value),dark:selection(value.backgroundThemes.dark,value)}:null,
   }
 }
 
@@ -33,12 +37,24 @@ export function backgroundThemeSelection(value,theme,asset,{legacyKind='',previo
   const normalized=normalizeBackground(value),current=themeBackground(normalized,theme)
   const legacy=selection({...normalized,previousRevision})
   const themes=normalized.backgroundThemes||{light:legacyKind==='html'&&theme!=='light'?selection(null):legacy,dark:legacyKind==='html'&&theme!=='dark'?selection(null):legacy}
-  const next=selection(asset?{backgroundEnabled:enabled,backgroundRevision:asset.revision,backgroundName:asset.name,
-    previousRevision:asset.revision===current.backgroundRevision?themes[theme].previousRevision:current.backgroundRevision}:null)
-  return{backgroundEnabled:next.backgroundEnabled,backgroundRevision:next.backgroundRevision,backgroundName:next.backgroundName,backgroundThemes:{...themes,[theme]:next}}
+  const next=selection({...current,...(asset?{backgroundEnabled:enabled,backgroundRevision:asset.revision,backgroundName:asset.name,
+    previousRevision:asset.revision===current.backgroundRevision?themes[theme].previousRevision:current.backgroundRevision}:{backgroundEnabled:false,backgroundRevision:'',backgroundName:'',previousRevision:''})})
+  return{...next,backgroundThemes:{...themes,[theme]:next}}
+}
+
+export function patchBackgroundTheme(value,patch,theme,options={}){
+  const normalized=normalizeBackground(value),current=themeBackground(normalized,theme)
+  const seeded=normalized.backgroundThemes?normalized:backgroundThemeSelection(normalized,theme,current.backgroundRevision?{revision:current.backgroundRevision,name:current.backgroundName}:null,{...options,enabled:current.backgroundEnabled})
+  const next=selection({...seeded.backgroundThemes[theme],...patch})
+  return {...next,backgroundThemes:{...seeded.backgroundThemes,[theme]:next}}
 }
 
 const metadata=asset=>({revision:asset.revision,name:asset.name,kind:asset.kind,type:asset.type,preview:asset.preview||'',size:asset.blob?.size||0,uploadedAt:asset.uploadedAt||Date.now()})
+const renamed=value=>{
+  const name=typeof value==='string'?value.replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,160):''
+  if(!name)throw Error('请输入背景名称')
+  return name
+}
 // Originals and static thumbnails stay on this device. Selecting an older
 // upload never duplicates its blob or changes its upload order.
 export function createBackgroundStore(win){
@@ -82,9 +98,11 @@ export function createBackgroundStore(win){
         try{
           if(change){state=change(state,assets);store.put(state,KEY)}
           result={current:null,previous:null,recent:state.recent||[]}
+          // Aliases only update the small index; original media is untouched.
+          const named=asset=>asset?{...asset,name:state.recent?.find(item=>item.revision===asset.revision)?.name??asset.name}:null
           const currentId=revision===undefined?state.currentId:revision
-          if(currentId){const read=assets.get(currentId);read.onsuccess=()=>{result.current=read.result||null}}
-          if(state.previousId){const read=assets.get(state.previousId);read.onsuccess=()=>{result.previous=read.result||null}}
+          if(currentId){const read=assets.get(currentId);read.onsuccess=()=>{result.current=named(read.result)}}
+          if(state.previousId){const read=assets.get(state.previousId);read.onsuccess=()=>{result.previous=named(read.result)}}
         }catch{tx.abort()}
       }
       tx.oncomplete=()=>resolve(result)
@@ -94,6 +112,7 @@ export function createBackgroundStore(win){
   return{
     read:revision=>transact(null,revision),replace:asset=>transact((old,assets)=>{assets.put(asset,asset.revision);return{...old,currentId:asset.revision,previousId:old.currentId,recent:[metadata(asset),...old.recent.filter(item=>item.revision!==asset.revision)]}}),
     select:revision=>transact(old=>{if(!old.recent.some(item=>item.revision===revision))throw Error('背景已不存在');return{...old,currentId:revision,previousId:old.currentId===revision?old.previousId:old.currentId}}),
+    rename(revision,value){const name=renamed(value);return transact(old=>{if(!old.recent.some(item=>item.revision===revision))throw Error('背景已不存在');return{...old,recent:old.recent.map(item=>item.revision===revision?{...item,name}:item)}},revision)},
     restore:()=>transact(old=>old.previousId?{...old,currentId:old.previousId,previousId:old.currentId}:old),
     clear:()=>transact(old=>({...old,currentId:'',previousId:''})),
     dispose(){disposed=true;database?.close();database=null},

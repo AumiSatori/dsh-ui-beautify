@@ -94,6 +94,30 @@ try{
     await pressure({projectedTokens:10000,contextWindow:100000});await page.waitForFunction(()=>Number(getComputedStyle(document.querySelector('.dcb-particle-layer')).opacity)===0)
     assert.equal((await scene()).visible,false);assert.equal(await page.locator('.dcb-particle-layer').evaluate(el=>Number(getComputedStyle(el).opacity)),0)
   })
+  await check('session switches reuse the live canvas, shaders and particle buffers, including a replaced conversation host',async()=>{
+    await pressure({projectedTokens:40000,contextWindow:100000},'a');await pressure({projectedTokens:32000,contextWindow:100000},'empty');await settle(.5)
+    await page.evaluate(()=>{
+      window.sessionParticleCanvas=document.querySelector('.dcb-particle-layer canvas');window.sessionParticleAudit={compiles:0,uploads:0,losses:0}
+      window.sessionParticleCanvas.addEventListener('webglcontextlost',()=>window.sessionParticleAudit.losses++)
+      window.sessionParticleRestore=[]
+      for(const [key,name]of [['compileShader','compiles'],['bufferData','uploads']]){const original=WebGL2RenderingContext.prototype[key];window.sessionParticleRestore.push(()=>WebGL2RenderingContext.prototype[key]=original);WebGL2RenderingContext.prototype[key]=function(...args){window.sessionParticleAudit[name]++;return original.apply(this,args)}}
+    })
+    const before=await scene()
+    for(let i=0;i<12;i++){
+      const id=i%2?'a':'empty';await page.evaluate(id=>window.fixture.session(id),id)
+      await page.waitForFunction(percent=>window[Symbol.for('dsh-ui-beautify.context-particles.v1')].snapshot().scenes[0]?.percent===percent,id==='a'?40:32)
+      assert.equal(await page.evaluate(()=>document.querySelector('.dcb-particle-layer canvas')===window.sessionParticleCanvas),true)
+    }
+    await page.evaluate(()=>window.fixture.detach(true));await page.waitForTimeout(80)
+    await page.evaluate(()=>{window.fixture.session('empty');window.fixture.detach(false)})
+    await page.waitForFunction(()=>window[Symbol.for('dsh-ui-beautify.context-particles.v1')].snapshot().scenes[0]?.percent===32)
+    assert.equal(await page.evaluate(()=>document.querySelector('.dcb-particle-layer canvas')===window.sessionParticleCanvas),true)
+    const after=await scene();assert.ok(after.frames>=before.frames);assert.ok(after.time>=before.time)
+    assert.deepEqual(await page.evaluate(()=>window.sessionParticleAudit),{compiles:0,uploads:0,losses:0})
+    await page.evaluate(()=>window.sessionParticleRestore.forEach(restore=>restore()))
+    assert.equal(await page.evaluate(()=>window.sessionParticleCanvas.getAnimations().length),0,'session switching never replays artwork entrance')
+    await page.evaluate(()=>window.fixture.session('a'));await settle(.5)
+  })
   await check('left/right sidebar layout changes and transient host hiding retain the live canvas and particle progress',async()=>{
     await pressure({projectedTokens:40000,contextWindow:100000});await settle(.5)
     await page.evaluate(()=>{

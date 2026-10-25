@@ -6,7 +6,8 @@ import { createHash } from 'node:crypto'
 
 let registration
 vm.runInNewContext(readFileSync(new URL('../client.js', import.meta.url), 'utf8'), {
-  window: { __ModuleLoader__: { load: value => { registration = value } } },
+  window: { navigator: { userAgent: 'Node test' }, __ModuleLoader__: { load: value => { registration = value } } },
+  document: { documentElement: { hasAttribute: () => false } },
 })
 const exports = registration.factory(() => ({}))
 const { normalize, placement } = exports.__test

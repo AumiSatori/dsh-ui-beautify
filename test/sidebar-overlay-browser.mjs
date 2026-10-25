@@ -19,7 +19,7 @@ window.fixtureReact=React;window.cleanups=[];window.headerActions=0;const focus=
 function Header({right,settings,kind,leading}){
  const [view,setView]=React.useState('chat'),tabs=[{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}];
  const renderSlot=(name,props)=>{
-  if(name==='conversation.session.header')return <ConversationSessionHeader {...props} sessionId="demo" useSessions={selector=>selector({byId:{demo:{id:'demo',displayTitle:'GitHub 仓库能否作 DSH 背景'}}})} useConversationViews={selector=>selector(tabs)} useStore={selector=>selector({view})} renderSlot={renderSlot} selectView={setView} open={()=>{}} t={key=>key}/>;
+  if(name==='conversation.session.header')return <ConversationSessionHeader {...props} sessionId="demo" useSessions={selector=>selector({byId:{demo:{id:'demo',displayTitle:'GitHub 仓库能否作 DSH 背景'}}})} useConversationViews={selector=>selector(tabs)} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={selector=>selector({view})} renderSlot={renderSlot} selectView={setView} open={()=>{}} t={key=>key}/>;
   if(name==='conversation.header.leading')return leading?<button aria-label="返回工作区" onClick={()=>window.headerActions++}>⌂</button>:null;
   if(name==='conversation.session.header.actions')return <><button>标准模式</button><button>6 个智能体⌄</button></>;
   if(name==='conversation.session.header.utilities')return <><button aria-label="打开目录" onClick={()=>window.headerActions++}>📁⌄</button><button className="demo-theme" aria-label="日夜切换">☀︎ ━</button><focus.Button/><span className="dcb-anchor"><button className="dcb-entry" aria-label="全部轮次" onClick={()=>window.headerActions++}>◈ 全部 17 轮</button></span><button aria-label="打开设置" onClick={settings}>设置</button></>;
@@ -36,14 +36,14 @@ function Demo(){
  const right=()=>setLayout(old=>({...old,rightbarShown:!old.rightbarShown,rightbarTrack:!old.rightbarTrack}));
  window.fixture={left,right,settings:setSettings,header:setHeaderKind,leading:setLeading,refresh,panel:setGlobalPanel,remount:()=>setGeneration(n=>n+1),layout:()=>layout,fullscreen:value=>setLayout(old=>({...old,rightbarFullscreen:value})),instant:value=>setLayout(old=>({...old,rightbarInstant:value}))};
  const renderSlot=(name,props)=>{
-  if(name==='sidebar')return <SidebarRoot {...props} toggleSidebar={left} startSession={()=>{}} selectPanel={()=>{}} usePanels={()=>[]} useShortcuts={()=>[]} usePanelInfo={selector=>selector({activePanelId:null})} t={key=>key==='toggle.open'?'打开左侧栏':key==='toggle.collapse'?'收起左侧栏':key} renderSlot={(slot)=>slot==='sidebar.sessions'?<div style={{height:'100%',overflow:'auto'}}>{Array.from({length:40},(_,i)=><button className="sb_sessionRow" key={i}>会话 {i+1}</button>)}</div>:null}/>;
+  if(name==='sidebar')return <SidebarRoot {...props} toggleSidebar={left} startSession={()=>{}} selectPanel={()=>{}} usePanels={selector=>selector([])} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} trackEntryClick={()=>{}} setPinned={()=>{}} useShortcuts={selector=>selector([])} usePanelInfo={selector=>selector({activePanelId:null})} t={key=>key==='toggle.open'?'打开左侧栏':key==='toggle.collapse'?'收起左侧栏':key} renderSlot={(slot)=>slot==='sidebar.sessions'?<div style={{height:'100%',overflow:'auto'}}>{Array.from({length:40},(_,i)=><button className="sb_sessionRow" key={i}>会话 {i+1}</button>)}</div>:null}/>;
   if(name==='main')return globalPanel?<div data-testid="global-panel">插件页面</div>:<main className="cr_root" data-phase="active"><Header right={right} settings={()=>setSettings(true)} kind={headerKind} leading={leading}/><div className="cr_body" data-conversation-content="" data-conversation-session="demo"><div data-conversation-scroll="" className="chat-scroll"><article data-chat-flow="">{Array.from({length:180},(_,i)=><p key={i} className="message">演示消息 {i+1}：左右侧栏覆盖主屏幕，正文宽度、滚动位置和输入草稿不会随开合改变。保留真实控件和粒子画布。</p>)}</article></div><div data-composer-seat="" className="composer"><textarea aria-label="输入草稿" defaultValue="保留输入草稿和选区"/></div></div></main>;
   if(name==='rightbar')return <div className="rb_panel" data-sidebar-right-panel={layout.rightbarFullscreen?'fullscreen':'push'} data-sidebar-right-open={layout.rightbarShown||undefined} style={{width:layout.rightbarFullscreen?'100vw':props.width,'--dsh-sidebar-width':props.width+'px'}}><div data-dockkit-empty="" className="right-content"><div className="preview-toolbar"><span>preview.html</span><button aria-label="预览布局">▥</button><button aria-label="预览全屏" onClick={()=>window.fixture.fullscreen(!layout.rightbarFullscreen)}>⛶</button><button aria-label="收起右侧栏" onClick={right}><svg className="rb_collapseGlyph" width="16" height="16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor"/></svg></button></div><h2>原生右侧面板</h2><input aria-label="右侧草稿" defaultValue="保留文件面板状态"/></div></div>;
   if(name==='shell.bottom')return <div className="bottom">原生底栏</div>;
   if(name==='shell.overlay'&&settings&&window.fixtureSettings)return <div className="settings-dialog" role="dialog"><button aria-label="关闭设置" onClick={()=>setSettings(false)}>×</button><window.fixtureSettings/></div>;
   return null;
  };
- return <AppFrame key={generation} useStore={selector=>selector({layoutInfo:layout})} useSessions={selector=>selector({byId:{}})} usePanelInfo={selector=>selector({activePanelId:null})} actions={actions} renderSlot={renderSlot} t={key=>key}/>;
+ return <AppFrame key={generation} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={selector=>selector({layoutInfo:layout})} useSessions={selector=>selector({byId:{}})} usePanelInfo={selector=>selector({activePanelId:null})} actions={actions} renderSlot={renderSlot} t={key=>key}/>;
 }
 createRoot(document.getElementById('root')).render(<Demo/>);`
 const built=await build({stdin:{contents:demo,loader:'jsx',resolveDir:project},bundle:true,write:false,format:'iife'})
@@ -54,7 +54,7 @@ const routes={'/':['text/html; charset=utf-8',html],'/demo.js':['text/javascript
 const server=createServer((req,res)=>{const route=routes[new URL(req.url,'http://localhost').pathname];if(!route)return res.writeHead(404).end();res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const url=`http://127.0.0.1:${server.address().port}`,key='dsh-ui-beautify:settings:v1',browser=await chromium.launch({headless:true,channel:'chrome'}),context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage(),errors=[],checks=[]
-page.on('pageerror',error=>errors.push(error.message))
+page.on('pageerror',error=>(errors.push(error.message),console.error('FIXTURE ERROR', error.message)))
 async function mount(overlay=true){
  await page.goto(url);await page.locator('.sb_toggle').waitFor();await page.evaluate(installLogoFixture,logo)
  await page.evaluate(()=>{window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(name=>name==='@deepseek-ai/dsh-client-ui-primitives'?{FishLogo:window.fixtureFishLogo,FISH_LOGO_PATH:window.nativeLogo.path,FISH_LOGO_VIEWBOX:window.nativeLogo}:window.fixtureReact)}})
@@ -139,20 +139,21 @@ try{
   await page.locator('.sb_toggle').click();await page.waitForTimeout(400)
  })
  await check('overlay drawers render continuous entry and exit while the fixed toggle has one restrained pulse and the chat stays still',async()=>{
-  await patch({sidebarStyle:'css',sidebarMotion:true});await page.waitForTimeout(600)
+  await patch({sidebarStyle:'css',sidebarMotion:true,iconStyle:'native'});await page.waitForTimeout(600)
   const capture=()=>page.locator('.sb_toggle').evaluate(button=>new Promise(done=>{
    const samples=[],start=performance.now(),center=document.querySelector('.af_centerCol'),base=center.getBoundingClientRect(),canvas=document.querySelector('.dcb-particle-layer canvas'),query=document.querySelectorAll;let scans=0
    document.querySelectorAll=function(selector){if(selector.includes('class$="_sidebarCol"'))scans++;return query.call(this,selector)}
    button.click()
    const take=()=>{const root=document.querySelector('.sb_root'),column=root.parentElement,b=button.getBoundingClientRect(),c=center.getBoundingClientRect(),ghost=document.querySelector('[data-dcb-sidebar-ghost]'),seat=ghost||root.querySelector('.sb_regionArea'),s=seat&&getComputedStyle(seat),icon=button.querySelector('svg'),m=new DOMMatrix(getComputedStyle(icon).transform);samples.push({width:column.getBoundingClientRect().width,rootWidth:root.getBoundingClientRect().width,x:c.x,w:c.width,buttonX:b.x+b.width/2,buttonY:b.y+b.height/2,scale:parseFloat(getComputedStyle(button).scale)||1,transform:getComputedStyle(button).transform,iconX:m.m41,ghost:!!ghost,opacity:s?Number(s.opacity):1,moving:root.hasAttribute('data-dcb-sidebar-moving')});if(performance.now()-start<620)requestAnimationFrame(take);else{document.querySelectorAll=query;done({samples,scans,base:{x:base.x,w:base.width},sameCanvas:canvas===document.querySelector('.dcb-particle-layer canvas')})}};requestAnimationFrame(take)
   }))
+  await page.evaluate(()=>{if(document.querySelector('.af_frame').getAttribute('data-sidebar-collapsed')==='true')window.fixture.left()});await page.waitForTimeout(650)
   const close=await capture(),open=await capture()
   writeFileSync(resolve(output,'drawer-motion.json'),JSON.stringify({close,open},null,2))
   for(const [direction,result]of [['close',close],['open',open]]){
    const mid=result.samples.filter(s=>s.width>3&&s.width<277)
    assert.ok(mid.length>=3,direction+' has rendered intermediate widths')
    assert.ok(mid.some(s=>s.opacity>0&&s.opacity<.98&&s.moving),direction+' fades content during the drawer transition')
-   for(const s of result.samples){assert.ok(Math.abs(s.x-result.base.x)<.6&&Math.abs(s.w-result.base.w)<.6);assert.ok(Math.abs(s.buttonX-26)<.6&&Math.abs(s.buttonY-20)<.6,'the fixed toggle center never moves');assert.equal(s.transform,'none');assert.ok(s.scale>=.969&&s.scale<=1.001);assert.ok(Math.abs(s.iconX)<=2.05)}
+   for(const s of result.samples){assert.ok(Math.abs(s.x-result.base.x)<.6&&Math.abs(s.w-result.base.w)<.6);assert.ok(Math.abs(s.buttonX-result.samples[0].buttonX)<.6&&Math.abs(s.buttonY-result.samples[0].buttonY)<.6,'the native toggle stays centered at its current dock during drawer animation');assert.equal(s.transform,'none');assert.ok(s.scale>=.969&&s.scale<=1.001);assert.ok(Math.abs(s.iconX)<=2.05)}
    assert.equal(result.sameCanvas,true);assert.ok(result.scans<18,'drawer frames do not rescan the entire UI: '+result.scans)
   }
   assert.ok(close.samples.some(s=>s.ghost),'the outgoing native content remains visible long enough to fade')
@@ -237,9 +238,10 @@ try{
   assert.equal(await page.locator('textarea').inputValue(),'保留输入草稿和选区')
  })
  await check('native drag handles resize either drawer while the chat and particle canvas stay fixed',async()=>{
-  await sample(async()=>{const handle=page.locator('[data-side=sidebar]'),r=await handle.boundingBox();await page.mouse.move(r.x+4,r.y+r.height/2);await page.mouse.down();await page.mouse.move(r.x+74,r.y+r.height/2,{steps:8});await page.mouse.up()})
+  await page.evaluate(()=>{if(window.fixture.layout().sidebar===0)window.fixture.left();if(!window.fixture.layout().rightbarShown)window.fixture.right()});await page.waitForTimeout(650)
+  await sample(async()=>{const handle=page.locator('[data-side=sidebar]'),r=await handle.boundingBox();await page.mouse.move(r.x+4,r.y+r.height*.25);await page.mouse.down();await page.mouse.move(r.x+74,r.y+r.height*.25,{steps:8});await page.mouse.up()})
   assert.ok((await page.locator('.sb_root').boundingBox()).width>=330)
-  await sample(async()=>{const handle=page.locator('[data-side=rightbar]'),r=await handle.boundingBox();await page.mouse.move(r.x+4,r.y+r.height/2);await page.mouse.down();await page.mouse.move(r.x-76,r.y+r.height/2,{steps:8});await page.mouse.up()})
+  await sample(async()=>{const handle=page.locator('[data-side=rightbar]'),r=await handle.boundingBox();await page.mouse.move(r.x+4,r.y+r.height*.25);await page.mouse.down();await page.mouse.move(r.x-76,r.y+r.height*.25,{steps:8});await page.mouse.up()})
   assert.ok((await page.locator('.rb_panel').boundingBox()).width>=440)
  })
  await check('the accessible setting restores native push layout, retains host state and persists across refresh',async()=>{
@@ -260,7 +262,7 @@ try{
  })
  await check('focus mode, fullscreen right panel, dark narrow layout and motion preferences preserve native controls',async()=>{
   if(await page.evaluate(()=>window.fixture.layout().rightbarShown)){await page.getByRole('button',{name:'收起右侧栏',exact:true}).click();await page.waitForTimeout(400)}
-  await page.getByRole('button',{name:'进入专注模式',exact:true}).click();await page.waitForTimeout(600)
+  await page.getByRole('button',{name:'进入纯背景模式',exact:true}).click();await page.waitForTimeout(600)
   assert.equal(await page.locator('textarea').isVisible(),false)
   await page.keyboard.press('Escape');await page.waitForTimeout(600);assert.equal(await page.locator('textarea').isVisible(),true)
   await sample(()=>page.locator('.sb_toggle').click())

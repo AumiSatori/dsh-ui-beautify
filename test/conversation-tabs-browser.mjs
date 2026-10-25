@@ -8,7 +8,7 @@ import {chromium} from '@playwright/test'
 const project=fileURLToPath(new URL('..',import.meta.url))
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','..','outputs','dsh-ui-beautify'),'conversation-tabs')
 mkdirSync(output,{recursive:true})
-const built=await build({entryPoints:[resolve(project,'src/conversation-tabs.js')],bundle:true,write:false,format:'iife',globalName:'Tabs'})
+const built=await build({stdin:{contents:"export * from './src/conversation-tabs.js';export * from './src/session-motion.js'",resolveDir:project},bundle:true,write:false,format:'iife',globalName:'Tabs'})
 let native='',nativeCSS='',source='public-marker React fixture'
 if(process.env.DSH_ASAR){
   const fd=openSync(process.env.DSH_ASAR,'r')
@@ -22,7 +22,7 @@ if(process.env.DSH_ASAR){
     const literal=text.slice(text.lastIndexOf('//#region',at),text.indexOf('//#endregion',at)).match(/const css\$?\d* = ("(?:[^"\\]|\\.)*");/)
     assert.ok(literal,'Installed ConversationRoot stylesheet exists')
     nativeCSS=JSON.parse(literal[1]);nativeCSS=nativeCSS.replaceAll(nativeCSS.match(/\.([\w-]+)_root\{/)[1]+'_','cr_')
-    for(const name of['DefaultConversationViews','ConversationSession']){
+    for(const name of['DefaultConversationViews','ConversationSession','ConversationWidthControls']){
       const start=text.indexOf(`//#region lib/types/client/skeleton/${name}.js`),end=text.indexOf('//#endregion',start)
       assert.ok(start>=0&&end>start,`Installed ${name} is discoverable`)
       native+=text.slice(start,end)+'\n'
@@ -30,20 +30,20 @@ if(process.env.DSH_ASAR){
     assert.ok(native.includes('"data-conversation-tabs"'))
     const start=text.indexOf('function resolveActiveView('),end=text.indexOf('//#endregion',start)
     native=text.slice(start,end)+'\n'+native
-    source='installed DSH ConversationSessionHeader and DefaultConversationViews React components and ConversationRoot CSS; synthetic sessions and views'
+    source='installed DSH header, views, width controls and ConversationRoot CSS; synthetic sessions and view content'
   }finally{closeSync(fd)}
 }
 const fixture=await build({stdin:{resolveDir:project,loader:'jsx',contents:`
 import React from 'react';import * as jsxRuntime from 'react/jsx-runtime';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';
-const react=React,react_jsx_runtime=jsxRuntime,clsx=(...values)=>values.filter(Boolean).join(' '),ConversationRoot_module_css_default=new Proxy({},{get:(_,key)=>'cr_'+key}),conversationPhase=()=> 'active';
+const _deepseek_ai_dsh_client_ui_primitives={Tooltip:({children})=>children};const FIXED_VIEW_ID="chat";const react=React,react_jsx_runtime=jsxRuntime,clsx=(...values)=>values.filter(Boolean).join(' '),ConversationRoot_module_css_default=new Proxy({},{get:(_,key)=>'cr_'+key}),conversationPhase=()=> 'active';
 ${native}
 const views=[{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}],listeners=new Set();
-let state={view:'chat',session:'a',stream:0,epoch:0,fixed:false,empty:false,replace:false,hidden:false};
+let state={view:'chat',session:'a',stream:0,epoch:0,fixed:false,empty:false,replace:false,hidden:false,resize:false};
 function update(patch){state={...state,...patch};flushSync(()=>{for(const fn of listeners)fn()})}
 const useStore=selector=>selector(React.useSyncExternalStore(fn=>{listeners.add(fn);return()=>listeners.delete(fn)},()=>state));
 const useSession=selector=>selector({blank:false}),useConversation=selector=>selector({}),useConversationViews=selector=>selector(views),useInspectCall=selector=>selector(null);
 const inputActions={persistDraft(){window.persisted=(window.persisted||0)+1}},actions={setDraft(){},completeViewRequest(){}},bindDraftPersistence=()=>()=>{};
-function content(){return state.empty?null:<div data-slot="conversation.view" style={{display:'contents'}}><section key={state.replace?state.view:undefined} className="view-content" data-view={state.view} data-chat-flow={state.view==='chat'?'':undefined}>
+function content(){return state.empty?null:<div data-slot="conversation.view" style={{display:'contents'}}><section key={state.replace?state.view:undefined} className="view-content" data-view={state.view} data-chat-flow={state.view==='chat'?'':undefined} data-conversation-composer-overlay={state.resize&&state.view!=='chat'?'':undefined}>
   <h2>{views.find(v=>v.id===state.view).label}</h2><p>滑动指示条 · 轻移与淡入 · 连续切换</p>
   {Array.from({length:5},(_,i)=><article key={i}><b>{['界面与交互','切换状态','滚动与输入','工作区记录','更多内容'][i]}</b><p>这里是用于检查界面的演示内容。</p><span>{state.stream}</span></article>)}
   <button id="inside-control" onClick={()=>window.insideClicks=(window.insideClicks||0)+1}>原生操作</button>
@@ -52,26 +52,28 @@ function content(){return state.empty?null:<div data-slot="conversation.view" st
 </section></div>}
 const fallbackHeader=()=> <div className="cr_tabs" data-conversation-tabs role="tablist">{views.map(v=><button type="button" role="tab" className={'cr_tab'+(v.id===state.view?' cr_tabActive':'')} aria-selected={v.id===state.view} key={v.id} onClick={()=>selectView(v.id)}>{v.label}</button>)}</div>;
 function selectView(view){window.nativeClicks=(window.nativeClicks||0)+1;update({view})}
-function Fixture(){const snapshot=useStore(s=>s);const slots=(name,props,options)=>name==='conversation.view'?content():null;
+function Fixture(){const snapshot=useStore(s=>s),[body,setBody]=React.useState(null);const slots=(name,props,options)=>name==='conversation.view'?content():null;
   const Header=${native?'ConversationSessionHeader':'fallbackHeader'},View=${native?'DefaultConversationViews':"()=> <div className='cr_viewArea'>{content()}</div>"};
+  const WidthControls=${native?'ConversationWidthControls':'()=>null'};
   return <main className="cr_root" data-phase="active" key={snapshot.epoch} hidden={snapshot.hidden}><header className="cr_header">
-    <Header sessionId={snapshot.session} useSessions={selector=>selector({byId:{[snapshot.session]:{id:snapshot.session,displayTitle:'界面设计'}}})} useConversationViews={useConversationViews} useStore={useStore} renderSlot={slots} open={()=>{}} selectView={selectView} t={key=>key}/>
-  </header><div data-conversation-content data-conversation-session={snapshot.session} className="cr_body" data-content-phase="active"><div data-conversation-scroll className="cr_scrollBody">
-    <View useConversationViews={useConversationViews} useInspectCall={useInspectCall} useStore={useStore} useSession={useSession} useConversation={useConversation} inputActions={inputActions} actions={actions} bindDraftPersistence={bindDraftPersistence} renderSlot={slots}/>
+    <Header sessionId={snapshot.session} useSessions={selector=>selector({byId:{[snapshot.session]:{id:snapshot.session,displayTitle:'界面设计'}}})} useConversationViews={useConversationViews} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={useStore} renderSlot={slots} open={()=>{}} selectView={selectView} t={key=>key}/>
+  </header><div ref={setBody} data-conversation-content data-conversation-session={snapshot.session} className="cr_body" data-content-phase="active"><div data-conversation-scroll className="cr_scrollBody">
+    <View useConversationViews={useConversationViews} useInspectCall={useInspectCall} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={useStore} useSession={useSession} useConversation={useConversation} inputActions={inputActions} actions={actions} bindDraftPersistence={bindDraftPersistence} renderSlot={slots}/>
     <div data-composer-seat className="cr_composerSeat"><div data-composer-card><textarea aria-label="演示输入" defaultValue="保留这段草稿"/><button aria-label="演示发送">↑</button></div></div>
-  </div></div></main>
+  </div>{snapshot.resize&&<WidthControls container={body} phase="active"/>}</div></main>
 }
 const root=createRoot(document.getElementById('app'));flushSync(()=>root.render(<Fixture/>));
 window.React=React;window.fixture={update,select:view=>[...document.querySelectorAll('[data-conversation-tabs] button')].find(el=>el.textContent===views.find(v=>v.id===view).label).click(),remount:()=>update({epoch:state.epoch+1}),unmount:()=>flushSync(()=>root.unmount())};
 `},bundle:true,write:false,format:'iife'})
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'})
 const page=await browser.newPage({viewport:{width:1100,height:780}}),errors=[]
-page.on('pageerror',error=>errors.push(error.message))
+page.on('pageerror',error=>(errors.push(error.message),console.error('FIXTURE ERROR', error.message)))
+await page.route('http://dcb-width.test/',route=>route.fulfill({contentType:'text/html',body:'<!doctype html>'}))
 let passed=0
 async function check(name,fn){await fn();passed++;console.log('PASS '+name)}
 async function tick(){await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))))}
 async function boot({reducedMotion='no-preference',forcedColors='none',noAPI=false}={}){
-  await page.goto('about:blank');await page.emulateMedia({reducedMotion,forcedColors})
+  await page.goto('http://dcb-width.test/');await page.evaluate(()=>localStorage.clear());await page.emulateMedia({reducedMotion,forcedColors})
   await page.setContent(`<!doctype html><meta charset="utf-8"><style>${nativeCSS}
   :root{--dsw-alias-label-primary:#252832;--dsw-alias-label-tertiary:#858996;--dsw-alias-state-business-primary:#6871df;--dsw-alias-border-l4:#e2e3e9}
   *{box-sizing:border-box}body{margin:0;font:14px/1.6 system-ui;background:#fafbfc;color:#252832}button,textarea{font:inherit;color:inherit}
@@ -96,15 +98,32 @@ async function boot({reducedMotion='no-preference',forcedColors='none',noAPI=fal
   await page.addScriptTag({content:fixture.outputFiles[0].text});await page.addScriptTag({content:built.outputFiles[0].text})
   await page.evaluate(()=>{
     const style=document.createElement('style');style.textContent=Tabs.conversationTabsCss;document.head.append(style)
-    let frame=0;window.scheduleTabs=()=>{if(!frame)frame=requestAnimationFrame(()=>{frame=0;window.tabs.sync()})}
+    let frame=0;window.scheduleTabs=()=>{if(!frame)frame=requestAnimationFrame(()=>{frame=0;window.tabs.sync();window.sessionMotion.sync(window.sessionEnabled!==false)})}
     window.tabs=Tabs.createConversationTabs(document,window,window.scheduleTabs)
+    window.sessionMotion=Tabs.createSessionMotion(document,window)
     window.observer=new MutationObserver(window.scheduleTabs);observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-selected','data-conversation-session','class','hidden']})
     window.addEventListener('resize',window.scheduleTabs);document.addEventListener('scroll',window.scheduleTabs,true)
-    tabs.sync()
+    tabs.sync();sessionMotion.sync()
   });await tick()
 }
 async function select(view){await page.evaluate(view=>window.fixture.select(view),view);await tick()}
 async function complete(){await page.evaluate(()=>window.complete());await tick()}
+async function widthFixture(){
+  await page.setViewportSize({width:1440,height:780});await boot()
+  await page.addStyleTag({content:'.view-content[data-chat-flow]{width:min(var(--dsh-chat-content-width),calc(100% - 64px));align-self:center}.view-content{min-width:0}'})
+  await page.evaluate(()=>{localStorage.setItem('dsh.conversation.contentWidth','720');window.widthEditor=document.querySelector('textarea');window.fixture.update({resize:true})});await tick()
+}
+async function widthState(){return page.evaluate(()=>({width:document.querySelector('[data-view]').getBoundingClientRect().width,saved:Number(localStorage.getItem('dsh.conversation.contentWidth')),composer:getComputedStyle(document.querySelector('[data-composer-seat]')).getPropertyValue('--dsh-chat-content-width').trim(),draft:window.widthEditor===document.querySelector('textarea')}))}
+async function dragWidth(side,dx,{finish=true}={}){
+  const handle=page.locator(`[data-width-handle=${side}]`),box=await handle.boundingBox()
+  assert.ok(box&&box.width>0,side+' width handle is visible with a usable hit area')
+  const x=box.x+box.width/2,y=box.y+Math.min(160,box.height/2)
+  const hit=await page.evaluate(({x,y,side})=>{const target=document.elementFromPoint(x,y);return {valid:target?.getAttribute('data-width-handle')===side,target:target?.outerHTML.slice(0,240),stack:document.elementsFromPoint(x,y).slice(0,6).map(el=>({tag:el.tagName,class:el.className,z:getComputedStyle(el).zIndex,position:getComputedStyle(el).position}))}},{x,y,side})
+  assert.equal(hit.valid,true,side+' handle receives pointer input: '+JSON.stringify({box,hit}))
+  await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+dx,y,{steps:4});await tick()
+  assert.equal(await handle.evaluate(el=>el.hasAttribute('data-dragging')),true,'native pointer capture remains active during resize')
+  if(finish){await page.mouse.up();await tick()}
+}
 async function geometry(){return page.evaluate(()=>{
   const tabs=document.querySelector('[data-conversation-tabs]'),indicator=tabs.querySelector('[data-dcb-conversation-indicator]'),selected=tabs.querySelector('[aria-selected=true]'),s=indicator.getBoundingClientRect(),b=selected.getBoundingClientRect()
   return {x:s.x,width:s.width,expectedX:b.x,expectedWidth:b.width,top:s.y,selected:selected.textContent,indicator:indicator.outerHTML}
@@ -150,6 +169,105 @@ async function profile(){
 }
 try{
   if(process.env.DSH_TABS_PROFILE)await profile()
+  await check('session switches fade only the clipped viewport, preserve draft/scroll and smoothly interrupt the previous transition',async()=>{
+    await boot();await page.evaluate(()=>{window.sessionDraft=document.querySelector('textarea');document.querySelector('[data-conversation-scroll]').scrollTop=100});await tick()
+    const before=await page.locator('textarea').boundingBox(),scroll=await page.locator('[data-conversation-scroll]').evaluate(el=>el.scrollTop)
+    await page.evaluate(()=>window.fixture.update({session:'b'}));await tick()
+    let calls=await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session'&&c.a.playState!=='idle').map(c=>({target:c.el.hasAttribute('data-conversation-scroll'),frames:c.frames})))
+    assert.equal(calls.length,1);assert.equal(calls[0].target,true);assert.equal(Object.keys(calls[0].frames[0]).join(','),'opacity')
+    await page.evaluate(()=>window.frameAt(100));const mid=await page.locator('[data-conversation-scroll]').evaluate(el=>getComputedStyle(el).opacity)
+    assert.ok(Number(mid)>.68&&Number(mid)<1)
+    await page.screenshot({path:resolve(output,'session-transition-middle.png')})
+    await page.evaluate(()=>window.fixture.update({session:'a'}));await tick()
+    calls=await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session'&&c.a.playState!=='idle').map(c=>c.frames))
+    assert.equal(calls.length,1);assert.ok(Math.abs(Number(calls[0][0].opacity)-Number(mid))<.01)
+    await complete();assert.deepEqual(await page.locator('textarea').boundingBox(),before);assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el=>el.scrollTop),scroll)
+    assert.equal(await page.evaluate(()=>window.sessionDraft===document.querySelector('textarea')),true)
+    assert.equal(await page.locator('textarea').inputValue(),'保留这段草稿')
+  })
+  await check('session motion survives a replaced conversation root and waits for late content without replaying on streamed text',async()=>{
+    await boot();await page.evaluate(()=>window.fixture.update({session:'b',epoch:1,empty:true}));await tick()
+    assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session').length),0)
+    await page.evaluate(()=>window.fixture.update({empty:false}));await tick()
+    assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session').length),1)
+    await complete();await page.evaluate(()=>window.fixture.update({stream:15}));await tick()
+    assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session').length),1)
+  })
+  await check('long histories use one viewport fade with bounded reads; session effects honor reduced motion, disabling and cleanup',async()=>{
+    await boot();await heavyView()
+    await page.evaluate(()=>{window.sessionStyleReads=0;const original=window.getComputedStyle.bind(window);window.getComputedStyle=(...args)=>{window.sessionStyleReads++;return original(...args)};window.fixture.update({session:'b'})});await tick()
+    assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session'&&c.a.playState!=='idle').length),1)
+    assert.ok(await page.evaluate(()=>window.sessionStyleReads<100))
+    await page.emulateMedia({reducedMotion:'reduce'});await tick();assert.equal(await page.evaluate(()=>document.getAnimations().filter(a=>a.id==='dcb-conversation-session').length),0)
+    await page.evaluate(()=>window.fixture.update({session:'a'}));await tick();assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session').length),1)
+    await boot();await page.evaluate(()=>{window.sessionEnabled=false;window.fixture.update({session:'b'})});await tick()
+    assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session').length),0)
+    await page.evaluate(()=>window.sessionMotion.dispose());await page.evaluate(()=>window.fixture.update({session:'a'}));await tick()
+    assert.equal(await page.evaluate(()=>document.getAnimations().filter(a=>a.id==='dcb-conversation-session').length),0)
+  })
+  await check('session effects skip hidden pages, forced colors and missing WAAPI and release after natural playback',async()=>{
+    for(const options of [{forcedColors:'active'},{noAPI:true}]){
+      await boot(options);await page.evaluate(()=>window.fixture.update({session:'b'}));await tick()
+      assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session').length),0)
+    }
+    await boot();await page.evaluate(()=>{window.hiddenState=true;document.dispatchEvent(new Event('visibilitychange'));window.fixture.update({session:'b'})});await tick()
+    assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session').length),0)
+    await boot();await page.evaluate(()=>{window.freeze=false;window.fixture.update({session:'b'})});await tick()
+    await page.waitForFunction(()=>document.getAnimations().some(a=>a.id==='dcb-conversation-session'))
+    await page.waitForFunction(()=>!document.getAnimations().some(a=>a.id==='dcb-conversation-session'))
+    assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el=>getComputedStyle(el).opacity),'1')
+  })
+  await check('session transitions stay legible in a narrow dark viewport and leave no persistent visual layer',async()=>{
+    await boot();await page.setViewportSize({width:560,height:780});await page.evaluate(()=>{document.body.classList.add('dark');window.fixture.update({session:'b'})});await tick()
+    await page.evaluate(()=>window.frameAt(90))
+    const value=await page.locator('[data-conversation-scroll]').evaluate(el=>({opacity:Number(getComputedStyle(el).opacity),transform:getComputedStyle(el).transform,filter:getComputedStyle(el).filter}))
+    assert.ok(value.opacity>.68&&value.opacity<1);assert.equal(value.transform,'none');assert.equal(value.filter,'none')
+    await page.screenshot({path:resolve(output,'session-transition-dark-narrow.png')});await complete()
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
+    assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el=>el.style.willChange),'')
+    await page.setViewportSize({width:1100,height:780})
+  })
+  if(native)await check('native left and right handles resize overlay views live, persist one shared width and retain the composer draft',async()=>{
+    await widthFixture();await select('trace');await complete()
+    const area=page.locator('.cr_viewArea')
+    await area.evaluate(el=>el.removeAttribute('data-dcb-view-width'))
+    assert.equal(await page.locator('[data-width-handle=left]').isVisible(),false,'the installed native overlay rule reproduces the original hidden handles')
+    await area.evaluate(el=>el.setAttribute('data-dcb-view-width','shared'))
+    let expected=720
+    for(const [view,side,dx]of [['trace','right',30],['trace','left',-20],['context','left',25],['context','right',-30]]){
+      await select(view);await complete();await dragWidth(side,dx,{finish:false});expected+=(side==='right'?dx:-dx)*2
+      let live=await widthState();assert.ok(Math.abs(live.width-expected)<.5,JSON.stringify(live));assert.notEqual(live.saved,expected,'preference is committed only on pointer up')
+      await page.mouse.up();await tick();live=await widthState();assert.equal(live.saved,expected);assert.equal(parseFloat(live.composer),expected);assert.equal(live.draft,true)
+    }
+    await select('chat');await complete();assert.ok(Math.abs((await widthState()).width-expected)<.5)
+    await select('trace');await complete();await page.locator('[data-width-handle=right]').hover();await page.screenshot({path:resolve(output,'trace-width-handles.png')})
+    assert.equal(await page.locator('textarea').inputValue(),'保留这段草稿')
+  })
+  if(native)await check('canceled native width drags restore the saved width; handles forward margin scrolling without blocking view controls',async()=>{
+    await widthFixture();await select('trace');await complete()
+    for(const event of ['pointercancel','lostpointercapture']){
+      await dragWidth('right',35,{finish:false});assert.ok((await widthState()).width>720)
+      await page.locator('[data-width-handle=right]').dispatchEvent(event);await page.mouse.up();await tick()
+      const value=await widthState();assert.equal(value.saved,720);assert.ok(Math.abs(value.width-720)<.5)
+      assert.equal(await page.locator('[data-dragging]').count(),0)
+    }
+    await page.locator('[data-width-handle=left]').hover();await page.mouse.wheel(0,220);await tick()
+    await page.waitForFunction(()=>document.querySelector('[data-conversation-scroll]').scrollTop>0)
+    await page.locator('#inside-control').click();assert.equal(await page.evaluate(()=>window.insideClicks),1)
+  })
+  if(native)await check('native width limits and persistence survive view changes and resizing; unloading restores the native overlay rule',async()=>{
+    await widthFixture();await select('context');await complete();await dragWidth('right',-180)
+    assert.equal((await widthState()).saved,640);await dragWidth('left',-150)
+    const saved=(await widthState()).saved;assert.equal(saved,940)
+    await page.setViewportSize({width:1000,height:780});await tick()
+    assert.ok((await widthState()).width<saved,'native observer clamps the displayed width to the available column')
+    assert.equal((await widthState()).saved,saved,'a temporary narrow viewport does not overwrite the saved preference')
+    await page.setViewportSize({width:1440,height:780});await tick();assert.ok(Math.abs((await widthState()).width-saved)<.5)
+    await page.evaluate(()=>window.fixture.remount());await tick();await complete();assert.ok(Math.abs((await widthState()).width-saved)<.5)
+    await page.evaluate(()=>window.tabs.dispose());await tick();assert.equal(await page.locator('[data-width-handle=right]').isVisible(),false)
+    await select('chat');await complete();assert.equal(await page.locator('[data-width-handle=right]').isVisible(),true,'native chat handles are unaffected by plugin unloading')
+    await page.setViewportSize({width:1100,height:780})
+  })
   await check('other views share the native chat width across selection, live width changes and narrow resizes without changing the composer',async()=>{
     await boot();await page.addStyleTag({content:'.view-content[data-chat-flow]{width:min(var(--dsh-chat-content-width),calc(100% - 64px));align-self:center;margin-inline:auto}.view-content{min-width:0}'});
     await page.evaluate(()=>{document.querySelector('[data-conversation-content]').style.setProperty('--dsh-chat-content-width','720px');window.widthEditor=document.querySelector('textarea')});await tick()
@@ -362,12 +480,20 @@ try{
     assert.equal(await page.locator('textarea').inputValue(),'保留这段草稿');assert.equal(await page.locator('[data-view]').getAttribute('data-view'),'context')
   })
   await check('the complete client bundle activates the same tab manager and releases it on plugin unload',async()=>{
-    await boot();await page.evaluate(()=>{window.tabs.dispose();window.observer.disconnect();window.pluginCleanups=[];window.__ModuleLoader__={load(spec){window.plugin=spec.factory(name=>name==='@deepseek-ai/dsh-client-ui-primitives'?{FishLogo:()=>null}:window.React)}}})
+    await boot();await page.evaluate(()=>{window.tabs.dispose();window.sessionMotion.dispose();window.observer.disconnect();window.pluginCleanups=[];localStorage.setItem('dsh-ui-beautify:settings:v1',JSON.stringify({welcomeEnabled:false}));window.__ModuleLoader__={load(spec){window.plugin=spec.factory(name=>name==='@deepseek-ai/dsh-client-ui-primitives'?{FishLogo:()=>null}:window.React)}}})
     await page.addScriptTag({content:readFileSync(resolve(project,'client.js'),'utf8')})
     await page.evaluate(()=>window.plugin.apply({slots:{inject(_name,fn){fn()},register(){return()=>{}}},effect(fn){window.pluginCleanups.push(fn())}}));await tick()
     assert.equal(await page.locator('[data-dcb-conversation-indicator]').count(),1)
     await select('trace');assert.equal((await motion()).length,1);await complete()
+    if(native){
+      await page.evaluate(()=>{localStorage.setItem('dsh.conversation.contentWidth','720');window.fixture.update({resize:true})});await tick()
+      await dragWidth('left',-12);const value=await widthState();assert.equal(value.saved,744);assert.ok(Math.abs(value.width-744)<.5)
+    }
+    await page.evaluate(()=>window.fixture.update({session:'b'}));await tick()
+    assert.equal(await page.evaluate(()=>document.getAnimations().filter(a=>a.id==='dcb-conversation-session').length),1,'the complete client uses the session transition manager')
     await page.evaluate(()=>{for(const fn of window.pluginCleanups)fn?.()});await tick();assert.equal(await page.locator('[data-dcb-conversation-indicator]').count(),0)
+    assert.equal(await page.evaluate(()=>document.getAnimations().filter(a=>a.id==='dcb-conversation-session').length),0)
+    if(native)assert.equal(await page.locator('[data-width-handle=left]').isVisible(),false,'the complete client also releases the overlay compatibility on unload')
   })
   assert.deepEqual(errors,[])
   console.log(JSON.stringify({passed,source,screenshots:output}))

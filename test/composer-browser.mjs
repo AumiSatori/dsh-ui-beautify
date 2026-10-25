@@ -27,13 +27,13 @@ if(process.env.DSH_ASAR){
   const at=host.indexOf('InputBar.module.css'),start=host.lastIndexOf('//#region',at),end=host.indexOf('//#endregion',at)
   const literal=host.slice(start,end).match(/const css\$\d+ = ("(?:[^"\\]|\\.)*");/)
   assert.ok(literal,'Installed InputBar stylesheet is discoverable')
-  const stylesheet=JSON.parse(literal[1]),prefix=stylesheet.match(/\.([A-Za-z0-9]+)_card\{/)
+  const stylesheet=JSON.parse(literal[1]),prefix=stylesheet.match(/\.([\w-]+)_card\{/)
   assert.ok(prefix,'Installed card selector is discoverable')
   inputCSS=stylesheet.replaceAll(prefix[1]+'_','cf_')
   const rootAt=host.indexOf('ConversationRoot.module.css'),rootStart=host.lastIndexOf('//#region',rootAt),rootEnd=host.indexOf('//#endregion',rootAt)
   const rootLiteral=host.slice(rootStart,rootEnd).match(/const css\$\d+ = ("(?:[^"\\]|\\.)*");/)
   assert.ok(rootLiteral,'Installed ConversationRoot stylesheet is discoverable')
-  const rootCSS=JSON.parse(rootLiteral[1]),rootPrefix=rootCSS.match(/\.([A-Za-z0-9]+)_body\{/)
+  const rootCSS=JSON.parse(rootLiteral[1]),rootPrefix=rootCSS.match(/\.([\w-]+)_body\{/)
   assert.ok(rootPrefix,'Installed conversation body selector is discoverable')
   conversationCSS=rootCSS.replaceAll(rootPrefix[1]+'_','cr_')
   let modelEntry=JSON.parse(json.toString('utf8'))
@@ -42,7 +42,7 @@ if(process.env.DSH_ASAR){
   const modelHost=modelBytes.toString('utf8'),modelAt=modelHost.indexOf('ModelSelect.module.css')
   const modelLiteral=modelHost.slice(modelHost.lastIndexOf('//#region',modelAt),modelHost.indexOf('//#endregion',modelAt)).match(/const css(?:\$\d+)? = ("(?:[^"\\]|\\.)*");/)
   assert.ok(modelLiteral,'Installed ModelSelect stylesheet is discoverable')
-  const modelSheet=JSON.parse(modelLiteral[1]),modelPrefix=modelSheet.match(/\.([A-Za-z0-9]+)_trigger\{/)
+  const modelSheet=JSON.parse(modelLiteral[1]),modelPrefix=modelSheet.match(/\.([\w-]+)_trigger\{/)
   assert.ok(modelPrefix,'Installed model trigger selector is discoverable')
   modelCSS=modelSheet.replaceAll(modelPrefix[1]+'_','ms_')
   source='installed DSH InputBar, ModelSelect and ConversationRoot stylesheets and public DOM markers; synthetic editor and menu behavior'
@@ -245,7 +245,7 @@ try{
   await input.fill('按钮材质不影响编辑内容');await input.evaluate(el=>window.actionEditor=el)
   for(const dark of[false,true]){
    await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
-   await patch({composerStyle:'milk',composerButtonGlass:false});const native=await read()
+   await patch({composerStyle:'milk',composerButtonGlass:false,iconStyle:'native'});const native=await read()
    for(const material of['css','glass','clear']){
     await patch({composerStyle:material,composerButtonGlass:true})
     await page.waitForFunction(()=>document.querySelectorAll('[data-dcb-composer-action="lens"][data-dcb-lens-ready]').length===5)
@@ -527,6 +527,19 @@ try{
    const difference=visible.reduce((sum,value,index)=>sum+(index%4===3?0:Math.abs(value-blocked[index])),0)/(visible.length/4*3)
    assert.ok(difference>3,`Chat texture actually reaches the input's lower row (${difference.toFixed(2)} mean pixel difference)`)
    await page.screenshot({path:resolve(output,`chat-under-composer-${dark?'dark':'light'}.png`),clip:{x:220,y:650,width:980,height:300}})
+   // The host marks its Chat root while following a submitted/streaming reply.
+   // Keep this mid-scroll geometry: it exposes the reply beneath the input
+   // before the native follow/fold animation has reached its new floor.
+   await page.locator('[data-chat-turn="4"]').evaluate(el=>el.setAttribute('data-chat-following-tail',''))
+   await settled()
+   assert.deepEqual(await geometry(),before,'Following a new reply must not move or resize the input or take over scrolling')
+   const following=await pixels(await page.screenshot({clip}))
+   const followDifference=following.reduce((sum,value,index)=>sum+(index%4===3?0:Math.abs(value-blocked[index])),0)/(following.length/4*3)
+   assert.ok(followDifference>3,`Following keeps the bottom underlay transparent (${followDifference.toFixed(2)} mean pixel difference)`)
+   await page.screenshot({path:resolve(output,`chat-under-composer-follow-${dark?'dark':'light'}.png`),clip:{x:220,y:650,width:980,height:300}})
+   await page.locator('[data-chat-turn="4"]').evaluate(el=>el.removeAttribute('data-chat-following-tail'))
+   await settled()
+   assert.equal(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).backgroundImage),'none','Reading history reveals the underlay again without changing the preference')
    await page.locator('[data-conversation-scroll]').evaluate(el=>el.scrollTop=el.scrollHeight)
    await settled()
    assert.ok(await page.evaluate(()=>document.querySelector('[data-chat-turn="4"]').getBoundingClientRect().bottom<=document.querySelector('[data-composer-seat]').getBoundingClientRect().top+1),'The final message can still clear the input completely')
@@ -544,6 +557,46 @@ try{
   await page.locator('[data-conversation-composer-overlay]').evaluate(el=>el.remove())
   await page.evaluate(()=>{document.body.removeAttribute('data-ds-dark-theme');window.fixture.session('a')})
   await patch({enabled:true,composerStyle:'css'});await settled()
+ })
+ await check('continued submissions, fold motion and streaming keep the underlay clear as the composer grows',async()=>{
+  await patch({composerStyle:'css',chatUnderComposer:true})
+  await page.evaluate(()=>window.fixture.history({initial:1,turns:[1,2].map(turn=>({turn,prompt:'续聊前的历史消息'}))}))
+  await settled()
+  const seat=page.locator('[data-composer-seat]')
+  await page.evaluate(()=>{
+   const live=document.createElement('div');live.id='underlay-live-reply';live.textContent='继续回复';
+   const seat=document.querySelector('[data-composer-seat]');seat.before(live)
+  })
+  const live=page.locator('#underlay-live-reply')
+  for(const marker of['data-submission-echo','data-pending-steering','data-input-fold','data-chat-following-tail']){
+   await live.evaluate((el,marker)=>{for(const name of['data-submission-echo','data-pending-steering','data-input-fold','data-chat-following-tail'])el.removeAttribute(name);el.setAttribute(marker,'')},marker)
+   await settled()
+   assert.equal(await seat.evaluate(el=>getComputedStyle(el).backgroundImage),'none',`${marker} keeps the entire enabled underlay clear`)
+  }
+  for(const dark of[false,true]){
+   await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
+   await input.fill('继续\n多行输入\n输入栏变高');await settled()
+   await page.evaluate(()=>{
+    const goal=document.createElement('div');goal.id='underlay-paused-goal';goal.textContent='已暂停的目标';goal.style.cssText='height:38px;flex:none';
+    document.querySelector('[data-composer-seat]').prepend(goal)
+   })
+   await input.press('Enter');await settled()
+   assert.equal(await page.evaluate(()=>window.composerTest.sent.at(-1).text),'继续\n多行输入\n输入栏变高')
+   for(let chunk=1;chunk<=8;chunk++){
+    await live.evaluate((el,chunk)=>{
+     el.style.height=`${80+chunk*37}px`;el.textContent=`正在继续回复：第 ${chunk} 段`;
+     const scroll=el.closest('[data-conversation-scroll]');scroll.scrollTop=scroll.scrollHeight
+    },chunk)
+    await settled()
+    assert.ok(await page.evaluate(()=>document.querySelector('#underlay-live-reply').getBoundingClientRect().bottom<=document.querySelector('[data-composer-seat]').getBoundingClientRect().top+1),'Streaming tail clears the resized composer including its goal chip')
+    assert.equal(await seat.evaluate(el=>getComputedStyle(el).backgroundImage),'none')
+   }
+   await page.screenshot({path:resolve(output,`chat-under-composer-continued-${dark?'dark':'light'}.png`)})
+   await page.locator('#underlay-paused-goal').evaluate(el=>el.remove())
+  }
+  await live.evaluate(el=>el.remove())
+  await page.evaluate(()=>{document.body.removeAttribute('data-ds-dark-theme');window.fixture.session('a')});await settled()
+  assert.equal(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)).chatUnderComposer,key),true,'Following never rewrites the saved history-underlay preference')
  })
  await check('reduced motion and forced colors use stable accessible composer surfaces',async()=>{
   await page.emulateMedia({reducedMotion:'reduce'});await settled()

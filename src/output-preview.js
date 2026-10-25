@@ -59,6 +59,22 @@ export function htmlPreviewDocument(source){
 }
 
 export const outputPreviewCss=`
+  .dcb-output-grid { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; gap:10px; }
+  .dcb-output-grid[data-columns="2"] { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .dcb-output-grid > * { min-width:0; }
+  .dcb-output-grid > .dcb-output:not([data-layout="card"]) { grid-column:1 / -1; min-height:44px; }
+  .dcb-output-grid > .dcb-artifact { margin:0; }
+  .dcb-output-grid .dcb-output[data-layout="card"] { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px 8px; padding:0 0 9px; overflow:hidden; border:1px solid var(--dcb-content-border,#dedede); border-radius:10px; background:var(--dcb-content-tile,#fff); color:inherit; }
+  .dcb-output-grid .dcb-output[data-layout="card"] .dcb-tile { grid-column:1 / -1; width:100%; height:auto; aspect-ratio:2 / 1; border-radius:0; font-size:20px; }
+  .dcb-output-grid .dcb-output[data-layout="card"] .dcb-tile > img { object-fit:contain; }
+  .dcb-output-grid .dcb-output[data-layout="card"] .dcb-file-name { margin-left:9px; }
+  .dcb-output-grid .dcb-output[data-layout="card"] .dcb-file-type { margin-right:9px; }
+  .dcb-output-grid .dcb-output[data-layout="card"]:hover { border-color:var(--dcb-ink-muted,#888); }
+  .dcb-output-grid .dcb-artifact-caption { width:0; }
+  .dcb-output-grid .dcb-artifact-open { gap:5px; min-height:52px; }
+  .dcb-output-grid .dcb-artifact-open > :last-child { flex:none; }
+  body[data-ds-dark-theme] .dcb-output-grid .dcb-output[data-layout="card"] { background:var(--dcb-content-tile,#292929); border-color:var(--dcb-content-border,#454545); }
+  @media(forced-colors:active) { .dcb-output-grid .dcb-output[data-layout="card"] { background:Canvas; color:CanvasText; border-color:CanvasText; } }
   .dcb-artifact { position: relative; overflow: hidden; margin: 8px 0; border: 1px solid var(--dcb-content-border, #dedede); border-radius: 10px; background: var(--dcb-content-tile, #fff); }
   .dcb-artifact-cover { display: block; position: relative; overflow: hidden; aspect-ratio: 2 / 1; background: #fff; color: #333; pointer-events: none; }
   .dcb-artifact-cover iframe { display: block; position: absolute; top: 0; left: 0; width: 640px; height: 320px; border: 0; transform-origin: top left; pointer-events: none; }

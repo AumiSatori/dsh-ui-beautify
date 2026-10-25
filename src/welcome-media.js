@@ -13,7 +13,7 @@ export function welcomeMediaType(bytes){
 
 // Media stays in this device's IndexedDB. Preferences hold only the mode and
 // a revision; no base64 payload, local path or remote upload enters settings.
-export function createWelcomeMediaStore(win){
+export function createWelcomeMediaStore(win,{references=()=>[]}={}){
   let opening=null,db=null,disposed=false
   const open=()=>{
     if(disposed)return Promise.reject(Error('开屏存储已关闭'))
@@ -35,12 +35,43 @@ export function createWelcomeMediaStore(win){
     const database=await open()
     return new Promise((resolve,reject)=>{
       const tx=database.transaction(STORE,mode);let value
-      const request=action(tx.objectStore(STORE));request.onsuccess=()=>{value=request.result}
+      const request=action(tx.objectStore(STORE));request.addEventListener('success',()=>{value=request.result})
       tx.oncomplete=()=>resolve(value)
       tx.onerror=tx.onabort=()=>reject(Error('无法保存开屏文件，请检查本机可用空间'))
     })
   }
-  return{load:()=>run('readonly',store=>store.get(KEY)),save:asset=>run('readwrite',store=>store.put(asset,KEY)),remove:()=>run('readwrite',store=>store.delete(KEY)),dispose(){disposed=true;db?.close();db=null}}
+  return{
+    async load(revision){
+      if(revision==='')return null
+      if(revision){const asset=await run('readonly',store=>store.get('asset:'+revision));if(asset)return asset}
+      const current=await run('readonly',store=>store.get(KEY))
+      if(revision&&current?.revision!==revision)return null
+      return current?.blob?current:current?.revision?run('readonly',store=>store.get('asset:'+current.revision)):null
+    },
+    save:asset=>run('readwrite',store=>{
+      const old=store.get(KEY)
+      old.onsuccess=()=>{
+        // Preserve a legacy shared file before replacing the current pointer.
+        if(old.result?.blob&&old.result.revision)store.put(old.result,'asset:'+old.result.revision)
+        // Keep both palettes and the previous pointer until settings commit.
+        // Repeated replacements must not accumulate unreferenced 20MB files.
+        const keep=new Set([...references(),old.result?.revision,asset.revision])
+        const keys=store.getAllKeys();keys.onsuccess=()=>{for(const key of keys.result)if(typeof key==='string'&&key.startsWith('asset:')&&!keep.has(key.slice(6)))store.delete(key)}
+        store.put(asset,'asset:'+asset.revision);store.put({revision:asset.revision},KEY)
+      }
+      return old
+    }),
+    remove:(revision,keep=[])=>run('readwrite',store=>{
+      const read=store.get(KEY)
+      read.onsuccess=()=>{
+        const target=revision||read.result?.revision
+        if(target&&!keep.includes(target))store.delete('asset:'+target)
+        if(read.result?.revision===target&&!keep.includes(target))store.delete(KEY)
+      }
+      return read
+    }),
+    dispose(){disposed=true;db?.close();db=null},
+  }
 }
 
 export async function inspectWelcomeMedia(file,doc,win){
@@ -79,11 +110,31 @@ export async function inspectWelcomeMedia(file,doc,win){
 }
 
 // One bounded decoder, released on completion, skip, replacement or disposal.
-export function createWelcomeMediaPlayer(doc,win,asset,settings,{autoplay=true,onReady=()=>{},onComplete=()=>{},onError=()=>{}}={}){
+export function createWelcomeMediaPlayer(doc,win,asset,settings,{autoplay=true,fitToWindow=false,onReady=()=>{},onComplete=()=>{},onError=()=>{}}={}){
   const wrapper=doc.createElement('div');wrapper.setAttribute('data-dcb-welcome-media','');wrapper.setAttribute('data-fit',settings.welcomeMediaFit)
   const video=asset?.kind==='video',media=doc.createElement(video?'video':'img')
-  let disposed=false,loaded=false,url=null,ended=false
-  const timers=new Set(),listeners=[]
+  let disposed=false,frozen=false,loaded=false,url=null,ended=false
+  const timers=new Set(),listeners=[],viewportListeners=[]
+  const unwatch=()=>{for(const remove of viewportListeners)remove();viewportListeners.length=0}
+  if(fitToWindow&&settings.welcomeWindowScale!==false){
+    const fullscreen=win.matchMedia('(display-mode: fullscreen)')
+    const applyFit=()=>{
+      const root=doc.documentElement,desktop=root.hasAttribute('data-windows-titlebar')||root.dataset.platform==='darwin'
+      // The host publishes fullscreen, but not maximization. Only a desktop
+      // window matching both work-area dimensions uses the expanded fit.
+      const maximized=desktop&&win.screen?.availWidth>0&&win.screen?.availHeight>0&&
+        Math.abs(win.outerWidth-win.screen.availWidth)<=16&&Math.abs(win.outerHeight-win.screen.availHeight)<=16
+      const expanded=!!doc.fullscreenElement||root.hasAttribute('data-fullscreen')||fullscreen.matches||maximized
+      const fit=expanded?settings.welcomeMediaFit:'contain'
+      if(wrapper.getAttribute('data-fit')!==fit)wrapper.setAttribute('data-fit',fit)
+      wrapper.toggleAttribute('data-window-scaled',!expanded)
+    }
+    const listenViewport=(target,event)=>{target.addEventListener(event,applyFit);viewportListeners.push(()=>target.removeEventListener(event,applyFit))}
+    listenViewport(win,'resize');listenViewport(doc,'fullscreenchange');listenViewport(fullscreen,'change')
+    const observer=new win.MutationObserver(applyFit)
+    observer.observe(doc.documentElement,{attributes:true,attributeFilter:['data-fullscreen','data-windows-titlebar','data-platform']})
+    viewportListeners.push(()=>observer.disconnect());applyFit()
+  }
   const later=(fn,ms)=>{const id=win.setTimeout(()=>{timers.delete(id);fn()},ms);timers.add(id);return id}
   const listen=(event,fn)=>{media.addEventListener(event,fn);listeners.push(()=>media.removeEventListener(event,fn))}
   const release=()=>{
@@ -94,16 +145,16 @@ export function createWelcomeMediaPlayer(doc,win,asset,settings,{autoplay=true,o
     if(url){win.URL.revokeObjectURL(url);url=null}
   }
   const freeze=()=>{
-    if(disposed)return
+    if(disposed||frozen)return
     if(loaded){
       try{
         const w=video?media.videoWidth:media.naturalWidth,h=video?media.videoHeight:media.naturalHeight,scale=Math.min(1,1024/w,768/h),canvas=doc.createElement('canvas')
         canvas.width=Math.max(1,Math.round(w*scale));canvas.height=Math.max(1,Math.round(h*scale));canvas.getContext('2d').drawImage(media,0,0,canvas.width,canvas.height);wrapper.replaceChildren(canvas)
       }catch{/* A failed poster still releases the decoder. */}
     }
-    disposed=true;release()
+    frozen=true;release()
   }
-  const fail=()=>{if(disposed||ended)return;ended=true;disposed=true;release();onError(Error('开屏素材播放失败'))}
+  const fail=()=>{if(disposed||ended)return;ended=true;disposed=true;unwatch();release();onError(Error('开屏素材播放失败'))}
   const complete=()=>{if(disposed||ended)return;ended=true;freeze();onComplete()}
   const ready=()=>{
     if(disposed||loaded)return
@@ -120,11 +171,11 @@ export function createWelcomeMediaPlayer(doc,win,asset,settings,{autoplay=true,o
   listen('error',fail)
   if(!asset?.blob||!asset.type?.match(/^(image\/(gif|png|webp)|video\/(mp4|webm))$/))later(fail,0)
   else{url=win.URL.createObjectURL(asset.blob);later(fail,1500);media.src=url}
-  return{node:wrapper,freeze,dispose(){if(disposed)return;disposed=true;release()}}
+  return{node:wrapper,freeze,dispose(){if(disposed)return;disposed=true;unwatch();release()}}
 }
 
 export const welcomeMediaCss=`
-  [data-dcb-welcome-media] { width:100%; height:100%; min-height:0; display:grid; place-items:center; overflow:hidden; background:#000; }
-  [data-dcb-welcome-media] > :is(img,video,canvas) { width:100%; height:100%; min-height:0; object-fit:contain; }
+  [data-dcb-welcome-media] { width:100%; height:100%; min-width:0; min-height:0; display:grid; grid-template: minmax(0,1fr) / minmax(0,1fr); place-items:center; overflow:hidden; background:#000; }
+  [data-dcb-welcome-media] > :is(img,video,canvas) { width:100%; height:100%; min-width:0; min-height:0; object-fit:contain; }
   [data-dcb-welcome-media][data-fit=cover] > :is(img,video,canvas) { object-fit:cover; }
 `

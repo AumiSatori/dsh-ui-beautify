@@ -29,7 +29,7 @@ try{
  await page.goto(url);await page.getByTestId('todo-panel').waitFor()
  await page.evaluate(()=>{
   window.cleanups=[];window.registrations={};window.sliderSelections=[];window.sliderLoads=0
-  localStorage.setItem('dsh-ui-beautify:settings:v1',JSON.stringify({welcomeEnabled:false}))
+  localStorage.setItem('dsh-ui-beautify:settings:v1',JSON.stringify({welcomeEnabled:false,iconStyle:'native'}))
   window.__ModuleLoader__={load(spec){window.registrations[spec.id]=spec.factory(name=>name==='@deepseek-ai/dsh-client-ui-primitives'?{FishLogo:()=>null}:window.fixtureReact)}}
  })
  await page.addScriptTag({url:new URL('/slider.js',url).href})

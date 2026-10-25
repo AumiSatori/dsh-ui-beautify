@@ -20,7 +20,8 @@ export const headerLayoutCss=`
   header[${MARK}] ${names('headerUtilities')} .dcb-focus-toggle { margin-left:0; }
   header[${MARK}] ${names('headerUtilities')} .dcb-anchor { align-items:center; height:30px; }
   header[${MARK}] ${names('headerUtilities')} .dcb-entry { height:30px; }
-  header[${MARK}] [data-conversation-tabs] { grid-column:1/-1; justify-self:stretch; justify-content:flex-start; max-width:100%; flex-wrap:wrap; gap:24px; padding-left:0; }
+  header[${MARK}] ${names('tabs')} { padding-inline-start:0; }
+  header[${MARK}] [data-conversation-tabs] { width:100%; min-width:0; box-sizing:border-box; flex:1 1 auto; grid-column:1/-1; justify-self:stretch; justify-content:flex-start; max-width:100%; flex-wrap:wrap; gap:24px; padding-left:0; }
   header[${COMPACT}] ${names('titleRow')} { padding-inline-end:0; flex-wrap:wrap; }
   header[${COMPACT}] ${names('titleCluster')} { flex:1 1 100%; max-width:calc(100% - var(${CORNER},30px) - 8px); }
   header[${COMPACT}] ${names('headerUtilities')} { position:static; flex:1 1 100%; min-width:0; max-width:100%; flex-wrap:wrap; }

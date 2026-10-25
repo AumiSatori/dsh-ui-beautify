@@ -11,6 +11,14 @@ const OWNED=[ROW,HEAD,TAIL,FIRST,SURFACE,VISIBLE,ARRIVING,'data-dcb-turn-focused
 const OWNED_SELECTOR=OWNED.map(name=>`[${name}]`).concat(`[style*="${HEIGHT}"]`).join(',')
 const ROOT=`body[${ENABLED}] [${SURFACE}]`,DARK=`body[data-ds-dark-theme][${ENABLED}] [${SURFACE}]`
 const CARD=`${ROOT} [${HEAD}][${ROW}]`
+// React's layout effects read a new user/echo seat before MutationObserver can
+// mark it. Reserve its normal turn geometry in CSS from the initial DOM commit;
+// otherwise acknowledgement can follow a stale, temporarily shorter scroll range.
+const EMPTY='[hidden], [data-turn-process-hidden="true"], :empty, :has(>[data-slot="conversation.chat.node"]:empty)'
+const firstVisible=`:nth-child(1 of :not(${EMPTY}))`
+const incoming=root=>`:is(${root},${root}>[data-slot="conversation.chat.flow"])>:is([data-chat-flow-kind="user"],[data-submission-echo],[data-pending-steering]):not([${ROW}],${EMPTY})`
+const INCOMING=incoming(ROOT),INCOMING_LINE=incoming(`${ROOT}[data-dcb-turn-surface="line"]`)
+const INCOMING_WHALE=incoming(`${ROOT}[data-dcb-turn-surface="line"][data-dcb-divider-preset="whale"]`)
 
 export const turnCardsCss=`
   ${ROOT} { position:relative; isolation:isolate; --dcb-turn-fill:#f7f8fa; --dcb-turn-rim:#e5e7eb; }
@@ -19,10 +27,18 @@ export const turnCardsCss=`
   ${CARD} { padding-block-start:22px; }
   ${CARD}:not([data-dcb-turn-first]) { margin-block-start:24px!important; }
   ${ROOT} [data-dcb-turn-tail] { padding-block-end:22px; }
+  ${INCOMING} { position:relative; box-sizing:border-box; padding-inline:clamp(16px,2.2vw,28px); padding-block:22px 0; }
+  ${INCOMING}:not(${firstVisible}) { margin-block-start:24px!important; }
+  ${INCOMING_LINE} { padding-inline:4px; padding-block:12px 0; }
+  ${INCOMING_WHALE}:not(${firstVisible}) { margin-block-start:56px!important; }
   ${CARD}::before { content:''; position:absolute; z-index:-1; top:0; left:0; width:100%; height:var(${HEIGHT},100%); box-sizing:border-box; border:1px solid var(--dcb-turn-rim); border-radius:20px; pointer-events:none; background:var(--dcb-turn-fill); box-shadow:none; filter:none; backdrop-filter:none; -webkit-backdrop-filter:none; }
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-row] { padding-inline:4px; }
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-head] { padding-block-start:12px; }
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-tail] { padding-block-end:12px; }
+  /* A question keeps the same bottom inset while its reply/process arrives.
+     The reply tail carries the round's closing space; moving it off the user
+     after acknowledgement would otherwise shrink the range by 12/22px. */
+  ${ROOT} [data-dcb-turn-row]:is([data-chat-flow-kind="user"],[data-submission-echo],[data-pending-steering]) { padding-block-end:0; }
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-head]::before { content:none; }
   ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-first]::before { content:none; }
   ${ROOT}[data-dcb-turn-surface="line"][data-dcb-divider-preset="whale"] [data-dcb-turn-head]:not([data-dcb-turn-first]) { margin-block-start:56px!important; }
@@ -36,7 +52,7 @@ export const turnCardsCss=`
   @keyframes dcb-turn-pull-down { from { transform:translateY(-10px) scale(.985); } to { transform:translateY(0) scale(1); } }
   @keyframes dcb-turn-pull-up { from { transform:translateY(10px) scale(.985); } to { transform:translateY(0) scale(1); } }
   @keyframes dcb-turn-card-in { from { opacity:0; transform:translateY(10px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
-  @media(max-width:600px) { ${ROOT} [data-dcb-turn-row] { padding-inline:14px; } ${CARD}::before { border-radius:18px; } }
+  @media(max-width:600px) { ${ROOT} [data-dcb-turn-row],${INCOMING} { padding-inline:14px; } ${INCOMING_LINE} { padding-inline:4px; } ${CARD}::before { border-radius:18px; } }
   @media(prefers-reduced-motion:reduce) { ${CARD}::before { animation:none!important; transition:none!important; } }
   @media(forced-colors:active) { ${CARD}::before { background:Canvas!important; border-color:CanvasText!important; box-shadow:none!important; backdrop-filter:none!important; -webkit-backdrop-filter:none!important; animation:none!important; transition:none!important; } }
   @media(forced-colors:active) { ${ROOT}[data-dcb-turn-surface="line"] [data-dcb-turn-head]::before { background:CanvasText!important; } }
@@ -137,7 +153,9 @@ export function createTurnCards(doc,win,{enabled=true,style='soft',...initial}={
     for(const group of geometry){
       if(!group.live||!group.head.isConnected)continue
       const a=group.head.getBoundingClientRect(),b=group.tail.getBoundingClientRect()
-      if(a.width>0&&b.bottom>a.top)reads.push([group,Math.round((b.bottom-a.top)*100)/100+'px'])
+      const shift=row=>row.hasAttribute('data-dcb-send-scroll-row')?parseFloat(win.getComputedStyle(row).translate.split(' ')[1])||0:0
+      const height=b.bottom-shift(group.tail)-a.top+shift(group.head)
+      if(a.width>0&&height>0)reads.push([group,Math.round(height*100)/100+'px'])
     }
     geometry.clear()
     for(const [group,height]of reads)if(group.head.style.getPropertyValue(HEIGHT)!==height)group.head.style.setProperty(HEIGHT,height)
@@ -216,10 +234,25 @@ export function createTurnCards(doc,win,{enabled=true,style='soft',...initial}={
     if(!active||disposed)return
     for(const entry of entries){
       const target=entry.target,root=target.closest(FLOW)
-      if(root){const record=records.get(root);if(!record||target===root||target===record.list||entry.type==='attributes'&&target.parentElement===record.list)schedule(root)}
+      if(root){
+        const record=records.get(root)
+        if(!record||target===root||target===record.list||entry.type==='attributes'&&target.parentElement===record.list)schedule(root)
+        else if(entry.type==='childList'){
+          // A Factory slot may fill an initially empty durable seat after its
+          // insertion. Admit it once; already grouped streaming bodies need no
+          // transcript scan. Also release a seat whose direct slot emptied.
+          const row=target.closest('[data-chat-turn], [data-submission-echo], [data-pending-steering]')
+          if(row?.parentElement===record.list&&(!rowGroups.has(row)||target.parentElement===row&&target.matches('[data-slot="conversation.chat.node"]:empty')))schedule(root)
+        }
+      }
       else if(entry.type==='attributes')discover(target)
       else{for(const node of entry.addedNodes)discover(node);if(entry.removedNodes.length&&records.size)schedule()}
     }
+    // Echo replacement must inherit its turn's spacing in this mutation batch.
+    // Waiting for another animation frame lets the host measure and follow the
+    // undecorated row, then jump again when our padding/margins arrive. Surface
+    // height measurement stays deferred; this pass only reconciles structure.
+    if(frame){win.cancelAnimationFrame(frame);flush()}
   })
   observer.observe(doc.body,{subtree:true,childList:true,attributes:true,attributeFilter:['data-chat-turn','data-conversation-session','hidden','data-turn-process-hidden']})
   doc.body.removeAttribute(ENABLED);sweep(doc.body)

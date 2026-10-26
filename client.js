@@ -888,7 +888,6 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
   [${qe}]::after { content:attr(${qn}); position:absolute; inset:0; display:grid; place-items:center; color:var(--dcb-file-ink); font:800 7px/1 system-ui,sans-serif; letter-spacing:.1px; pointer-events:none; }
   [${qe}] > * { opacity:0!important; }
   header[data-dcb-caption-host] ${pe("titleRow")} { margin-inline-start:var(--dcb-caption-inset,0px); }
-  header:has(> [data-conversation-header-leading]):has([data-conversation-tabs]) { border-bottom:2px solid color-mix(in srgb,var(--dsw-alias-label-primary,#303944) 38%,var(--dsw-alias-bg-base,#fff))!important; }
   body[${Ze}=glass] [${Oe}][data-dcb-icon-caption] { background-color:transparent!important; }
   .dcb-header-settings { position:relative; display:inline-flex; align-items:center; justify-content:center; flex:none; width:30px; height:30px; padding:0; border:0; border-radius:8px; background:transparent; color:var(--dsw-alias-label-primary,#303237); cursor:pointer; -webkit-app-region:no-drag; }
   .dcb-header-settings:focus-visible { outline:2px solid var(--dsw-focus-ring-color,var(--dsh-settings-accent,#6262f6)); outline-offset:2px; }

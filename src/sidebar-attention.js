@@ -49,6 +49,7 @@ export const sidebarAttentionCss=`
 export function createSidebarAttention(doc,win){
   const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
   const states=new Map(),acknowledged=new Map(),failures=new Map(),tails=new Map(),cells=new Map()
+  const watchedMotion=new WeakSet()
   let services=null,unsubscribers=[],root=null,rootAnimation=null,revision=0,frame=0,enabled=true,disposed=false
   const rest={opacity:1,transform:'none',filter:'blur(0px)'}
   function schedule(){if(!disposed&&!frame)frame=win.requestAnimationFrame(()=>{frame=0;sync()})}
@@ -60,7 +61,7 @@ export function createSidebarAttention(doc,win){
   function cancelRoot(){rootAnimation?.cancel();rootAnimation=null}
   function hide(immediate=false){
     if(!root)return
-    if(root.dataset.leaving&&!immediate)return
+    if(root.hasAttribute('data-leaving')&&!immediate)return
     const node=root,token=++revision,current=win.getComputedStyle(node)
     const start={opacity:current.opacity,transform:current.transform,filter:current.filter}
     cancelRoot();node.dataset.leaving='';node.style.pointerEvents='none';node.setAttribute('aria-hidden','true')
@@ -91,7 +92,7 @@ export function createSidebarAttention(doc,win){
   }
   function render(groups){
     if(!root)makeRoot()
-    else if(root.dataset.leaving){++revision;cancelRoot();delete root.dataset.leaving;root.style.pointerEvents='';root.removeAttribute('aria-hidden');rootAnimation=animate(root,[{opacity:0,transform:'translate(-12px,8px) scale(.84)',filter:'blur(3px)'},rest],'dcb-attention-in');const animation=rootAnimation;animation?.finished.then(()=>{if(rootAnimation===animation)cancelRoot()},()=>{})}
+    else if(root.hasAttribute('data-leaving')){++revision;cancelRoot();delete root.dataset.leaving;root.style.pointerEvents='';root.removeAttribute('aria-hidden');rootAnimation=animate(root,[{opacity:0,transform:'translate(-12px,8px) scale(.84)',filter:'blur(3px)'},rest],'dcb-attention-in');const animation=rootAnimation;animation?.finished.then(()=>{if(rootAnimation===animation)cancelRoot()},()=>{})}
     for(const kind of ['error','waiting','done']){
       const total=groups[kind]||0,previous=cells.get(kind)
       if(total){
@@ -114,6 +115,20 @@ export function createSidebarAttention(doc,win){
     record={source:binding.eventSource,off:()=>{},seq:-1,reason:''};record.off=record.source.subscribe(schedule);tails.set(id,record)
     return record
   }
+  function collapsedAnchor(frame){
+    if(!frame)return null
+    const column=[...frame.children].find(node=>node.matches(names('sidebarCol')))
+    const edge=[...frame.querySelectorAll('[data-dcb-sidebar-toggle-right]')].find(node=>!node.closest(excluded)&&node.getClientRects().length)
+    // A collapsed flag names the target, not the rendered position. The host
+    // can still be sliding its grid/overlay track and edge at this point.
+    const tracks=[frame,column,edge].filter(Boolean).flatMap(node=>node.getAnimations()).filter(animation=>['width','grid-template-columns','left','transform','translate'].includes(animation.transitionProperty)&&!['finished','idle'].includes(animation.playState))
+    for(const animation of tracks)if(!watchedMotion.has(animation)){watchedMotion.add(animation);animation.finished.then(schedule,schedule)}
+    const desktop=doc.documentElement.hasAttribute('data-windows-titlebar')||doc.documentElement.dataset.platform==='darwin'
+    const style=column&&win.getComputedStyle(column),inset=style?['borderLeftWidth','borderRightWidth','paddingLeft','paddingRight'].reduce((sum,key)=>sum+(parseFloat(style[key])||0),0):0
+    const rail=desktop?0:56
+    if(tracks.length||frame.querySelector('[data-dcb-sidebar-moving]:not([data-dcb-sidebar-ghost])')||column&&column.getBoundingClientRect().width>rail+inset+1)return null
+    return {edge}
+  }
   function sync(nextEnabled=enabled){
     enabled=nextEnabled;if(disposed)return
     const list=services?.sessions?.list?.getSnapshot(),statuses=services?.uiSession?.sessionStatus?.getSnapshot()
@@ -123,7 +138,8 @@ export function createSidebarAttention(doc,win){
     for(const id of states.keys())if(!ids.has(id)){states.delete(id);acknowledged.delete(id);failures.delete(id)}
     for(const id of failures.keys())if(!ids.has(id))failures.delete(id)
     const visible=new Set([...doc.querySelectorAll('[data-conversation-content][data-conversation-session]')].filter(node=>node.getClientRects().length&&!node.closest(excluded)).map(node=>node.dataset.conversationSession))
-    const expanded=[...doc.querySelectorAll(names('frame'))].some(node=>!node.closest(excluded)&&node.getClientRects().length&&node.getAttribute('data-sidebar-collapsed')==='false')
+    const frames=[...doc.querySelectorAll(names('frame'))].filter(node=>!node.closest(excluded)&&node.getClientRects().length)
+    const expanded=frames.some(node=>node.getAttribute('data-sidebar-collapsed')==='false')
     for(const id of ids){
       const row=list.byId[id],status=statuses.get(id)||{},old=states.get(id),running=status.running??row.running
       const previous=old||{generation:0,kind:null,token:{},running:false,pending:null}
@@ -145,11 +161,12 @@ export function createSidebarAttention(doc,win){
       if(expanded||!enabled||!isOther)acknowledged.set(id,state.token)
       if(kind&&acknowledged.get(id)!==state.token)groups[kind]=(groups[kind]||0)+1
     }
-    const collapsed=[...doc.querySelectorAll(names('frame'))].some(node=>!node.closest(excluded)&&node.getClientRects().length&&node.getAttribute('data-sidebar-collapsed')==='true')
-    if(!enabled||doc.hidden||expanded||!collapsed||!Object.keys(groups).length)hide()
+    const collapsed=frames.find(node=>node.getAttribute('data-sidebar-collapsed')==='true')
+    const anchor=enabled&&!doc.hidden&&!expanded&&Object.keys(groups).length?collapsedAnchor(collapsed):null
+    if(!anchor)hide()
     else{
       render(groups)
-      const edge=[...doc.querySelectorAll('[data-dcb-sidebar-toggle-right]')].find(node=>!node.closest(excluded)&&node.getClientRects().length)
+      const {edge}=anchor
       if(edge){const bounds=edge.getBoundingClientRect(),left=Math.min(bounds.left+26,win.innerWidth-root.offsetWidth-8)+'px',top=Math.max(8,bounds.top+bounds.height/2-46)+'px';if(root.style.left!==left)root.style.left=left;if(root.style.top!==top)root.style.top=top}
     }
   }
@@ -163,9 +180,11 @@ export function createSidebarAttention(doc,win){
     schedule();return()=>{if(services===value){disconnect();hide(true)}}
   }
   const observer=new win.MutationObserver(records=>{if(records.some(record=>!record.target.closest?.('.dcb-sidebar-attention')&&(record.type==='attributes'||[...record.addedNodes,...record.removedNodes].some(node=>node.nodeType===1&&(node.matches(names('frame')+', [data-conversation-content]')||node.querySelector(names('frame')+', [data-conversation-content]'))))))schedule()})
-  observer.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-sidebar-collapsed','data-conversation-session','data-dcb-focus-frame']})
+  observer.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-sidebar-collapsed','data-dcb-sidebar-moving','data-conversation-session','data-dcb-focus-frame']})
+  const motionEnd=event=>{if(['width','grid-template-columns','left','transform','translate'].includes(event.propertyName)&&event.target.matches(names('frame')+','+names('sidebarCol')+',[data-dcb-sidebar-toggle-right]'))schedule()}
   const visibility=()=>{if(doc.hidden)hide(true);else schedule()}
   const calm=()=>{if(quiet.matches){if(root?.dataset.leaving!==undefined)hide(true);else cancelRoot();for(const [kind,cell]of cells){cell.animation?.cancel();cell.animation=null;if(cell.leaving){cell.node.remove();cells.delete(kind)}}}schedule()}
   doc.addEventListener('visibilitychange',visibility);quiet.addEventListener('change',calm)
-  return{connect,sync,dispose(){disposed=true;disconnect();observer.disconnect();win.cancelAnimationFrame(frame);doc.removeEventListener('visibilitychange',visibility);quiet.removeEventListener('change',calm);hide(true);states.clear();acknowledged.clear();failures.clear()}}
+  doc.addEventListener('transitionend',motionEnd,true);doc.addEventListener('transitioncancel',motionEnd,true);win.addEventListener('resize',schedule)
+  return{connect,sync,dispose(){disposed=true;disconnect();observer.disconnect();win.cancelAnimationFrame(frame);doc.removeEventListener('visibilitychange',visibility);doc.removeEventListener('transitionend',motionEnd,true);doc.removeEventListener('transitioncancel',motionEnd,true);win.removeEventListener('resize',schedule);quiet.removeEventListener('change',calm);hide(true);states.clear();acknowledged.clear();failures.clear()}}
 }

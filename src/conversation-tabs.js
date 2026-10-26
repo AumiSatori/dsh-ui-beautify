@@ -3,8 +3,6 @@ const TABS='[data-conversation-tabs]',MARK='data-dcb-conversation-tabs'
 const INDICATOR='data-dcb-conversation-indicator',MOTION='data-dcb-conversation-motion',CLIP='data-dcb-conversation-clip'
 const WIDTH='data-dcb-view-width'
 const ROW='data-dcb-views-row',MORE='data-dcb-views-more',MORE_ACTIVE='data-dcb-views-more-active'
-// Probe: the element that actually draws the line under the view tabs.
-const RULE='data-dcb-tabs-rule'
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 // The host's View-tab row is a wrapping flex line; its 「更多会话视图」 launcher
 // is a sibling of the tablist, so it is the second thing that wraps. Match it
@@ -47,11 +45,6 @@ export const conversationTabsCss=`
      quiet companion of the labels instead of a stray square. No reserved space:
      the transcript keeps hugging the header line, as the header design intends. */
   [${ROW}][${ROW}] { flex-wrap: nowrap; }
-  /* PROBE 2 — 不用找 border 了：自己画一条不可能看不见的粉条，同时把按钮染色。 */
-  [${RULE}][${RULE}] { border-bottom-style: solid !important; border-bottom-width: 5px !important; }
-  [${ROW}][${ROW}] { position: relative; }
-  [${ROW}][${ROW}]::after { content: ''; position: absolute; left: 0; right: 0; bottom: -7px; height: 6px; background: #ff00aa; z-index: 9999; pointer-events: none; }
-  [${MORE}][${MORE}] { background: #ff00aa !important; color: #fff !important; border-radius: 8px; }
   [${ROW}][${ROW}] > [${TABS}] { flex: 0 1 auto; min-width: 0; align-self: flex-start; }
   [${MORE}] {
     position: relative; flex: none; border-radius: 8px;
@@ -136,23 +129,10 @@ export function createConversationTabs(doc,win,schedule){
       record.more=more;record.moreOriginal=more.getAttribute(MORE)
       row.setAttribute(ROW,'');more.setAttribute(MORE,'')
     }
-    let rule=row
-    while(rule&&rule!==doc.body){
-      const style=win.getComputedStyle(rule)
-      if(parseFloat(style.borderBottomWidth)>0&&style.borderBottomStyle!=='none')break
-      rule=rule.parentElement
-    }
-    if(!rule||rule===doc.body)rule=null
-    if(record.rule!==rule){
-      if(record.rule)restore(record.rule,RULE,record.ruleOriginal)
-      record.rule=rule;record.ruleOriginal=rule?rule.getAttribute(RULE):null
-      if(rule)rule.setAttribute(RULE,'')
-    }
     const active=[...more.classList].some(name=>name.includes('viewsMoreActive'))
     restore(more,MORE_ACTIVE,active?'':null)
   }
   function releaseRow(record){
-    if(record.rule){restore(record.rule,RULE,record.ruleOriginal);record.rule=null;record.ruleOriginal=null}
     if(record.row){restore(record.row,ROW,record.rowOriginal);record.row=null;record.rowOriginal=null}
     if(record.more){
       restore(record.more,MORE,record.moreOriginal);restore(record.more,MORE_ACTIVE,null)

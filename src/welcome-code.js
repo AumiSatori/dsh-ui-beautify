@@ -105,3 +105,11 @@ export function createWelcomeCodePlayer(doc,win,asset,settings,{autoplay=true,on
   if(autoplay){timer=win.setTimeout(fail,1500);try{frame.srcdoc=welcomeCodeDocument(asset?.source||'')}catch{fail()}}
   return{node:wrapper,frame,dispose(){if(disposed)return;disposed=true;win.clearTimeout(timer);frame.removeEventListener('load',loaded);frame.removeEventListener('error',fail);win.removeEventListener('message',message);frame.srcdoc='about:blank';frame.remove()}}
 }
+
+// Every code revision the product still references. The store reloads a code
+// whenever one of these revisions changes, so both themes stay included.
+export function welcomeCodeReferences(value){
+  const revisions=item=>[...Object.values(item?.welcomeCodeModes||{}).map(mode=>mode?.revision),item?.welcomeCodeRevision]
+  const list=value?.welcomeThemes&&typeof value.welcomeThemes==='object'?['light','dark'].map(theme=>({...value,...value.welcomeThemes[theme]})):[value]
+  return [...new Set(list.flatMap(revisions).filter(Boolean))]
+}

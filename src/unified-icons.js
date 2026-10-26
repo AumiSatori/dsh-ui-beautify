@@ -244,7 +244,26 @@ export function createUnifiedIcons(doc,win,schedule=()=>{}){
     mode=normalizeIconStyle(value)
     syncFileIcons()
     syncCaptions()
-    const headerTools=[...doc.querySelectorAll(`${HEADER} ${names('headerUtilities')}`)].filter(node=>!node.closest(EXCLUDE))
+    // A responsive/native header can expose several utility containers for
+    // the same toolbar (for example a desktop row and its projected slot).
+    // They may all be visible at once, so append our entry to one canonical
+    // container per header instead of creating one gear in every container.
+    const visible=node=>node.isConnected&&!!node.getClientRects().length&&(()=>{const style=win.getComputedStyle(node);return style.display!=='none'&&style.visibility!=='hidden'})()
+    const headerTools=[]
+    const utilityByHeader=new Map()
+    for(const node of doc.querySelectorAll(`${HEADER} ${names('headerUtilities')}`)){
+      if(node.closest(EXCLUDE)||!visible(node))continue
+      const header=node.closest(HEADER)
+      if(!header)continue
+      const list=utilityByHeader.get(header)||[];list.push(node);utilityByHeader.set(header,list)
+    }
+    for(const list of utilityByHeader.values()){
+      list.sort((a,b)=>{
+        const buttons=node=>[...node.querySelectorAll('button')].filter(visible).length
+        return buttons(b)-buttons(a)
+      })
+      headerTools.push(list[0])
+    }
     for(const tools of headerTools)settingsButton(tools)
     for(const[tools,record]of settingsButtons)if(!headerTools.includes(tools))releaseSettings(tools,record)
     const candidates=mode==='native'?[]:[...doc.querySelectorAll(`${HEADER} ${names('headerUtilities')} button,${HEADER} ${names('headerCorner')} button,${SIDEBAR} button,[data-composer-card] button,${ACTIONS} button,.dcb-fullscreen-exit,.dsh-read-aloud-btn`)]

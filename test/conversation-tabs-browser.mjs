@@ -311,9 +311,9 @@ try{
     assert.equal(wide.insideRow,true,'launcher stays inside the tab row box')
     assert.equal(wide.radius,'8px','launcher adopts the plugin surface radius')
     assert.equal(wide.active,false,'no marker while the active View is visible')
-    // The launcher no longer owns a second line, so the row reserves that line:
-    // the header keeps its height and the transcript never slides up under the labels.
-    assert.ok(Math.abs(wide.rowHeight-bareRow-38)<=2,`reserved line keeps the header height: ${bareRow} -> ${wide.rowHeight}`)
+    // The launcher no longer owns a second line and the row reserves nothing, so
+    // the transcript keeps hugging the header line instead of drifting away from it.
+    assert.ok(Math.abs(wide.rowHeight-bareRow)<=1,`no reserved line keeps the transcript flush: ${bareRow} -> ${wide.rowHeight}`)
     await page.screenshot({path:resolve(output,'tabs-more-launcher.png')})
     await page.setViewportSize({width:420,height:780})
     await page.evaluate(()=>window.fixture.update({view:'context'}));await page.waitForTimeout(160);await tick()

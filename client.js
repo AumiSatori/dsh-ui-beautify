@@ -1267,11 +1267,9 @@ html[data-theme=dark] .ink{color:var(--element-color)}
      fell to a second line whenever the row measured narrow: it landed on the
      header's 0.5px bottom border, far from the labels it belongs to. Pin the
      row to one line, let the tablist shrink first, and dress the launcher as a
-     quiet companion of the labels instead of a stray square. The reserved
-     bottom space is the line the launcher used to occupy (22px button plus the
-     row's 16px gap): keeping it stops the header from shrinking, so the
-     transcript never slides up under the labels when a session has extra Views. */
-  [${Mt}][${Mt}] { flex-wrap: nowrap; padding-bottom: 38px; }
+     quiet companion of the labels instead of a stray square. No reserved space:
+     the transcript keeps hugging the header line, as the header design intends. */
+  [${Mt}][${Mt}] { flex-wrap: nowrap; }
   [${Mt}][${Mt}] > [${Ha}] { flex: 0 1 auto; min-width: 0; align-self: flex-start; }
   [${Ce}] {
     position: relative; flex: none; border-radius: 8px;

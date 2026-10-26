@@ -14,6 +14,7 @@ export {createParticleSettings,particleSettingsCss} from './context-particle-set
 export {createSidebarGlass} from './sidebar-glass.js'
 export {glassSurfacesCss} from './glass-surfaces.js'
 export {createSidebarOverlay,sidebarOverlayCss} from './sidebar-overlay.js'
+export {createSidebarAttention,sidebarAttentionCss} from './sidebar-attention.js'
 export {createConversationWidth,conversationWidthMode} from './conversation-width.js'
 export {createHeaderLayout,headerLayoutCss,headerProjectLabel} from './header-layout.js'
 export {createThemeToggle,themeToggleCss} from './theme-toggle.js'

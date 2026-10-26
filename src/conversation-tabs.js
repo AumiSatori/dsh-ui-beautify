@@ -2,14 +2,7 @@ import {motion} from './motion.js'
 const TABS='[data-conversation-tabs]',MARK='data-dcb-conversation-tabs'
 const INDICATOR='data-dcb-conversation-indicator',MOTION='data-dcb-conversation-motion',CLIP='data-dcb-conversation-clip'
 const WIDTH='data-dcb-view-width'
-const ROW='data-dcb-views-row',MORE='data-dcb-views-more',MORE_ACTIVE='data-dcb-views-more-active'
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
-// The host's View-tab row is a wrapping flex line; its 「更多会话视图」 launcher
-// is a sibling of the tablist, so it is the second thing that wraps. Match it
-// without depending on the hashed module class.
-const isMoreButton=el=>!!el&&el.tagName==='BUTTON'&&el.getAttribute('aria-haspopup')==='menu'&&
-  (!el.getAttribute('role')||el.getAttribute('role')==='button')&&
-  [...el.classList].some(name=>name.includes('viewsMore'))
 const EASE=motion.ease.smooth
 const MAX_NODES=96,MAX_ROOTS=8,MAX_PIXELS=4_000_000
 const LIQUID_REST='M 1 5 C 24 5 76 5 99 5 C 100.333333 5 100.333333 7 99 7 C 76 7 24 7 1 7 C -.333333 7 -.333333 5 1 5 Z'
@@ -37,49 +30,6 @@ export const conversationTabsCss=`
   [${MOTION}="fade"] { will-change: opacity; }
   @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
     [${MARK}] > button[role="tab"] { transition: color ${motion.time.quick}ms ${motion.ease.color}; }
-  }
-  /* The row wraps natively (flex-wrap:wrap), so the small 「更多会话视图」 launcher
-     fell to a second line whenever the row measured narrow: it landed on the
-     header's 0.5px bottom border, far from the labels it belongs to. Pin the
-     row to one line, let the tablist shrink first, and dress the launcher as a
-     quiet companion of the labels instead of a stray square. */
-  [${ROW}][${ROW}] { flex-wrap: nowrap; }
-  [${ROW}][${ROW}] > [${TABS}] { flex: 0 1 auto; min-width: 0; align-self: flex-start; }
-  [${MORE}] {
-    position: relative; flex: none; border-radius: 8px;
-    color: var(--dsw-alias-label-secondary);
-    transition: background-color ${motion.time.quick}ms ${motion.ease.color},
-      color ${motion.time.quick}ms ${motion.ease.color},
-      transform ${motion.time.control}ms ${motion.ease.smooth};
-  }
-  [${MORE}]:hover, [${MORE}][aria-expanded="true"] {
-    background-color: var(--dsw-alias-interactive-bg-hover);
-    color: var(--dsw-alias-label-primary);
-  }
-  [${MORE}]:active { transform: scale(.9); }
-  [${MORE}]:focus-visible {
-    outline: 2px solid var(--dsw-alias-state-business-primary);
-    outline-offset: 1px;
-  }
-  /* The active state means the current View lives inside that menu; a 4px dot
-     says so without a second label next to the tabs. */
-  [${MORE}]::after {
-    content: ''; position: absolute; right: 3px; bottom: 3px; width: 4px; height: 4px;
-    border-radius: 50%; background: var(--dsw-alias-state-business-primary);
-    opacity: 0; transform: scale(.4);
-    transition: opacity ${motion.time.quick}ms ${motion.ease.color},
-      transform ${motion.time.quick}ms ${motion.ease.smooth};
-  }
-  [${MORE}][${MORE_ACTIVE}]::after { opacity: 1; transform: none; }
-  @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
-    [${MORE}] { animation: dcb-views-more-in ${motion.time.control}ms ${motion.ease.smooth} both; }
-  }
-  @keyframes dcb-views-more-in {
-    from { opacity: 0; filter: blur(${motion.blur}px); }
-    to { opacity: 1; filter: blur(0); }
-  }
-  @media (prefers-reduced-motion: reduce), (forced-colors: active) {
-    [${MORE}], [${MORE}]::after { transition: none; }
   }
 `
 
@@ -115,29 +65,6 @@ export function createConversationTabs(doc,win,schedule){
       el.closest('[data-conversation-content]')===body&&!el.closest('[data-composer-seat]'))
     return {body,area,scroll,panel:owner,anchor,session:body?.getAttribute('data-conversation-session')}
   }
-  // The 「更多会话视图」 launcher shares the tab row: keep it out of the wrap and
-  // mirror the host's active class so the stylesheet can mark the current View.
-  function bindRow(record){
-    const row=record.tabs.parentElement
-    const more=!row||row===doc.body?null:[...row.children].find(isMoreButton)||
-      [...row.querySelectorAll('button[aria-haspopup="menu"]')].find(isMoreButton)
-    if(!more){releaseRow(record);return}
-    if(record.row!==row||record.more!==more){
-      releaseRow(record)
-      record.row=row;record.rowOriginal=row.getAttribute(ROW)
-      record.more=more;record.moreOriginal=more.getAttribute(MORE)
-      row.setAttribute(ROW,'');more.setAttribute(MORE,'')
-    }
-    const active=[...more.classList].some(name=>name.includes('viewsMoreActive'))
-    restore(more,MORE_ACTIVE,active?'':null)
-  }
-  function releaseRow(record){
-    if(record.row){restore(record.row,ROW,record.rowOriginal);record.row=null;record.rowOriginal=null}
-    if(record.more){
-      restore(record.more,MORE,record.moreOriginal);restore(record.more,MORE_ACTIVE,null)
-      record.more=null;record.moreOriginal=null
-    }
-  }
   function stopIndicator(record){
     record.indicatorAnimation?.cancel();record.indicatorAnimation=null
     record.liquidAnimation?.cancel();record.liquidAnimation=null
@@ -155,7 +82,6 @@ export function createConversationTabs(doc,win,schedule){
   function release(record){
     stopContent(record);stopIndicator(record);record.resize.disconnect()
     releaseWidth(record)
-    releaseRow(record)
     record.indicator.remove();restore(record.tabs,MARK,record.originalMark)
   }
   function releaseWidth(record){
@@ -301,12 +227,11 @@ export function createConversationTabs(doc,win,schedule){
         indicator.setAttribute(INDICATOR,'');indicator.setAttribute('aria-hidden','true');indicator.hidden=true
         const svg=doc.createElementNS('http://www.w3.org/2000/svg','svg'),shape=doc.createElementNS('http://www.w3.org/2000/svg','path')
         svg.setAttribute('viewBox','0 0 100 12');svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');svg.setAttribute('focusable','false');shape.setAttribute('d',LIQUID_REST);svg.append(shape);indicator.append(svg)
-        record={tabs,indicator,shape,originalMark:tabs.getAttribute(MARK),geometry:null,selected:null,motion:null,body:null,session:null,row:null,rowOriginal:null,more:null,moreOriginal:null}
+        record={tabs,indicator,shape,originalMark:tabs.getAttribute(MARK),geometry:null,selected:null,motion:null,body:null,session:null}
         record.resize=new win.ResizeObserver(schedule)
         record.resize.observe(tabs);record.buttons=[];records.set(tabs,record)
       }
       if(!record.indicator.isConnected)tabs.appendChild(record.indicator)
-      bindRow(record)
       if(buttons.length!==record.buttons.length||buttons.some((el,i)=>el!==record.buttons[i])){
         for(const button of record.buttons)record.resize.unobserve(button)
         for(const button of buttons)record.resize.observe(button)

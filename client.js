@@ -2942,7 +2942,7 @@ ${e}::before,${e}::after{pointer-events:none!important;}
       body[data-ds-dark-theme] ${MATERIAL_BASE} { --dcb-surface-background: #292824; --dcb-surface-border: #45423b; --dcb-surface-shadow: 0 4px 16px #00000038; }
       body:not([data-ds-dark-theme]) .dcb-summary[data-card-style="milk"] { --dcb-content-tile: #fff; --dcb-content-border: #e4e4e4; }
       body:not([data-ds-dark-theme]) .dcb-summary[data-card-style="milk"] :is(.dcb-tile, .dcb-artifact-placeholder) { background: #fff; }
-      body:not([data-ds-dark-theme]) .dcb-summary[data-card-style="milk"] .dcb-tile { box-shadow: inset 0 0 0 1px var(--dcb-content-border); }
+      body:not([data-ds-dark-theme]) .dcb-summary[data-card-style="milk"] .dcb-tile[data-kind="image"] { box-shadow: inset 0 0 0 1px var(--dcb-content-border); }
       body ${material('clear')} {
         --dcb-surface-background: rgba(255,255,255,.56); --dcb-surface-border: rgba(255,255,255,.74); --dcb-backdrop-saturation: 1.15; --dcb-refraction-scale: 12; --dcb-sheen-opacity: 1;
         --dcb-surface-shadow: 0 2px 6px rgba(28,32,40,.035), 0 10px 28px rgba(28,32,40,.09), inset 0 1px 0 rgba(255,255,255,.92), inset 1px 0 0 rgba(255,255,255,.42), inset -1px -1px 0 rgba(255,255,255,.18);

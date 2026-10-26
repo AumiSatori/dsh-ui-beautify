@@ -60,8 +60,9 @@ export function createSidebarGlass(doc,win,schedule){
       track(ghost.animate([from||{opacity:1,transform:'none'},{opacity:0,transform:`translateX(${-width}px)`}],{...options,fill:'forwards'}),()=>{ghost.remove();if(record.ghost===ghost)record.ghost=null})
     }else{
       // Never transform the root or logo row: the Windows titlebar toggle is
-      // fixed inside them. Animate only their content seats.
-      const seats=[...record.root.children].flatMap(el=>suffix(el,'logoRow')?[...el.children].filter(child=>suffix(child,'brand')):suffix(el,'newSession')&&!el.hasAttribute('data-dcb-caption-button')||suffix(el,'panelList')||suffix(el,'regionArea')||suffix(el,'footArea')?[el]:[])
+      // fixed inside them. New chat is a content seat while expanded, even
+      // when caption controls mark it for fixed positioning after collapse.
+      const seats=[...record.root.children].flatMap(el=>suffix(el,'logoRow')?[...el.children].filter(child=>suffix(child,'brand')):suffix(el,'newSession')||suffix(el,'panelList')||suffix(el,'regionArea')||suffix(el,'footArea')?[el]:[])
       record.enterSeats=seats
       for(const seat of seats)track(seat.animate([from||{opacity:0,transform:`translateX(${-width}px)`},{opacity:1,transform:'none'}],{...options,fill:'backwards'}))
     }

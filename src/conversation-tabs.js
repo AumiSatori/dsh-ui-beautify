@@ -47,8 +47,11 @@ export const conversationTabsCss=`
      quiet companion of the labels instead of a stray square. No reserved space:
      the transcript keeps hugging the header line, as the header design intends. */
   [${ROW}][${ROW}] { flex-wrap: nowrap; }
-  /* PROBE — 临时加粗，用来确认「标签下面那条线」是不是这个元素。 */
+  /* PROBE 2 — 不用找 border 了：自己画一条不可能看不见的粉条，同时把按钮染色。 */
   [${RULE}][${RULE}] { border-bottom-style: solid !important; border-bottom-width: 5px !important; }
+  [${ROW}][${ROW}] { position: relative; }
+  [${ROW}][${ROW}]::after { content: ''; position: absolute; left: 0; right: 0; bottom: -7px; height: 6px; background: #ff00aa; z-index: 9999; pointer-events: none; }
+  [${MORE}][${MORE}] { background: #ff00aa !important; color: #fff !important; border-radius: 8px; }
   [${ROW}][${ROW}] > [${TABS}] { flex: 0 1 auto; min-width: 0; align-self: flex-start; }
   [${MORE}] {
     position: relative; flex: none; border-radius: 8px;

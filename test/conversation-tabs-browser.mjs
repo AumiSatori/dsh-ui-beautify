@@ -35,10 +35,10 @@ if(process.env.DSH_ASAR){
 }
 const fixture=await build({stdin:{resolveDir:project,loader:'jsx',contents:`
 import React from 'react';import * as jsxRuntime from 'react/jsx-runtime';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';
-const _deepseek_ai_dsh_client_ui_primitives={Tooltip:({children})=>children};const FIXED_VIEW_ID="chat";const react=React,react_jsx_runtime=jsxRuntime,clsx=(...values)=>values.filter(Boolean).join(' '),ConversationRoot_module_css_default=new Proxy({},{get:(_,key)=>'cr_'+key}),conversationPhase=()=> 'active';
+const _deepseek_ai_dsh_client_ui_primitives={Tooltip:({children})=>children,Menu:({anchor})=>anchor,Button:({children,className,size,...rest})=>React.createElement('button',{type:'button',className,...rest},children),IconEllipsisOutlineRegular:()=>React.createElement('svg',{className:'cr_ellipsis',viewBox:'0 0 24 24'})};const FIXED_VIEW_ID="chat";const react=React,react_jsx_runtime=jsxRuntime,clsx=(...values)=>values.filter(Boolean).join(' '),ConversationRoot_module_css_default=new Proxy({},{get:(_,key)=>'cr_'+key}),conversationPhase=()=> 'active';
 ${native}
 const views=[{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}],listeners=new Set();
-let state={view:'chat',session:'a',stream:0,epoch:0,fixed:false,empty:false,replace:false,hidden:false,resize:false};
+let state={view:'chat',session:'a',stream:0,epoch:0,fixed:false,empty:false,replace:false,hidden:false,resize:false,more:false};
 function update(patch){state={...state,...patch};flushSync(()=>{for(const fn of listeners)fn()})}
 const useStore=selector=>selector(React.useSyncExternalStore(fn=>{listeners.add(fn);return()=>listeners.delete(fn)},()=>state));
 const useSession=selector=>selector({blank:false}),useConversation=selector=>selector({}),useConversationViews=selector=>selector(views),useInspectCall=selector=>selector(null);
@@ -56,7 +56,7 @@ function Fixture(){const snapshot=useStore(s=>s),[body,setBody]=React.useState(n
   const Header=${native?'ConversationSessionHeader':'fallbackHeader'},View=${native?'DefaultConversationViews':"()=> <div className='cr_viewArea'>{content()}</div>"};
   const WidthControls=${native?'ConversationWidthControls':'()=>null'};
   return <main className="cr_root" data-phase="active" key={snapshot.epoch} hidden={snapshot.hidden}><header className="cr_header">
-    <Header sessionId={snapshot.session} useSessions={selector=>selector({byId:{[snapshot.session]:{id:snapshot.session,displayTitle:'界面设计'}}})} useConversationViews={useConversationViews} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={useStore} renderSlot={slots} open={()=>{}} selectView={selectView} t={key=>key}/>
+    <Header sessionId={snapshot.session} useSessions={selector=>selector({byId:{[snapshot.session]:{id:snapshot.session,displayTitle:'界面设计'}}})} useConversationViews={useConversationViews} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(state.more)} useStore={useStore} renderSlot={slots} open={()=>{}} selectView={selectView} t={key=>key}/>
   </header><div ref={setBody} data-conversation-content data-conversation-session={snapshot.session} className="cr_body" data-content-phase="active"><div data-conversation-scroll className="cr_scrollBody">
     <View useConversationViews={useConversationViews} useInspectCall={useInspectCall} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={useStore} useSession={useSession} useConversation={useConversation} inputActions={inputActions} actions={actions} bindDraftPersistence={bindDraftPersistence} renderSlot={slots}/>
     <div data-composer-seat className="cr_composerSeat"><div data-composer-card><textarea aria-label="演示输入" defaultValue="保留这段草稿"/><button aria-label="演示发送">↑</button></div></div>
@@ -289,6 +289,45 @@ try{
     assert.equal(await page.locator('[data-dcb-conversation-indicator]').count(),1)
     await page.evaluate(()=>window.originalTab=document.querySelector('[data-conversation-tabs] button'))
     await page.screenshot({path:resolve(output,'tabs-initial.png')})
+  })
+  await check('the more-views launcher keeps the label line instead of wrapping onto the header border',async()=>{
+    await boot()
+    assert.equal(await page.locator('[data-dcb-views-more]').count(),0,'no launcher is decorated while the host reports no overflow actions')
+    const bareRow=await page.evaluate(()=>document.querySelector('[data-conversation-tabs]').parentElement.getBoundingClientRect().height)
+    await page.evaluate(()=>window.fixture.update({more:true}));await tick()
+    const read=()=>page.evaluate(()=>{
+      const tabs=document.querySelector('[data-conversation-tabs]'),row=tabs.parentElement,more=document.querySelector('[data-dcb-views-more]')
+      if(!more)return {missing:true}
+      const tab=tabs.querySelector('[role=tab]').getBoundingClientRect(),box=more.getBoundingClientRect(),style=getComputedStyle(more)
+      return {rowMarked:row.hasAttribute('data-dcb-views-row'),wrap:getComputedStyle(row).flexWrap,rowHeight:row.getBoundingClientRect().height,
+        centerGap:Math.abs(tab.top+tab.height/2-(box.top+box.height/2)),insideRow:box.top<tabs.getBoundingClientRect().bottom,
+        radius:style.borderRadius,active:more.hasAttribute('data-dcb-views-more-active'),
+        dot:getComputedStyle(more,'::after').opacity}
+    })
+    const wide=await read()
+    assert.equal(wide.rowMarked,true,'the tab row is decorated')
+    assert.equal(wide.wrap,'nowrap','the row stops wrapping the launcher onto a second line')
+    assert.ok(wide.centerGap<6,'launcher shares the label line: '+JSON.stringify(wide))
+    assert.equal(wide.insideRow,true,'launcher stays inside the tab row box')
+    assert.equal(wide.radius,'8px','launcher adopts the plugin surface radius')
+    assert.equal(wide.active,false,'no marker while the active View is visible')
+    // The launcher no longer owns a second line, so the row reserves that line:
+    // the header keeps its height and the transcript never slides up under the labels.
+    assert.ok(Math.abs(wide.rowHeight-bareRow-38)<=2,`reserved line keeps the header height: ${bareRow} -> ${wide.rowHeight}`)
+    await page.screenshot({path:resolve(output,'tabs-more-launcher.png')})
+    await page.setViewportSize({width:420,height:780})
+    await page.evaluate(()=>window.fixture.update({view:'context'}));await page.waitForTimeout(160);await tick()
+    const narrow=await read()
+    assert.ok(narrow.centerGap<6,'narrow rows keep the launcher on the first label line: '+JSON.stringify(narrow))
+    assert.equal(narrow.active,true,'a current View living in the menu is marked')
+    assert.ok(Number(narrow.dot)>0,'the marker dot is painted')
+    await page.setViewportSize({width:1100,height:780})
+    await page.evaluate(()=>window.fixture.update({more:false,view:'chat'}));await tick()
+    assert.equal(await page.locator('[data-dcb-views-row]').count(),0,'removing the launcher restores the native row')
+    assert.equal(await page.locator('[data-dcb-views-more]').count(),0)
+    // This check reloads the page, so re-capture the node the following identity
+    // check compares against instead of leaving a stale window handle.
+    await page.evaluate(()=>{window.originalTab=document.querySelector('[data-conversation-tabs] button')})
   })
   await check('native click stretches one liquid underline and fades/translates small views without a filter at intermediate frames',async()=>{
     const before=await geometry();await select('context');await page.evaluate(()=>window.frameAt(55));const mid=await geometry(),m=(await motion())[0]

@@ -55,7 +55,9 @@ export function htmlPreviewDocument(source){
   // This small cover is static; the full-size reader owns interaction.
   // The cover has no origin, scripts, navigation or network.
   const policy="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
-  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer"><style>html{overflow:hidden;scrollbar-width:none}body{margin:0}*{animation-play-state:paused!important;transition:none!important}</style>${source}`
+  // Resolve entry animations to their final frame, including delayed and
+  // infinite animations. Pausing at time zero leaves fade-in content invisible.
+  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer"><style>html{overflow:hidden;scrollbar-width:none}body{margin:0}</style>${source}<style>*,*::before,*::after{animation-duration:0s!important;animation-delay:-1ms!important;animation-iteration-count:1!important;animation-fill-mode:forwards!important;animation-play-state:paused!important;transition:none!important}</style>`
 }
 
 export const outputPreviewCss=`
@@ -95,7 +97,7 @@ export const outputPreviewCss=`
 
 export function createOutputArtifact(React,win){
   const h=React.createElement
-  return function OutputArtifact({file,sessionId,readPreview,onOpen,active}){
+  return function OutputArtifact({file,sessionId,readPreview,onOpen,active,onContextMenu}){
     const key=`${sessionId}\0${file.path}\0${file.seq??''}`
     const [preview,setPreview]=React.useState(null),cover=React.useRef(null)
     const source=preview?.key===key?preview.source:null
@@ -116,7 +118,7 @@ export function createOutputArtifact(React,win){
       return()=>resize.disconnect()
     },[source])
     const name=String(file.path).replaceAll('\\','/').split('/').at(-1)
-    return h('div',{className:'dcb-artifact','data-preview-state':source?'ready':preview?.key===key?'unavailable':'pending'},
+    return h('div',{className:'dcb-artifact','data-preview-state':source?'ready':preview?.key===key?'unavailable':'pending',onContextMenu},
       h('span',{className:'dcb-artifact-cover',ref:cover,'aria-hidden':true,'data-ready':source?'':undefined},
         source?h('iframe',{srcDoc:htmlPreviewDocument(source),sandbox:'',tabIndex:-1,inert:true,loading:'lazy',title:`${name} 静态预览`}):
           h('span',{className:'dcb-artifact-placeholder'},h('b',null,'</>'),h('span',null,'HTML 网页'))),

@@ -1,5 +1,20 @@
 # Third-party notices
 
+## Optional Genshin Impact element opening example
+
+The optional timed opening uses the seven Genshin Impact element symbols
+(Pyro, Hydro, Anemo, Electro, Dendro, Cryo and Geo). The game names and element
+artwork belong to HoYoverse and their respective rights holders; this repository's
+MIT license does not grant rights to those game assets. This is an unofficial
+user-selectable example and does not imply affiliation or endorsement.
+
+SVG path geometry in `src/welcome-elements-art.js` is normalized from
+`misc/genshin_icons/*.svg` in
+https://github.com/jerryarciaga/NixOS-Flake/tree/d5b7359680c21b834f452405040eea6593c2dfc9/misc/genshin_icons
+(rounded coordinates, editor metadata removed and fill inherited from the
+example's theme). No game audio, video, font, loading text or other source code
+is included. Layout, timing and the DSH adapter are implemented locally.
+
 ## Optional whale-girl context background
 
 `assets/context-whale.jpg` and its transparent foreground adaptation

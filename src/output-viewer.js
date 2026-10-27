@@ -1,10 +1,11 @@
 import {motion} from './motion.js'
 
-const TEXT_LIMIT=2*1024*1024,IMAGE_LIMIT=8*1024*1024
+const TEXT_LIMIT=2*1024*1024,IMAGE_LIMIT=8*1024*1024,VIDEO_LIMIT=32*1024*1024
 const CODE=/^(?:py|js|mjs|cjs|ts|tsx|jsx|sh|bash|zsh|css|scss|less|yaml|yml|toml|ini|conf|cfg|env|xml|sql|rs|go|java|c|h|cpp|hpp|cs|rb|php|kt|swift|txt|log|lock)$/
 export function outputKind(path){
   const ext=String(path).split(/[\\/]/).at(-1).split('.').at(-1).toLowerCase()
   if(/^(?:png|jpe?g|gif|webp|avif|ico|svg|bmp)$/.test(ext))return{kind:'image',ext,label:'图片',mime:`image/${ext==='svg'?'svg+xml':ext==='jpg'?'jpeg':ext==='ico'?'x-icon':ext}`}
+  if(/^(?:mp4|webm|ogg|ogv|mov|m4v)$/.test(ext))return{kind:'video',ext,label:'视频',mime:`video/${ext==='ogv'?'ogg':ext}`}
   if(/^(?:html?|xhtml)$/.test(ext))return{kind:'html',ext,label:'网页'}
   if(/^(?:md|markdown)$/.test(ext))return{kind:'markdown',ext,label:'Markdown'}
   if(ext==='csv')return{kind:'csv',ext,label:'表格'}
@@ -21,14 +22,14 @@ export function outputContentReader(binding){
     const stat=await face.stat(sessionId,path,signal)
     if(signal?.aborted)throw new DOMException('Aborted','AbortError')
     if(!stat?.ok)throw new Error('文件不存在或当前会话无法读取。')
-    const size=Number(stat.value?.bytes),limit=type.kind==='image'?IMAGE_LIMIT:TEXT_LIMIT
+    const size=Number(stat.value?.bytes),limit=type.kind==='image'?IMAGE_LIMIT:type.kind==='video'?VIDEO_LIMIT:TEXT_LIMIT
     if(!Number.isFinite(size)||size<0||size>limit)throw new Error(`文件超过 ${limit/1024/1024} MB 预览上限，可用 DSH 打开。`)
     const result=await face.readBytes(sessionId,path,{},signal)
     if(signal?.aborted)throw new DOMException('Aborted','AbortError')
     if(!result?.ok||!result.value?.data)throw new Error('文件读取失败，请重试或用 DSH 打开。')
     const bytes=result.value.data instanceof Uint8Array?result.value.data:Uint8Array.from(result.value.data)
     if(bytes.length>limit)throw new Error('文件过大，请用 DSH 打开。')
-    if(type.kind==='image')return {...type,size:bytes.length,bytes}
+    if(type.kind==='image'||type.kind==='video')return {...type,size:bytes.length,bytes}
     let text
     try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes)}catch{throw new Error('暂不支持此文件的文字编码，请用 DSH 打开。')}
     return {...type,size:bytes.length,text}
@@ -84,6 +85,7 @@ export const outputViewerCss=`
   .dcb-file-viewer-content pre { white-space:pre-wrap; font:12px/1.7 Consolas,monospace; }
   .dcb-file-viewer-body > iframe { display:block; width:100%; height:100%; min-height:360px; border:0; background:#fff; }
   .dcb-file-viewer-body > img { display:block; max-width:100%; max-height:100%; margin:auto; object-fit:contain; }
+  .dcb-file-viewer-body > video { display:block; width:100%; height:100%; max-width:100%; max-height:100%; margin:auto; object-fit:contain; background:#101319; }
   .dcb-file-table { overflow:auto; }
   .dcb-file-table table { border-collapse:collapse; width:100%; font-size:12px; }
   .dcb-file-table :is(th,td) { padding:10px 14px; border-bottom:1px solid #8882; text-align:left; white-space:pre-wrap; min-width:80px; }
@@ -128,7 +130,7 @@ export function createOutputViewer(React,doc,win,{createPortal,MarkdownText,Code
     try{
       const file=await state.read(state.sessionId,state.path,signal)
       if(disposed||signal.aborted||id!==revision)return
-      if(file.kind==='image')blob=win.URL.createObjectURL(new Blob([file.bytes],{type:file.mime}))
+      if(file.kind==='image'||file.kind==='video')blob=win.URL.createObjectURL(new Blob([file.bytes],{type:file.mime}))
       set({status:'ready',file:{...file,url:blob}})
     }catch(error){if(!disposed&&!signal.aborted&&id===revision)set({status:'error',error:error.message||'内容加载失败。'})}
   }
@@ -172,6 +174,7 @@ export function createOutputViewer(React,doc,win,{createPortal,MarkdownText,Code
       if(view.mode==='source')content=h('div',{className:'dcb-file-viewer-content'},code(file.text||'',file.ext))
       else if(file.kind==='html')content=h('iframe',{title:name,srcDoc:htmlDocument(file.text),sandbox:'allow-scripts',referrerPolicy:'no-referrer'})
       else if(file.kind==='image')content=h('img',{src:file.url,alt:name})
+      else if(file.kind==='video')content=h('video',{src:file.url,controls:true,playsInline:true,preload:'metadata','aria-label':`${name} 视频预览`})
       else if(file.kind==='csv'){
         const table=csvPreview(file.text)
         content=h('div',{className:'dcb-file-table'},h('table',null,h('thead',null,h('tr',null,table.rows[0]?.map((cell,i)=>h('th',{key:i},cell)))),h('tbody',null,table.rows.slice(1).map((row,i)=>h('tr',{key:i},row.map((cell,j)=>h('td',{key:j},cell)))))),table.truncated&&h('p',{className:'dcb-file-loading'},'仅显示前 500 行。'))
@@ -187,7 +190,7 @@ export function createOutputViewer(React,doc,win,{createPortal,MarkdownText,Code
         onLostPointerCapture:()=>{drag.current=null;node.current?.removeAttribute('data-dragging')},
         onKeyDown:event=>{if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();set({width:Math.max(280,Math.min(win.innerWidth-24,view.width+(event.key==='ArrowLeft'?24:-24)))})}}}),
       h('div',{className:'dcb-file-viewer-head'},h('span',{className:'dcb-file-viewer-icon','aria-hidden':true},type?.ext.toUpperCase().slice(0,4)||'文件'),h('div',{className:'dcb-file-viewer-title'},h('strong',{title:name},name),h('small',null,`${type?.label||'文件'} · 输出预览`)),h('button',{className:'dcb-file-action',title:'用 DSH 打开','aria-label':'用 DSH 打开',onClick:openNative},'↗'),h('button',{className:'dcb-file-action','aria-label':'关闭文件预览',onClick:close},'×')),
-      h('div',{className:'dcb-file-viewer-toolbar'},file?.kind!=='image'&&h('div',{className:'dcb-file-modes',role:'group','aria-label':'预览方式'},['preview','source'].map(mode=>h('button',{key:mode,'aria-pressed':view.mode===mode,onClick:()=>set({mode})},mode==='preview'?'预览':'源码'))),h('span',{className:'dcb-file-location',title:view.path},view.path),h('button',{className:'dcb-file-action','aria-label':'重新加载文件',onClick:load},'↻')),
+      h('div',{className:'dcb-file-viewer-toolbar'},file?.kind!=='image'&&file?.kind!=='video'&&h('div',{className:'dcb-file-modes',role:'group','aria-label':'预览方式'},['preview','source'].map(mode=>h('button',{key:mode,'aria-pressed':view.mode===mode,onClick:()=>set({mode})},mode==='preview'?'预览':'源码'))),h('span',{className:'dcb-file-location',title:view.path},view.path),h('button',{className:'dcb-file-action','aria-label':'重新加载文件',onClick:load},'↻')),
       h('div',{className:'dcb-file-viewer-body',ref:body,'data-content-status':view.status},content),h('div',{className:'dcb-file-viewer-status'},view.status==='ready'?`${type?.label||'文件'} · ${file.size<1024?`${file.size} B`:`${Math.ceil(file.size/1024)} KB`}`:view.status==='loading'?'加载中':'可重试或用 DSH 打开')),doc.body)
   }
   return{View,

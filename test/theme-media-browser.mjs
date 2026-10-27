@@ -46,7 +46,7 @@ async function mount(target=page){
 }
 async function settings(category,target=page){await target.evaluate(()=>{document.querySelector('[data-dcb-welcome-skip]')?.click();window.fixture.settings(true)});await selectSettingsCategory(target,category)}
 async function theme(scheme,target=page){await target.evaluate(scheme=>window.hostTheme.setTheme(scheme),scheme);await expect(target.locator('.dcb-theme-toggle')).toHaveAttribute('data-scheme',scheme);await target.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))))}
-async function uploadWelcome(file,target=page){await settings('开屏欢迎',target);await welcome(target).getByRole('radio',{name:'动图 / 短视频',exact:true}).click();await welcome(target).getByLabel('上传开屏素材',{exact:true}).setInputFiles(file);await welcome(target).getByText(file.split(/[\\/]/).at(-1),{exact:false}).waitFor();await welcome(target).locator('[data-dcb-welcome-media] canvas').waitFor()}
+async function uploadWelcome(file,target=page){await settings('开屏欢迎',target);await welcome(target).getByRole('radio',{name:'动图 / 短视频',exact:true}).click();await welcome(target).getByLabel('上传开屏素材',{exact:true}).setInputFiles(file);await welcome(target).locator('.dcb-welcome-upload').getByText(file.split(/[\\/]/).at(-1),{exact:false}).waitFor();await welcome(target).locator('[data-dcb-welcome-media] canvas').waitFor()}
 async function enabled(section,label,wanted){const button=section.getByRole('switch',{name:label,exact:true});if(await button.getAttribute('aria-checked')!==String(wanted))await button.click()}
 async function range(label,value){await background().getByRole('slider',{name:label,exact:true}).evaluate((el,value)=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,String(value));el.dispatchEvent(new Event('input',{bubbles:true}))},value)}
 async function check(name,fn){await fn();checks.push(name);console.log('PASS '+name)}
@@ -61,7 +61,7 @@ try{
     await uploadWelcome(night);await welcome().getByRole('radio',{name:'5 秒',exact:true}).click();await enabled(welcome(),'开屏欢迎动效',true)
     nightId=(await saved()).welcomeThemes.dark.welcomeMediaRevision;assert.notEqual(dayId,nightId)
     for(const scheme of ['light','dark','light']){
-      await theme(scheme);await welcome().getByText(scheme==='light'?'synthetic-day.gif':'synthetic-night.gif',{exact:false}).waitFor()
+      await theme(scheme);await welcome().locator('.dcb-welcome-upload').getByText(scheme==='light'?'synthetic-day.gif':'synthetic-night.gif',{exact:false}).waitFor()
       await expect(welcome().getByRole('radio',{name:scheme==='light'?'铺满裁切':'完整显示',exact:true})).toHaveAttribute('aria-checked','true')
       await expect(welcome().getByRole('radio',{name:scheme==='light'?'2 秒':'5 秒',exact:true})).toHaveAttribute('aria-checked','true')
     }
@@ -79,18 +79,18 @@ try{
   })
   await check('a theme switch stops an active opening preview, and an asynchronous upload remains assigned to its starting theme',async()=>{
     await welcome().getByRole('button',{name:'播放欢迎预览',exact:true}).click();await welcome().locator('[data-dcb-welcome-media] img').waitFor()
-    await theme('light');await welcome().getByText('synthetic-day.gif',{exact:false}).waitFor();await welcome().locator('[data-dcb-welcome-media] canvas').waitFor()
+    await theme('light');await welcome().locator('.dcb-welcome-upload').getByText('synthetic-day.gif',{exact:false}).waitFor();await welcome().locator('[data-dcb-welcome-media] canvas').waitFor()
     assert.equal(await page.locator('[data-dcb-welcome]').count(),0,'theme changes do not replay the full opening animation')
     await page.evaluate(()=>{const put=IDBObjectStore.prototype.put;window.originalMediaPut=put;IDBObjectStore.prototype.put=function(...args){if(this.name==='media'&&String(args[1]).startsWith('asset:')&&args[0]?.name==='async-day.gif'){IDBObjectStore.prototype.put=put;window.hostTheme.setTheme('dark')}return put.apply(this,args)}})
     await welcome().getByLabel('上传开屏素材',{exact:true}).setInputFiles({name:'async-day.gif',mimeType:'image/gif',buffer:readFileSync(day)})
     await expect.poll(async()=>(await saved()).welcomeThemes.light.welcomeMediaRevision).not.toBe(dayId)
     await expect(page.locator('.dcb-theme-toggle')).toHaveAttribute('data-scheme','dark');assert.equal((await saved()).welcomeThemes.dark.welcomeMediaRevision,nightId)
-    await welcome().getByText('synthetic-night.gif',{exact:false}).waitFor();dayId=(await saved()).welcomeThemes.light.welcomeMediaRevision
+    await welcome().locator('.dcb-welcome-upload').getByText('synthetic-night.gif',{exact:false}).waitFor();dayId=(await saved()).welcomeThemes.light.welcomeMediaRevision
   })
   await check('removing one theme opening leaves the opposite file usable, including a second browser window',async()=>{
     await welcome().getByRole('button',{name:'移除素材',exact:true}).click()
     assert.equal((await saved()).welcomeThemes.dark.welcomeMediaRevision,'');assert.equal((await saved()).welcomeThemes.light.welcomeMediaRevision,dayId)
-    const other=await context.newPage();try{await mount(other);await theme('light',other);await settings('开屏欢迎',other);await welcome(other).getByText('async-day.gif',{exact:false}).waitFor();await welcome(other).locator('[data-dcb-welcome-media] canvas').waitFor()}finally{await other.close()}
+    const other=await context.newPage();try{await mount(other);await theme('light',other);await settings('开屏欢迎',other);await welcome(other).locator('.dcb-welcome-upload').getByText('async-day.gif',{exact:false}).waitFor();await welcome(other).locator('[data-dcb-welcome-media] canvas').waitFor()}finally{await other.close()}
     await uploadWelcome(movie);nightId=(await saved()).welcomeThemes.dark.welcomeMediaRevision
   })
   await check('background GIF/video, opacity, blur, fit, position and enabled state restore independently with the theme',async()=>{
@@ -124,11 +124,11 @@ try{
         await new Promise((resolve,reject)=>{const request=indexedDB.open('dsh-ui-beautify-welcome',1);request.onupgradeneeded=()=>request.result.createObjectStore('media');request.onsuccess=()=>{const db=request.result,tx=db.transaction('media','readwrite');tx.objectStore('media').put({revision:'legacy',name:'legacy.gif',type:'image/gif',kind:'image',blob:new Blob([new Uint8Array(bytes)],{type:'image/gif'}),size:bytes.length,width:96,height:64},'opening');tx.oncomplete=()=>{db.close();resolve()};tx.onerror=reject}})
         localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,particleEnabled:false,welcomeMode:'media',welcomeMediaRevision:'legacy'}))
       },{key,bytes:[...readFileSync(day)]})
-      await mount(legacy);await settings('开屏欢迎',legacy);await welcome(legacy).getByText('legacy.gif',{exact:false}).waitFor()
+      await mount(legacy);await settings('开屏欢迎',legacy);await welcome(legacy).locator('.dcb-welcome-upload').getByText('legacy.gif',{exact:false}).waitFor()
       await welcome(legacy).getByRole('button',{name:'移除素材',exact:true}).click()
-      await theme('dark',legacy);await welcome(legacy).getByText('legacy.gif',{exact:false}).waitFor();await welcome(legacy).locator('[data-dcb-welcome-media] canvas').waitFor()
+      await theme('dark',legacy);await welcome(legacy).locator('.dcb-welcome-upload').getByText('legacy.gif',{exact:false}).waitFor();await welcome(legacy).locator('[data-dcb-welcome-media] canvas').waitFor()
       await theme('light',legacy);await uploadWelcome(night,legacy);await theme('dark',legacy)
-      await welcome(legacy).getByText('legacy.gif',{exact:false}).waitFor();await welcome(legacy).locator('[data-dcb-welcome-media] canvas').waitFor()
+      await welcome(legacy).locator('.dcb-welcome-upload').getByText('legacy.gif',{exact:false}).waitFor();await welcome(legacy).locator('[data-dcb-welcome-media] canvas').waitFor()
       const stored=await saved(legacy);assert.equal(stored.welcomeThemes.dark.welcomeMediaRevision,'legacy');assert.notEqual(stored.welcomeThemes.light.welcomeMediaRevision,'legacy')
       const count=await legacy.evaluate(()=>new Promise(resolve=>{const request=indexedDB.open('dsh-ui-beautify-welcome',1);request.onsuccess=()=>{const db=request.result,tx=db.transaction('media'),read=tx.objectStore('media').getAll();read.onsuccess=()=>resolve(read.result.filter(item=>item.blob).length);tx.oncomplete=()=>db.close()}}));assert.equal(count,2)
     }finally{await legacyContext.close()}
@@ -137,7 +137,7 @@ try{
     await theme('light');await settings('开屏欢迎')
     for(let i=0;i<5;i++){
       await welcome().getByLabel('上传开屏素材',{exact:true}).setInputFiles({name:`replacement-${i}.gif`,mimeType:'image/gif',buffer:readFileSync(day)})
-      await welcome().getByText(`replacement-${i}.gif`,{exact:false}).waitFor();await welcome().locator('[data-dcb-welcome-media] canvas').waitFor()
+      await welcome().locator('.dcb-welcome-upload').getByText(`replacement-${i}.gif`,{exact:false}).waitFor();await welcome().locator('[data-dcb-welcome-media] canvas').waitFor()
     }
     const revisions=Object.values((await saved()).welcomeThemes).map(value=>value.welcomeMediaRevision)
     const data=await page.evaluate(()=>new Promise(resolve=>{const request=indexedDB.open('dsh-ui-beautify-welcome',1);request.onsuccess=()=>{const db=request.result,tx=db.transaction('media'),read=tx.objectStore('media').getAll();read.onsuccess=()=>resolve(read.result.filter(item=>item.blob).map(item=>item.revision));tx.oncomplete=()=>db.close()}}))

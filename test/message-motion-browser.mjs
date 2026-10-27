@@ -4,6 +4,7 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {chromium} from '@playwright/test'
 import {build} from 'esbuild'
+import {messageMotionExample} from '../src/message-motion-config.js'
 
 const project=fileURLToPath(new URL('..',import.meta.url))
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','.scratch','claude-beautify'),'message-motion')
@@ -65,6 +66,15 @@ const count=()=>page.evaluate(()=>window.calls.length)
 async function finish(){await page.evaluate(()=>Promise.all(window.animationObjects.filter(a=>a.playState!=='idle').map(a=>a.finished.catch(()=>{}))))}
 try{
  await boot()
+ await check('custom animation controls real new message frames and invalid config falls back safely',async()=>{
+  const example=JSON.parse(messageMotionExample);example.user.duration=620;example.user.frames[0].translate='44px 0px'
+  await page.evaluate(code=>window.motion.setOptions({messageMotionMode:'custom',messageMotionCode:code}),JSON.stringify(example))
+  await page.evaluate(()=>window.append('user','custom-u',2,'自定义入场'));await tick()
+  assert.equal(await page.evaluate(()=>window.calls.at(-1).options.duration),620)
+  assert.equal(await page.evaluate(()=>window.calls.at(-1).frames[0].translate),'44px 0px')
+  await finish();await page.evaluate(()=>{window.motion.setOptions({messageMotionMode:'custom',messageMotionCode:'invalid'});window.append('assistant','fallback-a',2,'错误配置回退')});await tick()
+  assert.equal(await page.evaluate(()=>window.calls.at(-1).options.duration),300);await finish();await boot()
+ })
  await check('initial history and asynchronously loaded history do not replay',async()=>{
   assert.equal(await count(),0);await boot({late:true});assert.equal(await count(),0);await boot()
  })

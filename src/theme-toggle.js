@@ -97,9 +97,10 @@ export function createThemeToggle(React, doc, win) {
     service=value&&typeof value.getTheme==='function'&&typeof value.setTheme==='function'?value:null
     sync()
   }
-  function toggle(button) {
+  function change(button,dark) {
     if(disposed||!service)return
-    const dark=!(wanted??snapshot.dark),id=++sequence
+    if(dark===snapshot.dark&&!pending)return
+    const id=++sequence
     cancel();wanted=dark
     const record={id,dark,animation:null,transition:null,timer:0,committed:false}
     pending=record
@@ -117,12 +118,12 @@ export function createThemeToggle(React, doc, win) {
       try{commit();record.timer=win.setTimeout(()=>clear(record),REVEAL_TIME)}catch{fail()}
     }
     if(typeof doc.startViewTransition!=='function'){fallback();return}
-    const rect=button.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2
+    const rect=button?.getBoundingClientRect?.()||{left:win.innerWidth/2-35,top:win.innerHeight/2-15,width:70,height:30},x=rect.left+rect.width/2,y=rect.top+rect.height/2
     const radius=Math.hypot(Math.max(x,win.innerWidth-x),Math.max(y,win.innerHeight-y))
     try {
-      record.button=button;record.source=button.getAttribute('data-dcb-theme-source');record.names=[]
-      for(const [element,name] of [[button,'dcb-theme-control'],[button.querySelector('.dcb-theme-thumb'),'dcb-theme-orb']])if(element){record.names.push([element,element.style.getPropertyValue('view-transition-name'),element.style.getPropertyPriority('view-transition-name')]);element.style.setProperty('view-transition-name',name)}
-      button.setAttribute('data-dcb-theme-source','')
+      record.button=button;record.source=button?.getAttribute?.('data-dcb-theme-source')??null;record.names=[]
+      for(const [element,name] of [[button,'dcb-theme-control'],[button?.querySelector?.('.dcb-theme-thumb'),'dcb-theme-orb']])if(element){record.names.push([element,element.style.getPropertyValue('view-transition-name'),element.style.getPropertyPriority('view-transition-name')]);element.style.setProperty('view-transition-name',name)}
+      button?.setAttribute?.('data-dcb-theme-source','')
       record.transition=doc.startViewTransition(commit)
       record.transition.updateCallbackDone.catch(fail)
       record.transition.ready.then(()=>{
@@ -133,6 +134,12 @@ export function createThemeToggle(React, doc, win) {
       }).catch(()=>{if(pending===record&&!record.committed)fallback()})
       record.transition.finished.then(()=>clear(record),()=>clear(record))
     } catch { fallback() }
+  }
+  function toggle(button) { change(button,!(wanted??snapshot.dark)) }
+  function setTheme(value,source=null) {
+    const dark=value==='dark'||value===true
+    if(dark===snapshot.dark&&!pending)return
+    change(source,dark)
   }
   function Button() {
     const state=React.useSyncExternalStore(subscribe,getSnapshot,getSnapshot)
@@ -148,5 +155,5 @@ export function createThemeToggle(React, doc, win) {
   }
   const preference=()=>{if(reduced.matches||forced.matches){sequence++;cancel();sync()}}
   reduced.addEventListener('change',preference);forced.addEventListener('change',preference)
-  return {Button,connect,sync,dispose(){if(disposed)return;sequence++;cancel();disposed=true;service=null;reduced.removeEventListener('change',preference);forced.removeEventListener('change',preference);listeners.clear()}}
+  return {Button,connect,sync,setTheme,dispose(){if(disposed)return;sequence++;cancel();disposed=true;service=null;reduced.removeEventListener('change',preference);forced.removeEventListener('change',preference);listeners.clear()}}
 }

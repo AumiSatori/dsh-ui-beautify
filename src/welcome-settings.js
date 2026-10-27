@@ -4,9 +4,16 @@ import {motion} from './motion.js'
 import {inspectWelcomeMedia,createWelcomeMediaPlayer,welcomeMediaCss} from './welcome-media.js'
 import {createWelcomeCodePlayer,inspectWelcomeCode,inspectWelcomeCodeFile,welcomeCodeExample} from './welcome-code.js'
 import {createCharacterWelcomeArt,playCharacterWelcome} from './welcome-characters.js'
+import {themeWelcome} from './welcome-theme.js'
+import {themeAssignments,themeAssignmentsCss} from './theme-assignments.js'
+import {mountWelcomeGesture,welcomeGestureCss,welcomeGestureDocument} from './welcome-gesture.js'
+import {welcomeCodeMode} from './welcome-code-modes.js'
 
 export const welcomeSettingsCss=`
   ${welcomeMediaCss}
+  ${themeAssignmentsCss}
+  ${welcomeGestureCss}
+  .dcb-gesture-recorder { margin:14px 0; border:1px solid var(--dsh-settings-border); border-radius:12px; overflow:hidden; }
   .dcb-welcome-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:16px 0; }
   .dcb-welcome-field { display:grid; gap:7px; min-width:0; font-size:12px; color:var(--dsh-settings-secondary); }
   .dcb-welcome-field input { box-sizing:border-box; width:100%; min-width:0; min-height:44px; padding:9px 11px; border:1px solid var(--dsh-settings-border); border-radius:8px; background:transparent; color:var(--dsh-settings-text); font:13px/20px system-ui; outline:none; transition:border-color 180ms ease,box-shadow 180ms ease; }
@@ -24,6 +31,7 @@ export const welcomeSettingsCss=`
   .dcb-welcome-demo { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:156px; padding:16px; border:1px solid #8883; border-radius:12px; background:#fafbfc; overflow:hidden; transition:background-color 220ms ease; }
   .dcb-welcome-demo[data-mode=media] { height:240px; padding:0; }
   .dcb-welcome-demo[data-mode=code] { height:240px; padding:0; }
+  .dcb-welcome-demo[data-mode=code][data-interactive=true] { height:480px; }
   .dcb-welcome-demo-content { width:100%; min-height:0; display:grid; place-items:center; }
   .dcb-welcome-demo[data-mode=media] .dcb-welcome-demo-content { height:100%; }
   .dcb-welcome-demo[data-mode=code] .dcb-welcome-demo-content { height:100%; }
@@ -36,9 +44,39 @@ export const welcomeSettingsCss=`
   .dcb-welcome-collapse > div { min-height:0; overflow:hidden; }
   .dcb-welcome-upload { margin:12px 0; padding:14px; border:1px dashed #8886; border-radius:10px; }
   .dcb-welcome-code-editor { display:grid; gap:10px; margin:12px 0; padding:14px; border:1px dashed #8886; border-radius:10px; }
-  .dcb-welcome-code-editor textarea { box-sizing:border-box; width:100%; min-height:220px; resize:vertical; border:1px solid var(--dsh-settings-border); border-radius:10px; padding:12px; background:var(--dsh-settings-subtle); color:var(--dsh-settings-text); font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; outline:none; }
+  .dcb-welcome-code-editor textarea { box-sizing:border-box; width:100%; height:220px; min-height:180px; resize:vertical; border:1px solid var(--dsh-settings-border); border-radius:10px; padding:12px; background:var(--dsh-settings-subtle); color:var(--dsh-settings-text); font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; outline:none; }
   .dcb-welcome-code-editor textarea:focus { border-color:var(--dsh-settings-accent,var(--dsh-settings-text)); box-shadow:0 0 0 3px #8882; }
+  .dcb-welcome-history { display:grid; gap:10px; margin:14px 0; padding:14px; border:1px solid var(--dsh-settings-border); border-radius:11px; background:var(--dsh-settings-subtle); }
+  .dcb-welcome-history-heading { display:flex; align-items:baseline; justify-content:space-between; gap:10px; }
+  .dcb-welcome-history-heading strong { font-size:13px; }
+  .dcb-welcome-history-heading small { color:var(--dsh-settings-secondary); font-size:11px; }
+  .dcb-welcome-history-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:8px; }
+  .dcb-welcome-history-item { display:grid; grid-template-columns:54px minmax(0,1fr); align-items:center; gap:10px; min-width:0; min-height:70px; padding:8px; border:1px solid var(--dsh-settings-border); border-radius:10px; background:var(--dsh-settings-surface); color:var(--dsh-settings-text); text-align:left; cursor:pointer; font:inherit; transition:transform 220ms ${motion.ease.snappy},border-color 180ms ${motion.ease.color},background-color 180ms ${motion.ease.color},box-shadow 180ms ${motion.ease.color}; }
+  .dcb-welcome-history-item:hover { transform:translateY(-2px); border-color:var(--dsh-settings-text); box-shadow:0 5px 14px #0000000b; }
+  .dcb-welcome-history-item:active { transform:scale(.98); }
+  .dcb-welcome-history-item:focus-visible { outline:2px solid var(--dsh-settings-text); outline-offset:2px; }
+  .dcb-welcome-history-item[data-selected=true] { border-color:var(--dsh-settings-text); background:var(--dsh-settings-subtle); }
+  .dcb-welcome-history-icon { display:flex; align-items:center; justify-content:center; gap:2px; width:54px; height:46px; overflow:hidden; border-radius:7px; background:var(--dsh-settings-subtle); color:var(--dsh-settings-secondary); }
+  .dcb-welcome-history-icon i { display:block; width:5px; border-radius:5px; background:currentColor; }
+  .dcb-welcome-history-copy { display:grid; min-width:0; gap:2px; }
+  .dcb-welcome-history-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; font-weight:600; }
+  .dcb-welcome-history-meta { color:var(--dsh-settings-secondary); font-size:11px; line-height:16px; }
+  .dcb-welcome-history-empty { margin:0; color:var(--dsh-settings-secondary); font-size:12px; line-height:1.6; }
   .dcb-welcome-upload-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .dcb-welcome-code-heading { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:6px 16px; }
+  .dcb-welcome-code-heading small { color:var(--dsh-settings-secondary); overflow-wrap:anywhere; }
+  .dcb-welcome-code-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px 0; }
+  .dcb-welcome-code-actions > .dcb-welcome-play { margin-inline-end:8px; }
+  .dcb-welcome-code-actions > .dcb-welcome-apply { margin-inline-start:auto; margin-inline-end:0; }
+  .dcb-welcome-example-action { display:grid; max-width:240px; margin-inline-end:8px; animation:dcb-welcome-example-in 220ms cubic-bezier(.22,.8,.26,1) both; transition:max-width 220ms cubic-bezier(.4,0,.2,1),margin-inline-end 220ms ease,opacity 220ms ease,transform 220ms cubic-bezier(.4,0,.2,1),filter 220ms ease; }
+  .dcb-welcome-example-action > div { min-width:0; overflow:hidden; }
+  .dcb-welcome-example-action button { white-space:nowrap; }
+  .dcb-welcome-example-action[data-open=false] { max-width:0; margin-inline-end:0; opacity:0; transform:translateY(-6px) scale(.9); filter:blur(2px); pointer-events:none; animation:none; }
+  .dcb-welcome-gesture-example p { margin:8px 0 0; font-size:12px; line-height:1.7; color:var(--dsh-settings-secondary); }
+  .dcb-welcome-gesture-example[hidden] { display:none; }
+  @keyframes dcb-welcome-example-in { from{opacity:0;transform:translateY(6px) scale(.9);filter:blur(2px)}to{opacity:1;transform:none;filter:blur(0)} }
+  @container dcb-settings-page (max-width:580px) { .dcb-welcome-code-actions > .dcb-welcome-apply { flex:1 1 100%; margin-inline-start:0; } }
+  @media(prefers-reduced-motion:reduce),(forced-colors:active) { .dcb-welcome-example-action { animation:none; transition:none; } }
   .dcb-welcome-file-name { overflow-wrap:anywhere; }
   .dcb-welcome-demo [data-dcb-welcome-art] { display:block; width:100%; max-width:440px; height:120px; color:#111; overflow:visible; }
   .dcb-welcome-demo [data-dcb-welcome-stroke] { fill:none; stroke-width:5.3; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1; stroke-dashoffset:1; }
@@ -53,12 +91,36 @@ export const welcomeSettingsCss=`
   @media(forced-colors:active) { .dcb-welcome-demo,.dcb-welcome-field input,.dcb-welcome-speeds,.dcb-welcome-speeds button,.dcb-welcome-play { background:Canvas; color:CanvasText; border-color:CanvasText; box-shadow:none; } .dcb-welcome-speeds button[aria-checked=true] { outline:2px solid Highlight; outline-offset:-3px; } .dcb-welcome-demo [data-dcb-welcome-art] { color:CanvasText!important; } }
 `
 
-export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLogo}={}){
+export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLogo,onThemeChange}={}){
   const h=React.createElement
+  function GestureRecorder({onPattern}){
+    const seat=React.useRef(null),callback=React.useRef(onPattern);callback.current=onPattern
+    React.useEffect(()=>{const gesture=mountWelcomeGesture(doc,win,{setup:true,onPattern:pattern=>callback.current(pattern)});seat.current.append(gesture.node);return()=>gesture.dispose()},[])
+    return h('div',{className:'dcb-gesture-recorder',ref:seat})
+  }
   return function WelcomeSettings({value,onChange,theme='light'}){
+    const mode=welcomeCodeMode(value),slot=theme+':'+mode
     const [chars,setChars]=React.useState(value.welcomeCharacters),[playing,setPlaying]=React.useState(false),[error,setError]=React.useState(''),[asset,setAsset]=React.useState(null),[codeAsset,setCodeAsset]=React.useState(null),[code,setCode]=React.useState(''),[busy,setBusy]=React.useState(false)
-    const seat=React.useRef(null),brand=React.useRef(null),player=React.useRef(null),latest=React.useRef(value),generation=React.useRef(0),drawn=React.useRef(''),assetRef=React.useRef(null),fileInput=React.useRef(null),codeInput=React.useRef(null),codeName=React.useRef('自定义代码开屏'),mounted=React.useRef(false),activeTheme=React.useRef(theme),codeTheme=React.useRef(theme)
+    const seat=React.useRef(null),brand=React.useRef(null),player=React.useRef(null),latest=React.useRef(value),generation=React.useRef(0),drawn=React.useRef(''),assetRef=React.useRef(null),fileInput=React.useRef(null),codeInput=React.useRef(null),codeName=React.useRef('自定义代码开屏'),mounted=React.useRef(false),activeTheme=React.useRef(theme),codeTheme=React.useRef(slot),activeSlot=React.useRef(slot),drafts=React.useRef(new Map())
     activeTheme.current=theme
+    activeSlot.current=slot
+    const editCode=(source,name=codeName.current)=>{drafts.current.set(slot,{source,name,revision:value.welcomeCodeRevision});codeName.current=name;setCode(source)}
+    const [recording,setRecording]=React.useState(false),[recorderKey,setRecorderKey]=React.useState(0),[mediaNames,setMediaNames]=React.useState({}),[showGesture,setShowGesture]=React.useState(value.welcomeCodeInteractive===true),[showTimed,setShowTimed]=React.useState(value.welcomeCodeInteractive!==true),[history,setHistory]=React.useState([])
+    const refreshHistory=()=>codeStore?.list?.().then(items=>{if(mounted.current)setHistory(items||[])}).catch(()=>{})
+    const lightRevision=themeWelcome(value,'light').welcomeMediaRevision,darkRevision=themeWelcome(value,'dark').welcomeMediaRevision
+    React.useEffect(()=>{let live=true;Promise.all(['light','dark'].map(async scheme=>{const revision=scheme==='light'?lightRevision:darkRevision;const saved=await mediaStore?.load(revision);return[scheme,saved?.name||'']})).then(entries=>{if(live)setMediaNames(Object.fromEntries(entries))},()=>{});return()=>{live=false}},[lightRevision,darkRevision])
+    React.useEffect(()=>{setRecording(false);setRecorderKey(key=>key+1)},[theme])
+    React.useEffect(()=>{
+      if(value.welcomeCodeInteractive){let frame=win.requestAnimationFrame(()=>{frame=win.requestAnimationFrame(()=>setShowGesture(true))});return()=>win.cancelAnimationFrame(frame)}
+      setRecording(false);setRecorderKey(key=>key+1)
+      const timer=win.setTimeout(()=>setShowGesture(false),240)
+      return()=>win.clearTimeout(timer)
+    },[value.welcomeCodeInteractive])
+    React.useEffect(()=>{
+      if(!value.welcomeCodeInteractive){let frame=win.requestAnimationFrame(()=>{frame=win.requestAnimationFrame(()=>setShowTimed(true))});return()=>win.cancelAnimationFrame(frame)}
+      const timer=win.setTimeout(()=>setShowTimed(false),240)
+      return()=>win.clearTimeout(timer)
+    },[value.welcomeCodeInteractive])
     latest.current=value
     assetRef.current=asset
     React.useEffect(()=>setChars(value.welcomeCharacters),[value.welcomeCharacters])
@@ -71,7 +133,7 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
         for(const a of player.current.animations||[])a.cancel();player.current=null
       }
     }
-    const signature=()=>[latest.current.welcomeMode,latest.current.welcomeText,latest.current.welcomeDuration,latest.current.welcomeCharacters,latest.current.welcomeMediaFit,latest.current.welcomeMediaDuration,latest.current.welcomeCodeDuration,assetRef.current?.revision,latest.current.welcomeCodeRevision].join('\0')
+    const signature=()=>[latest.current.welcomeMode,latest.current.welcomeText,latest.current.welcomeDuration,latest.current.welcomeCharacters,latest.current.welcomeMediaFit,latest.current.welcomeMediaDuration,latest.current.welcomeCodeDuration,latest.current.welcomeCodeInteractive,assetRef.current?.revision,latest.current.welcomeCodeRevision].join('\0')
     const draw=animated=>{
       stop();const token=generation.current
       try{
@@ -115,7 +177,7 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
     React.useEffect(()=>{
       const timer=win.setTimeout(()=>{if(drawn.current!==signature())draw(false)},220)
       return()=>win.clearTimeout(timer)
-    },[value.welcomeMode,value.welcomeText,value.welcomeDuration,value.welcomeCharacters,value.welcomeMediaFit,value.welcomeMediaDuration,value.welcomeCodeDuration,asset?.revision,codeAsset?.revision])
+    },[value.welcomeMode,value.welcomeText,value.welcomeDuration,value.welcomeCharacters,value.welcomeMediaFit,value.welcomeMediaDuration,value.welcomeCodeDuration,value.welcomeCodeInteractive,asset?.revision,codeAsset?.revision])
     React.useEffect(()=>{
       let live=true
       stop();setPlaying(false);setAsset(null);setError('')
@@ -124,10 +186,12 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
     },[value.welcomeMediaRevision,theme])
     React.useEffect(()=>{
       let live=true
-      if(codeTheme.current!==theme){stop();setPlaying(false);setCodeAsset(null);setCode('');codeTheme.current=theme}
-      codeStore?.load(value.welcomeCodeRevision||(value.welcomeThemes?'':undefined)).then(saved=>{if(live){setCodeAsset(saved||null);setCode(saved?.source||'');codeName.current=saved?.name||'自定义代码开屏'}},()=>{if(live)setError('本机代码开屏存储不可用，可继续编辑但无法保存。')})
+      stop();setPlaying(false);setCodeAsset(null);codeTheme.current=slot
+      const cached=drafts.current.get(slot),keepDraft=cached?.revision===value.welcomeCodeRevision
+      setCode(keepDraft?cached.source:'');codeName.current=keepDraft?cached.name:'自定义代码开屏'
+      codeStore?.load(value.welcomeCodeRevision||'').then(saved=>{if(live){setCodeAsset(saved||null);const current=drafts.current.get(slot),draft=current?.revision===value.welcomeCodeRevision?current:{source:saved?.source||'',name:saved?.name||'自定义代码开屏',revision:value.welcomeCodeRevision};drafts.current.set(slot,draft);setCode(draft.source);codeName.current=draft.name}},()=>{if(live)setError('本机代码开屏存储不可用，可继续编辑但无法保存。')})
       return()=>{live=false}
-    },[value.welcomeCodeRevision,theme])
+    },[value.welcomeCodeRevision,slot])
     React.useEffect(()=>{
       mounted.current=true
       const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
@@ -164,21 +228,42 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
       setBusy(true);setError('');stop();setPlaying(false)
       try{
         const saved=inspectWelcomeCode(code,codeName.current);await codeStore.save(saved)
-        if(mounted.current){if(activeTheme.current===theme)setCodeAsset(saved);onChange({welcomeMode:'code',welcomeCodeRevision:saved.revision,welcomeCodeName:saved.name},theme)}
+        if(mounted.current){
+          drafts.current.set(slot,{source:saved.source,name:saved.name,revision:saved.revision})
+          if(activeSlot.current===slot)setCodeAsset(saved)
+          const modes=themeWelcome(latest.current,theme).welcomeCodeModes
+          onChange({welcomeMode:'code',welcomeCodeModes:{...modes,[mode]:{revision:saved.revision,name:saved.name}}},theme)
+          refreshHistory()
+        }
       }catch(error){if(mounted.current)setError(error.message||'代码保存失败')}
+      finally{if(mounted.current)setBusy(false)}
+    }
+    const activateHistory=async item=>{
+      if(!item||busy)return
+      setBusy(true);setError('');stop();setPlaying(false)
+      try{
+        const saved=await codeStore.activate(item.revision)
+        if(!mounted.current)return
+        const modes=themeWelcome(latest.current,theme).welcomeCodeModes
+        drafts.current.set(`${theme}:timed`,{source:saved.source,name:saved.name,revision:saved.revision})
+        codeName.current=saved.name;setCode(saved.source);setCodeAsset(saved)
+        onChange({welcomeMode:'code',welcomeCodeInteractive:false,welcomeCodeModes:{...modes,timed:{revision:saved.revision,name:saved.name}}},theme)
+        refreshHistory()
+      }catch(error){if(mounted.current)setError(error.message||'本机开屏切换失败')}
       finally{if(mounted.current)setBusy(false)}
     }
     const importCode=async file=>{
       if(!file||busy)return
       setBusy(true);setError('');stop();setPlaying(false)
-      try{const imported=await inspectWelcomeCodeFile(file);if(mounted.current){setCode(imported.source);codeName.current=imported.name}}
+      try{const imported=await inspectWelcomeCodeFile(file);if(mounted.current){drafts.current.set(slot,{source:imported.source,name:imported.name,revision:value.welcomeCodeRevision});if(activeSlot.current===slot){setCode(imported.source);codeName.current=imported.name}}}
       catch(error){if(mounted.current)setError(error.message||'代码读取失败')}
       finally{if(mounted.current)setBusy(false)}
     }
     const mediaMode=value.welcomeMode==='media',codeMode=value.welcomeMode==='code',characterMode=value.welcomeMode==='characters'
     return h('section',{className:'dcb-settings-block dcb-settings-card','data-dcb-settings-block':'welcome'},
-      h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'开屏欢迎'),h('p',null,'默认字符 Logo，也可用代码文件、动图或视频制作自己的开屏'))),
-      h('div',{className:'dcb-settings-row'},h('div',{className:'dcb-settings-copy'},h('span',{className:'dcb-settings-row-title'},'开屏欢迎动效',h('span',{className:'dcb-cost-tag'},'仅启动或预览时运行')),h('p',{className:'dcb-settings-row-desc'},'播放完成后淡出进入聊天；关闭后直接展示原生界面。')),
+      h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'开屏欢迎'),h('p',null,'启动或刷新时播放开屏；可使用默认字符 Logo、自定义代码、动图或视频。'))),
+      themeAssignments(h,{scope:'开屏欢迎',theme,onThemeChange,items:Object.fromEntries(['light','dark'].map(scheme=>{const item=themeWelcome(value,scheme),configured=item.welcomeMode==='characters'||!!(item.welcomeMode==='media'?item.welcomeMediaRevision:item.welcomeCodeRevision);return[scheme,{name:item.welcomeMode==='characters'?'Logo 字符填充':item.welcomeMode==='media'?mediaNames[scheme]||'动图 / 短视频 · 尚未选择素材':item.welcomeCodeName||'自定义代码 · 尚未应用',configured,enabled:item.welcomeEnabled&&configured}]}))}),
+      h('div',{className:'dcb-settings-row'},h('div',{className:'dcb-settings-copy'},h('span',{className:'dcb-settings-row-title'},'开屏欢迎动效',h('span',{className:'dcb-cost-tag'},'仅启动或预览时运行')),h('p',{className:'dcb-settings-row-desc'},'播放完成后进入聊天；交互式开屏会等待操作，也可随时跳过。关闭后直接展示原生界面。')),
         h('button',{type:'button',role:'switch',className:'dcb-switch','aria-label':'开屏欢迎动效','aria-checked':value.welcomeEnabled,onClick:()=>onChange({welcomeEnabled:!value.welcomeEnabled})})),
       choices('开屏类型',[['characters','默认 · Logo 字符填充'],['code','自定义代码'],['media','动图 / 短视频']],value.welcomeMode,welcomeMode=>{stop();setPlaying(false);onChange({welcomeMode})}),
       h('div',{className:'dcb-welcome-collapse','data-open':characterMode,'aria-hidden':!characterMode,inert:!characterMode},h('div',null,
@@ -187,14 +272,43 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
       h('div',{className:'dcb-settings-section-title',style:{marginTop:'14px'}},'填充速度'),
       choices('填充速度',speeds.map(([duration,label])=>[duration,`${label} · ${(duration/1000).toFixed(1)} 秒`]),value.welcomeDuration,welcomeDuration=>onChange({welcomeDuration})))),
       h('div',{className:'dcb-welcome-collapse','data-open':codeMode,'aria-hidden':!codeMode,inert:!codeMode},h('div',null,
-        h('div',{className:'dcb-welcome-code-editor'},h('strong',null,'单文件代码开屏'),
-          h('p',null,codeAsset?`已保存：${codeAsset.name} · ${(codeAsset.size/1024).toFixed(1)} KB`:'尚未保存代码开屏'),
-          h('p',null,'像 HTML 自定义背景一样，可粘贴 HTML / CSS / JavaScript，或导入 .html、.css、.js 文件。图片、字体与库需内嵌；不加载外部网址或相邻文件。'),
-          h('textarea',{'aria-label':'开屏动画代码',value:code,spellCheck:false,onChange:event=>setCode(event.target.value)}),
+        h('div',{className:'dcb-welcome-code-behavior'},
+          h('div',{className:'dcb-settings-section-title'},'代码结束方式'),
+          choices('代码结束方式',[[false,'定时结束'],[true,'交互完成后结束']],value.welcomeCodeInteractive,welcomeCodeInteractive=>onChange({welcomeCodeInteractive})),
+          h('p',{role:'status'},value.welcomeCodeInteractive?'等待交互完成，不按秒数退出；可点“跳过”或按 Esc 进入聊天。':'代码提前完成可主动结束，否则按最长播放时长退场。'),
+          h('div',{className:'dcb-welcome-collapse','data-open':!value.welcomeCodeInteractive,'aria-hidden':value.welcomeCodeInteractive,inert:value.welcomeCodeInteractive},h('div',null,
+            h('div',{className:'dcb-settings-section-title'},'代码最长播放时长'),
+            choices('代码最长播放时长',[[3000,'3 秒'],[5000,'5 秒'],[10000,'10 秒'],[15000,'15 秒']],value.welcomeCodeDuration,welcomeCodeDuration=>onChange({welcomeCodeDuration}))
+          ))
+        ),
+        h('div',{className:'dcb-welcome-code-editor'},
+          h('p',{className:'dcb-settings-footnote',role:'status'},`当前编辑：${mode==='interactive'?'交互':'定时'}代码。两种模式独立保存，切换时保留各自草稿；点击应用后持久保存。`),
+          h('div',{className:'dcb-welcome-code-heading'},h('strong',null,'单文件代码开屏'),h('small',null,codeAsset?`已保存：${codeAsset.name} · ${(codeAsset.size/1024).toFixed(1)} KB`:'尚未保存代码开屏')),
+          h('p',null,'可粘贴 HTML / CSS / JavaScript，或导入 .html、.css、.js 文件。图片、字体与库需内嵌，不加载外部网址或相邻文件。'),
+          h('textarea',{'aria-label':'开屏动画代码',value:codeTheme.current===slot?code:'',spellCheck:false,onChange:event=>editCode(event.target.value)}),
+          h('section',{className:'dcb-welcome-history','aria-label':'本机开屏历史'},
+            h('div',{className:'dcb-welcome-history-heading'},h('strong',null,'本机开屏历史'),h('small',null,'仅保存在本机 · 点击即可切换')),
+            history.length?h('div',{className:'dcb-welcome-history-list'},history.map(item=>{
+              return h('button',{key:item.revision,type:'button',className:'dcb-welcome-history-item','data-selected':value.welcomeCodeRevision===item.revision,disabled:busy,'aria-label':`使用本机开屏：${item.name}`,onClick:()=>activateHistory(item)},
+                h('span',{className:'dcb-welcome-history-icon','aria-hidden':true},h('span',{style:{fontSize:'20px'}},'◌')),
+                h('span',{className:'dcb-welcome-history-copy'},h('span',{className:'dcb-welcome-history-name'},item.name),h('span',{className:'dcb-welcome-history-meta'},item.localOnly?'本机预设 · 快速切换':'本机保存 · 当前代码')))
+            })):h('p',{className:'dcb-welcome-history-empty'},'保存过的代码开屏会出现在这里；点击即可快速切换。')),
           h('input',{ref:codeInput,type:'file',hidden:true,accept:'.html,.htm,.css,.js','aria-label':'导入开屏代码文件',onChange:event=>{const file=event.target.files?.[0];event.target.value='';importCode(file)}}),
-          h('div',{className:'dcb-welcome-upload-actions'},h('button',{type:'button',className:'dcb-welcome-play',disabled:busy,onClick:()=>codeInput.current?.click()},'导入代码文件'),h('button',{type:'button',className:'dcb-welcome-play',disabled:busy,onClick:()=>{stop();setPlaying(false);setCode(welcomeCodeExample);codeName.current='Harness 代码示例'}},'载入代码示例'),h('button',{type:'button',className:'dcb-welcome-play',disabled:busy||!code.trim(),onClick:applyCode},busy?'保存中…':'应用代码开屏')),
-          h('p',null,'按当前窗口尺寸显示。结束时可调用 window.dshWelcomeDone()；没有调用时按最长时长退场。代码仅保存在本机，切换开屏类型仍保留。')),
-        h('div',{className:'dcb-settings-section-title'},'代码最长播放时长'),choices('代码最长播放时长',[[3000,'3 秒'],[5000,'5 秒'],[10000,'10 秒'],[15000,'15 秒']],value.welcomeCodeDuration,welcomeCodeDuration=>onChange({welcomeCodeDuration})))),
+          h('div',{className:'dcb-welcome-code-actions'},
+            h('button',{type:'button',className:'dcb-welcome-play',disabled:busy,onClick:()=>codeInput.current?.click()},'导入代码文件'),
+            h('button',{type:'button',className:'dcb-welcome-play',disabled:busy,onClick:()=>{stop();setPlaying(false);editCode(welcomeCodeExample,'Harness 代码示例')}},'载入代码示例'),
+            showGesture&&h('div',{className:'dcb-welcome-example-action','data-open':value.welcomeCodeInteractive,'aria-hidden':!value.welcomeCodeInteractive,inert:!value.welcomeCodeInteractive},h('div',null,
+              h('button',{type:'button',className:'dcb-welcome-play',disabled:busy,onClick:()=>{setRecording(open=>!open);setRecorderKey(key=>key+1)}},recording?'收起手势示例':'手势开屏示例')
+            )),
+            h('button',{type:'button',className:'dcb-welcome-play dcb-welcome-apply',disabled:busy||codeTheme.current!==slot||!code.trim(),onClick:applyCode},busy?'保存中…':'应用代码开屏')
+          ),
+          h('div',{className:'dcb-welcome-collapse dcb-welcome-gesture-example','data-open':showGesture&&value.welcomeCodeInteractive,hidden:!value.welcomeCodeInteractive&&!showGesture,'aria-hidden':!showGesture||!value.welcomeCodeInteractive,inert:!showGesture||!value.welcomeCodeInteractive},h('div',null,
+            h('p',null,'手势开屏是交互示例，也可以编写或导入其他交互开屏。示例需连接至少 4 个点并重复确认，生成后点击“应用代码开屏”；它可随时跳过，不是安全锁。'),
+            h('div',{className:'dcb-welcome-collapse','data-open':recording,'aria-hidden':!recording,inert:!recording},h('div',null,h(GestureRecorder,{key:recorderKey,onPattern:pattern=>{editCode(welcomeGestureDocument(pattern),'九宫格手势开屏（示例）');setRecording(false)}})))
+          )),
+          h('p',{className:'dcb-settings-footnote'},'代码可通过 window.dshWelcomeDone() 结束，支持 data-theme 和 --dsh-welcome-background / --dsh-welcome-foreground 主题变量。代码仅保存在本机。')
+        )
+      )),
       h('div',{className:'dcb-welcome-collapse','data-open':mediaMode,'aria-hidden':!mediaMode,inert:!mediaMode},h('div',null,
         h('div',{className:'dcb-welcome-upload'},h('span',{className:'dcb-cost-tag','data-cost':'high'},'视频 / 动图较高开销'),
           h('p',{className:'dcb-welcome-file-name'},asset?`${asset.name} · ${(asset.size/1024/1024).toFixed(1)} MB · ${asset.width} × ${asset.height}${asset.kind==='video'?` · ${asset.duration.toFixed(1)} 秒`:''}`:'尚未选择素材'),
@@ -206,7 +320,7 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
         h('div',{className:'dcb-settings-section-title'},'动图显示时长'),choices('动图显示时长',[[2000,'2 秒'],[3000,'3 秒'],[5000,'5 秒']],value.welcomeMediaDuration,welcomeMediaDuration=>onChange({welcomeMediaDuration})),
         h('p',null,'短视频静音播放一次后进入主界面；动图按所选时长退场。文件只保存在本机，可随时移除。'))),
       h('div',{className:'dcb-motion-preview-head'},h('small',null,'局部预览'),h('button',{type:'button',className:'dcb-welcome-play',onClick:()=>{if(codeMode&&playing){stop();setPlaying(false);const note=doc.createElement('p');note.textContent='预览已停止';seat.current.replaceChildren(note)}else draw(true)}},codeMode&&playing?'停止代码预览':playing?'重新播放欢迎预览':'播放欢迎预览')),
-      h('div',{className:'dcb-welcome-demo','data-mode':value.welcomeMode,role:'img','aria-label':codeMode?'自定义代码开屏预览':mediaMode?'自定义素材开屏预览':'鲸鱼 Logo 字符开屏预览'},
+      h('div',{className:'dcb-welcome-demo','data-mode':value.welcomeMode,'data-interactive':codeMode&&value.welcomeCodeInteractive,role:codeMode&&value.welcomeCodeInteractive?'group':'img','aria-label':codeMode?'自定义代码开屏预览':mediaMode?'自定义素材开屏预览':'鲸鱼 Logo 字符开屏预览'},
         h('div',{className:'dcb-welcome-preview-brand',ref:brand,'data-shown':false,'aria-hidden':true},FishLogo&&h(FishLogo,{size:64})),h('div',{className:'dcb-welcome-demo-content',ref:seat})),
       h('p',{role:error?'alert':'status'},error||'选项自动保存；代码需点击应用。下次刷新或启动生效，预览不打断当前聊天。'))
   }

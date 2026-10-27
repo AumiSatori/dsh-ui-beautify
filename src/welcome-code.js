@@ -14,8 +14,9 @@ p{opacity:.55;letter-spacing:.3em;font-size:clamp(11px,1.4vw,20px)}
 </style><main><p>WELCOME BACK</p><h1>HARNESS</h1><div class="line"></div><p>YOUR IDEAS, IN MOTION</p></main>
 <script>setTimeout(()=>window.dshWelcomeDone?.(),2400)</script>`
 
-export function welcomeCodeDocument(source){
-  return `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none"><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}*{box-sizing:border-box}</style><script>window.dshWelcomeDone=()=>parent.postMessage({type:'dcb-welcome-done'},'*');addEventListener('error',()=>parent.postMessage({type:'dcb-welcome-error'},'*'));addEventListener('unhandledrejection',()=>parent.postMessage({type:'dcb-welcome-error'},'*'))</script>${source}`
+export function welcomeCodeDocument(source,theme='light'){
+  const dark=theme==='dark'
+  return `<!doctype html><html data-theme="${dark?'dark':'light'}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none"><style>:root{color-scheme:${dark?'dark':'light'};--dsh-welcome-background:${dark?'#1b1b1d':'#fafbfc'};--dsh-welcome-foreground:${dark?'#ededf0':'#202124'}}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:var(--dsh-welcome-foreground)}*{box-sizing:border-box}</style><script>window.dshWelcomeDone=()=>parent.postMessage({type:'dcb-welcome-done'},'*');addEventListener('keydown',e=>{if(e.key==='Escape')parent.postMessage({type:'dcb-welcome-skip'},'*')});addEventListener('error',()=>parent.postMessage({type:'dcb-welcome-error'},'*'));addEventListener('unhandledrejection',()=>parent.postMessage({type:'dcb-welcome-error'},'*'))</script>${source}`
 }
 
 export function createWelcomeCodeStore(win,{references=()=>[]}={}){
@@ -46,6 +47,25 @@ export function createWelcomeCodeStore(win,{references=()=>[]}={}){
     })
   }
   return{
+    async list(){
+      const values=await run('readonly',store=>store.getAll())
+      const seen=new Set()
+      return (Array.isArray(values)?values:[]).filter(item=>item?.source&&item?.revision).map(item=>({...item,localOnly:item.localOnly===true})).sort((a,b)=>{
+        if(a.localOnly!==b.localOnly)return a.localOnly?-1:1
+        return Number(b.savedAt||0)-Number(a.savedAt||0)
+      }).filter(item=>{if(seen.has(item.source))return false;seen.add(item.source);return true})
+    },
+    async activate(revision){
+      const key=String(revision||'').slice(0,100)
+      if(!key)throw Error('本机开屏记录无效')
+      const asset=await run('readwrite',store=>{
+        const current=store.get('asset:'+key)
+        current.onsuccess=()=>{if(!current.result?.source){try{store.transaction.abort()}catch{};return}store.put({revision:key},KEY)}
+        return current
+      })
+      if(!asset?.source)throw Error('找不到这份本机开屏记录')
+      return asset
+    },
     async load(revision){
       if(revision==='')return null
       if(revision){const asset=await run('readonly',store=>store.get('asset:'+revision));if(asset)return asset}
@@ -57,9 +77,16 @@ export function createWelcomeCodeStore(win,{references=()=>[]}={}){
       const old=store.get(KEY)
       old.onsuccess=()=>{
         if(old.result?.source&&old.result.revision)store.put(old.result,'asset:'+old.result.revision)
+        const next={...asset,savedAt:Date.now()}
+        store.put(next,'asset:'+asset.revision);store.put({revision:asset.revision},KEY)
         const keep=new Set([...references(),old.result?.revision,asset.revision])
-        const keys=store.getAllKeys();keys.onsuccess=()=>{for(const key of keys.result)if(typeof key==='string'&&key.startsWith('asset:')&&!keep.has(key.slice(6)))store.delete(key)}
-        store.put(asset,'asset:'+asset.revision);store.put({revision:asset.revision},KEY)
+        const all=store.getAll(),keys=store.getAllKeys()
+        all.onsuccess=()=>{
+          const recent=all.result.filter(item=>item?.source&&item?.revision).sort((a,b)=>Number(b.savedAt||0)-Number(a.savedAt||0)).slice(0,12)
+          for(const item of recent)keep.add(item.revision)
+          for(const item of all.result)if(item?.localOnly&&item.revision)keep.add(item.revision)
+          keys.onsuccess=()=>{for(const key of keys.result)if(typeof key==='string'&&key.startsWith('asset:')&&!keep.has(key.slice(6)))store.delete(key)}
+        }
       }
       return old
     }),
@@ -92,16 +119,16 @@ export async function inspectWelcomeCodeFile(file){
 
 // The code can call window.dshWelcomeDone() when its own animation is ready
 // to leave. A bounded fallback keeps a forgotten demo from blocking DSH.
-export function createWelcomeCodePlayer(doc,win,asset,settings,{autoplay=true,onReady=()=>{},onComplete=()=>{},onError=()=>{}}={}){
-  const wrapper=doc.createElement('div');wrapper.setAttribute('data-dcb-welcome-code','')
-  const frame=doc.createElement('iframe');frame.title='自定义代码开屏';frame.setAttribute('sandbox','allow-scripts');frame.setAttribute('referrerpolicy','no-referrer');frame.tabIndex=-1
+export function createWelcomeCodePlayer(doc,win,asset,settings,{autoplay=true,onReady=()=>{},onComplete=()=>{},onSkip=onComplete,onError=()=>{}}={}){
+  const wrapper=doc.createElement('div');wrapper.setAttribute('data-dcb-welcome-code','');wrapper.dataset.interactive=String(settings?.welcomeCodeInteractive===true)
+  const frame=doc.createElement('iframe');frame.title='自定义代码开屏';frame.setAttribute('sandbox','allow-scripts');frame.setAttribute('referrerpolicy','no-referrer');frame.tabIndex=settings?.welcomeCodeInteractive?0:-1
   let disposed=false,ended=false,ready=false,timer=0
   const finish=()=>{if(disposed||ended)return;ended=true;win.clearTimeout(timer);onComplete()}
   const fail=()=>{if(disposed||ended)return;ended=true;win.clearTimeout(timer);onError(Error('代码开屏无法运行'))}
-  const message=event=>{if(event.source!==frame.contentWindow)return;if(event.data?.type==='dcb-welcome-done')finish();else if(event.data?.type==='dcb-welcome-error')fail()}
-  const loaded=()=>{if(disposed||ended||ready)return;ready=true;win.clearTimeout(timer);onReady();const duration=Number.isFinite(settings?.welcomeCodeDuration)?settings.welcomeCodeDuration:3000;timer=win.setTimeout(finish,Math.min(15000,Math.max(1000,duration)))}
+  const message=event=>{if(disposed||ended||event.source!==frame.contentWindow)return;if(event.data?.type==='dcb-welcome-done')finish();else if(event.data?.type==='dcb-welcome-skip'){ended=true;win.clearTimeout(timer);onSkip()}else if(event.data?.type==='dcb-welcome-error')fail()}
+  const loaded=()=>{if(disposed||ended||ready)return;ready=true;win.clearTimeout(timer);onReady();if(settings?.welcomeCodeInteractive)return;const duration=Number.isFinite(settings?.welcomeCodeDuration)?settings.welcomeCodeDuration:3000;timer=win.setTimeout(finish,Math.min(15000,Math.max(1000,duration)))}
   frame.addEventListener('load',loaded);frame.addEventListener('error',fail);win.addEventListener('message',message)
   wrapper.append(frame)
-  if(autoplay){timer=win.setTimeout(fail,1500);try{frame.srcdoc=welcomeCodeDocument(asset?.source||'')}catch{fail()}}
+  if(autoplay){timer=win.setTimeout(fail,1500);try{frame.srcdoc=welcomeCodeDocument(asset?.source||'',doc.body.hasAttribute('data-ds-dark-theme')?'dark':'light')}catch{fail()}}
   return{node:wrapper,frame,dispose(){if(disposed)return;disposed=true;win.clearTimeout(timer);frame.removeEventListener('load',loaded);frame.removeEventListener('error',fail);win.removeEventListener('message',message);frame.srcdoc='about:blank';frame.remove()}}
 }

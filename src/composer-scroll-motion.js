@@ -90,7 +90,17 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
    if(event.key!=='Enter'||event.shiftKey||event.altKey||event.ctrlKey||event.metaKey||event.isComposing||event.repeat||!event.target.closest('[data-composer-input],textarea,[contenteditable="true"]'))return
   }else{const button=event.target.closest('button');if(!button||button.disabled||!(/发送|send/i.test(button.getAttribute('aria-label')||button.title||'')))return}
   const owner=target.closest('[data-conversation-content]'),scroll=owner?.querySelector('[data-conversation-scroll]'),flow=owner?.querySelector(FLOW)
-  if(!scroll||!flow||Math.abs(scroll.scrollHeight-scroll.clientHeight-scroll.scrollTop)>48)return
+  if(!scroll||!flow||scroll.scrollHeight<=scroll.clientHeight+1)return
+  const viewport=scroll.getBoundingClientRect(),composerBox=target.getBoundingClientRect(),availableHeight=Math.max(0,Math.min(viewport.bottom,composerBox.top)-viewport.top)
+  // A short conversation can still have a few scrollable pixels because the
+  // composer seat contributes to the scrollport. If the chat flow itself ends
+  // above the composer, Enter only collapses the input and must remain native;
+  // compensating that layout change is the visible wobble in short chats.
+  if(flow.scrollHeight<=availableHeight+1)return
+  // When the transcript fits entirely above the composer there is no native
+  // tail jump to smooth. Starting a paint compensation in this case makes a
+  // short conversation visibly wobble when the composer collapses after Enter.
+  if(Math.abs(scroll.scrollHeight-scroll.clientHeight-scroll.scrollTop)>48)return
   size.disconnect()
   const composer=target.querySelector('[data-composer-card],[data-input-scroll]')||target
   intent={owner,scroll,flow,composer,top:scroll.scrollTop,session:owner.getAttribute('data-conversation-session')||'',until:now()+1900,layoutAt:0,flowHeight:flow.getBoundingClientRect().height,seatHeight:target.getBoundingClientRect().height,composerHeight:composer.getBoundingClientRect().height}

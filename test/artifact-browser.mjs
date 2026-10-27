@@ -16,7 +16,7 @@ const nativeHeader=nativeHeaderFixture()
 const fixture=await build({stdin:{contents:`import React from 'react';import * as jsxRuntime from 'react/jsx-runtime';import {createRoot} from 'react-dom/client';import {createPortal,flushSync} from 'react-dom'; import './test/fixture.jsx'; window.fixtureCreatePortal=createPortal;${nativeHeader?.fixture||''}`,resolveDir:project},bundle:true,write:false,format:'iife'})
 const html=`<!doctype html><html><head><style>body{margin:0;font:30px system-ui;background:#f0efec;color:#242424}header{height:250px;padding:60px;background:linear-gradient(135deg,#f2c171,#6861b0);color:white}h1{font-size:54px;margin:0 0 14px}section{padding:30px 60px;display:flex;gap:25px}.shape{width:100px;height:100px;background:#fff4a2;border-radius:50%}.shape+div{background:#fff;border-radius:0}</style></head><body><header><h1>Artifact Preview</h1><p>Independent output beside the chat</p></header><section><div class="shape"></div><div class="shape"></div></section><script>parent.postMessage('artifact-cover-script-ran','*')</script></body></html>`
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=','base64')
-const files=[{path:'outputs/Preview page.html',description:'页面演示'},{path:'outputs/report.md'},{path:'outputs/query.sql'},{path:'outputs/result.json'},{path:'outputs/data.csv'},{path:'outputs/frame.png'},{path:'outputs/archive.zip'}]
+const files=[{path:'outputs/Preview page.html',description:'页面演示'},{path:'outputs/report.md'},{path:'outputs/query.sql'},{path:'outputs/result.json'},{path:'outputs/data.csv'},{path:'outputs/frame.png'},{path:'outputs/demo.mp4'},{path:'outputs/archive.zip'}]
 const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'))],'/fixture.js':['text/javascript',fixture.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'))]}
 if(process.env.DSH_ARTIFACT_CLIENT)routes['/artifact.js']=['text/javascript',readFileSync(process.env.DSH_ARTIFACT_CLIENT)]
 const server=createServer((req,res)=>{
@@ -77,7 +77,7 @@ async function boot({companion=false,noPortal=false,native=false,missingSessionH
   await page.evaluate(missingSessionHook=>window.mountNativeHeader({missingSessionHook}),missingSessionHook)
   if(!await page.getByRole('button',{name:'会话进度与输出',exact:true}).count())throw new Error('Native header fixture failed: '+errors.join('; '))
  }
- if(enabled){await page.getByRole('button',{name:'会话进度与输出',exact:true}).click();await settled()}
+  if(enabled){const entry=page.getByRole('button',{name:'会话进度与输出',exact:true});if(await entry.getAttribute('aria-expanded')!=='true'){await entry.click();await settled()}}
 }
 async function clickOutput(path){const entry=page.getByRole('button',{name:'会话进度与输出',exact:true});if(await entry.getAttribute('aria-expanded')!=='true'){await entry.click();await settled()}await card.locator('.dcb-output').filter({hasText:path.split(/[/\\]/).at(-1).replace(/\.[^.]+$/,'')}).click();await settled()}
 async function patch(value){await page.evaluate(value=>{const key='dsh-ui-beautify:settings:v1',next=JSON.stringify({...JSON.parse(localStorage.getItem(key)||'{}'),...value});localStorage.setItem(key,next);dispatchEvent(new StorageEvent('storage',{key,newValue:next}))},value);await settled()}
@@ -106,6 +106,20 @@ try{
   assert.equal(await card.locator('.dcb-output').count(),files.length)
   assert.equal(await page.evaluate(()=>typeof window.__dshOpenFilePreview),'undefined')
   assert.equal(await page.evaluate(()=>window.coverScripts),0)
+ })
+ await check('output rows and Artifact cards share the styled file context menu',async()=>{
+  await boot()
+  await card.locator('.dcb-output').filter({hasText:'report'}).click({button:'right'})
+  const menu=page.getByRole('menu',{name:'report.md 文件操作',exact:true})
+  await menu.waitFor()
+  assert.deepEqual(await menu.locator('button > span:last-child').allTextContents(),['打开','复制路径','打开文件位置','重命名','删除','属性'])
+  await page.keyboard.press('Escape');await menu.waitFor({state:'hidden'})
+  const artifact=card.locator('.dcb-artifact[data-preview-state=ready]').first().locator('.dcb-artifact-open')
+  await artifact.click({button:'right'})
+  const artifactMenu=page.locator('.dcb-file-context-menu').last()
+  await artifactMenu.waitFor();await artifactMenu.getByRole('menuitem',{name:'属性',exact:true}).click()
+  await page.locator('.dcb-file-context-status').filter({hasText:'D:/synthetic/a/outputs/Preview page.html'}).waitFor()
+  await page.keyboard.press('Escape');await artifactMenu.waitFor({state:'hidden'})
  })
  await check('one visual output uses one column; multiple image and HTML covers use two while attachments span the row',async()=>{
   const grid=card.locator('.dcb-output-grid')
@@ -175,6 +189,7 @@ try{
    if(path.endsWith('.json'))assert.match(await viewer.locator('pre').innerText(),/"preview": true/)
    if(path.endsWith('.sql'))assert.match(await viewer.locator('pre').innerText(),/select 1/)
    if(path.endsWith('.png'))await viewer.locator('img').evaluate(el=>el.decode())
+    if(path.endsWith('.mp4'))assert.equal(await viewer.locator('video[controls]').count(),1)
    if(path.endsWith('.html')){
     await viewer.frameLocator('iframe').getByRole('heading',{name:'Artifact Preview'}).waitFor()
     await viewer.screenshot({path:resolve(output,'viewer-html.png')})

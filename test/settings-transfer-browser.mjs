@@ -25,7 +25,7 @@ async function boot(target=page){
  },KEY)
  await target.addScriptTag({url:url+'client.js'})
  await target.evaluate(()=>{const ctx={slots:{inject(_n,cb){cb()},register(s,c){if(s.name==='settings.section')window.fixtureSettings=c;else{window.fixtureHeader=c;window.fixtureHeaderSpec=s}return()=>{}}},sessions:{binding:id=>window.fixtureBinding(id)},sidebarRight:{openResource(){}},effect(cb){window.cleanups.push(cb())},inject(_n,cb){cb(ctx)}};window.plugin.apply(ctx);window.fixture.refresh();window.fixture.settings(true)})
- await target.addStyleTag({content:'.settings-dialog{inset:20px 7%;padding:20px;overflow:auto}.dcb-settings{min-width:0}'});await target.getByLabel('选择美化配置文件',{exact:true}).waitFor({state:'attached'})
+ await target.addStyleTag({content:'.settings-dialog{inset:20px 7%;padding:20px;overflow:auto}.dcb-settings{min-width:0}'});await target.getByRole('tab',{name:'全局配置',exact:true}).click();await target.getByLabel('选择美化配置文件',{exact:true}).waitFor({state:'attached'})
  await target.addScriptTag({url:url+'helper.js'});await target.evaluate(()=>window.transfer=createTransfer())
 }
 const saved=()=>page.evaluate(KEY=>JSON.parse(localStorage.getItem(KEY)),KEY)
@@ -45,7 +45,7 @@ try{
    await upload().setInputFiles(jsonFile(next));await section().getByRole('button',{name:'应用配置',exact:true}).waitFor();assert.equal((await saved()).width,426)
    await section().getByRole('button',{name:'取消',exact:true}).click();assert.equal((await saved()).width,426)
    await upload().setInputFiles(jsonFile(next));await section().getByRole('button',{name:'应用配置',exact:true}).click();await section().getByText('全局配置已导入并立即生效。',{exact:true}).waitFor();assert.equal((await saved()).width,299);assert.equal((await saved()).unexpected,undefined)
-   await page.evaluate(()=>window.fixture.settings(false));await page.evaluate(()=>window.fixture.settings(true));await section().getByRole('button',{name:'撤销导入',exact:true}).click();assert.deepEqual(await saved(),original)
+   await page.evaluate(()=>window.fixture.settings(false));await page.evaluate(()=>window.fixture.settings(true));await section().getByRole('button',{name:'撤销上次应用',exact:true}).click();assert.deepEqual(await saved(),original)
  })
  await check('invalid, foreign and unsupported files leave settings untouched and provide an error',async()=>{
    for(const value of [{format:'other',version:1,settings:{width:400}},{...config,version:99},{...config,settings:{nonsense:true}}]){await upload().setInputFiles(jsonFile(value));await section().getByRole('alert').waitFor();assert.deepEqual(await saved(),original)}
@@ -72,13 +72,13 @@ try{
      await dest.getByLabel('选择美化配置文件',{exact:true}).setInputFiles({name:'complete.dshui',mimeType:'application/octet-stream',buffer:backup});await dest.getByRole('button',{name:'应用配置',exact:true}).click();await dest.getByText('已导入配置与素材；刷新界面后加载素材。',{exact:true}).waitFor()
      assert.deepEqual(await dest.evaluate(KEY=>JSON.parse(localStorage.getItem(KEY)),KEY),original)
      const recovered=await dest.evaluate(async()=>{const db=await new Promise(resolve=>{const r=indexedDB.open('dsh-ui-beautify-welcome');r.onsuccess=()=>resolve(r.result)});const item=await new Promise(resolve=>{const r=db.transaction('media').objectStore('media').get('example');r.onsuccess=()=>resolve(r.result)});db.close();return item.blob.text()});assert.match(recovered,/synthetic bytes dsh-ui-beautify-welcome media/)
-     await dest.getByRole('button',{name:'撤销导入',exact:true}).click();await dest.getByText('已撤销导入；刷新界面后重新加载素材。',{exact:true}).waitFor()
+     await dest.getByRole('button',{name:'撤销上次应用',exact:true}).click();await dest.getByText('已撤销上次应用；刷新界面后重新加载素材。',{exact:true}).waitFor()
      assert.equal(await dest.evaluate(async()=>{const db=await new Promise(resolve=>{const r=indexedDB.open('dsh-ui-beautify-welcome');r.onsuccess=()=>resolve(r.result)});const count=await new Promise(resolve=>{const r=db.transaction('media').objectStore('media').count();r.onsuccess=()=>resolve(r.result)});db.close();return count}),0)
    }finally{await fresh.close()}
    await page.evaluate(async()=>{const db=await new Promise(resolve=>{const r=indexedDB.open('dsh-ui-beautify-background');r.onsuccess=()=>resolve(r.result)});await new Promise(resolve=>{const tx=db.transaction('wallpaper','readwrite');tx.objectStore('wallpaper').put({schema:2,currentId:'other',recent:[{revision:'other',name:'原来的背景'}]},'selection');tx.oncomplete=resolve});db.close()})
    await upload().setInputFiles({name:'complete.dshui',mimeType:'application/octet-stream',buffer:backup});await section().getByRole('button',{name:'应用配置',exact:true}).click();await section().getByText('已导入配置与素材；刷新界面后加载素材。',{exact:true}).waitFor()
    const gallery=await page.evaluate(async()=>{const db=await new Promise(resolve=>{const r=indexedDB.open('dsh-ui-beautify-background');r.onsuccess=()=>resolve(r.result)});const item=await new Promise(resolve=>{const r=db.transaction('wallpaper').objectStore('wallpaper').get('selection');r.onsuccess=()=>resolve(r.result)});db.close();return item.recent.map(item=>item.revision)});assert.deepEqual(gallery,['example','other'])
-   await section().getByRole('button',{name:'撤销导入',exact:true}).click()
+   await section().getByRole('button',{name:'撤销上次应用',exact:true}).click()
  })
  await check('corrupt binary checksums and foreign database names are rejected before writes',async()=>{
    const damaged=Buffer.from(backup);damaged[damaged.length-1]^=1;await upload().setInputFiles({name:'damaged.dshui',mimeType:'application/octet-stream',buffer:damaged});await section().getByRole('alert').waitFor();assert.match(await section().getByRole('alert').innerText(),/校验失败/);assert.deepEqual(await saved(),original)
@@ -89,7 +89,7 @@ try{
    await upload().setInputFiles({name:'complete.dshui',mimeType:'application/octet-stream',buffer:backup});await section().getByRole('button',{name:'应用配置',exact:true}).click();await section().getByRole('alert').waitFor();assert.match(await section().getByRole('alert').innerText(),/已保留/);assert.deepEqual(await saved(),original)
    await page.evaluate(()=>IDBObjectStore.prototype.put=window.realPut)
    await section().getByRole('button',{name:'取消',exact:true}).click()
-   await upload().setInputFiles(jsonFile(config));await section().getByRole('button',{name:'应用配置',exact:true}).click();await section().getByRole('button',{name:'撤销导入',exact:true}).waitFor()
+   await upload().setInputFiles(jsonFile(config));await section().getByRole('button',{name:'应用配置',exact:true}).click();await section().getByRole('button',{name:'撤销上次应用',exact:true}).waitFor()
  })
  await check('the global row works with keyboard and remains readable in light, dark, narrow and forced-color modes',async()=>{
    await page.keyboard.press('Tab');await section().getByRole('button',{name:'导出配置',exact:true}).focus();assert.equal(await section().getByRole('button',{name:'导出配置',exact:true}).evaluate(el=>getComputedStyle(el).outlineStyle),'solid')

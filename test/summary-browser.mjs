@@ -15,7 +15,7 @@ const presentationSettingKeys = [
   'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'detailMotion', 'enabled', 'headerCentered',
   'messageMotion', 'modules', 'particleCount', 'particleDensityVersion', 'particleEnabled', 'particleFull', 'particleImageName', 'particleImageRevision', 'particleManualProgress', 'particleProgressMode', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarOverlay', 'sidebarStyle',
   'skillDetails', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnDividerColor', 'turnDividerCss', 'turnDividerImageRevision', 'turnDividerMotion', 'turnDividerPreset', 'turnGlass', 'userBubbleCss', 'userBubbleStyle', 'welcomeDuration',
-  'welcomeCharacters', 'welcomeCodeDuration', 'welcomeCodeName', 'welcomeCodeRevision', 'welcomeEnabled', 'welcomeFont', 'welcomeLogo', 'welcomeMediaDuration',
+  'welcomeCharacters', 'welcomeCodeDuration', 'welcomeCodeInteractive', 'welcomeCodeModes', 'welcomeCodeName', 'welcomeCodeRevision', 'welcomeEnabled', 'welcomeFont', 'welcomeLogo', 'welcomeMediaDuration',
   'welcomeMediaFit', 'welcomeMediaRevision', 'welcomeMode', 'welcomeText', 'width',
 ].sort()
 mkdirSync(output, { recursive: true })
@@ -316,7 +316,7 @@ try {
     await settled()
     assert.equal(await card.count(), 0)
   })
-  await check('only real plan edits auto-open and require the close button; tools, files and ordinary runs do not', async () => {
+  await check('real plan edits and newly presented files auto-open; the entry icon toggles automatic panels', async () => {
     const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
     const baseline = await page.evaluate(() => window.dropdownReveals.length)
     await page.evaluate(() => window.fixture.running(true))
@@ -324,7 +324,11 @@ try {
     assert.equal(await card.count(), 0, 'Starting a run with existing tasks stays closed')
     await page.evaluate(rows => window.fixture.records(rows), rows)
     await settled()
-    assert.equal(await card.count(), 0, 'Tool calls and delivered files do not auto-open, even with an existing plan')
+    assert.equal(await card.getAttribute('data-state'), 'open', 'A newly presented file auto-opens the panel')
+    assert.equal(await card.getAttribute('data-open-origin'), 'automatic')
+    await entry.click()
+    await card.waitFor({ state: 'detached' })
+    assert.equal(await entry.getAttribute('aria-expanded'), 'false', 'The entry icon closes an automatically opened panel')
     await page.evaluate(() => window.fixture.update([
       { content: '整理需求与界面结构', status: 'completed' },
       { content: '实现右上角任务面板，并保留任务状态的实时更新', status: 'completed' },
@@ -333,7 +337,7 @@ try {
     ]))
     await settled()
     assert.equal(await card.count(), 0, 'Updating only step statuses does not count as arranging a plan')
-    assert.equal(await page.evaluate(() => window.dropdownReveals.length), baseline)
+    assert.equal(await page.evaluate(() => window.dropdownReveals.length), baseline + 1)
     await page.evaluate(() => window.fixture.update([
       { content: '整理新的步骤安排', status: 'completed' },
       { content: '实现计划触发展开', status: 'in_progress' },
@@ -341,7 +345,7 @@ try {
     ]))
     await settled()
     assert.equal(await card.getAttribute('data-state'), 'open')
-    assert.equal(await page.evaluate(() => window.dropdownReveals.length), baseline + 1)
+    assert.equal(await page.evaluate(() => window.dropdownReveals.length), baseline + 2)
     await page.mouse.move(40, 400)
     await page.waitForTimeout(450)
     assert.equal(await card.count(), 1, 'A plan-triggered opening is not dismissed like hover')
@@ -349,10 +353,11 @@ try {
     await settled()
     assert.equal(await card.getAttribute('data-state'), 'open', 'An outside press cannot close an automatically opened plan')
     await entry.click()
-    await page.keyboard.press('Escape')
-    await page.mouse.move(40, 400)
-    await page.waitForTimeout(450)
-    assert.equal(await card.getAttribute('data-state'), 'open', 'Entry presses, Escape and leaving the card cannot close an automatic plan')
+    assert.equal(await entry.getAttribute('aria-expanded'), 'false', 'The entry icon can close an automatically opened plan')
+    await card.waitFor({ state: 'detached' })
+    await entry.click()
+    await settled()
+    assert.equal(await card.getAttribute('data-state'), 'open', 'The entry icon can reopen the panel')
     await card.getByRole('button', { name: '关闭进度面板' }).click()
     await card.waitFor({ state: 'detached' })
     await page.evaluate(() => window.fixture.update([{ content: '本轮再次调整步骤', status: 'pending' }]))
@@ -953,7 +958,9 @@ try {
     assert.equal(await card.count(), 0, 'A run with no real content waits rather than revealing an empty card')
     await page.evaluate(rows => window.fixture.records(rows), rows)
     await settled()
-    assert.equal(await card.count(), 0, 'Tool and output records arriving after the run starts do not auto-open')
+    assert.equal(await card.getAttribute('data-state'), 'open', 'A presented output arriving after the run starts auto-opens the panel')
+    await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
+    await card.waitFor({ state: 'detached' })
     await page.getByRole('button', { name: '会话进度与输出', exact: true }).click()
     await settled()
     assert.equal(await card.getByTestId('dcb-progress').count(), 0)
@@ -2529,7 +2536,7 @@ try {
     }
     await page.emulateMedia({ reducedMotion: 'no-preference' })
   })
-  await check('automatic plans keep their close-button requirement across completion and session switches without changing manual dismissal', async () => {
+  await check('automatic plans allow entry toggling across completion and session switches without changing manual dismissal', async () => {
     await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'none' })
     await page.evaluate(() => localStorage.removeItem('dsh-ui-beautify:settings:v1'))
     await page.reload()
@@ -2561,34 +2568,18 @@ try {
     await expectAutomatic('Returning to the original session restores its automatic opening')
     await outside.click()
     await entry.click()
-    await page.keyboard.press('Escape')
-    await page.mouse.move(40, 400)
-    await page.waitForTimeout(450)
-    await expectAutomatic('Returning to an automatic panel cannot convert it to ordinary dismissal')
+    await card.waitFor({ state: 'detached' })
+    await entry.click()
+    await settled()
+    assert.equal(await card.getAttribute('data-open-origin'), 'manual', 'The entry icon converts an automatic panel to an ordinary manual toggle')
     await page.evaluate(() => {
       window.fixture.update([{ content: '自动展开并跨会话保留的计划', status: 'completed' }])
       window.fixture.running(false)
     })
     await settled()
-    await outside.click()
-    await page.keyboard.press('Escape')
-    await expectAutomatic('Finishing the task does not silently unlock the automatic panel')
-    await page.evaluate(() => { window.pauseHoverDismissals = true })
+    assert.equal(await card.getAttribute('data-open-origin'), 'manual', 'Finishing the task keeps an explicitly reopened panel manual')
     await close()
-    await page.waitForFunction(() => document.getAnimations().some(animation => animation.id === 'dcb-hover-dismiss'))
-    const exitFrame = await card.evaluate(el => {
-      const animation = el.getAnimations().find(value => value.id === 'dcb-hover-dismiss')
-      animation.currentTime = 90
-      const style = getComputedStyle(el)
-      return { opacity: Number(style.opacity), y: new DOMMatrixReadOnly(style.transform).m42, state: el.dataset.state, hidden: el.getAttribute('aria-hidden') }
-    })
-    assert.ok(exitFrame.opacity > 0 && exitFrame.opacity < 1, 'The automatic close button fades through a real intermediate frame')
-    assert.ok(exitFrame.y < 0, 'The automatic card retracts upward during its close animation')
-    assert.equal(exitFrame.state, 'closing')
-    assert.equal(exitFrame.hidden, 'true')
-    await card.evaluate(el => el.getAnimations().find(animation => animation.id === 'dcb-hover-dismiss').finish())
     await card.waitFor({ state: 'detached' })
-    await page.evaluate(() => { window.pauseHoverDismissals = false })
     await entry.click()
     await settled()
     assert.equal(await card.getAttribute('data-open-origin'), 'manual', 'Reopening after the close button starts an ordinary manual panel')

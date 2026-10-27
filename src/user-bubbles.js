@@ -1,4 +1,5 @@
 import {motion} from './motion.js'
+import {themeAssignments,themeAssignmentsCss} from './theme-assignments.js'
 const NATIVE=':is([data-chat-flow-kind="user"],[data-chat-flow-kind="steering"],[data-submission-echo],[data-pending-steering]) :is([class$="_bubble"],[class*="_bubble "])'
 const PREVIEW='[data-dcb-user-preview]'
 const LIMIT=12000
@@ -177,6 +178,8 @@ export function createUserBubbleSettings(React,win){
   return function UserBubbleSettings({value,onChange}){
     const options=normalizeUserBubbles(value),themes=options.userBubbleThemes
     const [theme,setTheme]=React.useState(()=>win.document.body.hasAttribute('data-ds-dark-theme')?'dark':'light')
+    const [activeTheme,setActiveTheme]=React.useState(()=>win.document.body.hasAttribute('data-ds-dark-theme')?'dark':'light')
+    React.useEffect(()=>{const observer=new win.MutationObserver(()=>setActiveTheme(win.document.body.hasAttribute('data-ds-dark-theme')?'dark':'light'));observer.observe(win.document.body,{attributes:true,attributeFilter:['data-ds-dark-theme']});return()=>observer.disconnect()},[])
     const [drafts,setDrafts]=React.useState(()=>({light:themes.light.css,dark:themes.dark.css})),[saved,setSaved]=React.useState(false)
     React.useEffect(()=>{setDrafts(previous=>({...previous,light:themes.light.css}));setSaved(false)},[themes.light.css])
     React.useEffect(()=>{setDrafts(previous=>({...previous,dark:themes.dark.css}));setSaved(false)},[themes.dark.css])
@@ -187,6 +190,8 @@ export function createUserBubbleSettings(React,win){
     const edit=text=>{setDrafts(previous=>({...previous,[theme]:text}));setSaved(false)}
     const id=React.useId()
     return h('div',{className:'dcb-bubble-settings'},h('h3',null,'用户消息气泡'),h('p',null,'浅色与深色主题分别保存气泡样式、配色和 CSS，切换宿主主题自动应用。原有气泡配置会保留到两种主题。'),
+      h('style',null,themeAssignmentsCss),
+      themeAssignments(h,{scope:'用户消息气泡',theme:activeTheme,editing:theme,editHint:'下方标签只切换编辑与预览；聊天始终使用当前宿主主题对应的气泡。',items:Object.fromEntries(['light','dark'].map(scheme=>[scheme,{name:choices.find(([key])=>key===themes[scheme].style)?.[1]||'默认',configured:true,enabled:true}]))}),
       h('div',{className:'dcb-bubble-themes',role:'tablist','aria-label':'气泡主题'},[['light','浅色主题'],['dark','深色主题']].map(([key,text],index)=>h('button',{key,id:`${id}-${key}`,type:'button',role:'tab','aria-selected':theme===key,'aria-controls':`${id}-panel`,tabIndex:theme===key?0:-1,onClick:()=>{setTheme(key);setSaved(false)},onKeyDown:event=>{
         let next;if(['ArrowRight','ArrowLeft','ArrowUp','ArrowDown'].includes(event.key))next=1-index;else if(event.key==='Home')next=0;else if(event.key==='End')next=1;else return
         event.preventDefault();event.currentTarget.parentElement.children[next].focus();setTheme(next?'dark':'light');setSaved(false)

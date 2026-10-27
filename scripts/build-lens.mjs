@@ -1,5 +1,5 @@
 import {build} from 'esbuild'
-import {readFile} from 'node:fs/promises'
+import {readFile,writeFile} from 'node:fs/promises'
 import {fileURLToPath} from 'node:url'
 import {dirname,extname,resolve} from 'node:path'
 import {composeClientArtifact,validateClientArtifact,assertUnchanged,publishClientArtifact,withClientArtifactLock} from './client-artifact.mjs'
@@ -20,3 +20,7 @@ async function buildArtifact(){
   else{const result=await publishClientArtifact(client,next,{expected:source,snapshots});if(result.changed)console.log(JSON.stringify(result))}
 }
 if(check)await buildArtifact();else await withClientArtifactLock(client,buildArtifact)
+const early=await build({entryPoints:[fileURLToPath(new URL('../src/early-opening-entry.js',import.meta.url))],bundle:true,write:false,format:'iife',minify:true,target:'es2022',legalComments:'inline'})
+const earlyPath=fileURLToPath(new URL('../assets/early-opening.js',import.meta.url)),earlySource=early.outputFiles[0].text
+if(check){if(await readFile(earlyPath,'utf8')!==earlySource)throw Error('Early opening bundle is stale; run npm run build:lens')}
+else await writeFile(earlyPath,earlySource)

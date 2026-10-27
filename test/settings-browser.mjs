@@ -38,7 +38,7 @@ try{
   })
   await page.evaluate(()=>window.fixture.settings(true));await select('任务面板')
   await check('hierarchical accessible categories mount one page and use uniform preview cards in all three material scopes',async()=>{
-    assert.deepEqual(await page.getByRole('tablist',{name:'美化设置分组'}).getByRole('tab').allTextContents(),['组件布局','全局布局','对话布局'])
+    assert.deepEqual(await page.getByRole('tablist',{name:'美化设置分组'}).getByRole('tab').allTextContents(),['组件布局','全局布局','对话布局','全局配置'])
     const geometry=[]
     for(const [name,label]of[['任务面板','卡片样式'],['输入栏','输入栏样式'],['侧栏','侧栏样式']]){
       await select(name);assert.equal(await dialog.locator('[data-dcb-settings-block]').count(),1)
@@ -86,9 +86,9 @@ try{
     await tabs.getByRole('tab',{name:'全局布局',exact:true}).click();await select('开屏欢迎')
     assert.equal(await page.locator('[data-dcb-settings-block=welcome]').count(),1)
     assert.equal(await page.getByRole('tabpanel').count(),1)
-    await tabs.getByRole('tab',{name:'全局布局',exact:true}).press('End');await select('思考动图');await tabs.getByRole('tab',{name:'思考动图',exact:true}).press('End');await select('对话动效')
+    await tabs.getByRole('tab',{name:'全局布局',exact:true}).press('End');await tabs.getByRole('tab',{name:'全局配置',exact:true}).press('ArrowLeft');await select('思考动图');await tabs.getByRole('tab',{name:'思考动图',exact:true}).press('End');await select('对话动效')
     assert.equal(await page.getByRole('tab',{name:'对话动效'}).evaluate(el=>el===document.activeElement),true)
-    await tabs.getByRole('tab',{name:'对话布局',exact:true}).press('Home');await select('任务面板')
+    await tabs.getByRole('tab',{name:'组件布局',exact:true}).press('Home');await select('任务面板')
     assert.equal(await page.getByRole('tab',{name:'任务面板'}).evaluate(el=>el===document.activeElement),true)
   })
   await check('switching categories preserves edited preferences and cancels preview animations',async()=>{
@@ -205,7 +205,7 @@ try{
     assert.deepEqual(await saved(),preferences)
     await page.evaluate(key=>localStorage.setItem(key,'removed-category'),tabKey)
     await page.reload();await mount();await page.evaluate(()=>window.fixture.settings(true))
-    assert.equal(await tabs.getByRole('tab',{name:'对话布局',exact:true}).getAttribute('aria-selected'),'true')
+    assert.equal(await tabs.getByRole('tab',{name:'组件布局',exact:true}).getAttribute('aria-selected'),'true')
   })
   await check('blocked browser storage retains the last category within this window and does not stop settings interactions',async()=>{
     await page.evaluate(()=>localStorage.setItem('dsh-ui-beautify:settings-tab:v1','particles'))

@@ -1,8 +1,9 @@
 // Derive short pen paths from a small, local glyph raster. The final ink is the
 // native font itself, clipped by those paths; no font file or glyph is shipped.
+import {normalizeWelcomeCode} from './welcome-code-modes.js'
 let artId=0
 export const WELCOME_TEXT_LIMIT=32
-export const welcomeDefaults=Object.freeze({welcomeEnabled:true,welcomeText:'Deepseek Harness',welcomeFont:'Lolita',welcomeDuration:1700,welcomeLogo:true,welcomeMode:'characters',welcomeMediaFit:'contain',welcomeWindowScale:true,welcomeMediaDuration:3000,welcomeMediaRevision:'',welcomeCodeDuration:3000,welcomeCodeRevision:'',welcomeCodeName:'',welcomeCharacters:'DEEPSEEK HARNESS <> {} / * + ='})
+export const welcomeDefaults=Object.freeze({welcomeEnabled:true,welcomeText:'Deepseek Harness',welcomeFont:'Lolita',welcomeDuration:1700,welcomeLogo:true,welcomeMode:'characters',welcomeMediaFit:'contain',welcomeWindowScale:true,welcomeMediaDuration:3000,welcomeMediaRevision:'',welcomeCodeDuration:3000,welcomeCodeInteractive:false,welcomeCodeModes:Object.freeze({timed:Object.freeze({revision:'',name:''}),interactive:Object.freeze({revision:'',name:''})}),welcomeCodeRevision:'',welcomeCodeName:'',welcomeCharacters:'DEEPSEEK HARNESS <> {} / * + ='})
 export function normalizeWelcome(value){
   const clean=(text,max,fallback)=>typeof text==='string'?[...text.replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim()].slice(0,max).join('')||fallback:fallback
   return {welcomeEnabled:typeof value?.welcomeEnabled==='boolean'?value.welcomeEnabled:true,
@@ -12,7 +13,7 @@ export function normalizeWelcome(value){
     welcomeWindowScale:value?.welcomeWindowScale!==false,
     welcomeMediaDuration:Number.isFinite(value?.welcomeMediaDuration)?Math.round(Math.min(10000,Math.max(1000,value.welcomeMediaDuration))):3000,
     welcomeMediaRevision:clean(value?.welcomeMediaRevision,80,''),welcomeCodeDuration:Number.isFinite(value?.welcomeCodeDuration)?Math.round(Math.min(15000,Math.max(1000,value.welcomeCodeDuration))):3000,
-    welcomeCodeRevision:clean(value?.welcomeCodeRevision,80,''),welcomeCodeName:clean(value?.welcomeCodeName,160,''),welcomeCharacters:clean(value?.welcomeCharacters,64,welcomeDefaults.welcomeCharacters)}
+    ...normalizeWelcomeCode(value),welcomeCharacters:clean(value?.welcomeCharacters,64,welcomeDefaults.welcomeCharacters)}
 }
 
 // Zhang-Suen thinning, bounded by a 128px glyph and 24 passes. Paths are a

@@ -10,6 +10,7 @@ const DBS=[
   {name:'dsh-ui-beautify-background',version:2,stores:{wallpaper:null,assets:null}},
   {name:'dsh-ui-beautify-welcome',version:1,stores:{media:null}},
   {name:'dsh-ui-beautify-welcome-code',version:1,stores:{opening:null}},
+  {name:'dsh-ui-beautify-hero-logo',version:1,stores:{logo:null}},
   {name:'dsh-ui-context-particles',version:1,stores:{artwork:null}},
   {name:'dsh-ui-beautify-turn-divider',version:1,stores:{art:null}},
   {name:'dsh-ui-beautify-running-packs',version:1,stores:{packs:'id',assets:'key'}},
@@ -23,9 +24,9 @@ const prettySize=size=>size>=1048576?`${(size/1048576).toFixed(1)} MB`:`${Math.c
 async function digest(blob,win){return Array.from(new Uint8Array(await win.crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),byte=>byte.toString(16).padStart(2,'0')).join('')}
 function readJson(storage,key){try{return JSON.parse(storage.getItem(key))}catch{return null}}
 function navigation(value){
-  const pages=['panel','composer','sidebar','welcome','background','particles','running','messages','toolbar']
+  const pages=['panel','hero','composer','sidebar','welcome','background','particles','running','messages','toolbar','config']
   const result={tab:pages.includes(value?.tab)?value.tab:'panel',children:{}}
-  for(const key of ['components','global','conversation'])if(pages.includes(value?.children?.[key]))result.children[key]=value.children[key]
+  for(const key of ['components','global','conversation','config'])if(pages.includes(value?.children?.[key]))result.children[key]=value.children[key]
   return result
 }
 function openDB(win,spec,create=false){
@@ -85,6 +86,7 @@ function validateSettings(value,normalize){
 }
 export function createSettingsTransfer(win,{normalize,getSettings,getWidths,onApply}={}){
   let busy=false,disposed=false,undo=null,needsReload=false
+  const listeners=new Set(),notify=()=>{for(const listener of listeners)listener()}
   async function exclusive(run){if(disposed)throw Error('设置已关闭。');if(busy)throw Error('正在处理配置，请稍候。');busy=true;try{return await run()}finally{busy=false}}
   const cancelled=()=>{if(disposed)throw Error('设置已关闭，未应用配置。')}
   const localSnapshot=()=>[MAIN,WIDTH,...NAV].map(key=>[key,win.localStorage.getItem(key)])
@@ -174,25 +176,26 @@ export function createSettingsTransfer(win,{normalize,getSettings,getWidths,onAp
     });return{spec,records:before}}finally{db.close()}
   }
   async function rollback(groups){for(const group of groups.slice().reverse())if(group.records.length)await writeGroup(group.spec,group.records,{rollback:true})}
-  async function apply(plan){return exclusive(async()=>{
+  async function apply(plan,{preserveNavigation=false}={}){return exclusive(async()=>{
     cancelled();const previous=localSnapshot(),groups=[]
     try{
       for(const group of plan.databases){cancelled();if(group.records.length)groups.push(await writeGroup(group.spec,group.records))}
       cancelled()
       win.localStorage.setItem(WIDTH,JSON.stringify(plan.layout.widths))
-      win.localStorage.setItem(NAV[0],plan.navigation.tab);win.localStorage.setItem(NAV[1],JSON.stringify(plan.navigation.children))
+      if(!preserveNavigation){win.localStorage.setItem(NAV[0],plan.navigation.tab);win.localStorage.setItem(NAV[1],JSON.stringify(plan.navigation.children))}
       win.localStorage.setItem(MAIN,JSON.stringify(normalize(plan.settings)))
       onApply?.(normalize(plan.settings),plan.layout.widths)
     }catch(error){let restored=true;try{await rollback(groups);restoreLocal(previous);onApply?.(normalize(readJson(win.localStorage,MAIN)),widths(readJson(win.localStorage,WIDTH)))}catch{restored=false}throw Error(restored?`${error.message} 已保留导入前配置。`:`${error.message} 未能完全回退，请保留备份文件。`)}
-    undo={previous,groups};needsReload=needsReload||plan.hasAssets&&plan.records>0;return{reload:needsReload}
+    undo={previous,groups};needsReload=needsReload||plan.hasAssets&&plan.records>0;notify();return{reload:needsReload}
   })}
   async function undoImport(){return exclusive(async()=>{
     if(!undo)return
     await rollback(undo.groups);restoreLocal(undo.previous)
     const value=readJson(win.localStorage,MAIN);onApply?.(normalize(value),widths(readJson(win.localStorage,WIDTH)))
-    needsReload=needsReload||undo.groups.length>0;undo=null;return{reload:needsReload}
+    needsReload=needsReload||undo.groups.length>0;undo=null;notify();return{reload:needsReload}
   })}
-  return{exportFile,inspect,apply,undo:undoImport,status:()=>({canUndo:!!undo,reload:needsReload}),dispose(){disposed=true;undo=null}}
+  const applyDefaults=()=>apply({settings:normalize(null),layout:{widths:widths(null)},databases:[],hasAssets:false,records:0},{preserveNavigation:true})
+  return{exportFile,inspect,apply,applyDefaults,undo:undoImport,status:()=>({canUndo:!!undo,reload:needsReload}),subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener)},dispose(){disposed=true;undo=null;listeners.clear()}}
 }
 
 export const settingsTransferCss=`
@@ -207,6 +210,7 @@ export const settingsTransferCss=`
  .dcb-config-transfer button:disabled { opacity:.45; cursor:default; }
  .dcb-config-transfer button:focus-visible { outline:2px solid var(--dsh-settings-accent); outline-offset:3px; }
  .dcb-config-transfer button[data-primary] { background:var(--dsh-settings-text); color:var(--dsh-settings-surface); }
+ .dcb-config-transfer button:not(.dcb-switch)[data-primary]:hover:enabled { background:color-mix(in srgb, var(--dsh-settings-text) 88%, var(--dsh-settings-surface)); color:var(--dsh-settings-surface); }
  .dcb-config-transfer .dcb-config-materials { display:inline-flex; align-items:center; gap:12px; min-height:44px; color:var(--dsh-settings-secondary); font-size:12px; }
  .dcb-config-preview { padding-top:14px; border-top:1px solid var(--dsh-settings-border); animation:dcb-config-in ${motion.time.control}ms ${motion.ease.smooth}; }
  .dcb-config-preview .dcb-config-actions { margin-top:12px; }
@@ -214,7 +218,7 @@ export const settingsTransferCss=`
  @keyframes dcb-config-in { from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none} }
  @media(max-width:580px) { .dcb-config-transfer{padding:14px}.dcb-config-actions{width:100%}.dcb-config-actions button{flex:1} }
  @media(prefers-reduced-motion:reduce) { .dcb-config-preview{animation:none}.dcb-config-transfer button{transition:none!important}.dcb-config-transfer button:active:enabled{transform:none!important} }
- @media(forced-colors:active) { .dcb-config-transfer,.dcb-config-preview{border-color:CanvasText;background:Canvas;color:CanvasText}.dcb-config-transfer button:not(.dcb-switch){background:ButtonFace;color:ButtonText;border-color:ButtonText}.dcb-config-transfer button:focus-visible{outline-color:Highlight}.dcb-config-transfer p,.dcb-config-transfer .dcb-config-materials{color:CanvasText} }
+ @media(forced-colors:active) { .dcb-config-transfer,.dcb-config-preview{border-color:CanvasText;background:Canvas;color:CanvasText}.dcb-config-transfer button:not(.dcb-switch),.dcb-config-transfer button:not(.dcb-switch)[data-primary]:hover:enabled{background:ButtonFace;color:ButtonText;border-color:ButtonText}.dcb-config-transfer button:focus-visible{outline-color:Highlight}.dcb-config-transfer p,.dcb-config-transfer .dcb-config-materials{color:CanvasText} }
 `
 export function createSettingsTransferUI(React,doc,win){
   const h=React.createElement,icon=kind=>h('svg',{width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:kind==='export'?'M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4':'M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4'}))
@@ -222,6 +226,7 @@ export function createSettingsTransferUI(React,doc,win){
     const [assets,setAssets]=React.useState(false),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[notice,setNotice]=React.useState(''),[plan,setPlan]=React.useState(null),[canUndo,setUndo]=React.useState(()=>manager.status().canUndo),[reload,setReload]=React.useState(()=>manager.status().reload)
     const input=React.useRef(null),live=React.useRef(false),gate=React.useRef(false),download=React.useRef(null),upload=React.useRef(null),id=React.useId()
     React.useEffect(()=>{live.current=true;return()=>{live.current=false;if(download.current){win.clearTimeout(download.current.timer);win.URL.revokeObjectURL(download.current.url)}}},[])
+    React.useEffect(()=>manager.subscribe(()=>{const state=manager.status();setUndo(state.canUndo);setReload(state.reload)}),[manager])
     async function run(action){if(gate.current)return;gate.current=true;setBusy(true);setError('');try{await action()}catch(error){if(live.current)setError(error.message||'配置处理失败。')}finally{gate.current=false;if(live.current)setBusy(false)}}
     const exportConfig=()=>run(async()=>{
       const result=await manager.exportFile(assets);if(!live.current)return
@@ -232,14 +237,14 @@ export function createSettingsTransferUI(React,doc,win){
     })
     const inspect=event=>{const file=event.target.files?.[0];event.target.value='';if(file){setPlan(null);run(async()=>{const result=await manager.inspect(file);if(live.current){setPlan(result);setNotice('')}})}}
     const apply=()=>run(async()=>{const result=await manager.apply(plan);if(live.current){setPlan(null);setUndo(true);setReload(result.reload);setNotice(result.reload?(plan.hasAssets?'已导入配置与素材；刷新界面后加载素材。':'全局配置已导入；有素材变更等待刷新。'):'全局配置已导入并立即生效。')}})
-    const undo=()=>run(async()=>{const result=await manager.undo();if(live.current){setUndo(false);setReload(result?.reload||false);setNotice(result?.reload?'已撤销导入；刷新界面后重新加载素材。':'已恢复导入前的配置。')}})
+    const undo=()=>run(async()=>{const result=await manager.undo();if(live.current){setUndo(false);setReload(result?.reload||false);setNotice(result?.reload?'已撤销上次应用；刷新界面后重新加载素材。':'已恢复上次应用前的配置。')}})
     return h('section',{className:'dcb-config-transfer','aria-label':'全局配置导入导出','aria-busy':busy},
-      h('div',{className:'dcb-config-row'},h('div',null,h('strong',null,'全局配置'),h('p',null,'保存所有分类、黑白主题、自定义 CSS、工具栏与聊天宽度。')),
+      h('div',{className:'dcb-config-row'},h('div',null,h('strong',null,'配置导入与导出'),h('p',null,'导出所有分类、日夜主题、自定义 CSS、工具栏与聊天宽度，或从文件恢复配置。')),
         h('div',{className:'dcb-config-actions'},h('button',{type:'button',disabled:busy,onClick:exportConfig},icon('export'),busy?'处理中…':'导出配置'),h('button',{ref:upload,type:'button',disabled:busy,onClick:()=>input.current?.click()},icon('import'),'导入配置'))),
-      h('div',{className:'dcb-config-row'},h('label',{className:'dcb-config-materials',htmlFor:id},'包含本机素材',h('button',{id,type:'button',className:'dcb-switch',role:'switch','aria-label':'包含本机素材','aria-checked':assets,disabled:busy,onClick:()=>setAssets(value=>!value)})),h('p',null,assets?'完整备份 .dshui · 包含背景、开屏、粒子与自定义动图包；最多 512 MB。':'轻量配置 .json · 素材仅保存引用，换设备请开启“包含本机素材”。')),
+      h('div',{className:'dcb-config-row'},h('label',{className:'dcb-config-materials',htmlFor:id},'包含本机素材',h('button',{id,type:'button',className:'dcb-switch',role:'switch','aria-label':'包含本机素材','aria-checked':assets,disabled:busy,onClick:()=>setAssets(value=>!value)})),h('p',null,assets?'完整备份 .dshui · 包含背景、开屏、欢迎语 LOGO、粒子与自定义动图等素材；最多 512 MB。':'轻量配置 .json · 不包含素材文件，跨设备恢复时请开启“包含本机素材”。')),
       h('input',{ref:input,type:'file',hidden:true,disabled:busy,accept:'.json,.dshui,application/json','aria-label':'选择美化配置文件',onChange:inspect}),
-      plan&&h('div',{className:'dcb-config-preview'},h('strong',null,'待导入：'+plan.name),h('p',null,`${plan.options} 项设置 · ${plan.records} 条素材记录 · ${prettySize(plan.size)}`),h('p',null,'应用后替换本插件配置，素材合并保存，保留其他已导入素材。'+(!plan.hasAssets?' 此文件不含素材，所用背景或动图需已存在于本机。':'')),h('div',{className:'dcb-config-actions'},h('button',{type:'button','data-primary':'',disabled:busy,onClick:apply},'应用配置'),h('button',{type:'button',disabled:busy,onClick:()=>{setPlan(null);upload.current?.focus()}},'取消'))),
+      plan&&h('div',{className:'dcb-config-preview'},h('strong',null,'待导入：'+plan.name),h('p',null,`${plan.options} 项设置 · ${plan.records} 条素材记录 · ${prettySize(plan.size)}`),h('p',null,'应用后替换本插件配置；素材按标识合并，同标识素材会被替换，其他已导入素材保留。'+(!plan.hasAssets?' 此文件不含素材，所用素材需已存在于本机。':'')),h('div',{className:'dcb-config-actions'},h('button',{type:'button','data-primary':'',disabled:busy,onClick:apply},'应用配置'),h('button',{type:'button',disabled:busy,onClick:()=>{setPlan(null);upload.current?.focus()}},'取消'))),
       error&&h('p',{role:'alert'},error),notice&&h('p',{role:'status','aria-live':'polite'},notice),
-      (canUndo||reload)&&h('div',{className:'dcb-config-actions'},canUndo&&h('button',{type:'button',disabled:busy,onClick:undo},'撤销导入'),reload&&h('button',{type:'button',disabled:busy,onClick:()=>win.location.reload()},'刷新界面加载素材')))
+      (canUndo||reload)&&h('div',{className:'dcb-config-actions'},canUndo&&h('button',{type:'button',disabled:busy,onClick:undo},'撤销上次应用'),reload&&h('button',{type:'button',disabled:busy,onClick:()=>win.location.reload()},'刷新界面加载素材')))
   }
 }

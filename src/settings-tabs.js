@@ -1,10 +1,11 @@
 import {motion} from './motion.js'
 
-const tabs=[['panel','任务面板'],['composer','输入栏'],['sidebar','侧栏'],['welcome','开屏欢迎'],['background','全图背景'],['particles','粒子背景'],['running','思考动图'],['messages','对话动效'],['toolbar','右上工具栏']]
+const tabs=[['panel','任务面板'],['hero','欢迎语'],['composer','输入栏'],['sidebar','侧栏'],['welcome','开屏欢迎'],['background','全图背景'],['particles','粒子背景'],['running','思考动图'],['messages','对话动效'],['toolbar','右上工具栏'],['config','全局配置']]
 export const settingsGroups=[
-  {id:'components',label:'组件布局',children:['composer','sidebar','toolbar']},
+  {id:'components',label:'组件布局',children:['panel','composer','sidebar','toolbar']},
   {id:'global',label:'全局布局',children:['welcome','background','particles']},
-  {id:'conversation',label:'对话布局',children:['panel','running','messages']},
+  {id:'conversation',label:'对话布局',children:['hero','running','messages']},
+  {id:'config',label:'全局配置',children:['config']},
 ]
 const groupFor=id=>settingsGroups.find(group=>group.children.includes(id))||settingsGroups[0]
 export const SETTINGS_TAB_KEY='dsh-ui-beautify:settings-tab:v1'
@@ -147,13 +148,15 @@ export function createSettingsTabs(React,doc,win){
     }
     const chooseGroup=next=>choose(next.children.includes(rememberedChild(next.id))?rememberedChild(next.id):next.children[0])
     const childTabs=group.children.map((id,index)=>h('button',{key:id,id:`${uid}-tab-${id}`,type:'button',role:'tab','aria-selected':selected===id,'aria-controls':`${uid}-page-${id}`,tabIndex:selected===id?0:-1,onClick:()=>choose(id),onKeyDown:event=>navigate(event,index,group.children,choose)},tabs.find(tab=>tab[0]===id)[1]))
-    const pageNode=h('div',{key:`${shown}:${pageVersion}`,className:'dcb-settings-tab-page',ref:page,role:'tabpanel',id:`${uid}-page-${shown}`,'aria-labelledby':siblings.length>1?`${uid}-tab-${shown}`:`${uid}-group-${group.id}`,'aria-hidden':selected!==shown,inert:selected!==shown},pageMap.get(shown))
+    // Keep transfer and preset feedback mounted while an application replaces
+    // the settings snapshot; other editors must remount to discard stale drafts.
+    const pageNode=h('div',{key:shown==='config'?shown:`${shown}:${pageVersion}`,className:'dcb-settings-tab-page',ref:page,role:'tabpanel',id:`${uid}-page-${shown}`,'aria-labelledby':siblings.length>1?`${uid}-tab-${shown}`:`${uid}-group-${group.id}`,'aria-hidden':selected!==shown,inert:selected!==shown},pageMap.get(shown))
     const stageNode=h('div',{className:'dcb-settings-tab-stage',ref:stage},pageNode)
     const groupNode=h('div',{id:`${uid}-group-page`,role:'group','aria-labelledby':`${uid}-group-${group.id}`},stageNode)
     return h('div',{className:'dcb-settings-tabs',ref:root},
       h('div',{className:'dcb-settings-navigation'},
         h('div',{className:'dcb-settings-tabbar',role:'tablist','aria-label':'美化设置分组'},availableGroups.map((item,index)=>h('button',{key:item.id,id:`${uid}-group-${item.id}`,type:'button',role:'tab','aria-selected':group.id===item.id,'aria-controls':`${uid}-group-page`,tabIndex:group.id===item.id?0:-1,onClick:()=>chooseGroup(item),onKeyDown:event=>navigate(event,index,availableGroups,chooseGroup)},item.label))),
-        h('div',{className:'dcb-settings-tabbar dcb-settings-subbar',role:'tablist','aria-label':`${group.label}子分类`},childTabs)
+        siblings.length>1&&h('div',{className:'dcb-settings-tabbar dcb-settings-subbar',role:'tablist','aria-label':`${group.label}子分类`},childTabs)
       ),
       groupNode
     )

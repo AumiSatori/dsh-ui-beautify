@@ -6,6 +6,7 @@ import {createWelcomeCodePlayer} from './welcome-code.js'
 import {createCharacterWelcomeArt,playCharacterWelcome} from './welcome-characters.js'
 
 const OPENING=Symbol.for('dsh-ui-beautify.startup-motion.v1')
+const CONTROLLER=Symbol.for('dsh-ui-beautify.startup-controller.v1')
 const STATUS=Symbol.for('dsh-ui-beautify.startup-status.v2')
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const suffix=(el,name)=>[...el.classList].some(value=>value.endsWith('_'+name))
@@ -28,6 +29,7 @@ export const startupCss=`
   [data-dcb-welcome-art] { display:block; width:100%; height:auto; overflow:visible; color:#111; }
   [data-dcb-welcome-stroke] { fill:none; stroke-width:5.3; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:1; stroke-dashoffset:1; }
   [data-dcb-welcome-code] { width:100%; height:100%; min-height:0; display:block; overflow:hidden; background:transparent; pointer-events:none; }
+  [data-dcb-welcome-code][data-interactive=true] { pointer-events:auto; }
   [data-dcb-welcome-code] > iframe { display:block; width:100%; height:100%; border:0; background:transparent; }
   body[data-ds-dark-theme] [data-dcb-welcome-art] { color:#ededf0; }
   [data-dcb-startup-hold] { opacity:0!important; pointer-events:none; }
@@ -42,7 +44,7 @@ export const startupCss=`
 // One visible welcome per document. Window activation, host startup, session
 // restoration and DOM hydration are independent milestones, never one timer.
 export function createStartupMotion(doc,win,options,services={}){
-  if(win[OPENING])return noop
+  if(win[OPENING]){const current=win[CONTROLLER];if(current){current.adopted=true;current.resume()}return current||noop}
   win[OPENING]=true
   const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
   const status={stage:'waiting-visible',reason:null,entrances:0,strokes:0}
@@ -84,6 +86,7 @@ export function createStartupMotion(doc,win,options,services={}){
     releaseWelcome();overlay?.remove();style?.remove();overlay=null;style=null;copy=null;identity=null;sessionState=null
     if(previousStage===null)doc.documentElement.removeAttribute(STAGE)
     else doc.documentElement.setAttribute(STAGE,previousStage)
+    services.onFinish?.(reason)
   }
   function animate(el,frames,options,key){
     cancel(el)
@@ -105,7 +108,7 @@ export function createStartupMotion(doc,win,options,services={}){
     const sr=doc.createElement('span');sr.className='dcb-welcome-sr';sr.textContent=settings.welcomeText;copy.append(sr)
     const skip=doc.createElement('button');skip.type='button';skip.textContent='跳过';skip.setAttribute('data-dcb-welcome-skip','');skip.setAttribute('aria-label','跳过欢迎动画')
     overlay.append(copy,skip);doc.body.append(overlay)
-    on(overlay,'pointerdown',()=>finish('skip'))
+    on(overlay,'pointerdown',event=>{if(!settings.welcomeCodeInteractive||!event.target.closest('[data-dcb-welcome-code]'))finish('skip')})
     on(skip,'click',()=>finish('skip'))
     if(!animate(copy,[{opacity:0,transform:'translateY(10px) scale(.96)'},{opacity:1,transform:'none'}],{duration:300,easing:motion.ease.smooth},'welcome-in')){finish('unsupported');return}
     deadline=later(()=>finish('loading-timeout'),WAIT)
@@ -127,13 +130,13 @@ export function createStartupMotion(doc,win,options,services={}){
       setStage('loading-code');codePending=true
       const fallback=()=>{if(!codePending||disposed||revealing)return;codePending=false;cancelTimer(codeLoadTimer);try{showText()}catch{finish('error')}}
       codeLoadTimer=later(fallback,800)
-      services.codeStore.load(settings.welcomeCodeRevision||(settings.welcomeThemes?'':undefined)).then(asset=>{
+      services.codeStore.load(settings.welcomeCodeRevision||'').then(asset=>{
         if(!codePending||disposed||revealing)return
         if(!asset?.source){fallback();return}
         codePending=false;cancelTimer(codeLoadTimer);copy.setAttribute('data-code','');setStage('playing-code')
         const fail=()=>{if(disposed||revealing)return;codePlayer?.dispose();codePlayer=null;copy.removeAttribute('data-code');copy.querySelector('[data-dcb-welcome-code]')?.remove();try{showText()}catch{finish('error')}}
         try{
-          codePlayer=createWelcomeCodePlayer(doc,win,asset,settings,{onComplete:()=>{if(!disposed){introDone=true;setStage('waiting-content');schedule()}},onError:fail})
+          codePlayer=createWelcomeCodePlayer(doc,win,asset,settings,{onReady:()=>{if(settings.welcomeCodeInteractive)cancelTimer(deadline)},onSkip:()=>finish('skip'),onComplete:()=>{if(!disposed){introDone=true;setStage('waiting-content');schedule()}},onError:fail})
           copy.append(codePlayer.node)
         }catch{fail()}
       },fallback)
@@ -243,6 +246,7 @@ export function createStartupMotion(doc,win,options,services={}){
     revealing=true;identity={body:parts.body,id:parts.id};revealAt=now();setStage('revealing')
     contentEntered=mainReady
     if(mainReady){cancelTimer(deadline);cancelTimer(waitTimer);later(()=>finish(),1000)}
+    else{cancelTimer(deadline);cancelTimer(waitTimer);waitTimer=later(()=>finish('content-timeout'),CONTENT_WAIT)}
     // Stage the live seats before the veil fades; they cannot flash fully on
     // screen and then jump back to the first frame.
     revealParts(parts,mainReady)
@@ -271,7 +275,7 @@ export function createStartupMotion(doc,win,options,services={}){
     if(mainReady&&!viewReadyAt){viewReadyAt=now();settleTimer=later(schedule,80)}
     // Handwriting has a fixed ending. Slow history may arrive later, but it
     // must never extend the welcome screen or hold the whole app behind it.
-    if(introDone)reveal(parts,mainReady&&now()-viewReadyAt>=60)
+    if(introDone&&services.canReveal?.()!==false)reveal(parts,mainReady&&now()-viewReadyAt>=60)
   }
   function schedule(){if(!raf&&!disposed)raf=win.requestAnimationFrame(scan)}
   function begin(){
@@ -281,10 +285,12 @@ export function createStartupMotion(doc,win,options,services={}){
   }
   if(quiet.matches||!doc.body||typeof win.Element?.prototype.animate!=='function'){finish('unsupported');return noop}
   on(quiet,'change',()=>{if(quiet.matches)finish('reduced-motion')})
-  on(doc,'keydown',()=>finish('keyboard'),true)
+  on(doc,'keydown',event=>{if(!settings.welcomeCodeInteractive||event.key==='Escape')finish('keyboard')},true)
   on(doc,'pointerdown',event=>{if(!overlay||!overlay.contains(event.target))finish('interaction')},true)
   on(doc,'visibilitychange',()=>{if(doc.hidden){if(writing)finish('hidden')}else begin()})
   on(win,'pagehide',()=>finish('pagehide'))
   begin()
-  return{dispose:()=>finish('dispose'),setEnabled(enabled){if(!enabled)finish('disabled')},setRestorationTarget(id){if(!disposed&&id){restorationExpected=true;schedule()}},setSessionState(id,state){if(!disposed){sessionState={id,state};schedule()}}}
+  const controller={adopted:false,resume:schedule,dispose:()=>finish('dispose'),setEnabled(enabled){if(!enabled)finish('disabled')},setRestorationTarget(id){if(!disposed&&id){restorationExpected=true;schedule()}},setSessionState(id,state){if(!disposed){sessionState={id,state};schedule()}}}
+  win[CONTROLLER]=controller
+  return controller
 }

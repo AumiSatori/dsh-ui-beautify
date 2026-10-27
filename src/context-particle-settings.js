@@ -106,8 +106,8 @@ export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
       finally{if(mounted.current&&token===sequence.current)setBusy(false)}
     }
     return h('section',{className:'dcb-settings-block dcb-settings-card','data-dcb-settings-block':'particles'},
-      h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'会话粒子背景'),h('p',null,'从散开到成形，手动控制转换进度或跟随上下文'))),
-      row('会话粒子背景','默认使用 DeepSeek Logo；关闭会释放画布与绘制资源。',h('button',{type:'button',role:'switch',className:'dcb-switch','aria-label':'会话粒子背景','aria-checked':value.particleEnabled,onClick:()=>onChange({particleEnabled:!value.particleEnabled})})),
+      h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'会话粒子背景'),h('p',null,'粒子从散开逐渐汇聚成所选图形；可随上下文占用自动变化，也可手动调整。'))),
+      row('会话粒子背景','在聊天背景中显示粒子，默认图形为 DeepSeek Logo；关闭后停止绘制。',h('button',{type:'button',role:'switch',className:'dcb-switch','aria-label':'会话粒子背景','aria-checked':value.particleEnabled,onClick:()=>onChange({particleEnabled:!value.particleEnabled})})),
       h('div',{className:'dcb-particle-options',role:'radiogroup','aria-label':'粒子图形'},[
         ['logo','DeepSeek Logo',FishLogo?h(FishLogo,{size:46}):'◈'],['whale','鲸鱼娘',h('img',{src:whaleImage,alt:''})],['image','自定义图片','▧'],['custom','自定义 SVG','◇']
       ].map(([shape,label,icon])=>h('button',{key:shape,type:'button',role:'radio',className:'dcb-particle-option','aria-label':label,'aria-checked':value.particleShape===shape,tabIndex:value.particleShape===shape?0:-1,disabled:shape==='custom'&&!value.particleSvgRevision||shape==='image'&&!value.particleImageRevision,onClick:()=>onChange({particleShape:shape}),
@@ -118,14 +118,14 @@ export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
         h('div',{className:'dcb-particle-modes',role:'radiogroup','aria-label':'转换进度来源'},[['context','跟随上下文'],['manual','手动调整']].map(([id,label])=>h('button',{key:id,type:'button',role:'radio','aria-checked':value.particleProgressMode===id,tabIndex:value.particleProgressMode===id?0:-1,onKeyDown:modeKey,onClick:()=>onChange({particleProgressMode:id})},label))),
         h(ProgressSlider,{value:progress,onChange:setProgress}),
         h('div',{className:'dcb-particle-conversion-ends','aria-hidden':'true'},h('span',null,'散开'),h('span',null,'完整成形')),
-        h('p',null,manual?'手动指定 0–100% 的转换进度，不随上下文变化；选择自动保存。':'根据上下文占用自动转换；拖动滑条即可切换为手动调整。'),
+        h('p',null,manual?'手动调整粒子汇聚程度：0% 为散开，100% 为完整成形；不随上下文变化，调整后自动保存。':'上下文占用比例越高，粒子越会汇聚成所选图形；达到下方设定的完整成形比例后保持成形。拖动滑条会切换为手动调整。'),
         h('div',{className:'dcb-particle-context'},
           h('div',{className:'dcb-particle-conversion-heading'},h('span',null,'当前上下文'),h('output',null,live===null?'等待数据':`${live}%`)),
           h('div',{className:'dcb-particle-context-meter',role:'progressbar','aria-label':'当前上下文占用','aria-valuemin':0,'aria-valuemax':100,'aria-valuenow':live===null?undefined:live,'aria-valuetext':live===null?'等待当前会话的上下文数据':`${live}%`},h('span',{'aria-hidden':'true',style:{'--dcb-context-fill':`${live??0}%`}})),
-          h('p',null,'显示当前会话的真实上下文占用，手动模式下也持续更新。'))),
-      row('粒子数',`${PARTICLE_COUNTS.min}–${PARTICLE_COUNTS.max}，默认 ${PARTICLE_COUNTS.default} 颗。独立调整点阵密度；备用绘图最多 4500 颗。`,h(NumberField,{label:'粒子数',value:value.particleCount,min:PARTICLE_COUNTS.min,max:PARTICLE_COUNTS.max,step:PARTICLE_COUNTS.step,onChange:particleCount=>onChange({particleCount})})),
-      !manual&&row('开始显示 (%)','跟随上下文时，低于这个占用比例隐藏背景。',h(NumberField,{label:'开始显示百分比',value:value.particleStart,min:0,max:95,onChange:particleStart=>onChange({particleStart})})),
-      !manual&&row('完整成形 (%)','跟随上下文时，达到此占用比例完整成形；压缩时随占用回退。',h(NumberField,{label:'完整成形百分比',value:value.particleFull,min:value.particleStart+1,max:100,onChange:particleFull=>onChange({particleFull})})),
+          h('p',null,'显示当前会话的上下文占用比例；手动模式下仍会更新，但不会改变粒子形态。'))),
+      row('粒子数',`${PARTICLE_COUNTS.min}–${PARTICLE_COUNTS.max}，默认 ${PARTICLE_COUNTS.default} 颗。数量越多图形越细腻，也可能增加绘制负担；备用绘图最多显示 4500 颗。`,h(NumberField,{label:'粒子数',value:value.particleCount,min:PARTICLE_COUNTS.min,max:PARTICLE_COUNTS.max,step:PARTICLE_COUNTS.step,onChange:particleCount=>onChange({particleCount})})),
+      !manual&&row('开始显示 (%)','上下文占用达到此比例时开始显示散开的粒子；低于此比例时隐藏背景。',h(NumberField,{label:'开始显示百分比',value:value.particleStart,min:0,max:95,onChange:particleStart=>onChange({particleStart})})),
+      !manual&&row('完整成形 (%)','上下文占用达到此比例时，粒子汇聚成完整图形；占用降低时会逐渐散开。',h(NumberField,{label:'完整成形百分比',value:value.particleFull,min:value.particleStart+1,max:100,onChange:particleFull=>onChange({particleFull})})),
       h('div',{className:'dcb-settings-info dcb-particle-live',role:'status'},!value.particleEnabled?'背景已关闭':manual?`手动转换 ${progress}%`:live===null?'等待当前会话的上下文数据；可切换为手动调整':`跟随上下文 · 转换进度 ${progress}% · ${value.particleStart}% 开始 / ${value.particleFull}% 完整`,current?.error?` · ${current.error}`:''),
       h('div',{className:'dcb-particle-control'},h('strong',null,'本机图片'),h('p',null,value.particleImageName||'导入 PNG、JPG 或 WebP，汇聚为彩色粒子。'),
         h('p',null,'推荐透明背景、单一主体、轮廓清晰、明暗对比强的图片。彩色底图、低对比渐变、复杂背景和细小文字更容易丢失细节。'),

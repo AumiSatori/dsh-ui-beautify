@@ -1,7 +1,10 @@
 import {createHtmlEditor} from './background-html.js'
 import {motion} from './motion.js'
+import {themeBackground} from './background-media.js'
+import {themeAssignments,themeAssignmentsCss} from './theme-assignments.js'
 
 export const backgroundSettingsCss=`
+  ${themeAssignmentsCss}
   .dcb-settings-card.dcb-background-settings { display:grid; gap:22px; }
   .dcb-background-settings .dcb-settings-header { align-items:center; gap:20px; margin:0; }
   .dcb-background-settings .dcb-settings-header h2 { font-size:16px; line-height:24px; }
@@ -140,7 +143,7 @@ export const backgroundSettingsCss=`
   }
 `
 
-export function createBackgroundSettings(React,{background}){
+export function createBackgroundSettings(React,{background,onThemeChange}={}){
   const h=React.createElement,HtmlEditor=createHtmlEditor(React,background)
   const paths={image:'M4 4h16v16H4zM4 15l5-5 5 5 3-3 3 3M15 8h.01',restore:'M3 10a9 9 0 1 1 2 8M3 4v6h6',remove:'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5',upload:'M12 16V4M7 9l5-5 5 5M4 16v4h16v-4',edit:'m15 5 4 4M4 20l5-1L20 8a2.8 2.8 0 0 0-4-4L5 15z',cancel:'m6 6 12 12M6 18 18 6',save:'m5 12 4 4L19 6'}
   const icon=name=>h('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:paths[name]}))
@@ -167,6 +170,7 @@ export function createBackgroundSettings(React,{background}){
     return h('section',{className:'dcb-settings-block dcb-settings-card dcb-background-settings','data-dcb-settings-block':'background'},
       h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'全图背景'),h('p',null,'为整个窗口换一张喜欢的背景')),
         h('label',{className:'dcb-background-enable',htmlFor:uid+'-enabled'},h('span',null,'启用背景'),h('button',{id:uid+'-enabled',type:'button',className:'dcb-switch',role:'switch','aria-label':'启用全图背景','aria-checked':value.backgroundEnabled,disabled:!value.backgroundRevision,onClick:()=>onChange({backgroundEnabled:!value.backgroundEnabled})}))),
+      themeAssignments(h,{scope:'全图背景',theme:state.theme,onThemeChange,items:Object.fromEntries(['light','dark'].map(scheme=>{const item=themeBackground(savedValue,scheme);return[scheme,{name:item.backgroundName||'尚未选择背景',configured:!!item.backgroundRevision,enabled:item.backgroundEnabled&&!!item.backgroundRevision}]}))}),
       h('div',{className:'dcb-background-overview'},
         h('figure',{className:'dcb-background-figure'},
           h('div',{className:'dcb-background-preview',role:'img','aria-label':'背景效果预览',style:{'--dcb-preview-opacity':value.backgroundOpacity/100,'--dcb-preview-blur':value.backgroundBlur*.35+'px'}},
@@ -183,7 +187,7 @@ export function createBackgroundSettings(React,{background}){
             h('button',{type:'button',className:'dcb-background-choose',disabled:busy,onClick:()=>input.current?.click()},icon('upload'),busy?'处理中…':'选择图片或视频'),
             h('button',{type:'button',disabled:busy||!state.hasPrevious,onClick:()=>run(async()=>select(await background.restore()))},icon('restore'),'恢复上一张'),
             h('button',{type:'button',disabled:busy||!value.backgroundRevision,onClick:()=>run(async()=>{await background.clear();select(null)})},icon('remove'),'清除背景')))),
-      h('p',{className:'dcb-settings-footnote',role:'status'},`当前：${state.theme==='dark'?'夜间':'日间'}背景。两种主题分别记忆选择和启用状态，切换主题后自动恢复；未配置的一侧不应用 HTML。`),
+      h('p',{className:'dcb-settings-footnote',role:'status'},`当前：${state.theme==='dark'?'夜间':'日间'}背景。两种主题分别记忆背景与启用状态；切换主题后自动应用对应配置，未配置的一侧不显示背景。`),
       h(HtmlEditor,{onSelect:select,theme:state.theme}),
       (error||state.error)&&h('p',{className:'dcb-background-error',role:'alert'},error||state.error),
       h('section',{className:'dcb-background-library','aria-label':'背景素材库'},
@@ -199,11 +203,11 @@ export function createBackgroundSettings(React,{background}){
         state.recent.length>0&&h('p',{className:'dcb-settings-footnote'},'点击名称或铅笔图标可重命名，仅修改本机显示名称。'),
         state.recent.length>limit&&h('button',{className:'dcb-background-gallery-more',type:'button',onClick:()=>setLimit(value=>value+12)},'显示更多')),
       h('div',{className:'dcb-background-controls'},
-        slider('背景可见度','backgroundOpacity',100,'%','降低可见度，让文字更清楚。'),
-        slider('背景模糊','backgroundBlur',20,'','柔化细节，减少画面干扰。'),
-        choices('铺放方式','背景铺放方式','backgroundFit',[['cover','铺满'],['contain','完整显示'],['fill','拉伸']],'铺满会裁切边缘，完整显示保留整张图。'),
+        slider('背景可见度','backgroundOpacity',100,'%','数值越低背景越淡，文字通常更清楚；0% 时背景不可见。'),
+        slider('背景模糊','backgroundBlur',20,'','数值越高背景越模糊，可柔化细节、减少画面干扰。'),
+        choices('铺放方式','背景铺放方式','backgroundFit',[['cover','铺满'],['contain','完整显示'],['fill','拉伸']],'铺满可能裁切边缘；完整显示可能留白；拉伸会填满窗口，但可能改变画面比例。'),
         choices('画面位置','背景画面位置','backgroundPosition',[['center','居中'],['top','靠上'],['bottom','靠下'],['left','靠左'],['right','靠右']],'选择铺满时优先保留的画面区域。')),
-      h('label',{className:'dcb-background-sound',htmlFor:uid+'-sound'},h('div',null,h('strong',null,'视频声音'),h('p',null,'默认静音，后台自动暂停。')),h('button',{id:uid+'-sound',type:'button',className:'dcb-switch',role:'switch','aria-label':'视频声音','aria-checked':value.backgroundSound,onClick:()=>onChange({backgroundSound:!value.backgroundSound})})),
+      h('label',{className:'dcb-background-sound',htmlFor:uid+'-sound'},h('div',null,h('strong',null,'视频声音'),h('p',null,'仅影响视频背景；关闭时静音，切到后台时视频自动暂停。')),h('button',{id:uid+'-sound',type:'button',className:'dcb-switch',role:'switch','aria-label':'视频声音','aria-checked':value.backgroundSound,onClick:()=>onChange({backgroundSound:!value.backgroundSound})})),
       state.notice&&h('p',{role:'status',className:'dcb-settings-footnote'},state.notice),
       h('p',{className:'dcb-settings-footnote'},'支持 JPG / PNG / WebP / GIF / MP4 / WebM。文件仅保存在本机；关闭背景仍保留文件。'))
   }

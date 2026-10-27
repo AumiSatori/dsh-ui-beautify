@@ -2,11 +2,19 @@
 
 ## 未发布
 
-- 顶部「更多会话视图」不再掉到第二行：宿主把视图标签行写成 `flex-wrap:wrap`，行宽不够时那个 22px 的 `ViewsMoreMenu` 会被折到下一行最左，正好压在 header 的下边框上，看着像个没主的「···」。插件现在给这一行打 `data-dcb-views-row`（`flex-wrap:nowrap`，放不下时先让标签行收缩，**不预留任何额外高度**，正文继续贴着头部那条分隔线）、给按钮打 `data-dcb-views-more`，继续按标签行的基线对齐；按钮补上 8px 圆角、悬停与展开时的 `--dsw-alias-interactive-bg-hover` 表面、按下缩到 0.9、键盘焦点环，以及「当前视图在菜单里」时右下角 4px 状态点（由宿主的 `viewsMoreActive` 类映射而来）。入场只有一次 220ms 淡入加 2px 模糊；减少动态效果或强制颜色时全部关闭；卸载会把行与按钮的原始属性写回。
-- `npm run test:tabs` 新增检查：行不再换行、按钮与首行标签的垂直中心差小于 6px、标签行没有多余预留高度（正文贴合分隔线）、420px 窄窗口下仍在首行、当前视图落在菜单里时状态点可见、按钮移除后行属性还原。
 - **移除一个仅本机私用的开屏示例**：它的图形素材不随插件分发，也不该在打开设置页时被自动写入本机预设。现在源码与产物都不再包含它的 HTML、SVG 数据与预设定义；设置页的代码开屏列表只显示用户自己保存的条目。
 - 补齐 `src/` 缺失的两个导出：`welcomeCodeReferences`（`welcome-code.js`）与 `cacheOpeningAppearance`（新增 `opening-appearance.js`），`npm run check:lens` / `build:lens` 不再因 `missing exports: welcomeCodeReferences, cacheOpeningAppearance` 失败。
 - **已知差异**：`client.js` 里还有一批未纳入 `src/` 的本地实验（欢迎码 timed / interactive 双模式，约占 71KB），因此用当前 `src/` 重建出来的产物会比已发布的客户端缺少这块能力。运行目录继续使用已发布的 `client.js`；**在双模式回迁进 `src/` 之前，不要用重建结果覆盖运行客户端**。`npm run check:lens` 在这项回迁完成前会正常报 stale。
+
+## 0.4.1 — 2026-10-26
+
+侧栏与顶部布局修复版，发布说明见 [RELEASE-0.4.1](docs/RELEASE-0.4.1.md)。
+
+- 侧栏收起时，其他会话的完成、待回答和失败以独立动态图形提醒；点击或展开侧栏后退出，提醒等收起动画结束后才出现。详见 [其他会话状态提醒](docs/SIDEBAR-ATTENTION.md)。
+- 侧栏边缘箭头常驻，展开时顶部“新会话”按钮与下方内容同步淡入。
+- 顶部设置入口去重；输出文件图标去掉细框；顶部分割线恢复宿主原生样式。
+- 顶部「更多会话视图」不再掉到第二行：宿主把视图标签行写成 `flex-wrap:wrap`，行宽不够时那个 22px 的 `ViewsMoreMenu` 会被折到下一行最左，正好压在 header 的下边框上，看着像个没主的「···」。插件现在给这一行打 `data-dcb-views-row`（`flex-wrap:nowrap`，放不下时先让标签行收缩，**不预留任何额外高度**，正文继续贴着头部那条分隔线）、给按钮打 `data-dcb-views-more`，继续按标签行的基线对齐；按钮补上 8px 圆角、悬停与展开时的 `--dsw-alias-interactive-bg-hover` 表面、按下缩到 0.9、键盘焦点环，以及「当前视图在菜单里」时右下角 4px 状态点（由宿主的 `viewsMoreActive` 类映射而来）。入场只有一次 220ms 淡入加 2px 模糊；减少动态效果或强制颜色时全部关闭；卸载会把行与按钮的原始属性写回。
+- `npm run test:tabs` 新增检查：行不再换行、按钮与首行标签的垂直中心差小于 6px、标签行没有多余预留高度（正文贴合分隔线）、420px 窄窗口下仍在首行、当前视图落在菜单里时状态点可见、按钮移除后行属性还原。
 
 ## 0.4.0 — 2026-10-26
 

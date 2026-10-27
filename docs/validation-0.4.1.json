@@ -1,0 +1,120 @@
+{
+  "version": "0.4.1",
+  "baseline": {
+    "tag": "v0.4.1",
+    "commit": "9cbb55deff19088634aef3280238404b8893a3a1"
+  },
+  "branch": "work/align-041",
+  "scope": "发布后的源码对齐验证：仓库 client.js 以 v0.4.1 发布包为模板，内嵌 bundle 由当前 src/ 构建，npm run check:lens 可复现；不重新打标签，也不覆盖 Release。",
+  "clientSha256": "5e64f8f993fa08871ca7da4e87cc19e0736ae30a09437fdff3b3eef9dd4a017f",
+  "releasePackageClientSha256": "301b4f09c8f0e0206148f0e7894dbd0e90ad54f1076c4a59e614e85e479321dd",
+  "clientDifferenceFromReleasePackage": "只差在内嵌 bundle：src/ 多导出 welcomeCodeReferences、cacheOpeningAppearance（ce7cc4a 新增，发布版的外围代码不调用）。外围代码与发布包一致，不含 timed/interactive 欢迎码实验，也不含私用开屏示例。",
+  "completedAt": "2026-10-27T14:03:16+00:00",
+  "environment": {
+    "platform": "Windows",
+    "node": "v24.16.0",
+    "host": "DSH 0.2.1-rc.2 native components from installed archive (DSH_ASAR)",
+    "browser": "installed Chrome"
+  },
+  "summary": {
+    "suites": 13,
+    "passed": 12,
+    "failed": 1,
+    "checks": 240
+  },
+  "countNote": "浏览器测试的检查数按输出的 PASS 行统计；单元测试取 node --test 的通过数；check:lens 与 check:release 只看退出码。",
+  "suites": [
+    {
+      "name": "test",
+      "passed": true,
+      "checks": 90,
+      "elapsedMs": 5427,
+      "attempts": 1
+    },
+    {
+      "name": "test:browser",
+      "passed": true,
+      "checks": 16,
+      "elapsedMs": 7902,
+      "attempts": 1
+    },
+    {
+      "name": "test:sidebar-attention",
+      "passed": true,
+      "checks": 14,
+      "elapsedMs": 10251,
+      "attempts": 1
+    },
+    {
+      "name": "test:sidebar",
+      "passed": true,
+      "checks": 14,
+      "elapsedMs": 54849,
+      "attempts": 1
+    },
+    {
+      "name": "test:tabs",
+      "passed": true,
+      "checks": 31,
+      "elapsedMs": 9598,
+      "attempts": 1
+    },
+    {
+      "name": "test:unified-icons",
+      "passed": true,
+      "checks": 21,
+      "elapsedMs": 14455,
+      "attempts": 1
+    },
+    {
+      "name": "test:settings",
+      "passed": true,
+      "checks": 14,
+      "elapsedMs": 56855,
+      "attempts": 1
+    },
+    {
+      "name": "test:settings-hierarchy",
+      "passed": false,
+      "checks": 7,
+      "elapsedMs": 14561,
+      "attempts": 1,
+      "knownIssue": "前 7 项通过；第 8 项在测试脚本内部报 cloneNode 空指针。改用 v0.4.1 发布包与 ce7cc4a 的 client.js 运行，结果完全相同，属于测试脚本原有问题，与本次修改无关。"
+    },
+    {
+      "name": "test:welcome-code",
+      "passed": true,
+      "checks": 8,
+      "elapsedMs": 13833,
+      "attempts": 1
+    },
+    {
+      "name": "test:fullscreen",
+      "passed": true,
+      "checks": 14,
+      "elapsedMs": 10456,
+      "attempts": 1
+    },
+    {
+      "name": "test:running",
+      "passed": true,
+      "checks": 11,
+      "elapsedMs": 13846,
+      "attempts": 1
+    },
+    {
+      "name": "check:lens",
+      "passed": true,
+      "checks": 0,
+      "elapsedMs": 641,
+      "attempts": 1
+    },
+    {
+      "name": "check:release",
+      "passed": true,
+      "checks": 0,
+      "elapsedMs": 1318,
+      "attempts": 1
+    }
+  ]
+}

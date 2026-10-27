@@ -4,7 +4,8 @@
 
 - **移除一个仅本机私用的开屏示例**：它的图形素材不随插件分发，也不该在打开设置页时被自动写入本机预设。现在源码与产物都不再包含它的 HTML、SVG 数据与预设定义；设置页的代码开屏列表只显示用户自己保存的条目。
 - 补齐 `src/` 缺失的两个导出：`welcomeCodeReferences`（`welcome-code.js`）与 `cacheOpeningAppearance`（新增 `opening-appearance.js`），`npm run check:lens` / `build:lens` 不再因 `missing exports: welcomeCodeReferences, cacheOpeningAppearance` 失败。
-- **已知差异**：`client.js` 里还有一批未纳入 `src/` 的本地实验（欢迎码 timed / interactive 双模式，约占 71KB），因此用当前 `src/` 重建出来的产物会比已发布的客户端缺少这块能力。运行目录继续使用已发布的 `client.js`；**在双模式回迁进 `src/` 之前，不要用重建结果覆盖运行客户端**。`npm run check:lens` 在这项回迁完成前会正常报 stale。
+- **client.js 与 0.4.1 发布包对齐**：仓库里的 `client.js` 改为以 v0.4.1 发布包为模板，内嵌部分由当前 `src/` 重新构建，`npm run check:lens` 可以复现。原先仓库里夹带的 timed / interactive 欢迎码双模式实验没有进入 `src/`，也没有随 0.4.1 发布，现已从仓库客户端中移除，需要时可从 ce7cc4a 取回；运行目录可以直接使用重建结果。
+- 补上 `docs/validation-0.4.1.json`（发布后源码对齐的回归记录）。v0.4.1 标签里的 `client.js` 仍包含已删除的私用开屏示例，但发布包与当前源码都不含它；已发布的标签和 Release 不改写。
 
 ## 0.4.1 — 2026-10-26
 

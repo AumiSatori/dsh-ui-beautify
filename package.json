@@ -60,6 +60,7 @@
     "scripts/running-pack-zip.mjs",
     "docs/RELEASE-0.4.0.md",
     "docs/RELEASE-0.4.1.md",
+    "docs/validation-0.4.1.json",
     "docs/validation-0.4.0.json"
   ],
   "scripts": {

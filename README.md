@@ -1,6 +1,6 @@
 # dsh-UI美化
 
-当前版本 **0.4.1**（侧栏与顶部布局修复版，见 [0.4.1 发布说明](docs/RELEASE-0.4.1.md)）。0.4.0 的功能、可调项与兼容边界参阅 [0.4.0 发布说明](docs/RELEASE-0.4.0.md) 和 [验证记录](docs/validation-0.4.0.json)。
+当前版本 **0.4.2**（流式输出与滚动平滑版，见 [0.4.2 发布说明](docs/RELEASE-0.4.2.md)）。0.4.0 的功能、可调项与兼容边界参阅 [0.4.0 发布说明](docs/RELEASE-0.4.0.md) 和 [验证记录](docs/validation-0.4.0.json)。
 
 为 DeepSeek Harness 提供独立的任务面板、输入栏与侧栏材质，以及背景、主题切换和对话动效。各区域分别配置，默认样式排在材质选项最前面。
 
@@ -13,6 +13,8 @@
 顶部「全局配置」支持导入与导出所有分类、独立黑白主题、自定义 CSS、工具栏和聊天宽度。默认导出轻量 JSON；开启「包含本机素材」后可导出背景、开屏、粒子和自定义动图包的完整备份。导入先查看摘要，支持撤销；素材变更后按提示刷新界面。详见 [配置备份与迁移](docs/SETTINGS-TRANSFER.md)。
 
 ![独立设置与任务卡片](assets/screenshots/settings.png)
+
+![流式文字渐显设置与预览](assets/screenshots/stream-reveal.png)
 
 ![用户消息气泡示例](assets/screenshots/message-bubbles.png)
 

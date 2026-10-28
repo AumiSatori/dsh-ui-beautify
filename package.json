@@ -110,6 +110,7 @@
     "test:conversation-width": "node test/conversation-width-browser.mjs",
     "test:messages": "node test/message-motion-browser.mjs",
     "test:chat-disclosure": "node test/chat-disclosure-browser.mjs",
+    "test:stream-reveal": "node test/stream-reveal-browser.mjs",
     "test:user-bubbles": "node test/user-bubbles-browser.mjs",
     "test:turn-cards": "node test/turn-cards-browser.mjs",
     "test:turn-divider": "node test/turn-divider-browser.mjs",

@@ -1,14 +1,14 @@
 {
   "version": "0.4.4",
   "baseline": "v0.4.3",
-  "clientSha256": "48cbb02fb92eecc49f3bc0703ab4d86830607ed8c259f639845558344d947092",
-  "scope": "切换全局配置时异步预设载入引起的导入导出区域抖动，以及分类动画结束时的旧高度跳变。",
+  "clientSha256": "7a9956f2b29ef693f722357d04d01217ac878bd3709a2cc82be6c232f17ab75b",
+  "scope": "全局配置异步预设载入及切页高度抖动修复；对话页签下划线从两端向中心收拢、从新中心向两侧展开，使用不同速率并支持快速反向。",
   "hostComponents": "已安装 DSH 0.2.1-rc.3；独立无头 Chrome 与合成预设。",
   "checks": {
-    "suites": 6,
-    "passed": 6,
+    "suites": 7,
+    "passed": 7,
     "failed": 0,
-    "checks": 137,
+    "checks": 168,
     "nodeTests": 96,
     "fullReleaseSuite": false
   },
@@ -34,6 +34,11 @@
       "checks": 9
     },
     {
+      "name": "test:tabs",
+      "passed": true,
+      "checks": 31
+    },
+    {
       "name": "test:settings-hierarchy",
       "passed": true,
       "checks": 11
@@ -52,25 +57,25 @@
     {
       "name": "immediate",
       "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 11.9375,
-      "minFrameStepCssPx": -0.0000152587890625
+      "maxFrameStepCssPx": 22.890609741210938,
+      "minFrameStepCssPx": 0
     },
     {
       "name": "duringEntry",
       "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 11.125,
+      "maxFrameStepCssPx": 12.203125,
       "minFrameStepCssPx": -0.000030517578125
     },
     {
       "name": "afterEntry",
       "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 11.625,
+      "maxFrameStepCssPx": 11.84375,
       "minFrameStepCssPx": -0.000030517578125
     },
     {
       "name": "darkNarrow",
       "travelCssPx": 125.1875,
-      "maxFrameStepCssPx": 15.046859741210938,
+      "maxFrameStepCssPx": 16.015609741210938,
       "minFrameStepCssPx": -0.000030517578125
     }
   ],
@@ -79,10 +84,11 @@
     "深色窄窗口有真实高度、模糊和位移中间帧。",
     "切页高度释放无跳变，动画结束清除临时样式。",
     "减少动态效果即时加载；离开分类后延迟回调不恢复已卸载动画。",
-    "设置页没有原生 select / checkbox / radio / range。"
+    "设置页没有原生 select / checkbox / radio / range。",
+    "页签下划线双向切换时中心固定、零宽换位、分段非匀速；快速反向接续当前画面，减少动态效果与卸载清理通过。"
   ],
   "desktopAcceptance": false,
-  "completedAt": "2026-10-29T06:40:49.406Z",
+  "completedAt": "2026-10-29T07:09:59.878Z",
   "globalPatchCheck": {
     "exitCode": 1,
     "missingOptional": [
@@ -90,5 +96,18 @@
       "dsh-startup-feedback"
     ],
     "unchangedFromPreviousRelease": true
-  }
+  },
+  "releaseStatus": "unreleased",
+  "releaseAuthorizationRequired": true,
+  "sourceCommit": "00a841222eddc50bb490ec7b3a4fd5759cdc1a67",
+  "increments": [
+    {
+      "commit": "82c1cf17a70f282da15e0912e131898db3a09292",
+      "scope": "全局配置切页抖动修复"
+    },
+    {
+      "commit": "00a841222eddc50bb490ec7b3a4fd5759cdc1a67",
+      "scope": "对话页签下划线中心收拢与展开"
+    }
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "name": "dsh-ui-beautify",
   "displayName": "dsh-UI美化",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "type": "module",
   "description": "DSH UI appearance settings: glass surfaces, task and Artifact cards, custom message bubbles, backgrounds, particles and focus mode. 界面材质、任务与产物卡片、消息气泡和背景动效。",
   "author": "AumiSatori",
@@ -46,6 +46,7 @@
     "docs/UNIFIED-ICONS.md",
     "docs/FULLSCREEN.md",
     "docs/SIDEBAR-ATTENTION.md",
+    "docs/STREAM-REVEAL.md",
     "docs/SETTINGS-RESET.md",
     "docs/SETTINGS-TRANSFER.md",
     "docs/CUSTOM-OPENING.md",
@@ -61,8 +62,13 @@
     "scripts/running-animation-config.mjs",
     "scripts/running-pack-zip.mjs",
     "docs/RELEASE-0.4.0.md",
+    "docs/RELEASE-0.4.1.md",
+    "docs/validation-0.4.1.json",
     "docs/RELEASE-0.4.2.md",
-    "docs/validation-0.4.0.json"
+    "docs/validation-0.4.2.json",
+    "docs/validation-0.4.0.json",
+    "docs/RELEASE-0.4.3.md",
+    "docs/validation-0.4.3.json"
   ],
   "scripts": {
     "build:lens": "node scripts/build-lens.mjs",
@@ -114,6 +120,7 @@
     "test:conversation-width": "node test/conversation-width-browser.mjs",
     "test:messages": "node test/message-motion-browser.mjs",
     "test:chat-disclosure": "node test/chat-disclosure-browser.mjs",
+    "test:stream-reveal": "node test/stream-reveal-browser.mjs",
     "test:user-bubbles": "node test/user-bubbles-browser.mjs",
     "test:turn-cards": "node test/turn-cards-browser.mjs",
     "test:turn-divider": "node test/turn-divider-browser.mjs",
@@ -130,7 +137,10 @@
     "test:running": "node test/running-browser.mjs",
     "pack:running": "node scripts/build-animation-pack.mjs",
     "test:opening-themes": "node test/theme-media-browser.mjs",
-    "test:settings-hierarchy": "node test/settings-hierarchy-toolbar-browser.mjs"
+    "test:settings-hierarchy": "node test/settings-hierarchy-toolbar-browser.mjs",
+    "test:hero-greeting": "node test/hero-greeting-browser.mjs",
+    "test:process-disclosure": "node test/process-disclosure-browser.mjs",
+    "test:output-preview-animation": "node test/output-preview-animation.mjs"
   },
   "dsh": {
     "bundle": {

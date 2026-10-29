@@ -20,7 +20,7 @@ for(const [name,command]of cases){
   const timer=setTimeout(()=>{child.kill();},300000)
   child.on('error',error=>log.push(error.message));child.on('close',(code,signal)=>{clearTimeout(timer);done({code,signal})})
  })
- const text=log.join(''),checks=(text.match(/^PASS /gm)||[]).length||Number(text.match(/ℹ pass (\d+)/)?.[1]||0)
+ const text=log.join(''),checks=(text.match(/^PASS /gm)||[]).length||Number(text.match(/(?:ℹ pass |^# pass )(\d+)/m)?.[1]||0)
  const index=report.results.findIndex(item=>item.name===name),old=index>=0?report.results[index]:null,attempt=(old?.attempt||0)+1
  const filename=name.replaceAll(':','-')+`-attempt${attempt}.log`;await writeFile(resolve(output,filename),text)
  const record={name,...result,checks,elapsedMs:Date.now()-start,attempt,log:filename,...(old?{previousAttempts:[...(old.previousAttempts||[]),{code:old.code,elapsedMs:old.elapsedMs,log:old.log}]}:{})}

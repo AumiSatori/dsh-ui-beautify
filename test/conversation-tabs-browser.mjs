@@ -325,6 +325,7 @@ try{
     await page.evaluate(()=>window.fixture.update({more:false,view:'chat'}));await tick()
     assert.equal(await page.locator('[data-dcb-views-row]').count(),0,'removing the launcher restores the native row')
     assert.equal(await page.locator('[data-dcb-views-more]').count(),0)
+    await complete() // Finish the restored chat underline before the next transition.
     // This check reloads the page, so re-capture the node the following identity
     // check compares against instead of leaving a stale window handle.
     await page.evaluate(()=>{window.originalTab=document.querySelector('[data-conversation-tabs] button')})

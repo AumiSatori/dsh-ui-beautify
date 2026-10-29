@@ -16,12 +16,18 @@ dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/relea
 
 ## 兼容范围
 
-- 实际回归宿主：本机应用归档内 `@deepseek-ai/dsh` 和 UI 包均为 **0.2.1-rc.2**，独立于桌面外壳版本。
+- 0.4.3 回归宿主：本机应用归档内 `@deepseek-ai/dsh` 为 **0.2.1-rc.3**，测试读取已安装的原生 UI 组件；旧版 0.4.0 的回归基线为 0.2.1-rc.2。宿主包版本独立于桌面外壳版本。
 - 声明的宿主范围：`>=0.2.1-rc.2 <0.3.0-0`；后续大版本需重新验证。Node.js 22.13+。
 - 测试浏览器：Windows 上已安装的 Chrome；窄屏、暗色、减少动态效果、强制颜色及 GPU/Canvas 降级有专门用例。
 - 桌面与 Web 使用同一客户端。未声称已验证所有操作系统或第三方客户端。
 - 字体、用户图片/视频、SVG 与 HTML 保存在当前浏览器来源；不随账号自动跨设备同步。
 - 本卡片的 Artifact 阅读器不接管其他插件接口；多个预览窗口可能重叠。需要外部脚本、相邻文件或网络请求的 HTML 请用原生入口打开。
+
+## 0.4.3 合并发布
+
+60 组回归全部通过，记录 710 项检查（含 96 项 Node 检查及兼容命令别名的重复执行），使用已安装的 DSH 0.2.1-rc.3 原生组件、独立无头 Chrome 和合成内容。覆盖流式渐显与跟随平滑、短对话滚动边界、配置预设与流式选项恢复、日夜开屏历史、侧栏反向动画、主题、输出与卸载清理。客户端可由源码复现，详见 [validation-0.4.3.json](validation-0.4.3.json)。真实桌面体验未在本轮操作验收。
+
+本地源码链接继续指向本仓库；社区市场条目使用固定的 latest Release 下载地址。发版核对主分支、版本安装包、固定名安装包和本地运行客户端，包的校验值随 Release 提供。宿主提前开屏与启动反馈属于可选安装包补丁，本机全局体检提示它们尚未安装，本轮未修改宿主安装包。
 
 ## 0.4.0 整合发布
 
@@ -46,6 +52,8 @@ npm run test:release
 ```
 
 完整浏览器验证需要本机 Chrome。将 `DSH_ASAR` 指向本机应用归档，`DSH_CLAUDE_OUTPUT_DIR` 指向临时输出目录，`FFMPEG` 指向本机 FFmpeg；可选 `DSH_SLIDER_CLIENT` 和 `DSH_ARTIFACT_CLIENT` 指向已安装配套插件的客户端，加入真实集成检查。测试只读取宿主组件代码，界面中的内容均为合成数据。
+
+PowerShell 中传递 `--rerun-failed` 或 `--only=...` 时使用 `npm.cmd run test:release -- ...`，避免外层脚本吞掉参数。
 
 `test:release` 依次运行 `package.json` 中全部 `test` / `test:*`（自身除外），每项保留日志，输出 `release-verification/report.json`。`npm run test:release -- --rerun-failed` 只复验失败项并合并报告、保留之前尝试；用 `--only=test:settings,test:artifact` 可单独定位。失败不能以旧的通过结果代替。
 

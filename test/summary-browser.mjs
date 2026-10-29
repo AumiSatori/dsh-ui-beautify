@@ -15,7 +15,7 @@ const presentationSettingKeys = [
   'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'detailMotion', 'enabled', 'headerCentered',
   'heroGreetingCode', 'heroGreetingCss', 'heroGreetingCustomLogo', 'heroGreetingLogoSize', 'heroGreetingMessages', 'heroGreetingMode', 'heroGreetingShowLogo', 'heroGreetingShowPreview', 'messageMotionCode', 'messageMotionMode',
   'messageMotion', 'modules', 'particleCount', 'particleDensityVersion', 'particleEnabled', 'particleFull', 'particleImageName', 'particleImageRevision', 'particleManualProgress', 'particleProgressMode', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarOverlay', 'sidebarStyle',
-  'skillDetails', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnDividerColor', 'turnDividerCss', 'turnDividerImageRevision', 'turnDividerMotion', 'turnDividerPreset', 'turnGlass', 'userBubbleCss', 'userBubbleStyle', 'welcomeDuration',
+  'skillDetails', 'streamReveal', 'streamRevealStrength', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnDividerColor', 'turnDividerCss', 'turnDividerImageRevision', 'turnDividerMotion', 'turnDividerPreset', 'turnGlass', 'userBubbleCss', 'userBubbleStyle', 'welcomeDuration',
   'welcomeCharacters', 'welcomeCodeDuration', 'welcomeCodeInteractive', 'welcomeCodeModes', 'welcomeCodeName', 'welcomeCodeRevision', 'welcomeEnabled', 'welcomeFont', 'welcomeLogo', 'welcomeMediaDuration',
   'welcomeMediaFit', 'welcomeMediaRevision', 'welcomeMode', 'welcomeText', 'width',
 ].sort()

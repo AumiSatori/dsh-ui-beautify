@@ -1,18 +1,20 @@
 # dsh-UI美化
 
-当前整合版本 **0.4.0**。参阅 [功能、可调项与兼容边界](docs/RELEASE-0.4.0.md) 和 [验证记录](docs/validation-0.4.0.json)。
+当前版本 **0.4.2**（流式输出与滚动平滑版，见 [0.4.2 发布说明](docs/RELEASE-0.4.2.md)）。0.4.0 的功能、可调项与兼容边界参阅 [0.4.0 发布说明](docs/RELEASE-0.4.0.md) 和 [验证记录](docs/validation-0.4.0.json)。
 
 为 DeepSeek Harness 提供独立的任务面板、输入栏与侧栏材质，以及背景、主题切换和对话动效。各区域分别配置，默认样式排在材质选项最前面。
 
 设置入口：**设置 → dsh-UI美化**。仓库、包名和插件标识统一为 `dsh-ui-beautify`；旧版 `dsh-claude-beautify` 的本机偏好会自动迁移。代码 MIT；可选鲸鱼娘素材为 CC BY-NC-SA 4.0，详见许可说明。
 
-[功能详解](docs/FEATURES.md) · [交付与兼容](docs/DELIVERY.md) · [更新记录](CHANGELOG.md) · [安装](#安装与更新) · [来源与许可](THIRD_PARTY_NOTICES.md)
+[0.4.3 发布说明](docs/RELEASE-0.4.3.md) · [功能详解](docs/FEATURES.md) · [交付与兼容](docs/DELIVERY.md) · [更新记录](CHANGELOG.md) · [安装](#安装与更新) · [来源与许可](THIRD_PARTY_NOTICES.md)
 
 「全局配置」中的内置「默认值」预设可还原全部美化选项和两种窗口宽度，保留已导入素材，并支持撤销上次应用。详见 [恢复默认说明](docs/SETTINGS-RESET.md)。
 
 「全局配置」分类支持导入与导出所有分类、独立黑白主题、自定义 CSS、工具栏和聊天宽度。默认导出轻量 JSON；开启「包含本机素材」后可导出背景、开屏、粒子和自定义动图包的完整备份。导入先查看摘要，支持撤销；素材变更后按提示刷新界面。详见 [配置备份与迁移](docs/SETTINGS-TRANSFER.md)。
 
 ![独立设置与任务卡片](assets/screenshots/settings.png)
+
+![流式文字渐显设置与预览](assets/screenshots/stream-reveal.png)
 
 ![用户消息气泡示例](assets/screenshots/message-bubbles.png)
 

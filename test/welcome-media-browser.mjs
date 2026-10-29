@@ -49,7 +49,7 @@ async function nextBoot(patch={}){
   await page.evaluate(({key,patch})=>{const old=JSON.parse(localStorage.getItem(key)),next={welcomeEnabled:true,...patch},scheme=document.body.hasAttribute('data-ds-dark-theme')?'dark':'light';localStorage.setItem(key,JSON.stringify({...old,...next,welcomeThemes:old.welcomeThemes?{...old.welcomeThemes,[scheme]:{...old.welcomeThemes[scheme],...next}}:null}))},{key,patch})
   await page.reload();await mount()
 }
-async function waitPoster(){await section.locator('[data-dcb-welcome-media] canvas').waitFor();assert.equal(await urls(),0)}
+async function waitPoster(){await page.waitForTimeout(260);await section.locator('[data-dcb-welcome-media] canvas').waitFor();await page.waitForFunction(()=>window.liveObjectURLs.size===0);assert.equal(await urls(),0)}
 try{
   await page.goto(url);await page.evaluate(key=>localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,welcomeMode:'text'})),key);await mount();await settings()
   await check('the default preview fills the native DSH silhouette with characters and needs no separate logo switch',async()=>{
@@ -93,7 +93,7 @@ try{
     await settings();await waitPoster()
   })
   await check('MP4 replacement remains muted and plays once in both preview and actual startup',async()=>{
-    await upload.setInputFiles(video);await section.getByText(/synthetic-short.mp4/).waitFor();await waitPoster()
+    await upload.setInputFiles(video);await section.locator('.dcb-welcome-file-name').filter({hasText:/synthetic-short.mp4/}).waitFor();await waitPoster()
     await section.getByRole('button',{name:'播放欢迎预览'}).click();const movie=section.locator('video');await movie.waitFor()
     await page.waitForTimeout(180)
     assert.deepEqual(await movie.evaluate(el=>({muted:el.muted,controls:el.controls,loop:el.loop,inline:el.playsInline,playing:!el.paused})),{muted:true,controls:false,loop:false,inline:true,playing:true})
@@ -106,12 +106,12 @@ try{
     await settings();await waitPoster()
   })
   await check('WebM is accepted, invalid, oversized and overlong uploads leave the last good media intact',async()=>{
-    await upload.setInputFiles(webm);await section.getByText(/synthetic-short.webm/).waitFor();await waitPoster();const revision=(await readStored()).welcomeMediaRevision
+    await upload.setInputFiles(webm);await section.locator('.dcb-welcome-file-name').filter({hasText:/synthetic-short.webm/}).waitFor();await waitPoster();const revision=(await readStored()).welcomeMediaRevision
     await upload.setInputFiles({name:'fake.gif',mimeType:'image/gif',buffer:Buffer.from('<svg onload="alert(1)"></svg>')})
     await section.getByRole('alert').filter({hasText:'支持 GIF'}).waitFor();assert.equal((await readStored()).welcomeMediaRevision,revision)
     await upload.setInputFiles(long);await section.getByRole('alert').filter({hasText:'15 秒以内'}).waitFor();assert.equal((await readStored()).welcomeMediaRevision,revision)
     const rejected=await page.evaluate(async()=>{try{await WelcomeMedia.inspectWelcomeMedia(new File([new Uint8Array(20*1024*1024+1)],'huge.gif',{type:'image/gif'}),document,window);return false}catch(e){return e.message.includes('20MB')}})
-    assert.equal(rejected,true);assert.equal(await urls(),0)
+    assert.equal(rejected,true);await waitPoster();assert.equal(await urls(),0)
     await section.getByRole('button',{name:'播放欢迎预览'}).click();await section.locator('video').waitFor();await page.waitForTimeout(1300);await waitPoster()
   })
   await check('preview close, keyboard skip, reduced motion and plugin disposal release all media decoders and URLs',async()=>{

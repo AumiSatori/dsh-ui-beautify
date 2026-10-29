@@ -182,7 +182,7 @@ try{
      else done({samples,before:{x:before.x,width:before.width},canvas:canvas===document.querySelector('.dcb-particle-layer canvas'),leftStyle:{duration:getComputedStyle(left).transitionDuration,easing:getComputedStyle(left).transitionTimingFunction},rightStyle:{duration:r.transitionDuration,easing:r.transitionTimingFunction},moving:!!document.querySelector('[data-dcb-sidebar-moving],[data-dcb-sidebar-ghost]')})
     };requestAnimationFrame(tick)
    }))
-   pairs.push({direction,...result})
+   pairs.push({direction,...result});writeFileSync(resolve(output,'drawer-pairs.json'),JSON.stringify(pairs,null,2))
    const middle=result.samples.filter(s=>s.left>.05&&s.left<.95&&s.right>.05&&s.right<.95)
    assert.ok(middle.length>=3,direction+' has matching intermediate frames')
    for(const sample of middle){assert.ok(Math.abs(sample.left-sample.right)<.16,'mirrored drawer progress stays synchronized');assert.ok(Math.abs(sample.leftOpacity-sample.rightOpacity)<.16,'content fades with the same progress');assert.ok(sample.leftX<=.1,'the left content slides toward the left edge')}

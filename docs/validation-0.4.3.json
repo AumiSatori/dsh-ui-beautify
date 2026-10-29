@@ -1,0 +1,355 @@
+{
+  "version": "0.4.3",
+  "baseline": {
+    "remoteTag": "v0.4.2",
+    "remoteCommit": "bdb32f91e015fb3a1c0fc1127b42d2617cb5a601",
+    "localSnapshot": "490e3b5"
+  },
+  "scope": "保留 0.4.2 的流式渐显和跟随平滑，整合本机配置预设、欢迎语、日夜定时/交互开屏及本地交互修复。",
+  "clientSha256": "1e7d993307214596abfc5008d330dc9240ad68755b27af647e30fd602ed261fc",
+  "earlyOpeningSha256": "05791a4ca40e4ab012a5f0ba5a61f713c7e8e33aac68965fc7956f263622ae92",
+  "host": {
+    "version": "0.2.1-rc.3",
+    "mode": "只读取已安装宿主归档中的原生组件，在独立无头 Chrome 与合成内容中回归。"
+  },
+  "checks": {
+    "reproducibleBuild": true,
+    "packageInspection": true,
+    "suites": 60,
+    "passed": 60,
+    "failed": 0,
+    "reportedChecks": 710,
+    "nodeTests": 96,
+    "aliases": "含纯背景功能的三个兼容命令；性能组另有 JSON 指标。"
+  },
+  "results": [
+    {
+      "name": "test:unified-icons",
+      "passed": true,
+      "checks": 21
+    },
+    {
+      "name": "test:fullscreen",
+      "passed": true,
+      "checks": 14
+    },
+    {
+      "name": "test",
+      "passed": true,
+      "checks": 96
+    },
+    {
+      "name": "test:browser",
+      "passed": true,
+      "checks": 16
+    },
+    {
+      "name": "test:summary",
+      "passed": true,
+      "checks": 48
+    },
+    {
+      "name": "test:progress-liquid",
+      "passed": true,
+      "checks": 9
+    },
+    {
+      "name": "test:skills",
+      "passed": true,
+      "checks": 8
+    },
+    {
+      "name": "test:scope",
+      "passed": true,
+      "checks": 13
+    },
+    {
+      "name": "test:artifact",
+      "passed": true,
+      "checks": 19
+    },
+    {
+      "name": "test:materials",
+      "passed": true,
+      "checks": 13
+    },
+    {
+      "name": "test:theme-palette",
+      "passed": true,
+      "checks": 18
+    },
+    {
+      "name": "test:theme-switch",
+      "passed": true,
+      "checks": 13
+    },
+    {
+      "name": "test:focus",
+      "passed": true,
+      "checks": 12
+    },
+    {
+      "name": "test:focus-header",
+      "passed": true,
+      "checks": 12
+    },
+    {
+      "name": "test:focus-performance",
+      "passed": true,
+      "checks": 12
+    },
+    {
+      "name": "test:startup",
+      "passed": true,
+      "checks": 19
+    },
+    {
+      "name": "test:welcome",
+      "passed": true,
+      "checks": 7
+    },
+    {
+      "name": "test:welcome-media",
+      "passed": true,
+      "checks": 9
+    },
+    {
+      "name": "test:welcome-code",
+      "passed": true,
+      "checks": 8
+    },
+    {
+      "name": "test:theme-gesture",
+      "passed": true,
+      "checks": 10
+    },
+    {
+      "name": "test:early-opening",
+      "passed": true,
+      "checks": 4
+    },
+    {
+      "name": "test:settings",
+      "passed": true,
+      "checks": 14
+    },
+    {
+      "name": "test:settings-reset",
+      "passed": true,
+      "checks": 1
+    },
+    {
+      "name": "test:settings-presets",
+      "passed": true,
+      "checks": 1
+    },
+    {
+      "name": "test:settings-transfer",
+      "passed": true,
+      "checks": 9
+    },
+    {
+      "name": "test:background",
+      "passed": true,
+      "checks": 12
+    },
+    {
+      "name": "test:background-surfaces",
+      "passed": true,
+      "checks": 8
+    },
+    {
+      "name": "test:background-presented",
+      "passed": true,
+      "checks": 7
+    },
+    {
+      "name": "test:background-names",
+      "passed": true,
+      "checks": 9
+    },
+    {
+      "name": "test:background-theme",
+      "passed": true,
+      "checks": 7
+    },
+    {
+      "name": "test:tabs",
+      "passed": true,
+      "checks": 31
+    },
+    {
+      "name": "test:composer",
+      "passed": true,
+      "checks": 20
+    },
+    {
+      "name": "test:composer-scroll-motion",
+      "passed": true,
+      "checks": 8
+    },
+    {
+      "name": "test:composer-placement",
+      "passed": true,
+      "checks": 7
+    },
+    {
+      "name": "test:slider-glass",
+      "passed": true,
+      "checks": 5
+    },
+    {
+      "name": "test:performance",
+      "passed": true,
+      "checks": 4
+    },
+    {
+      "name": "test:particle-performance",
+      "passed": true,
+      "checks": 0
+    },
+    {
+      "name": "test:reading-performance",
+      "passed": true,
+      "checks": 0
+    },
+    {
+      "name": "test:sidebar",
+      "passed": true,
+      "checks": 17
+    },
+    {
+      "name": "test:sidebar-attention",
+      "passed": true,
+      "checks": 14
+    },
+    {
+      "name": "test:sidebar-layout",
+      "passed": true,
+      "checks": 1
+    },
+    {
+      "name": "test:sidebar-overlay",
+      "passed": true,
+      "checks": 10
+    },
+    {
+      "name": "test:conversation-width",
+      "passed": true,
+      "checks": 11
+    },
+    {
+      "name": "test:messages",
+      "passed": true,
+      "checks": 16
+    },
+    {
+      "name": "test:chat-disclosure",
+      "passed": true,
+      "checks": 8
+    },
+    {
+      "name": "test:stream-reveal",
+      "passed": true,
+      "checks": 11
+    },
+    {
+      "name": "test:user-bubbles",
+      "passed": true,
+      "checks": 9
+    },
+    {
+      "name": "test:turn-cards",
+      "passed": true,
+      "checks": 22
+    },
+    {
+      "name": "test:turn-divider",
+      "passed": true,
+      "checks": 7
+    },
+    {
+      "name": "test:context-particles",
+      "passed": true,
+      "checks": 10
+    },
+    {
+      "name": "test:particle-conversion",
+      "passed": true,
+      "checks": 4
+    },
+    {
+      "name": "test:whale-particles",
+      "passed": true,
+      "checks": 0
+    },
+    {
+      "name": "test:header-project",
+      "passed": true,
+      "checks": 7
+    },
+    {
+      "name": "test:particle-images",
+      "passed": true,
+      "checks": 7
+    },
+    {
+      "name": "test:running",
+      "passed": true,
+      "checks": 11
+    },
+    {
+      "name": "test:opening-themes",
+      "passed": true,
+      "checks": 7
+    },
+    {
+      "name": "test:settings-hierarchy",
+      "passed": true,
+      "checks": 11
+    },
+    {
+      "name": "test:hero-greeting",
+      "passed": true,
+      "checks": 1
+    },
+    {
+      "name": "test:process-disclosure",
+      "passed": true,
+      "checks": 1
+    },
+    {
+      "name": "test:output-preview-animation",
+      "passed": true,
+      "checks": 1
+    }
+  ],
+  "mergeReview": [
+    "保留两侧导出、设置归一化、样式、初始化、更新和卸载逻辑。",
+    "恢复新交付物自动展开、入口收起、开屏历史引用保护、主题卡片切换和提前开屏缓存。",
+    "短对话边界判断叠加到远端流式补偿，使用原生 ScrollFollow 验证。",
+    "配置预设切换验证 streamReveal 和 streamRevealStrength 随预设恢复。",
+    "侧栏实际中间帧、快速反向、同步进度和卸载清理检查通过。"
+  ],
+  "distribution": {
+    "packageName": "dsh-ui-beautify",
+    "runtimeDependencies": 0,
+    "installHooks": false,
+    "marketEntry": "data/plugins/AumiSatori__dsh-ui-beautify.yml",
+    "marketTarball": "https://github.com/AumiSatori/dsh-ui-beautify/releases/latest/download/dsh-ui-beautify.tgz",
+    "marketVersionField": null
+  },
+  "desktopAcceptance": {
+    "performed": false,
+    "reason": "本轮没有启动或操控用户的 DSH 桌面；自动回归与真实桌面验收分别记录。"
+  },
+  "globalPatchCheck": {
+    "exitCode": 1,
+    "missingOptional": [
+      "dsh-ui-early-opening",
+      "dsh-startup-feedback"
+    ],
+    "action": "本轮未修改宿主安装包；两个可选启动补丁未安装。"
+  },
+  "completedAt": "2026-10-29T02:30:39.991Z"
+}

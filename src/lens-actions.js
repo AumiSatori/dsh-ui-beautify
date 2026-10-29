@@ -51,6 +51,7 @@ export {summaryEntryState,summaryEventStatus,createSummaryEntryStatus,summaryEnt
 export {createChatDisclosureMotion} from './chat-disclosure-motion.js'
 export {createProcessDisclosureMotion} from './process-disclosure-motion.js'
 export {normalizeMessageMotion,parseMessageMotion,createMessageMotionSettings,messageMotionSettingsCss} from './message-motion-config.js'
+export {createStreamReveal,createStreamRevealSettings,normalizeStreamReveal,streamRevealSettingsCss} from './stream-reveal.js'
 export {createProgressLiquid, progressRollEase} from './progress-liquid.js'
 export {affectsPresentation, affectsScroll} from './presentation-observer.js'
 export {applyPresentationOnce} from './presentation-owner.js'

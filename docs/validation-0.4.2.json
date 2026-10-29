@@ -1,0 +1,28 @@
+{
+  "version": "0.4.2",
+  "baseline": {
+    "tag": "v0.4.1",
+    "main": "5a24582"
+  },
+  "branch": "release/v0.4.2",
+  "scope": "流式文字平滑逐字渐显、流式跟随滚动平滑、多行草稿回车抖动修复，以及 0.4.1 发布后已在 main 的源码对齐修复。",
+  "clientSha256": "1d8ef03502fda2a2c68297cb36557d14bc95f559ffab39e60bfe478ebfdd7c99",
+  "packageClientIdenticalToRepository": true,
+  "localRuntimeClientIdentical": true,
+  "checks": {
+    "check:release": "pass（93 个文件，4 张截图，无安装钩子，无运行时依赖）",
+    "check:lens": "pass（client.js 可由 src/ 复现）",
+    "node --test test/*.test.mjs": "92/92",
+    "test:stream-reveal": "11/11",
+    "test:composer-scroll-motion (DSH_ASAR 读取已安装宿主)": "7/7",
+    "test:messages": "15/15"
+  },
+  "liveVerification": {
+    "host": "本机 DSH 主页面 http://localhost:8442/，DeepSeek V4.1 Flash",
+    "streamReveal": "真实回答逐字平滑打出，渐显无长任务；DS Bot 界面不处理。",
+    "followGlide": "满帧实测：流式期间已输出内容连续上移、无停顿；回答结束尾栏出现时默认输入栏与「对话延伸到输入栏后方」两种设置下都在约 0.3 秒内完整露出、滚动停在底部。",
+    "fixtures": "回合结束（状态行移除、标题插入、尾栏追加）单帧位移 ≤0.3px；思考期间滚轮上翻不再被接管。"
+  },
+  "screenshots": "设置、对话动效与消息气泡由本机 DSH 的插件设置区重拍，临时浏览器配置、默认偏好，不含聊天内容；artifact.png 沿用。",
+  "completedAt": "2026-10-28T14:15:00+00:00"
+}

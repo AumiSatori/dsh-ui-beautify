@@ -135,7 +135,7 @@ try{
           assert.equal(await control.getAttribute('aria-checked'),original)
         }
       }
-      assert.equal(count,21) // Character logo no longer has a separate visibility switch.
+      assert.equal(count,22) // Includes the 0.4.2 streaming reveal switch.
       await select('开屏欢迎');await page.mouse.move(1,1);await page.waitForTimeout(250)
       await dialog.screenshot({path:resolve(output,`switches-${dark?'dark':'light'}.png`)})
     }

@@ -1,0 +1,94 @@
+{
+  "version": "0.4.4",
+  "baseline": "v0.4.3",
+  "clientSha256": "48cbb02fb92eecc49f3bc0703ab4d86830607ed8c259f639845558344d947092",
+  "scope": "切换全局配置时异步预设载入引起的导入导出区域抖动，以及分类动画结束时的旧高度跳变。",
+  "hostComponents": "已安装 DSH 0.2.1-rc.3；独立无头 Chrome 与合成预设。",
+  "checks": {
+    "suites": 6,
+    "passed": 6,
+    "failed": 0,
+    "checks": 137,
+    "nodeTests": 96,
+    "fullReleaseSuite": false
+  },
+  "results": [
+    {
+      "name": "test",
+      "passed": true,
+      "checks": 96
+    },
+    {
+      "name": "test:settings",
+      "passed": true,
+      "checks": 14
+    },
+    {
+      "name": "test:settings-presets",
+      "passed": true,
+      "checks": 1
+    },
+    {
+      "name": "test:settings-transfer",
+      "passed": true,
+      "checks": 9
+    },
+    {
+      "name": "test:settings-hierarchy",
+      "passed": true,
+      "checks": 11
+    },
+    {
+      "name": "test:settings-config-motion",
+      "passed": true,
+      "checks": 6
+    }
+  ],
+  "reproduction": {
+    "baselineJumpCssPx": 77.1875,
+    "method": "逐帧测量导入导出区域相对配置页的位置，排除整页淡入位移。"
+  },
+  "motionResults": [
+    {
+      "name": "immediate",
+      "travelCssPx": 77.1875,
+      "maxFrameStepCssPx": 11.9375,
+      "minFrameStepCssPx": -0.0000152587890625
+    },
+    {
+      "name": "duringEntry",
+      "travelCssPx": 77.1875,
+      "maxFrameStepCssPx": 11.125,
+      "minFrameStepCssPx": -0.000030517578125
+    },
+    {
+      "name": "afterEntry",
+      "travelCssPx": 77.1875,
+      "maxFrameStepCssPx": 11.625,
+      "minFrameStepCssPx": -0.000030517578125
+    },
+    {
+      "name": "darkNarrow",
+      "travelCssPx": 125.1875,
+      "maxFrameStepCssPx": 15.046859741210938,
+      "minFrameStepCssPx": -0.000030517578125
+    }
+  ],
+  "assertions": [
+    "即时、入场中和入场结束后读取预设，下方区域平滑位移且不反向。",
+    "深色窄窗口有真实高度、模糊和位移中间帧。",
+    "切页高度释放无跳变，动画结束清除临时样式。",
+    "减少动态效果即时加载；离开分类后延迟回调不恢复已卸载动画。",
+    "设置页没有原生 select / checkbox / radio / range。"
+  ],
+  "desktopAcceptance": false,
+  "completedAt": "2026-10-29T06:40:49.406Z",
+  "globalPatchCheck": {
+    "exitCode": 1,
+    "missingOptional": [
+      "dsh-ui-early-opening",
+      "dsh-startup-feedback"
+    ],
+    "unchangedFromPreviousRelease": true
+  }
+}

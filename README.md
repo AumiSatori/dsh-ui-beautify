@@ -6,7 +6,7 @@
 
 设置入口：**设置 → dsh-UI美化**。仓库、包名和插件标识统一为 `dsh-ui-beautify`；旧版 `dsh-claude-beautify` 的本机偏好会自动迁移。代码 MIT；可选鲸鱼娘素材为 CC BY-NC-SA 4.0，详见许可说明。
 
-[0.4.3 发布说明](docs/RELEASE-0.4.3.md) · [功能详解](docs/FEATURES.md) · [交付与兼容](docs/DELIVERY.md) · [更新记录](CHANGELOG.md) · [安装](#安装与更新) · [来源与许可](THIRD_PARTY_NOTICES.md)
+[0.4.4 发布说明](docs/RELEASE-0.4.4.md) · [功能详解](docs/FEATURES.md) · [交付与兼容](docs/DELIVERY.md) · [更新记录](CHANGELOG.md) · [安装](#安装与更新) · [来源与许可](THIRD_PARTY_NOTICES.md)
 
 「全局配置」中的内置「默认值」预设可还原全部美化选项和两种窗口宽度，保留已导入素材，并支持撤销上次应用。详见 [恢复默认说明](docs/SETTINGS-RESET.md)。
 

@@ -96,8 +96,19 @@ export function createSettingsTabs(React,doc,win){
           animate(stage.current,[{height:height+'px'},{height:natural+'px'}],{duration:280,easing:motion.ease.smooth})
         }
         animate(page.current,[from||{opacity:0,transform:'translateY(8px)',filter:'blur(2px)'},{opacity:1,transform:'none',filter:'blur(0px)'}],{duration:240,easing:motion.ease.smooth})
-        const active=animations.current,finish=()=>{if(live.current&&sequence.current===token&&animations.current===active)clear()}
-        Promise.all(active.map(animation=>animation.finished)).then(finish,finish)
+        const active=animations.current,current=()=>live.current&&sequence.current===token&&animations.current===active
+        const cancel=()=>{if(current())clear()}
+        const finish=()=>{
+          if(!current())return
+          // Async editors can grow during entry. Reach their current natural
+          // height before releasing the stage instead of snapping to auto.
+          const height=stage.current.getBoundingClientRect().height,natural=page.current.getBoundingClientRect().height
+          if(stage.current.style.height&&Math.abs(height-natural)>1){
+            try{animate(stage.current,[{height:height+'px'},{height:natural+'px'}],{duration:220,easing:motion.ease.smooth}).finished.then(finish,cancel);return}catch{}
+          }
+          clear()
+        }
+        Promise.all(active.map(animation=>animation.finished)).then(finish,cancel)
       }catch{clear()}
     }
     React.useLayoutEffect(()=>{

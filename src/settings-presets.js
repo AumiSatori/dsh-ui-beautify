@@ -62,6 +62,32 @@ export function createSettingsPresetsUI(React,win){
   return function SettingsPresets({manager,transfer}){
     const [items,setItems]=React.useState([]),[name,setName]=React.useState(''),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[notice,setNotice]=React.useState(''),[editing,setEditing]=React.useState(null),[editName,setEditName]=React.useState(''),[deleting,setDeleting]=React.useState(null),[reload,setReload]=React.useState(()=>transfer.status().reload)
     const live=React.useRef(false),gate=React.useRef(false)
+    const list=React.useRef(null),listHeight=React.useRef(null),listAnimation=React.useRef(null)
+    React.useLayoutEffect(()=>{
+      const node=list.current,previous=listAnimation.current
+      const from=previous?node.getBoundingClientRect().height:listHeight.current
+      previous?.cancel()
+      const height=node.getBoundingClientRect().height
+      listHeight.current=height;listAnimation.current=null
+      node.style.removeProperty('overflow')
+      if(from===null||Math.abs(height-from)<1||win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)').matches)return
+      // IndexedDB resolves after the page's first layout. Grow the whole list,
+      // including its gaps, so the import/export section follows every frame.
+      try{
+        node.style.overflow='hidden'
+        const animation=node.animate([{height:from+'px'},{height:height+'px'}],{duration:240,easing:motion.ease.smooth,fill:'both',id:'dcb-preset-list-layout'})
+        listAnimation.current=animation
+        const finish=()=>{if(listAnimation.current!==animation)return;listAnimation.current=null;animation.cancel();node.style.removeProperty('overflow');listHeight.current=node.getBoundingClientRect().height}
+        animation.finished.then(finish,finish)
+      }catch{node.style.removeProperty('overflow')}
+    },[items])
+    React.useLayoutEffect(()=>{
+      const node=list.current,resize=new win.ResizeObserver(()=>{if(!listAnimation.current)listHeight.current=node.getBoundingClientRect().height})
+      const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)'),settle=()=>{if(quiet.matches)listAnimation.current?.cancel()}
+      resize.observe(node)
+      quiet.addEventListener('change',settle)
+      return()=>{resize.disconnect();quiet.removeEventListener('change',settle);listAnimation.current?.cancel();listAnimation.current=null;node.style.removeProperty('overflow')}
+    },[])
     const refresh=async()=>{const result=await manager.list();if(live.current)setItems(result)}
     React.useEffect(()=>{live.current=true;refresh().catch(e=>{if(live.current)setError(e.message)});return()=>{live.current=false}},[])
     React.useEffect(()=>transfer.subscribe(()=>setReload(transfer.status().reload)),[transfer])
@@ -78,7 +104,7 @@ export function createSettingsPresetsUI(React,win){
     return h('section',{className:'dcb-presets','aria-label':'配置预设','aria-busy':busy},
       h('h2',null,'配置预设'),h('p',null,'为当前美化设置和素材保存一份本机预设；切换时会替换当前设置，素材变化可能需要刷新。每份预设最多 512 MB，素材越多占用空间越大。'),
       h('div',{className:'dcb-presets-form'},h('input',{value:name,maxLength:40,placeholder:'为当前配置命名','aria-label':'预设名称',disabled:busy,onChange:e=>setName(e.target.value),onKeyDown:e=>{if(e.key==='Enter')save()}}),h('button',{type:'button','data-primary':'',disabled:busy,onClick:save},busy?'处理中…':'保存当前预设')),
-      h('div',{className:'dcb-preset-list'},[{id:'builtin-default',name:'默认值',builtin:true},...items].map(item=>h('div',{className:'dcb-preset-item',key:item.id},
+      h('div',{className:'dcb-preset-list',ref:list},[{id:'builtin-default',name:'默认值',builtin:true},...items].map(item=>h('div',{className:'dcb-preset-item',key:item.id},
         h('div',{className:'dcb-preset-copy'},editing===item.id?h('input',{value:editName,maxLength:40,'aria-label':'修改预设名称',onChange:e=>setEditName(e.target.value),onKeyDown:e=>{if(e.key==='Enter')rename(item);if(e.key==='Escape')setEditing(null)}}):item.name,h('p',null,item.builtin?'内置默认配置 · 保留已导入素材':new Date(item.createdAt).toLocaleString()+' · '+(item.size>=1048576?(item.size/1048576).toFixed(1)+' MB':Math.ceil(item.size/1024)+' KB'))),
         h('div',{className:'dcb-preset-actions'},editing===item.id?[h('button',{key:'save',type:'button',disabled:busy,onClick:()=>rename(item)},'保存名称'),h('button',{key:'cancel',type:'button',disabled:busy,onClick:()=>setEditing(null)},'取消')]:deleting===item.id?[h('button',{key:'confirm',type:'button',disabled:busy,onClick:e=>remove(item,e)},'确认删除'),h('button',{key:'cancel',type:'button',disabled:busy,onClick:()=>setDeleting(null)},'取消')]:[h('button',{key:'apply',type:'button','data-primary':'',disabled:busy,onClick:()=>apply(item),'aria-label':`切换到 ${item.name}`},'切换'),!item.builtin&&h('button',{key:'rename',type:'button',disabled:busy,onClick:()=>{setEditName(item.name);setEditing(item.id)},'aria-label':`重命名 ${item.name}`},'重命名'),!item.builtin&&h('button',{key:'delete',type:'button',disabled:busy,onClick:()=>setDeleting(item.id),'aria-label':`删除 ${item.name}`},'删除')])))),
       error&&h('p',{role:'alert'},error),notice&&h('p',{role:'status','aria-live':'polite'},notice),reload&&h('div',{className:'dcb-preset-actions'},h('p',null,'部分素材需要刷新界面后加载。'),h('button',{type:'button',onClick:()=>win.location.reload()},'刷新界面加载素材')))

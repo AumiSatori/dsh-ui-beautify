@@ -12,10 +12,7 @@ const isMoreButton=el=>!!el&&el.tagName==='BUTTON'&&el.getAttribute('aria-haspop
   [...el.classList].some(name=>name.includes('viewsMore'))
 const EASE=motion.ease.smooth
 const MAX_NODES=96,MAX_ROOTS=8,MAX_PIXELS=4_000_000
-const LIQUID_REST='M 1 5 C 24 5 76 5 99 5 C 100.333333 5 100.333333 7 99 7 C 76 7 24 7 1 7 C -.333333 7 -.333333 5 1 5 Z'
-const LIQUID_RIGHT='M 1 5.4 C 20 5.5 64 5.8 86 3.5 C 100 1.4 104 10.6 86 8.5 C 64 6.2 20 6.5 1 6.6 C 0 6.6 0 5.4 1 5.4 Z'
-const LIQUID_LEFT='M 14 3.5 C 36 5.8 80 5.5 99 5.4 C 100 5.4 100 6.6 99 6.6 C 80 6.5 36 6.2 14 8.5 C -4 10.6 0 1.4 14 3.5 Z'
-const pathValue=value=>`path("${value}")`
+const UNDERLINE='M 1 5 C 24 5 76 5 99 5 C 100.333333 5 100.333333 7 99 7 C 76 7 24 7 1 7 C -.333333 7 -.333333 5 1 5 Z'
 
 export const conversationTabsCss=`
   [${WIDTH}=shared] { box-sizing:border-box; width:min(var(--dsh-chat-content-width,920px),calc(100% - var(--dsh-composer-side-clearance,16px) * 2 - 32px)); max-width:100%; min-width:0; align-self:center; }
@@ -141,7 +138,6 @@ export function createConversationTabs(doc,win,schedule){
   }
   function stopIndicator(record){
     record.indicatorAnimation?.cancel();record.indicatorAnimation=null
-    record.liquidAnimation?.cancel();record.liquidAnimation=null
     record.indicator.removeAttribute('data-moving')
   }
   function stopContent(record){
@@ -196,7 +192,6 @@ export function createConversationTabs(doc,win,schedule){
     const old=record.geometry
     if(old&&Math.abs(old.x-x)<.1&&Math.abs(old.width-width)<.1&&Math.abs(old.y-y)<.1&&Math.abs(old.height-height)<.1)return
     const current=win.getComputedStyle(indicator),from={transform:current.transform,width:current.width}
-    const shape=win.getComputedStyle(record.shape).d||pathValue(LIQUID_REST)
     const currentX=new win.DOMMatrix(current.transform).m41,currentWidth=px(current.width)
     stopIndicator(record)
     const to={transform:`translateX(${x}px)`,width:`${width}px`}
@@ -206,21 +201,18 @@ export function createConversationTabs(doc,win,schedule){
     record.geometry={x,width,y,height}
     if(!animate||!old||quiet.matches||doc.hidden||typeof indicator.animate!=='function')return
     try{
-      const rightward=x+width/2>=currentX+currentWidth/2
-      const stretchX=rightward?currentX+(x-currentX)*.08:x
-      const stretchRight=rightward?x+width:currentX+currentWidth+(x+width-currentX-currentWidth)*.08
-      const leadingEase='cubic-bezier(.22,.8,.26,1)',trailingEase='cubic-bezier(.4,0,.2,1)'
-      // Ease the two phases separately so the drop remains visible around the
-      // middle of the switch, before the trailing edge catches up.
+      const collapse=.36,shrinkEase='cubic-bezier(.4,0,.2,1)',expandEase='cubic-bezier(.22,.8,.26,1)'
+      // Keep each phase centered on its own label. Relocate only at zero width,
+      // so no line or dot travels through the gap. The shorter exit and longer
+      // entrance use separate nonlinear curves rather than one uniform speed.
       const options={duration:motion.time.standard,easing:'linear',fill:'both'}
-      const animation=indicator.animate([{...from,easing:leadingEase},{transform:`translateX(${stretchX}px)`,width:`${Math.max(width,stretchRight-stretchX)}px`,offset:.42,easing:trailingEase},to],options)
+      const animation=indicator.animate([
+        {...from,easing:shrinkEase},
+        {transform:`translateX(${currentX+currentWidth/2}px)`,width:'0px',offset:collapse},
+        {transform:`translateX(${x+width/2}px)`,width:'0px',offset:collapse,easing:expandEase},
+        to,
+      ],options)
       animation.id='dcb-conversation-indicator';record.indicatorAnimation=animation
-      // Morph only a tiny SVG underline; no filter, canvas, transcript snapshot
-      // or JS frame loop is needed for the leading drop and trailing neck.
-      if(win.CSS?.supports?.('d',pathValue(LIQUID_REST))){
-        record.liquidAnimation=record.shape.animate([{d:shape,easing:leadingEase},{d:pathValue(rightward?LIQUID_RIGHT:LIQUID_LEFT),offset:.42,easing:trailingEase},{d:pathValue(LIQUID_REST)}],options)
-        record.liquidAnimation.id='dcb-conversation-liquid'
-      }
       indicator.setAttribute('data-moving','')
       animation.finished.then(()=>{if(record.indicatorAnimation===animation)stopIndicator(record)},()=>{
         if(record.indicatorAnimation===animation)stopIndicator(record)
@@ -301,8 +293,8 @@ export function createConversationTabs(doc,win,schedule){
         const indicator=doc.createElement('span')
         indicator.setAttribute(INDICATOR,'');indicator.setAttribute('aria-hidden','true');indicator.hidden=true
         const svg=doc.createElementNS('http://www.w3.org/2000/svg','svg'),shape=doc.createElementNS('http://www.w3.org/2000/svg','path')
-        svg.setAttribute('viewBox','0 0 100 12');svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');svg.setAttribute('focusable','false');shape.setAttribute('d',LIQUID_REST);svg.append(shape);indicator.append(svg)
-        record={tabs,indicator,shape,originalMark:tabs.getAttribute(MARK),geometry:null,selected:null,motion:null,body:null,session:null,row:null,rowOriginal:null,more:null,moreOriginal:null}
+        svg.setAttribute('viewBox','0 0 100 12');svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');svg.setAttribute('focusable','false');shape.setAttribute('d',UNDERLINE);svg.append(shape);indicator.append(svg)
+        record={tabs,indicator,originalMark:tabs.getAttribute(MARK),geometry:null,selected:null,motion:null,body:null,session:null,row:null,rowOriginal:null,more:null,moreOriginal:null}
         record.resize=new win.ResizeObserver(schedule)
         record.resize.observe(tabs);record.buttons=[];records.set(tabs,record)
       }

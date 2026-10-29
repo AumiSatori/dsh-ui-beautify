@@ -330,11 +330,12 @@ try{
     // check compares against instead of leaving a stale window handle.
     await page.evaluate(()=>{window.originalTab=document.querySelector('[data-conversation-tabs] button')})
   })
-  await check('native click stretches one liquid underline and fades/translates small views without a filter at intermediate frames',async()=>{
+  await check('native click contracts the underline at its old center and fades/translates small views without a filter',async()=>{
     const before=await geometry();await select('context');await page.evaluate(()=>window.frameAt(55));const mid=await geometry(),m=(await motion())[0]
-    assert.ok(mid.x>before.x+2&&mid.x<mid.expectedX-1);assert.ok(mid.width>before.width&&mid.width<mid.expectedX+mid.expectedWidth-before.x)
-    const shape=await page.locator('[data-dcb-conversation-indicator] path').evaluate(el=>({d:getComputedStyle(el).d,rest:el.getAttribute('d'),filter:getComputedStyle(el).filter}))
-    assert.notEqual(shape.d,`path("${shape.rest}")`);assert.equal(shape.filter,'none')
+    assert.ok(mid.width>0&&mid.width<before.width)
+    assert.ok(Math.abs(mid.x+mid.width/2-before.x-before.width/2)<.1,'both ends contract equally around the old center')
+    const shape=await page.locator('[data-dcb-conversation-indicator] path').evaluate(el=>({animations:el.getAnimations().length,filter:getComputedStyle(el).filter}))
+    assert.equal(shape.animations,0);assert.equal(shape.filter,'none')
     assert.ok(m.opacity>0&&m.opacity<.98);assert.ok(m.x>1&&m.x<14);assert.equal(m.filter,'none')
     assert.ok(m.frames.every(frame=>!('filter'in frame)));assert.equal(await page.locator('[data-view]').getAttribute('data-view'),'context')
     assert.equal(await page.evaluate(()=>window.originalTab===document.querySelector('[data-conversation-tabs] button')),true)
@@ -418,32 +419,43 @@ try{
     await page.evaluate(()=>window.scheduleTabs());await tick();await complete();const scrolled=await measured()
     assert.ok(Math.abs(scrolled.actual.left-scrolled.expected.left)<.12&&Math.abs(scrolled.actual.top-scrolled.expected.top)<.12,JSON.stringify(scrolled))
   })
-  await check('the leading drop, thin neck and elastic tail render in both directions and resume from their current shape on reversal',async()=>{
+  await check('both directions shrink to zero at the old center then expand at the new center with distinct nonlinear rates',async()=>{
     await boot()
     const sample=()=>page.evaluate(()=>{
-      const indicator=document.querySelector('[data-dcb-conversation-indicator]'),path=indicator.querySelector('path'),rect=indicator.getBoundingClientRect(),box=path.getBoundingClientRect(),length=path.getTotalLength(),sides=[[],[]]
-      for(let i=0;i<=400;i++){const p=path.getPointAtLength(length*i/400);if(p.x>=10&&p.x<=20)sides[0].push(p.y);if(p.x>=80&&p.x<=90)sides[1].push(p.y)}
-      return{x:rect.x,width:rect.width,thickness:box.height,edges:sides.map(values=>Math.max(...values)-Math.min(...values)),path:getComputedStyle(path).d,animations:indicator.getAnimations().length+path.getAnimations().length}
+      const indicator=document.querySelector('[data-dcb-conversation-indicator]'),path=indicator.querySelector('path'),rect=indicator.getBoundingClientRect()
+      return{x:rect.x,width:rect.width,center:rect.x+rect.width/2,thickness:rect.height,animations:indicator.getAnimations().length+path.getAnimations().length}
     })
     for(const view of ['context','chat']){
       const before=await geometry();await select(view)
-      const frames=[]
-      for(const time of [35,70,105,140,200,260]){await page.evaluate(time=>window.frameAt(time),time);frames.push({time,...await sample()})}
-      const mid=frames.reduce((a,b)=>a.thickness>b.thickness?a:b)
-      assert.ok(mid.width>Math.max(before.width,(await geometry()).expectedWidth)+8,'the liquid bridge stretches across the gap')
-      assert.ok(mid.thickness>4&&mid.thickness<10,JSON.stringify(frames))
-      assert.ok(frames.filter(frame=>frame.thickness>3).length>=3,'the flowing drop is visible across several middle frames')
-      const [neck,head]=view==='context'?mid.edges:[...mid.edges].reverse()
-      assert.ok(head>neck*1.7,'the leading drop is visibly thicker than the trailing neck in the travel direction')
-      assert.equal(mid.animations,2,'only the tiny underline position and path are animated')
-      await page.evaluate(time=>window.frameAt(time),mid.time)
+      const target=await geometry(),frames=[]
+      for(const time of [0,25,50,75,95,100.8,115,140,180,220,260]){
+        await page.evaluate(time=>window.frameAt(time),time);frames.push({time,...await sample()})
+      }
+      const shrinking=frames.filter(frame=>frame.time<100.8),expanding=frames.filter(frame=>frame.time>100.8)
+      for(const frame of shrinking)assert.ok(Math.abs(frame.center-before.x-before.width/2)<.1,JSON.stringify(frame))
+      for(const frame of expanding)assert.ok(Math.abs(frame.center-target.expectedX-target.expectedWidth/2)<.1,JSON.stringify(frame))
+      assert.ok(frames.find(frame=>frame.time===100.8).width<.02,'relocation happens only when the line has fully contracted')
+      assert.ok(shrinking.every((frame,i)=>!i||frame.width<shrinking[i-1].width),'the old line contracts continuously')
+      assert.ok(expanding.every((frame,i)=>!i||frame.width>expanding[i-1].width),'the new line expands continuously')
+      assert.ok(frames.every(frame=>frame.width<=Math.max(before.width,target.expectedWidth)+.1&&frame.thickness===2&&frame.animations===1),'one thin underline stays within the label widths')
+      const firstDrop=(frames[0].width-frames[1].width)/before.width,secondDrop=(frames[1].width-frames[2].width)/before.width
+      assert.ok(Math.abs(firstDrop-secondDrop)>.08,'equal time slices have visibly different shrink rates')
+      const earlyGrowth=(expanding[1].width-expanding[0].width)/25,lateGrowth=(expanding[4].width-expanding[3].width)/40
+      assert.ok(earlyGrowth>lateGrowth*3,'expansion slows visibly as it reaches full width')
+      assert.ok(Math.abs(shrinking.find(frame=>frame.time===50).width/before.width-(1-expanding.find(frame=>frame.time===140).width/target.expectedWidth))>.1,'exit and entrance have different timing')
       const header=await page.locator('.cr_header').boundingBox()
-      await page.screenshot({path:resolve(output,`liquid-${view}-middle.png`),clip:{...header,height:header.height+12}})
+      for(const [phase,time]of [['shrinking',50],['expanding',140]]){
+        await page.evaluate(time=>window.frameAt(time),time)
+        await page.screenshot({path:resolve(output,`tabs-${view}-${phase}.png`),clip:{...header,height:header.height+12}})
+      }
       await complete();const end=await sample();assert.ok(Math.abs(end.thickness-2)<.1);assert.equal(end.animations,0)
     }
-    await select('context');await page.evaluate(()=>window.frameAt(80));const before=await sample();await select('trace');const reversed=await sample()
-    assert.ok(Math.abs(before.x-reversed.x)<.12&&Math.abs(before.width-reversed.width)<.12);assert.equal(before.path,reversed.path,'the new morph begins at the displayed silhouette')
-    await complete();assert.equal(await page.locator('[data-moving]').count(),0)
+    for(const time of [45,140]){
+      await select('context');await page.evaluate(time=>window.frameAt(time),time);const before=await sample();await select('trace');const reversed=await sample()
+      assert.ok(Math.abs(before.x-reversed.x)<.12&&Math.abs(before.width-reversed.width)<.12,'reversal starts at the displayed line in either phase')
+      await complete();await select('chat');await complete()
+    }
+    assert.equal(await page.locator('[data-moving]').count(),0)
   })
   await check('reduced motion and forced colors suppress effects, including preference changes during motion',async()=>{
     for(const options of[{reducedMotion:'reduce'},{forcedColors:'active'}]){

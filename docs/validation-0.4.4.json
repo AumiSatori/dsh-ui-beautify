@@ -1,14 +1,14 @@
 {
   "version": "0.4.4",
   "baseline": "v0.4.3",
-  "clientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917",
+  "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586",
   "scope": "全局配置异步预设载入及切页高度抖动修复；对话页签下划线从两端向中心收拢、从新中心向两侧展开，使用不同速率并支持快速反向。；Artifact 阅读卡片完整文本复制、成功与失败反馈、旧宿主兼容及异步回调隔离。",
   "hostComponents": "已安装 DSH 0.2.1-rc.3；独立无头 Chrome 与合成预设。",
   "checks": {
     "suites": 9,
     "passed": 9,
     "failed": 0,
-    "checks": 194,
+    "checks": 196,
     "nodeTests": 96,
     "fullReleaseSuite": false,
     "allRunInLatestBatch": false
@@ -18,25 +18,25 @@
       "name": "test",
       "passed": true,
       "checks": 96,
-      "clientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917"
+      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
     },
     {
       "name": "test:settings",
       "passed": true,
       "checks": 14,
-      "clientSha256": "7a9956f2b29ef693f722357d04d01217ac878bd3709a2cc82be6c232f17ab75b"
+      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
     },
     {
       "name": "test:settings-presets",
       "passed": true,
       "checks": 1,
-      "clientSha256": "7a9956f2b29ef693f722357d04d01217ac878bd3709a2cc82be6c232f17ab75b"
+      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
     },
     {
       "name": "test:settings-transfer",
       "passed": true,
       "checks": 9,
-      "clientSha256": "7a9956f2b29ef693f722357d04d01217ac878bd3709a2cc82be6c232f17ab75b"
+      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
     },
     {
       "name": "test:tabs",
@@ -48,13 +48,13 @@
       "name": "test:settings-hierarchy",
       "passed": true,
       "checks": 11,
-      "clientSha256": "7a9956f2b29ef693f722357d04d01217ac878bd3709a2cc82be6c232f17ab75b"
+      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
     },
     {
       "name": "test:settings-config-motion",
       "passed": true,
-      "checks": 6,
-      "clientSha256": "7a9956f2b29ef693f722357d04d01217ac878bd3709a2cc82be6c232f17ab75b"
+      "checks": 8,
+      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
     },
     {
       "name": "test:artifact",
@@ -77,26 +77,38 @@
     {
       "name": "immediate",
       "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 22.890609741210938,
-      "minFrameStepCssPx": 0
+      "maxFrameStepCssPx": 11.531234741210938,
+      "minFrameStepCssPx": -0.0000152587890625
     },
     {
       "name": "duringEntry",
       "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 12.203125,
-      "minFrameStepCssPx": -0.000030517578125
+      "maxFrameStepCssPx": 11.53125,
+      "minFrameStepCssPx": -0.0000152587890625
     },
     {
       "name": "afterEntry",
       "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 11.84375,
+      "maxFrameStepCssPx": 15.296875,
       "minFrameStepCssPx": -0.000030517578125
     },
     {
       "name": "darkNarrow",
       "travelCssPx": 125.1875,
-      "maxFrameStepCssPx": 16.015609741210938,
+      "maxFrameStepCssPx": 18.812515258789062,
       "minFrameStepCssPx": -0.000030517578125
+    },
+    {
+      "name": "heroEntry",
+      "travelCssPx": 77.1875,
+      "maxFrameStepCssPx": 16.5,
+      "minFrameStepCssPx": -0.0000152587890625
+    },
+    {
+      "name": "heroReturn",
+      "travelCssPx": 77.1875,
+      "maxFrameStepCssPx": 17.859405517578125,
+      "minFrameStepCssPx": -0.0000152587890625
     }
   ],
   "assertions": [
@@ -108,10 +120,12 @@
     "页签下划线双向切换时中心固定、零宽换位、分段非匀速；快速反向接续当前画面，减少动态效果与卸载清理通过。",
     "复制原始 SQL/文本/JSON/Markdown/HTML 与超过 500 行的 CSV；空文本、Unicode、缩进、换行和阅读位置保持。",
     "旧剪贴板接口恢复焦点并清理临时输入框；拒绝时显示失败，可重试，无虚假成功。",
-    "异步复制完成不会污染新文件反馈，关闭与重新加载清理状态；暗色窄屏、键盘、减少动态效果可用。"
+    "异步复制完成不会污染新文件反馈，关闭与重新加载清理状态；暗色窄屏、键盘、减少动态效果可用。",
+    "已完整显示的导入导出卡片，在后续切页高度动画中不能再次被裁切；计算视口和全部裁切祖先。",
+    "全局配置 → 欢迎语 → 全局配置往返、延迟预设、深色窄屏均无二次裁切；保留浏览器原生滚动锚定。"
   ],
   "desktopAcceptance": false,
-  "completedAt": "2026-10-29T08:10:28.573Z",
+  "completedAt": "2026-10-29T09:59:49.224Z",
   "globalPatchCheck": {
     "exitCode": 1,
     "missingOptional": [
@@ -134,32 +148,104 @@
     {
       "baseCommit": "71622b1028d27281420ebef7753bf7d7bef3dc20",
       "scope": "Artifact 阅读卡片复制全文及反馈"
+    },
+    {
+      "baseCommit": "40ff23a0681dbfa9bd48943a978623c615f74e2a",
+      "scope": "修正全局配置进场高度动画再次裁切已显示卡片的情况"
     }
   ],
   "latestBatch": {
-    "clientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917",
-    "suites": 3,
-    "checks": 122,
+    "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586",
+    "suites": 6,
+    "checks": 139,
     "results": [
       {
         "name": "test",
         "passed": true,
         "checks": 96,
-        "clientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917"
+        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
       },
       {
-        "name": "test:artifact",
+        "name": "test:settings",
         "passed": true,
-        "checks": 19,
-        "clientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917"
+        "checks": 14,
+        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
       },
       {
-        "name": "test:output-copy",
+        "name": "test:settings-presets",
         "passed": true,
-        "checks": 7,
-        "clientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917"
+        "checks": 1,
+        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+      },
+      {
+        "name": "test:settings-transfer",
+        "passed": true,
+        "checks": 9,
+        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+      },
+      {
+        "name": "test:settings-hierarchy",
+        "passed": true,
+        "checks": 11,
+        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+      },
+      {
+        "name": "test:settings-config-motion",
+        "passed": true,
+        "checks": 8,
+        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
       }
     ]
   },
-  "sourceBaseCommit": "71622b1028d27281420ebef7753bf7d7bef3dc20"
+  "sourceBaseCommit": "40ff23a0681dbfa9bd48943a978623c615f74e2a",
+  "configClippingFollowup": {
+    "baselineClientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917",
+    "before": [
+      {
+        "name": "immediate",
+        "retractedFrames": 0,
+        "maxRetractionCssPx": 0
+      },
+      {
+        "name": "duringEntry",
+        "retractedFrames": 20,
+        "maxRetractionCssPx": 41.59375
+      }
+    ],
+    "after": [
+      {
+        "name": "immediate",
+        "retractedFrames": 0,
+        "maxRetractionCssPx": 0
+      },
+      {
+        "name": "duringEntry",
+        "retractedFrames": 0,
+        "maxRetractionCssPx": 0
+      },
+      {
+        "name": "afterEntry",
+        "retractedFrames": 0,
+        "maxRetractionCssPx": 0
+      },
+      {
+        "name": "darkNarrow",
+        "retractedFrames": 0,
+        "maxRetractionCssPx": 0
+      },
+      {
+        "name": "heroEntry",
+        "retractedFrames": 0,
+        "maxRetractionCssPx": 0
+      },
+      {
+        "name": "heroReturn",
+        "retractedFrames": 0,
+        "maxRetractionCssPx": 0
+      }
+    ],
+    "allClippingAncestorsMeasured": true,
+    "nativeScrollAnchoringEnabled": true,
+    "includesHeroRoundTrip": true
+  }
 }

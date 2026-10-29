@@ -15,7 +15,7 @@ const server=createServer((req,res)=>{const route=routes[req.url.split('?')[0]];
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const browser=await chromium.launch({headless:true,channel:'chrome'}),page=await browser.newPage({viewport:{width:1440,height:1200}}),errors=[],results=[]
 page.on('pageerror',error=>errors.push(error.message))
-async function boot({delay=0,dark=false,width=1440,quiet=false}={}){
+async function boot({delay=0,dark=false,width=1440,quiet=false,from='输入栏',returning=false}={}){
  await page.goto('http://127.0.0.1:'+server.address().port+'/?composer')
  await page.setViewportSize({width,height:1200});await page.emulateMedia({reducedMotion:quiet?'reduce':'no-preference'})
  await page.getByTestId('todo-panel').waitFor()
@@ -31,23 +31,44 @@ async function boot({delay=0,dark=false,width=1440,quiet=false}={}){
  },{delay,dark})
  await page.addScriptTag({url:'http://127.0.0.1:'+server.address().port+'/client.js'})
  await page.evaluate(()=>{const ctx={slots:{inject(_n,cb){cb()},register(s,c){if(s.name==='settings.section')window.fixtureSettings=c;return()=>{}}},effect(cb){window.cleanups.push(cb())},inject(_n,cb){cb(ctx)}};window.plugin.apply(ctx);window.fixture.refresh();window.fixture.settings(true)})
- await page.addStyleTag({content:'.settings-dialog{inset:20px 7%;padding:20px;overflow:auto;overflow-anchor:none}.dcb-settings{min-width:0}'})
- await selectSettingsCategory(page,'输入栏')
+ await page.addStyleTag({content:'.settings-dialog{inset:20px 7%;padding:20px;overflow:auto}.dcb-settings{min-width:0}'})
+ if(returning){await selectSettingsCategory(page,'全局配置');await page.getByRole('button',{name:'切换到 合成预设',exact:true}).waitFor();await page.waitForTimeout(300)}
+ await selectSettingsCategory(page,from)
 }
 async function sample(){
- await page.evaluate(()=>{window.motionFrames=[];window.motionSampling=true;const record=()=>{const section=document.querySelector('[data-dcb-settings-page=config]'),stage=document.querySelector('.dcb-settings-tab-stage'),transfer=section?.querySelector('.dcb-config-transfer'),list=section?.querySelector('.dcb-preset-list');if(transfer){const top=section.getBoundingClientRect().top;motionFrames.push({time:performance.now(),footer:transfer.getBoundingClientRect().top-top,list:list.getBoundingClientRect().height,stage:stage.getBoundingClientRect().height,natural:stage.firstElementChild.getBoundingClientRect().height,state:stage.dataset.state,rows:list.children.length,moving:list.getAnimations().some(a=>a.id==='dcb-preset-list-layout'),blur:getComputedStyle(list.lastElementChild).filter})}if(motionSampling)requestAnimationFrame(record)};requestAnimationFrame(record)})
+ await page.evaluate(()=>{
+  window.motionFrames=[];window.motionSampling=true
+  const record=()=>{
+   const section=document.querySelector('[data-dcb-settings-page=config]'),stage=document.querySelector('.dcb-settings-tab-stage'),transfer=section?.querySelector('.dcb-config-transfer'),list=section?.querySelector('.dcb-preset-list')
+   if(transfer){
+    const top=section.getBoundingClientRect().top,box=transfer.getBoundingClientRect(),style=getComputedStyle(stage)
+    let upper=0,lower=innerHeight
+    // Measure what is actually visible through every clipping ancestor. A
+    // stable local Y coordinate can still hide a retracting lower card.
+    for(let parent=transfer.parentElement;parent;parent=parent.parentElement)if(/hidden|clip|auto|scroll/.test(getComputedStyle(parent).overflowY)){const bounds=parent.getBoundingClientRect();upper=Math.max(upper,bounds.top+parent.clientTop);lower=Math.min(lower,bounds.top+parent.clientTop+parent.clientHeight)}
+    const visible=Math.max(0,Math.min(box.bottom,lower)-Math.max(box.top,upper))
+    motionFrames.push({time:performance.now(),footer:box.top-top,cardY:box.top,cardHeight:box.height,visible,opacity:Number(getComputedStyle(stage.firstElementChild).opacity),overflow:style.overflowY,list:list.getBoundingClientRect().height,stage:stage.getBoundingClientRect().height,natural:stage.firstElementChild.getBoundingClientRect().height,state:stage.dataset.state,rows:list.children.length,moving:list.getAnimations().some(a=>a.id==='dcb-preset-list-layout'),blur:getComputedStyle(list.lastElementChild).filter})
+   }
+   if(motionSampling)requestAnimationFrame(record)
+  }
+  requestAnimationFrame(record)
+ })
  await page.getByRole('tab',{name:'全局配置',exact:true}).click()
  await page.waitForTimeout(1000)
  return page.evaluate(()=>{motionSampling=false;return motionFrames})
 }
 try{
- for(const [name,options]of Object.entries({immediate:{delay:0},duringEntry:{delay:120},afterEntry:{delay:380},darkNarrow:{delay:120,dark:true,width:520}})){
+ for(const [name,options]of Object.entries({immediate:{delay:0},duringEntry:{delay:120},afterEntry:{delay:380},darkNarrow:{delay:120,dark:true,width:520},heroEntry:{delay:120,from:'欢迎语'},heroReturn:{delay:120,from:'欢迎语',returning:true}})){
   await boot(options);const frames=await sample(),travel=frames.at(-1).footer-frames[0].footer,jumps=frames.slice(1).map((frame,i)=>frame.footer-frames[i].footer)
   const result={name,travel,maxJump:Math.max(...jumps),minJump:Math.min(...jumps),frames};results.push(result);writeFileSync(resolve(out,'frames.json'),JSON.stringify(results,null,2))
   assert.ok(travel>50,'the saved preset must really move the import/export section')
   assert.ok(result.maxJump<travel*.35,`${name}: footer jumped ${result.maxJump.toFixed(1)}px out of ${travel.toFixed(1)}px`)
   assert.ok(result.minJump>-.75,`${name}: footer reversed while the preset arrived`)
   assert.ok(frames.some(frame=>frame.rows===2&&frame.list>frames[0].list+2&&frame.list<frames.at(-1).list-2&&/blur/.test(frame.blur)),'height and blur must exist at a real intermediate frame')
+  const firstFull=frames.findIndex(frame=>frame.opacity>.9&&frame.visible>=frame.cardHeight-1)
+  assert.ok(firstFull>=0,'the import/export card must become fully visible')
+  const retracted=frames.slice(firstFull).filter(frame=>frame.opacity>.9&&frame.visible<frame.cardHeight-1)
+  assert.equal(retracted.length,0,`${name}: a visible card was clipped again by up to ${Math.max(0,...retracted.map(frame=>frame.cardHeight-frame.visible)).toFixed(1)}px`)
   for(let i=1;i<frames.length;i++)if(frames[i-1].state==='entering'&&frames[i].state==='idle')assert.ok(Math.abs(frames[i].stage-frames[i-1].stage)<3,'releasing the page height must not jump')
   assert.equal(await page.locator('.dcb-settings-tab-stage').getAttribute('style'),'')
   assert.equal(await page.locator('.dcb-preset-list').getAttribute('style')||'','')
@@ -57,5 +78,5 @@ try{
  await boot({delay:120,quiet:true});const quiet=await sample();assert.ok(quiet.every(frame=>!frame.moving));assert.equal(quiet.at(-1).rows,2);console.log('PASS reduced motion loads presets without a layout animation')
  await boot({delay:380});await page.getByRole('tab',{name:'全局配置',exact:true}).click();await page.getByRole('region',{name:'配置预设'}).waitFor();await selectSettingsCategory(page,'输入栏');await page.waitForTimeout(700)
  assert.equal(await page.locator('[data-dcb-settings-page=config]').count(),0);assert.equal(await page.evaluate(()=>document.getAnimations().some(a=>a.id==='dcb-preset-list-layout'||a.id==='dcb-settings-tab')),false);assert.equal(await page.locator('.dcb-settings-tab-stage').getAttribute('style'),'');console.log('PASS leaving before IndexedDB responds releases the list and page animations')
- assert.deepEqual(errors,[])
+ assert.deepEqual(errors,[]);writeFileSync(resolve(out,'verification.json'),JSON.stringify({passed:results.length+2,errors,scenarios:results.map(result=>result.name)},null,2)+'\n')
 }finally{await browser.close();await new Promise(done=>server.close(done))}

@@ -92,7 +92,10 @@ export function createSettingsTabs(React,doc,win){
         stage.current.setAttribute('data-state','entering')
         const natural=page.current.getBoundingClientRect().height
         if(height!==null&&Math.abs(natural-height)>1){
-          stage.current.style.height=height+'px';stage.current.style.overflow='hidden'
+          // The outgoing height can be smaller than an async editor's natural
+          // content. Keep incoming content visible while the outer space eases;
+          // clipping here retracts an already visible card before revealing it.
+          stage.current.style.height=height+'px';stage.current.style.overflow='visible'
           animate(stage.current,[{height:height+'px'},{height:natural+'px'}],{duration:280,easing:motion.ease.smooth})
         }
         animate(page.current,[from||{opacity:0,transform:'translateY(8px)',filter:'blur(2px)'},{opacity:1,transform:'none',filter:'blur(0px)'}],{duration:240,easing:motion.ease.smooth})

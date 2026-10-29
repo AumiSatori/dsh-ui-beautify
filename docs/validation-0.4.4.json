@@ -1,14 +1,14 @@
 {
   "version": "0.4.4",
   "baseline": "v0.4.3",
-  "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586",
-  "scope": "全局配置异步预设载入及切页高度抖动修复；对话页签下划线从两端向中心收拢、从新中心向两侧展开，使用不同速率并支持快速反向。；Artifact 阅读卡片完整文本复制、成功与失败反馈、旧宿主兼容及异步回调隔离。",
+  "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273",
+  "scope": "全局配置异步预设载入及切页高度抖动修复；对话页签下划线从两端向中心收拢、从新中心向两侧展开，使用不同速率并支持快速反向。；Artifact 阅读卡片完整文本复制、成功与失败反馈、旧宿主兼容及异步回调隔离。；思考动图导入区格式示例 ZIP 下载与可播放样例。",
   "hostComponents": "已安装 DSH 0.2.1-rc.3；独立无头 Chrome 与合成预设。",
   "checks": {
-    "suites": 9,
-    "passed": 9,
+    "suites": 11,
+    "passed": 11,
     "failed": 0,
-    "checks": 196,
+    "checks": 212,
     "nodeTests": 96,
     "fullReleaseSuite": false,
     "allRunInLatestBatch": false
@@ -18,7 +18,7 @@
       "name": "test",
       "passed": true,
       "checks": 96,
-      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
       "name": "test:settings",
@@ -67,6 +67,18 @@
       "passed": true,
       "checks": 7,
       "clientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917"
+    },
+    {
+      "name": "test:running",
+      "passed": true,
+      "checks": 12,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:performance",
+      "passed": true,
+      "checks": 4,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     }
   ],
   "reproduction": {
@@ -122,10 +134,11 @@
     "旧剪贴板接口恢复焦点并清理临时输入框；拒绝时显示失败，可重试，无虚假成功。",
     "异步复制完成不会污染新文件反馈，关闭与重新加载清理状态；暗色窄屏、键盘、减少动态效果可用。",
     "已完整显示的导入导出卡片，在后续切页高度动画中不能再次被裁切；计算视口和全部裁切祖先。",
-    "全局配置 → 欢迎语 → 全局配置往返、延迟预设、深色窄屏均无二次裁切；保留浏览器原生滚动锚定。"
+    "全局配置 → 欢迎语 → 全局配置往返、延迟预设、深色窄屏均无二次裁切；保留浏览器原生滚动锚定。",
+    "键盘下载格式示例 ZIP，文件可保存且下载不改设置；校验说明、素材和授权后重新导入，预览有真实动画帧。"
   ],
   "desktopAcceptance": false,
-  "completedAt": "2026-10-29T09:59:49.224Z",
+  "completedAt": "2026-10-29T11:29:01.699Z",
   "globalPatchCheck": {
     "exitCode": 1,
     "missingOptional": [
@@ -152,52 +165,42 @@
     {
       "baseCommit": "40ff23a0681dbfa9bd48943a978623c615f74e2a",
       "scope": "修正全局配置进场高度动画再次裁切已显示卡片的情况"
+    },
+    {
+      "baseCommit": "228be74",
+      "scope": "思考动图导入格式示例下载"
     }
   ],
   "latestBatch": {
-    "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586",
-    "suites": 6,
-    "checks": 139,
+    "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273",
+    "suites": 3,
+    "checks": 112,
     "results": [
       {
         "name": "test",
         "passed": true,
         "checks": 96,
-        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+        "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
       },
       {
-        "name": "test:settings",
+        "name": "test:running",
         "passed": true,
-        "checks": 14,
-        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+        "checks": 12,
+        "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
       },
       {
-        "name": "test:settings-presets",
+        "name": "test:performance",
         "passed": true,
-        "checks": 1,
-        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
-      },
-      {
-        "name": "test:settings-transfer",
-        "passed": true,
-        "checks": 9,
-        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
-      },
-      {
-        "name": "test:settings-hierarchy",
-        "passed": true,
-        "checks": 11,
-        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
-      },
-      {
-        "name": "test:settings-config-motion",
-        "passed": true,
-        "checks": 8,
-        "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+        "checks": 4,
+        "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
       }
-    ]
+    ],
+    "buildLens": true,
+    "checkLens": true,
+    "checkRelease": true,
+    "diffCheck": true
   },
-  "sourceBaseCommit": "40ff23a0681dbfa9bd48943a978623c615f74e2a",
+  "sourceBaseCommit": "228be74",
   "configClippingFollowup": {
     "baselineClientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917",
     "before": [
@@ -247,5 +250,26 @@
     "allClippingAncestorsMeasured": true,
     "nativeScrollAnchoringEnabled": true,
     "includesHeroRoundTrip": true
+  },
+  "runningExampleDownload": {
+    "filename": "dsh-running-pack-example.zip",
+    "bytes": 119316,
+    "clientEmbedded": true,
+    "contents": [
+      "manifest.json",
+      "example.webp",
+      "README.txt",
+      "LICENSE"
+    ],
+    "desktopLinked": true,
+    "desktopAcceptance": false,
+    "packageCheck": {
+      "passed": true,
+      "files": 99,
+      "under10MiB": true,
+      "runtimeDependencies": 0
+    },
+    "fullReleaseSuite": false,
+    "normalizedTextLineEndings": true
   }
 }

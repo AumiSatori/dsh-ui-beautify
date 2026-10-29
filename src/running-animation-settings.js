@@ -1,12 +1,15 @@
 import {RUNNING_BUILTIN,runningLabelLines,RUNNING_LABEL_LIMIT} from './running-animation-config.js'
 import {createRunningPlayer} from './running-animation.js'
 import {motion} from './motion.js'
+import exampleZip from '../assets/running-example.zip'
 export const runningSettingsCss=`
  .dcb-running-buttons { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0; }
- .dcb-running-buttons button,.dcb-running-choice,.dcb-running-preview-button { min-height:44px; padding:8px 12px; border:1px solid var(--dsh-settings-border); border-radius:10px; background:var(--dsh-settings-subtle); color:var(--dsh-settings-text); font:500 12px/20px system-ui; cursor:pointer; transition:background-color 180ms ${motion.ease.color},border-color 220ms ${motion.ease.color},transform 220ms ${motion.ease.snappy}; }
+ .dcb-running-buttons button,.dcb-running-download,.dcb-running-choice,.dcb-running-preview-button { min-height:44px; padding:8px 12px; border:1px solid var(--dsh-settings-border); border-radius:10px; background:var(--dsh-settings-subtle); color:var(--dsh-settings-text); font:500 12px/20px system-ui; cursor:pointer; transition:background-color 180ms ${motion.ease.color},border-color 220ms ${motion.ease.color},transform 220ms ${motion.ease.snappy}; }
+ .dcb-running-download { box-sizing:border-box; display:inline-flex; align-items:center; text-decoration:none; }
+ .dcb-running-download:hover { background:var(--dsh-settings-surface); border-color:var(--dsh-settings-secondary); }
  .dcb-running-buttons button[aria-pressed=true] { border-color:var(--dsh-settings-accent); color:var(--dsh-settings-accent); }
- .dcb-running-buttons button:active:enabled,.dcb-running-choice:active { transform:scale(.97); }
- .dcb-running-buttons button:focus-visible,.dcb-running-choice:focus-visible,.dcb-running-preview-button:focus-visible { outline:2px solid var(--dsh-settings-accent); outline-offset:2px; }
+ .dcb-running-buttons button:active:enabled,.dcb-running-download:active,.dcb-running-choice:active { transform:scale(.97); }
+ .dcb-running-buttons button:focus-visible,.dcb-running-download:focus-visible,.dcb-running-choice:focus-visible,.dcb-running-preview-button:focus-visible { outline:2px solid var(--dsh-settings-accent); outline-offset:2px; }
  .dcb-running-buttons button:disabled { opacity:.45; cursor:not-allowed; }
  .dcb-running-drop { margin:16px 0; padding:16px; border:1px dashed var(--dsh-settings-border); border-radius:12px; background:var(--dsh-settings-subtle); }
  .dcb-running-drop p { margin:0; font:13px/20px system-ui; color:var(--dsh-settings-secondary); }
@@ -27,7 +30,7 @@ export const runningSettingsCss=`
  .dcb-settings-row[data-setting="running-label"] .dcb-settings-copy { flex:1 1 200px; }
  .dcb-running-search:focus-visible,.dcb-running-number:focus-visible,.dcb-running-label:focus-visible { outline:2px solid var(--dsh-settings-accent); outline-offset:2px; }
  .dcb-running-error { color:var(--dsh-settings-text); overflow-wrap:anywhere; font:13px/20px system-ui; }
- @media(prefers-reduced-motion:reduce) { .dcb-running-buttons button,.dcb-running-choice { transition:none; } }
+ @media(prefers-reduced-motion:reduce) { .dcb-running-buttons button,.dcb-running-download,.dcb-running-choice { transition:none; } }
  @media(forced-colors:active) { .dcb-running-choice[aria-checked=true]::after { background:Highlight; box-shadow:none; } .dcb-running-item[data-selected=true] { border:2px solid Highlight; } .dcb-running-buttons button[aria-pressed=true] { outline:2px solid Highlight; } }
 `
 export function createRunningSettings(React,doc,win,catalog){
@@ -77,7 +80,8 @@ export function createRunningSettings(React,doc,win,catalog){
    h('div',{className:'dcb-running-buttons','aria-label':'动图包'},state.packs.map(item=>h('button',{key:item.id,type:'button','aria-pressed':pack?.id===item.id,onClick:()=>choosePack(item.id)},item.builtin?'默认 · 鲸鱼娘':item.name))),
    h('div',{className:'dcb-running-drop',onDragOver:event=>event.preventDefault(),onDrop:event=>{event.preventDefault();const files=event.dataTransfer.files;if(files.length===1&&/\.zip$/i.test(files[0].name))void upload(files[0]);else if(files.length)void upload(files)}},
     h('p',null,'把 ZIP 动图包拖到这里，或导入一个文件夹。普通 GIF / APNG / WebP 可直接打包；精灵图需附 manifest.json。'),
-    h('div',{className:'dcb-running-buttons'},h('button',{type:'button',disabled:busy,onClick:()=>input.current.click()},busy?'正在导入…':'导入 ZIP 动图包'),h('button',{type:'button',disabled:busy,onClick:()=>folder.current.click()},'导入文件夹'),pack&&!pack.builtin&&h('button',{type:'button',disabled:busy,onClick:remove},'删除当前动图包')),
+    h('div',{className:'dcb-running-buttons'},h('button',{type:'button',disabled:busy,onClick:()=>input.current.click()},busy?'正在导入…':'导入 ZIP 动图包'),h('button',{type:'button',disabled:busy,onClick:()=>folder.current.click()},'导入文件夹'),h('a',{className:'dcb-running-download',href:exampleZip,download:'dsh-running-pack-example.zip'},'下载格式示例 ZIP'),pack&&!pack.builtin&&h('button',{type:'button',disabled:busy,onClick:remove},'删除当前动图包')),
+    h('p',null,'示例包含 manifest.json、可播放的精灵图和中文制作说明，可直接导入试用，也可解压后替换素材。'),
     h('input',{ref:input,type:'file',accept:'.zip',hidden:true,'aria-label':'选择动图 ZIP',onChange:event=>{const file=event.target.files[0];event.target.value='';void upload(file)}}),h('input',{ref:folder,type:'file',webkitdirectory:'',multiple:true,hidden:true,'aria-label':'选择动图文件夹',onChange:event=>{const files=Array.from(event.target.files);event.target.value='';void upload(files)}})),
    (error||state.error)&&h('p',{className:'dcb-running-error',role:'status'},error||state.error),state.loading&&h('p',{role:'status'},'正在读取动图包…'),
    pack&&h(React.Fragment,null,

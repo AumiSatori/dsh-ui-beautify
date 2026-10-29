@@ -7,6 +7,8 @@ import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
 import {registerRunningAssets} from '../server/running-assets.js'
 import {createRunningZip} from '../scripts/build-animation-pack.mjs'
+import {readRunningZip} from '../src/running-pack-zip.js'
+import {normalizeRunningManifest} from '../src/running-animation-config.js'
 import {selectSettingsCategory} from './settings-navigation.mjs'
 import {nativeLogo,installLogoFixture} from './native-logo.mjs'
 const project=fileURLToPath(new URL('..',import.meta.url)),output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'../../running-qa'))
@@ -67,9 +69,33 @@ try{
   await page.getByRole('button',{name:'全部取消',exact:true}).click();await live().waitFor({state:'detached'});assert.deepEqual((await prefs()).runningAnimationActions,[]);assert.equal(await page.locator('.test_runningIcon').evaluate(node=>node.getBoundingClientRect().width),14)
   await page.getByRole('button',{name:'全选动作',exact:true}).click();await live().waitFor()
  })
+ await check('the example downloads by keyboard and imports as a playable pack without changing preferences on download',async()=>{
+  const before=await prefs(),link=page.getByRole('link',{name:'下载格式示例 ZIP',exact:true})
+  assert.match(await link.getAttribute('href'),/^data:/)
+  assert.equal(await page.locator('.dcb-settings select,.dcb-settings input[type=checkbox],.dcb-settings input[type=radio],.dcb-settings input[type=range]').count(),0)
+  await link.focus();const pending=page.waitForEvent('download');await link.press('Enter');const download=await pending
+  assert.equal(download.suggestedFilename(),'dsh-running-pack-example.zip')
+  const path=resolve(output,download.suggestedFilename());await download.saveAs(path);assert.equal(await download.failure(),null)
+  assert.deepEqual(await prefs(),before)
+  const buffer=readFileSync(path),files=await readRunningZip(new File([buffer],download.suggestedFilename()))
+  const manifest=normalizeRunningManifest(JSON.parse(await files.get('manifest.json').text()),files)
+  assert.equal(manifest.name,'动图格式示例');assert.equal(manifest.actions[0].type,'sprite');assert.ok(files.has(manifest.actions[0].file))
+  assert.match(await files.get('README.txt').text(),/普通 GIF.*APNG.*WebP/);assert.match(await files.get('LICENSE').text(),/CC BY-NC-SA 4.0/)
+  await page.locator('.dcb-running-drop').screenshot({path:resolve(output,'running-import-example.png')})
+  await upload(buffer,download.suggestedFilename());await page.getByRole('button',{name:'动图格式示例',exact:true}).waitFor()
+  await page.getByRole('checkbox',{name:'东张西望（精灵图示例）',exact:true}).waitFor()
+  await page.locator('.dcb-running-demo .dcb-running-strip').waitFor();await page.waitForTimeout(120)
+  const first=await page.locator('.dcb-running-demo .dcb-running-strip').evaluate(node=>getComputedStyle(node).backgroundPosition)
+  await page.waitForTimeout(180)
+  assert.notEqual(await page.locator('.dcb-running-demo .dcb-running-strip').evaluate(node=>getComputedStyle(node).backgroundPosition),first)
+  await page.getByRole('button',{name:'删除当前动图包',exact:true}).click();await page.getByRole('button',{name:'动图格式示例',exact:true}).waitFor({state:'detached'})
+ })
  await check('custom labels replace only the wording and keep the host clock and shimmer in sync',async()=>{
   const runOf=id=>page.locator(`#${id} .test_shimmerContent:not(.test_shimmerHighlight) .test_shimmerRun`)
   const runText=async id=>(await runOf(id).innerText()).trim()
+  // Read both copies in one browser task so the host's one-second clock
+  // cannot tick between separate protocol reads.
+  const shimmerMatches=id=>page.locator(`#${id} .test_runningText`).evaluate(root=>root.querySelector('[data-shimmer-text]').getAttribute('data-shimmer-text')===root.querySelector('.test_shimmerContent:not(.test_shimmerHighlight) .test_shimmerRun').textContent.trim())
   const prefix=text=>text.split('，')[0]
   const spawn=id=>page.evaluate(id=>{const hostLine=text=>`<span class="test_runningText" data-shimmer="true"><span class="test_shimmerContent"><span class="test_shimmerRun">${text}</span></span><span class="test_shimmerDecoration" aria-hidden="true" inert=""><span class="test_shimmerSweep"><span class="test_shimmerContent test_shimmerHighlight"><span class="test_shimmerRun" data-shimmer-text="${text}"></span></span></span></span></span>`;const content=document.createElement('div');content.id=id;content.className='test_runningContent';content.style.cssText='position:fixed;top:70px;left:260px;display:flex;align-items:center;gap:4px';content.innerHTML='<span class="test_runningIcon" style="width:14px;height:14px"></span>'+hostLine('深度求索中，用时 1秒 ···');const row=document.createElement('div');row.className='test_running';row.setAttribute('data-chat-running','true');row.append(content);document.body.append(row)},id)
   const waitPrefix=(id,text)=>page.waitForFunction(([id,text])=>document.querySelector(`#${id} .test_shimmerContent:not(.test_shimmerHighlight) .test_shimmerRun`)?.textContent?.startsWith(text),[id,text])
@@ -81,7 +107,7 @@ try{
   const laterText=await runText('probe0')
   assert.match(laterText,/^鲸鲸正在想…，用时 \d+秒 ···$/)
   assert.notEqual(laterText,firstText)
-  assert.equal(await page.locator('#probe0 [data-shimmer-text]').getAttribute('data-shimmer-text'),laterText)
+  assert.equal(await shimmerMatches('probe0'),true)
   assert.equal((await page.locator('.dcb-running-demo > span:last-child').innerText()).trim(),'鲸鲸正在想…')
   await page.getByLabel('思考文案',{exact:true}).scrollIntoViewIfNeeded();await page.waitForTimeout(120)
   await page.getByRole('dialog').screenshot({path:resolve(output,'running-label.png')})
@@ -89,7 +115,7 @@ try{
   await page.getByLabel('思考文案',{exact:true}).fill('{time} 想好了')
   await page.waitForFunction(()=>document.querySelector('#probe0 .test_shimmerContent:not(.test_shimmerHighlight) .test_shimmerRun')?.textContent?.endsWith('想好了'))
   assert.match(await runText('probe0'),/^\d+秒 想好了$/)
-  assert.equal(await page.locator('#probe0 [data-shimmer-text]').getAttribute('data-shimmer-text'),await runText('probe0'))
+  assert.equal(await shimmerMatches('probe0'),true)
   await page.getByLabel('思考文案',{exact:true}).fill('甲\n\n乙');assert.equal((await prefs()).runningAnimationLabel,'甲\n\n乙')
   await spawn('probe1');await spawn('probe2')
   await page.waitForFunction(()=>{const read=id=>document.querySelector(`#${id} .test_shimmerContent:not(.test_shimmerHighlight) .test_shimmerRun`)?.textContent||'';const hit=text=>text.startsWith('甲')||text.startsWith('乙');return hit(read('probe1'))&&hit(read('probe2'))})

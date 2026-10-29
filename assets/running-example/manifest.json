@@ -1,0 +1,18 @@
+{
+  "format": "dsh-running-pack",
+  "version": 1,
+  "name": "动图格式示例",
+  "author": "AumiSatori / yanzwzz；角色：上善无形 / ZipZipPipe",
+  "license": "示例说明 MIT；鲸鱼娘素材授权见 LICENSE，角色 CC BY-NC-SA 4.0，个人非商业使用",
+  "actions": [
+    {
+      "id": "look-around",
+      "name": "东张西望（精灵图示例）",
+      "file": "example.webp",
+      "type": "sprite",
+      "frames": 60,
+      "columns": 10,
+      "fps": 12.5
+    }
+  ]
+}

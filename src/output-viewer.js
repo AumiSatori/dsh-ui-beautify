@@ -58,6 +58,19 @@ function htmlDocument(source){
   return `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer">${source}`
 }
 
+async function copyFileText(text,doc,win){
+  try{if(typeof win.navigator.clipboard?.writeText==='function'){await win.navigator.clipboard.writeText(text);return}}catch{/* Older hosts may still permit a user-initiated copy command. */}
+  const active=doc.activeElement,selection=win.getSelection(),ranges=selection?Array.from({length:selection.rangeCount},(_,i)=>selection.getRangeAt(i).cloneRange()):[]
+  const start=active?.selectionStart,end=active?.selectionEnd,direction=active?.selectionDirection,input=doc.createElement('textarea')
+  input.value=text;input.readOnly=true;input.tabIndex=-1;input.setAttribute('aria-hidden','true');input.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none'
+  try{doc.body.append(input);input.focus({preventScroll:true});input.select();if(!doc.execCommand?.('copy'))throw Error('copy unavailable')}
+  finally{
+    input.remove()
+    if(active?.isConnected)active.focus({preventScroll:true})
+    try{if(selection&&ranges.length){selection.removeAllRanges();for(const range of ranges)selection.addRange(range)}if(typeof start==='number')active.setSelectionRange(start,end,direction)}catch{/* A file may have closed while clipboard access was pending. */}
+  }
+}
+
 export const outputViewerCss=`
   .dcb-file-viewer { position:fixed; inset:max(12px,calc(var(--dsh-windows-titlebar-height,24px) + 12px)) 12px 12px auto; z-index:2147482991; display:flex; flex-direction:column; width:min(560px,calc(100vw - 24px)); max-width:calc(100vw - 24px); min-width:min(280px,calc(100vw - 24px)); border:1px solid #ffffffb3; border-radius:20px; background:rgba(249,250,252,.94); color:#24272d; box-shadow:0 18px 64px #17213624,inset 0 1px 0 #fff; backdrop-filter:blur(12px); overflow:hidden; font:13px/1.6 system-ui,sans-serif; }
   .dcb-file-viewer,.dcb-file-viewer * { box-sizing:border-box; }
@@ -72,6 +85,11 @@ export const outputViewerCss=`
   .dcb-file-viewer button:active { transform:scale(.94); }
   .dcb-file-viewer button:focus-visible { outline:2px solid #888; outline-offset:2px; }
   .dcb-file-viewer-toolbar { display:flex; align-items:center; gap:8px; padding:10px 18px; flex:none; }
+  .dcb-file-viewer .dcb-file-copy { display:inline-flex; align-items:center; justify-content:center; gap:6px; flex:none; min-width:76px; min-height:32px; padding:4px 8px; border-radius:8px; font-size:12px; transition:background-color 180ms ease,transform 180ms ease; }
+  .dcb-file-copy:disabled { opacity:.45; cursor:wait; }
+  .dcb-file-copy svg { flex:none; animation:dcb-file-copy-in 180ms cubic-bezier(.22,.8,.26,1); }
+  .dcb-file-copy-feedback { margin-left:10px; animation:dcb-file-copy-in 180ms cubic-bezier(.22,.8,.26,1); }
+  @keyframes dcb-file-copy-in { from{opacity:0;transform:translateY(6px) scale(.9);filter:blur(2px)}to{opacity:1;transform:none;filter:blur(0)} }
   .dcb-file-modes { display:inline-flex; gap:2px; padding:3px; border:1px solid #202a3c16; border-radius:10px; }
   .dcb-file-modes button { padding:4px 14px; border-radius:7px; font-size:12px; transition:background-color 180ms ease,color 180ms ease; }
   .dcb-file-modes button[aria-pressed=true] { background:#24272d; color:#fff; }
@@ -109,30 +127,43 @@ export const outputViewerCss=`
   body[data-ds-dark-theme] .dcb-file-viewer button:hover { background:#ffffff12; }
   body[data-ds-dark-theme] .dcb-file-table th { background:#292d35; color:#d2d9e4; }
   @media(max-width:600px) { .dcb-file-viewer { inset:max(8px,calc(var(--dsh-windows-titlebar-height,24px) + 8px)) 8px 8px; width:auto!important; max-width:none; min-width:0; border-radius:16px; } .dcb-file-viewer-content { padding:18px; } .dcb-file-location,.dcb-file-resizer { display:none; } }
-  @media(prefers-reduced-motion:reduce) { .dcb-file-viewer button { transition:none; } }
+  @media(max-width:600px) { .dcb-file-viewer .dcb-file-copy { min-height:44px; } }
+  @media(prefers-reduced-motion:reduce),(forced-colors:active) { .dcb-file-viewer button { transition:none; } .dcb-file-copy svg,.dcb-file-copy-feedback { animation:none; } }
   @media(forced-colors:active) { .dcb-file-viewer,.dcb-file-viewer-head,.dcb-file-viewer-body { background:Canvas!important; color:CanvasText!important; border:1px solid CanvasText!important; box-shadow:none!important; backdrop-filter:none!important; } .dcb-file-modes button[aria-pressed=true] { background:Highlight!important; color:HighlightText!important; } }
 `
 
 export function createOutputViewer(React,doc,win,{createPortal,MarkdownText,CodeBlock}={}){
   const h=React.createElement,listeners=new Set()
   const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
-  let state={present:false,open:false},abort=null,disposed=false,failed=false,revision=0,blob='',restoreFocus=null,restoreEntry=null
+  let state={present:false,open:false},abort=null,disposed=false,failed=false,revision=0,blob='',restoreFocus=null,restoreEntry=null,copyRequest=0,copyTimer=0
   const set=patch=>{state={...state,...patch};for(const listener of listeners)listener()}
-  const cleanup=()=>{abort?.abort();abort=null;if(blob){win.URL.revokeObjectURL(blob);blob=''}}
+  const cleanup=()=>{copyRequest++;win.clearTimeout(copyTimer);copyTimer=0;abort?.abort();abort=null;if(blob){win.URL.revokeObjectURL(blob);blob=''}}
   function close(restore=true){
-    cleanup();revision++;set({open:false})
+    cleanup();revision++;set({open:false,copyStatus:''})
     if(restore){const target=[restoreFocus,restoreEntry].find(el=>el?.isConnected&&!el.closest('[inert]')&&el.getClientRects().length);target?.focus({preventScroll:true})}
   }
   function openNative(){const fallback=state.fallback;close();fallback?.()}
   async function load(){
     cleanup();const id=++revision;abort=new win.AbortController();const signal=abort.signal
-    set({status:'loading',file:null,error:'',mode:'preview'})
+    set({status:'loading',file:null,error:'',mode:'preview',copyStatus:''})
     try{
       const file=await state.read(state.sessionId,state.path,signal)
       if(disposed||signal.aborted||id!==revision)return
       if(file.kind==='image'||file.kind==='video')blob=win.URL.createObjectURL(new Blob([file.bytes],{type:file.mime}))
       set({status:'ready',file:{...file,url:blob}})
     }catch(error){if(!disposed&&!signal.aborted&&id===revision)set({status:'error',error:error.message||'内容加载失败。'})}
+  }
+  async function copy(){
+    if(disposed||!state.open||state.status!=='ready'||typeof state.file?.text!=='string'||state.copyStatus==='copying')return
+    const id=++copyRequest,file=state.file
+    win.clearTimeout(copyTimer);copyTimer=0;set({copyStatus:'copying'})
+    const current=()=>!disposed&&state.open&&id===copyRequest&&state.file===file
+    try{
+      await copyFileText(file.text,doc,win)
+      if(!current())return
+      set({copyStatus:'copied'})
+      copyTimer=win.setTimeout(()=>{copyTimer=0;if(current())set({copyStatus:''})},2400)
+    }catch{if(current())set({copyStatus:'error'})}
   }
   function View({sessionId}){
     const view=React.useSyncExternalStore(fn=>{listeners.add(fn);return()=>listeners.delete(fn)},()=>state,()=>state)
@@ -166,6 +197,8 @@ export function createOutputViewer(React,doc,win,{createPortal,MarkdownText,Code
     },[view.path,view.sessionId,view.mode])
     if(!present||typeof createPortal!=='function')return null
     const file=view.file,name=view.path.replaceAll('\\','/').split('/').at(-1),type=outputKind(view.path)
+    const textFile=type&&type.kind!=='image'&&type.kind!=='video',copyLabel=type?.kind==='html'?'复制源码':'复制全文'
+    const copyFeedback=view.copyStatus==='copied'?'已复制全文':view.copyStatus==='error'?'复制失败，请重试或手动选择文本复制。':''
     const code=(text,lang)=>CodeBlock?h(CodeBlock,{code:text,lang,showHeader:false}):h('pre',null,h('code',null,text))
     let content
     if(view.status==='loading')content=h('div',{className:'dcb-file-loading',role:'status'},'正在读取文件…')
@@ -190,8 +223,8 @@ export function createOutputViewer(React,doc,win,{createPortal,MarkdownText,Code
         onLostPointerCapture:()=>{drag.current=null;node.current?.removeAttribute('data-dragging')},
         onKeyDown:event=>{if(['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();set({width:Math.max(280,Math.min(win.innerWidth-24,view.width+(event.key==='ArrowLeft'?24:-24)))})}}}),
       h('div',{className:'dcb-file-viewer-head'},h('span',{className:'dcb-file-viewer-icon','aria-hidden':true},type?.ext.toUpperCase().slice(0,4)||'文件'),h('div',{className:'dcb-file-viewer-title'},h('strong',{title:name},name),h('small',null,`${type?.label||'文件'} · 输出预览`)),h('button',{className:'dcb-file-action',title:'用 DSH 打开','aria-label':'用 DSH 打开',onClick:openNative},'↗'),h('button',{className:'dcb-file-action','aria-label':'关闭文件预览',onClick:close},'×')),
-      h('div',{className:'dcb-file-viewer-toolbar'},file?.kind!=='image'&&file?.kind!=='video'&&h('div',{className:'dcb-file-modes',role:'group','aria-label':'预览方式'},['preview','source'].map(mode=>h('button',{key:mode,'aria-pressed':view.mode===mode,onClick:()=>set({mode})},mode==='preview'?'预览':'源码'))),h('span',{className:'dcb-file-location',title:view.path},view.path),h('button',{className:'dcb-file-action','aria-label':'重新加载文件',onClick:load},'↻')),
-      h('div',{className:'dcb-file-viewer-body',ref:body,'data-content-status':view.status},content),h('div',{className:'dcb-file-viewer-status'},view.status==='ready'?`${type?.label||'文件'} · ${file.size<1024?`${file.size} B`:`${Math.ceil(file.size/1024)} KB`}`:view.status==='loading'?'加载中':'可重试或用 DSH 打开')),doc.body)
+      h('div',{className:'dcb-file-viewer-toolbar'},file?.kind!=='image'&&file?.kind!=='video'&&h('div',{className:'dcb-file-modes',role:'group','aria-label':'预览方式'},['preview','source'].map(mode=>h('button',{key:mode,'aria-pressed':view.mode===mode,onClick:()=>set({mode})},mode==='preview'?'预览':'源码'))),h('span',{className:'dcb-file-location',title:view.path},view.path),textFile&&h('button',{type:'button',className:'dcb-file-copy','aria-label':copyLabel,title:copyLabel,disabled:view.status!=='ready'||typeof file?.text!=='string'||view.copyStatus==='copying','data-copy-state':view.copyStatus||'idle',onClick:copy},h('svg',{key:view.copyStatus||'idle',width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.6,'aria-hidden':true},view.copyStatus==='copied'?h('path',{d:'M4 12l5 5L20 6'}):h(React.Fragment,null,h('rect',{x:8,y:8,width:12,height:12,rx:2}),h('path',{d:'M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3'}))),view.copyStatus==='copied'?'已复制':view.copyStatus==='copying'?'复制中':view.copyStatus==='error'?'重试复制':'复制'),h('button',{className:'dcb-file-action','aria-label':'重新加载文件',onClick:load},'↻')),
+      h('div',{className:'dcb-file-viewer-body',ref:body,'data-content-status':view.status},content),h('div',{className:'dcb-file-viewer-status'},view.status==='ready'?`${type?.label||'文件'} · ${file.size<1024?`${file.size} B`:`${Math.ceil(file.size/1024)} KB`}`:view.status==='loading'?'加载中':'可重试或用 DSH 打开',copyFeedback&&h('span',{key:view.copyStatus,className:'dcb-file-copy-feedback',role:view.copyStatus==='error'?'alert':'status'},copyFeedback))),doc.body)
   }
   return{View,
   available(){return !disposed&&!failed&&typeof createPortal==='function'},

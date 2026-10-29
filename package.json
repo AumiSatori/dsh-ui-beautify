@@ -143,7 +143,8 @@
     "test:hero-greeting": "node test/hero-greeting-browser.mjs",
     "test:process-disclosure": "node test/process-disclosure-browser.mjs",
     "test:output-preview-animation": "node test/output-preview-animation.mjs",
-    "test:settings-config-motion": "node test/settings-config-motion-browser.mjs"
+    "test:settings-config-motion": "node test/settings-config-motion-browser.mjs",
+    "test:output-copy": "node test/output-copy-browser.mjs"
   },
   "dsh": {
     "bundle": {

@@ -25,6 +25,12 @@ export function createSidebarOverlay(doc,win,schedule=()=>{}){
   const records=new Map()
   const restore=(el,name,value)=>value===null?el.removeAttribute(name):el.setAttribute(name,value)
   const set=(el,key,value)=>{if(el.style.getPropertyValue(key)!==value)el.style.setProperty(key,value)}
+  function updateWidth(frame,root){
+    const desktop=doc.documentElement.hasAttribute('data-windows-titlebar')||doc.documentElement.dataset.platform==='darwin',rail=desktop?0:56
+    const collapsed=frame.getAttribute('data-sidebar-collapsed')==='true'
+    const width=collapsed?rail:parseFloat(root?.style.width)||root?.getBoundingClientRect().width||280
+    set(frame,RAIL,rail+'px');set(frame,WIDTH,Math.max(0,width)+'px')
+  }
   function release(frame,record){
     record.observer.disconnect();record.resize.disconnect()
     restore(frame,FRAME,record.mark)
@@ -42,7 +48,13 @@ export function createSidebarOverlay(doc,win,schedule=()=>{}){
       if(record&&(record.left!==left||record.center!==center||record.right!==right||record.root!==left.firstElementChild)){release(frame,record);record=null}
       if(!record){
         record={left,center,right,root:left.firstElementChild,mark:frame.getAttribute(FRAME),parts:[],variables:[WIDTH,RAIL,TOP,BOTTOM].map(key=>[key,frame.style.getPropertyValue(key),frame.style.getPropertyPriority(key)])}
-        record.observer=new win.MutationObserver(schedule)
+        record.observer=new win.MutationObserver(entries=>{
+          // Retarget the running width transition as soon as the host flips
+          // state. Deferring this to the next scan lets the drawer travel in
+          // the old direction for another rendered frame on rapid reversal.
+          if(entries.some(entry=>entry.type==='attributes'&&((entry.target===frame&&entry.attributeName==='data-sidebar-collapsed')||(entry.target===record.root&&entry.attributeName==='style'))))updateWidth(frame,record.root)
+          schedule()
+        })
         record.observer.observe(frame,{attributes:true,attributeFilter:['style','class','data-sidebar-collapsed','data-rightbar-collapsed','data-dcb-focus-frame'],childList:true})
         record.resize=new win.ResizeObserver(schedule);record.resize.observe(frame)
         // Native expanded width is published inline. Watching the collapsed
@@ -52,11 +64,9 @@ export function createSidebarOverlay(doc,win,schedule=()=>{}){
         for(const [node,kind]of [[left,'left'],[center,'center'],[right,'right']])if(node){record.parts.push([node,node.getAttribute(PART)]);node.setAttribute(PART,kind)}
         records.set(frame,record);frame.setAttribute(FRAME,'')
       }
-      const desktop=doc.documentElement.hasAttribute('data-windows-titlebar')||doc.documentElement.dataset.platform==='darwin',rail=desktop?0:56
-      const collapsed=frame.getAttribute('data-sidebar-collapsed')==='true',root=left.firstElementChild
-      const width=collapsed?rail:parseFloat(root?.style.width)||root?.getBoundingClientRect().width||280
+      const root=left.firstElementChild
       const style=win.getComputedStyle(frame),bottom=children.find(child=>child.hasAttribute('data-shell-bottom'))
-      set(frame,RAIL,rail+'px');set(frame,WIDTH,Math.max(0,width)+'px');set(frame,TOP,style.paddingTop);set(frame,BOTTOM,(bottom?.getBoundingClientRect().height||0)+'px')
+      updateWidth(frame,root);set(frame,TOP,style.paddingTop);set(frame,BOTTOM,(bottom?.getBoundingClientRect().height||0)+'px')
     }
   }
   return{sync,dispose(){for(const [frame,record]of records)release(frame,record)}}

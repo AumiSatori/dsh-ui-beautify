@@ -46,6 +46,45 @@ try{
   const result=await page.evaluate(async()=>{const ranges=[],writes=nativeWrites;for(const until=performance.now()+380;performance.now()<until;){await new Promise(requestAnimationFrame);ranges.push(scroll.scrollHeight)}return{ranges,writes,after:nativeWrites,clean:!document.querySelector('[data-dcb-send-scroll-row]'),overflow:flow.style.overflow}})
   assert.equal(new Set(result.ranges).size,1);assert.equal(result.after,result.writes);assert.equal(result.clean,true);assert.equal(result.overflow,'visible')
  })
+ await check('short messages do not shake when the composer creates a small scroll range, but a send crossing the boundary is smoothed',async()=>{
+  async function prepare(count){
+   await boot()
+   await page.evaluate(count=>{
+    list.replaceChildren(...Array.from({length:count},(_,i)=>row('短对话 '+i)))
+    // Keep the message flow short while a composer seat and bottom inset create
+    // a real, small native scroll range. This reproduces the underlay layout:
+    // scrollHeight alone does not mean messages extend behind the composer.
+    flow.parentElement.style.minHeight='840px'
+    scroll.style.paddingBottom='20px'
+    scroll.scrollTop=scroll.scrollHeight
+    window.probe=list.firstElementChild
+    window.shortFrames=[]
+    document.addEventListener('keydown',e=>{
+     if(e.key==='Enter')document.querySelector('[data-composer-seat]').style.height='90px'
+    },{capture:true,once:true})
+    window.recordShort=()=>{shortFrames.push({top:scroll.scrollTop,probe:probe.getBoundingClientRect().top,marked:document.querySelectorAll('[data-dcb-send-scroll-row]').length,shift:parseFloat(getComputedStyle(probe).translate.split(' ')[1])||0});if(shortFrames.length<32)requestAnimationFrame(recordShort)}
+    recordShort()
+   },count)
+   await tick()
+  }
+  await prepare(2)
+  await page.getByRole('textbox',{name:'合成输入'}).press('Enter')
+  await page.waitForFunction(()=>shortFrames.length===32)
+  const frames=await page.evaluate(()=>shortFrames)
+  assert.ok(frames.at(-1).top>frames[0].top,'composer growth must exercise an actual native scroll')
+  assert.ok(frames.every(frame=>frame.marked===0&&frame.shift===0),'short content must not get a paint compensation')
+  const positions=frames.map(frame=>frame.probe)
+  assert.ok(Math.max(...positions)-Math.min(...positions)<=12,'no replayed transcript movement')
+  let direction=0
+  for(let i=1;i<positions.length;i++){const delta=positions[i]-positions[i-1];if(Math.abs(delta)<.8)continue;const next=Math.sign(delta);assert.ok(!direction||next===direction,'the visible transcript must not reverse');direction=next}
+
+  await prepare(4)
+  await page.getByRole('textbox',{name:'合成输入'}).press('Enter')
+  await page.waitForFunction(()=>document.querySelector('[data-dcb-send-scroll-row]'))
+  const crossing=await page.evaluate(()=>{const animation=probe.getAnimations().find(a=>a.id==='dcb-send-scroll');if(!animation)return null;animation.pause();animation.currentTime=90;return{shift:parseFloat(getComputedStyle(probe).translate.split(' ')[1]),flowHeight:flow.scrollHeight,available:document.querySelector('[data-composer-seat]').getBoundingClientRect().top-scroll.getBoundingClientRect().top}})
+  assert.ok(crossing&&crossing.flowHeight>crossing.available,'the sent message must actually cross the composer boundary')
+  assert.ok(crossing.shift>0,'the crossing must have a real intermediate compensation frame')
+ })
  await check('quick retarget and echoed-message replacement continue from the visible frame',async()=>{
   await boot();await page.getByRole('textbox',{name:'合成输入'}).press('Enter');await page.waitForFunction(()=>document.querySelector('[data-dcb-send-scroll-row]'))
   const result=await page.evaluate(async()=>{

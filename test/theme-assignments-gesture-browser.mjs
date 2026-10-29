@@ -95,6 +95,25 @@ try{
     await select('输入栏');await select('开屏欢迎');await expect(editor).toHaveValue('<p>replacement-5</p>');await setMode(true);await expect(editor).toHaveValue('<p>light-true</p>')
     assert.equal(JSON.stringify(value).includes('<p>'),false)
   })
+  await check('existing local opening history reappears after settings remount and can be activated without rewriting the record',async()=>{
+    await theme('light');await page.evaluate(()=>window.fixture.settings(false));await expect(page.locator('.dcb-settings')).toHaveCount(0)
+    const asset={revision:'existing-local-fixture',name:'本机历史测试开屏',source:'<main>本机历史测试内容</main>',size:64,savedAt:1700000000000,localOnly:true}
+    const access=async(action,value)=>page.evaluate(async({action,value})=>{
+      const request=indexedDB.open('dsh-ui-beautify-welcome-code',1),db=await new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)})
+      try{return await new Promise((resolve,reject)=>{const tx=db.transaction('opening',action==='write'?'readwrite':'readonly'),store=tx.objectStore('opening'),request=action==='write'?store.put(value,'asset:'+value.revision):store.get('asset:'+value.revision);let result;request.onsuccess=()=>{result=request.result};tx.oncomplete=()=>resolve(result);tx.onerror=tx.onabort=()=>reject(tx.error)})}finally{db.close()}
+    },{action,value})
+    await access('write',asset)
+    await page.evaluate(()=>window.fixture.settings(true));await page.getByRole('tab',{name:'全局布局',exact:true}).waitFor();await select('开屏欢迎')
+    await section('welcome').getByRole('radio',{name:'自定义代码',exact:true}).click()
+    const item=section('welcome').getByRole('button',{name:'使用本机开屏：本机历史测试开屏',exact:true})
+    await expect(item).toBeVisible();await expect(item).toContainText('本机预设 · 快速切换')
+    assert.deepEqual(await access('read',asset),asset,'opening settings must not overwrite the existing local record')
+    await item.click();await expect(section('welcome').getByRole('textbox',{name:'开屏动画代码'})).toHaveValue(asset.source)
+    await expect(section('welcome').getByRole('radio',{name:'定时结束',exact:true})).toHaveAttribute('aria-checked','true')
+    await expect(item).toHaveAttribute('data-selected','true')
+    assert.equal((await saved()).welcomeThemes.light.welcomeCodeModes.timed.revision,asset.revision)
+    assert.deepEqual(await access('read',asset),asset,'activation preserves the stored source and metadata')
+  })
   await check('interactive startup stays after the old 30-second deadline, rejects wrong patterns, and completes on the right one',async()=>{
     await page.evaluate(()=>window.fixture.settings(false));await startup()
     const frame=page.frameLocator('[data-dcb-welcome] iframe'),svg=frame.locator('svg')

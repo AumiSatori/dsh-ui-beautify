@@ -4,6 +4,7 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 const project=fileURLToPath(new URL('..',import.meta.url)),output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'../divider-results'),'turn-divider')
 mkdirSync(output,{recursive:true})
 const bundled=await build({entryPoints:[resolve(project,'src/turn-cards.js'),resolve(project,'src/turn-divider.js')],outdir:'out',bundle:true,write:false,format:'iife',globalName:'Module',loader:{'.png':'dataurl'}})
@@ -104,7 +105,7 @@ try{
     await page.evaluate(()=>{window.cleanups=[];window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(name=>name==='@deepseek-ai/dsh-client-ui-primitives'?{FishLogo:()=>null}:window.fixtureReact)}})
     await page.addScriptTag({content:readFileSync(resolve(project,'client.js'),'utf8')})
     await page.evaluate(()=>{const ctx={slots:{inject(_slot,fn){fn()},register(spec,component){if(spec.name==='settings.section')window.fixtureSettings=component;else{window.fixtureHeader=component;window.fixtureHeaderSpec=spec}return()=>{}}},sessions:{binding:id=>window.fixtureBinding(id)},sidebarRight:{openResource(){}},effect(fn){cleanups.push(fn())},inject(_names,fn){fn(ctx)}};plugin.apply(ctx);fixture.refresh()})
-    await page.getByRole('button',{name:'打开设置',exact:true}).click();await page.getByRole('tab',{name:'对话动效',exact:true}).click()
+    await page.getByRole('button',{name:'打开设置',exact:true}).click();await selectSettingsCategory(page,'对话动效')
     await page.getByRole('radio',{name:'对话分轮：极简分隔',exact:true}).click();await page.getByRole('radio',{name:'艺术字',exact:true}).click();await tick()
     assert.equal(await page.locator('.dcb-divider-demo .mascot,.dcb-divider-demo img').count(),0)
     assert.equal(await page.getByRole('radio',{name:'鲸鱼娘与艺术字',exact:true}).count(),0)

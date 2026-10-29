@@ -164,6 +164,14 @@ export function createSidebarGlass(doc,win,schedule){
         if(button){
           record.click=()=>{
             if(!record.animate||reduced.matches||forced.matches)return
+            if(record.frame.hasAttribute('data-dcb-sidebar-overlay')&&record.column.getAnimations().some(animation=>animation.transitionProperty==='width'&&['pending','running'].includes(animation.playState))){
+              // Freeze the current visual width before React handles a rapid
+              // second click; its state update can otherwise arrive a frame
+              // later while the old transition continues in the wrong direction.
+              const width=record.column.getBoundingClientRect().width
+              record.frame.style.setProperty('--dcb-overlay-left-width',width+'px')
+              win.getComputedStyle(record.column).width
+            }
             layout.hold(record.frame,{prepare:true})
             const collapsed=record.frame.getAttribute('data-sidebar-collapsed')==='true'||suffix(record.root,'collapsed')
             if(!collapsed)capture(record)

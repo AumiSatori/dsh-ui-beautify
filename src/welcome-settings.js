@@ -107,6 +107,11 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
     const editCode=(source,name=codeName.current)=>{drafts.current.set(slot,{source,name,revision:value.welcomeCodeRevision});codeName.current=name;setCode(source)}
     const [recording,setRecording]=React.useState(false),[recorderKey,setRecorderKey]=React.useState(0),[mediaNames,setMediaNames]=React.useState({}),[showGesture,setShowGesture]=React.useState(value.welcomeCodeInteractive===true),[showTimed,setShowTimed]=React.useState(value.welcomeCodeInteractive!==true),[history,setHistory]=React.useState([])
     const refreshHistory=()=>codeStore?.list?.().then(items=>{if(mounted.current)setHistory(items||[])}).catch(()=>{})
+    React.useEffect(()=>{
+      let live=true
+      codeStore?.list?.().then(items=>{if(live)setHistory(items||[])}).catch(()=>{})
+      return()=>{live=false}
+    },[codeStore])
     const lightRevision=themeWelcome(value,'light').welcomeMediaRevision,darkRevision=themeWelcome(value,'dark').welcomeMediaRevision
     React.useEffect(()=>{let live=true;Promise.all(['light','dark'].map(async scheme=>{const revision=scheme==='light'?lightRevision:darkRevision;const saved=await mediaStore?.load(revision);return[scheme,saved?.name||'']})).then(entries=>{if(live)setMediaNames(Object.fromEntries(entries))},()=>{});return()=>{live=false}},[lightRevision,darkRevision])
     React.useEffect(()=>{setRecording(false);setRecorderKey(key=>key+1)},[theme])

@@ -64,7 +64,7 @@ try{
     await group.getByRole('radio',{name:'动图 / 短视频'}).click();await page.waitForTimeout(60)
     const middle=await textFields.evaluate(el=>({height:el.getBoundingClientRect().height,opacity:Number(getComputedStyle(el).opacity)}))
     assert.ok(middle.height>0&&middle.height<before&&middle.opacity>0&&middle.opacity<1)
-    await upload.setInputFiles(gif);await section.getByText(/synthetic-motion.gif/).waitFor();await waitPoster()
+    await upload.setInputFiles(gif);await section.locator('.dcb-welcome-file-name').getByText(/synthetic-motion.gif/).waitFor();await waitPoster()
     const saved=await readStored();assert.equal(saved.welcomeMode,'media');assert.ok(saved.welcomeMediaRevision);assert.ok(JSON.stringify(saved).length<6000);assert.equal(JSON.stringify(saved).includes('data:'),false)
     assert.equal(await section.locator('.dcb-welcome-collapse').first().evaluate(el=>el.getBoundingClientRect().height),0)
     assert.equal(await section.locator('select,input[type=checkbox],input[type=radio],input[type=range]').count(),0)

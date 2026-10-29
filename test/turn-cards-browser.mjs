@@ -4,6 +4,7 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 
 const project=fileURLToPath(new URL('..',import.meta.url))
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'../../outputs/dsh-ui-beautify'),'turn-cards')
@@ -323,8 +324,7 @@ try{
     })
     await tick();assert.equal(await page.locator('[data-dcb-turn-head]').count(),0,'fresh installations keep the native appearance')
     await page.getByRole('button',{name:'打开设置',exact:true}).click()
-    const tab=page.getByRole('tab',{name:'对话动效',exact:true})
-    if(await tab.count())await tab.click()
+    await selectSettingsCategory(page,'对话动效')
     const original=page.getByRole('radio',{name:'对话分轮：默认',exact:true}),soft=page.getByRole('radio',{name:'对话分轮：轻盈卡片',exact:true}),line=page.getByRole('radio',{name:'对话分轮：极简分隔',exact:true})
     assert.equal(await original.getAttribute('aria-checked'),'true')
     assert.deepEqual(await page.getByRole('radiogroup',{name:'对话分轮样式',exact:true}).getByRole('radio').allTextContents(),['默认保留原始外观','轻盈卡片浅底色 · 细边框','极简分隔留白 · 细分隔线'])

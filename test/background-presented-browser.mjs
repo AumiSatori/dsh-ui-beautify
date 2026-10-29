@@ -29,7 +29,8 @@ const look=()=>first().evaluate(el=>{const s=getComputedStyle(el),name=el.queryS
 async function check(name,fn){await fn();checks.push(name);console.log('PASS '+name)}
 try{
  await page.goto('http://127.0.0.1:'+server.address().port);await first().waitFor()
- const original=await look(),nativePreviewDisplay=await first().locator('button[class$="_cardPreview"]').evaluate(el=>getComputedStyle(el).display),nativeHintVisible=await first().locator('[class$="_previewHint"]').isVisible()
+ const original=await look(),nativePreviewDisplay=await first().locator('button[class$="_cardPreview"]').evaluate(el=>getComputedStyle(el).display)
+ await first().hover();const nativeHintHovered=await first().locator('[class$="_previewHint"]').isVisible();await page.mouse.move(5,5)
  await check('native two-column delivery cards retain their original geometry and default fills without a wallpaper',async()=>{assert.equal(original.background,'rgb(250, 250, 250)');assert.equal(original.height,60);assert.equal(await cards().count(),2)})
  await check('wallpaper delivery cards and icon tiles are transparent with readable labels and no added blur',async()=>{
   await page.evaluate(()=>document.body.setAttribute('data-dcb-background',''));await page.waitForTimeout(180);const value=await look();assert.equal(value.background,'rgba(0, 0, 0, 0)');assert.equal(value.name,'rgb(32, 35, 43)');assert.equal(value.description,'rgb(67, 87, 113)');assert.equal(value.blur,'none');assert.equal(value.shadow,'none');assert.equal(value.width,original.width);assert.equal(value.height,original.height)
@@ -40,7 +41,7 @@ try{
  await check('native preview visibility and explicit keyboard file actions keep the installed host behavior',async()=>{
   const preview=first().locator('button[class$="_cardPreview"]');assert.equal(await preview.evaluate(el=>getComputedStyle(el).display),nativePreviewDisplay)
   const open=page.getByRole('button',{name:'打开文件 0',exact:true});await open.focus();await page.keyboard.press('Enter');await page.getByRole('button',{name:'更多方式 0',exact:true}).click();assert.deepEqual(await page.evaluate(()=>events),['open-0','menu-0'])
-  await first().hover();await page.waitForTimeout(180);assert.equal((await look()).background,'rgba(255, 255, 255, 0.34)');assert.equal(await first().locator('[class$="_previewHint"]').isVisible(),nativeHintVisible)
+  await first().hover();await page.waitForTimeout(180);assert.equal((await look()).background,'rgba(255, 255, 255, 0.34)');assert.equal(await preview.evaluate(el=>getComputedStyle(el).display),nativePreviewDisplay);assert.equal(await first().locator('[class$="_previewHint"]').isVisible(),nativeHintHovered)
   await page.mouse.move(5,5);await open.focus();await page.waitForTimeout(180);assert.equal((await look()).background,'rgba(255, 255, 255, 0.34)');await page.evaluate(()=>document.activeElement?.blur())
  })
  await check('pending and error status colors survive the surface adaptation',async()=>{

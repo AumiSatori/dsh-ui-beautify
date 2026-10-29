@@ -335,9 +335,20 @@ try{
   })
   await check('natural slow-history startup removes the written welcome within its fixed ending and never blocks the app for loading',async()=>{
     await boot({freeze:false});await page.locator('.cr_viewArea').evaluate(el=>el.innerHTML='<div data-chat-flow><div class="cv_hint">Synthetic slow history</div></div>')
-    const before=Date.now();await start({welcomeFont:'Lolita'});await page.evaluate(()=>window.motion.setSessionState('a','loading'))
-    await page.locator('[data-dcb-welcome]').waitFor({state:'detached',timeout:2700})
-    assert.ok(Date.now()-before<2700)
+    // Measure the actual overlay lifetime in the browser, excluding protocol
+    // round trips, while keeping the same 2700ms deadline.
+    const elapsed=await page.evaluate(()=>new Promise((resolve,reject)=>{
+      const started=performance.now();let shown=false
+      const observer=new MutationObserver(()=>{
+        if(document.querySelector('[data-dcb-welcome]'))shown=true
+        else if(shown){observer.disconnect();clearTimeout(timeout);resolve(performance.now()-started)}
+      })
+      observer.observe(document.body,{childList:true,subtree:true})
+      const timeout=setTimeout(()=>{observer.disconnect();reject(Error('Welcome exceeded 2700ms'))},2700)
+      window.motion=Startup.createStartupMotion(document,window,{welcomeMode:'text',welcomeFont:'Lolita'})
+      window.motion.setSessionState('a','loading')
+    }))
+    assert.ok(elapsed<2700,`Welcome lifetime: ${elapsed}ms`)
     assert.equal(await page.locator('.cv_hint').isVisible(),true)
     assert.ok(await page.locator('[data-composer-card]').evaluate(el=>Number(getComputedStyle(el).opacity))>0)
     assert.equal(await page.evaluate(()=>window.calls.some(c=>c.a.id==='dcb-startup-main')),false)

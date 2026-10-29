@@ -1,126 +1,544 @@
 {
   "version": "0.4.4",
   "baseline": "v0.4.3",
+  "sourceBaseCommit": "7f3e0de65a2f640fe2cf0edc33a520022a52349e",
+  "scope": "全局配置切页高度与卡片裁切修复、对话页签下划线分段收放、Artifact 全文复制、思考动图格式示例 ZIP 下载。",
   "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273",
-  "scope": "全局配置异步预设载入及切页高度抖动修复；对话页签下划线从两端向中心收拢、从新中心向两侧展开，使用不同速率并支持快速反向。；Artifact 阅读卡片完整文本复制、成功与失败反馈、旧宿主兼容及异步回调隔离。；思考动图导入区格式示例 ZIP 下载与可播放样例。",
-  "hostComponents": "已安装 DSH 0.2.1-rc.3；独立无头 Chrome 与合成预设。",
+  "earlyOpeningSha256": "05791a4ca40e4ab012a5f0ba5a61f713c7e8e33aac68965fc7956f263622ae92",
+  "host": {
+    "version": "0.2.1-rc.3",
+    "mode": "只读取已安装 DSH 原生组件，在独立无头 Chrome 中使用合成内容回归。",
+    "sliderIntegration": true,
+    "artifactIntegration": true
+  },
   "checks": {
-    "suites": 11,
-    "passed": 11,
+    "reproducibleBuild": true,
+    "packageInspection": true,
+    "fullReleaseSuite": true,
+    "suites": 62,
+    "passed": 62,
     "failed": 0,
-    "checks": 212,
+    "reportedChecks": 726,
     "nodeTests": 96,
-    "fullReleaseSuite": false,
-    "allRunInLatestBatch": false
+    "aliases": "含纯背景兼容命令的重复执行；部分性能组以 JSON 指标输出。"
   },
   "results": [
+    {
+      "name": "test:unified-icons",
+      "passed": true,
+      "checks": 21,
+      "elapsedMs": 23043,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:fullscreen",
+      "passed": true,
+      "checks": 14,
+      "elapsedMs": 12876,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
     {
       "name": "test",
       "passed": true,
       "checks": 96,
+      "elapsedMs": 8707,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:browser",
+      "passed": true,
+      "checks": 16,
+      "elapsedMs": 13277,
+      "attempt": 2,
+      "previousAttempts": [
+        {
+          "code": 1,
+          "elapsedMs": 9463,
+          "log": "test-browser-attempt1.log"
+        }
+      ],
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:summary",
+      "passed": true,
+      "checks": 48,
+      "elapsedMs": 219331,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:progress-liquid",
+      "passed": true,
+      "checks": 9,
+      "elapsedMs": 12727,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:skills",
+      "passed": true,
+      "checks": 8,
+      "elapsedMs": 21008,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:scope",
+      "passed": true,
+      "checks": 13,
+      "elapsedMs": 56611,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:artifact",
+      "passed": true,
+      "checks": 19,
+      "elapsedMs": 75204,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:materials",
+      "passed": true,
+      "checks": 13,
+      "elapsedMs": 48516,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:theme-palette",
+      "passed": true,
+      "checks": 18,
+      "elapsedMs": 24065,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:theme-switch",
+      "passed": true,
+      "checks": 13,
+      "elapsedMs": 12892,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:focus",
+      "passed": true,
+      "checks": 12,
+      "elapsedMs": 22309,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:focus-header",
+      "passed": true,
+      "checks": 12,
+      "elapsedMs": 22321,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:focus-performance",
+      "passed": true,
+      "checks": 12,
+      "elapsedMs": 22304,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:startup",
+      "passed": true,
+      "checks": 19,
+      "elapsedMs": 19850,
+      "attempt": 2,
+      "previousAttempts": [
+        {
+          "code": 1,
+          "elapsedMs": 21729,
+          "log": "test-startup-attempt1.log"
+        }
+      ],
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:welcome",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 11538,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:welcome-media",
+      "passed": true,
+      "checks": 9,
+      "elapsedMs": 29528,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:welcome-code",
+      "passed": true,
+      "checks": 8,
+      "elapsedMs": 18160,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:theme-gesture",
+      "passed": true,
+      "checks": 10,
+      "elapsedMs": 70529,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:early-opening",
+      "passed": true,
+      "checks": 4,
+      "elapsedMs": 16080,
+      "attempt": 1,
       "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
       "name": "test:settings",
       "passed": true,
       "checks": 14,
-      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+      "elapsedMs": 99763,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:settings-reset",
+      "passed": true,
+      "checks": 1,
+      "elapsedMs": 12687,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
       "name": "test:settings-presets",
       "passed": true,
       "checks": 1,
-      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+      "elapsedMs": 10185,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
       "name": "test:settings-transfer",
       "passed": true,
       "checks": 9,
-      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+      "elapsedMs": 10886,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:background",
+      "passed": true,
+      "checks": 12,
+      "elapsedMs": 22271,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:background-surfaces",
+      "passed": true,
+      "checks": 8,
+      "elapsedMs": 3693,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:background-presented",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 3532,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:background-names",
+      "passed": true,
+      "checks": 9,
+      "elapsedMs": 14639,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:background-theme",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 26577,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
       "name": "test:tabs",
       "passed": true,
       "checks": 31,
-      "clientSha256": "7a9956f2b29ef693f722357d04d01217ac878bd3709a2cc82be6c232f17ab75b"
+      "elapsedMs": 19263,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
-      "name": "test:settings-hierarchy",
+      "name": "test:composer",
       "passed": true,
-      "checks": 11,
-      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+      "checks": 20,
+      "elapsedMs": 88138,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
-      "name": "test:settings-config-motion",
+      "name": "test:composer-scroll-motion",
       "passed": true,
       "checks": 8,
-      "clientSha256": "3da4ce64ff7e28eeb14ac4df3f3d93b9733c427649dda3b0f1ba1374f1eca586"
+      "elapsedMs": 6310,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
-      "name": "test:artifact",
-      "passed": true,
-      "checks": 19,
-      "clientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917"
-    },
-    {
-      "name": "test:output-copy",
+      "name": "test:composer-placement",
       "passed": true,
       "checks": 7,
-      "clientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917"
+      "elapsedMs": 4611,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
-      "name": "test:running",
+      "name": "test:slider-glass",
       "passed": true,
-      "checks": 12,
+      "checks": 5,
+      "elapsedMs": 11617,
+      "attempt": 1,
       "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
       "name": "test:performance",
       "passed": true,
       "checks": 4,
+      "elapsedMs": 7577,
+      "attempt": 1,
       "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
-    }
-  ],
-  "reproduction": {
-    "baselineJumpCssPx": 77.1875,
-    "method": "逐帧测量导入导出区域相对配置页的位置，排除整页淡入位移。"
-  },
-  "motionResults": [
-    {
-      "name": "immediate",
-      "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 11.531234741210938,
-      "minFrameStepCssPx": -0.0000152587890625
     },
     {
-      "name": "duringEntry",
-      "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 11.53125,
-      "minFrameStepCssPx": -0.0000152587890625
+      "name": "test:particle-performance",
+      "passed": true,
+      "checks": 0,
+      "elapsedMs": 20943,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
-      "name": "afterEntry",
-      "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 15.296875,
-      "minFrameStepCssPx": -0.000030517578125
+      "name": "test:reading-performance",
+      "passed": true,
+      "checks": 0,
+      "elapsedMs": 2087,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
-      "name": "darkNarrow",
-      "travelCssPx": 125.1875,
-      "maxFrameStepCssPx": 18.812515258789062,
-      "minFrameStepCssPx": -0.000030517578125
+      "name": "test:sidebar",
+      "passed": true,
+      "checks": 17,
+      "elapsedMs": 149465,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
-      "name": "heroEntry",
-      "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 16.5,
-      "minFrameStepCssPx": -0.0000152587890625
+      "name": "test:sidebar-attention",
+      "passed": true,
+      "checks": 14,
+      "elapsedMs": 12506,
+      "attempt": 2,
+      "previousAttempts": [
+        {
+          "code": 1,
+          "elapsedMs": 37931,
+          "log": "test-sidebar-attention-attempt1.log"
+        }
+      ],
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     },
     {
-      "name": "heroReturn",
-      "travelCssPx": 77.1875,
-      "maxFrameStepCssPx": 17.859405517578125,
-      "minFrameStepCssPx": -0.0000152587890625
+      "name": "test:sidebar-layout",
+      "passed": true,
+      "checks": 1,
+      "elapsedMs": 65847,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:sidebar-overlay",
+      "passed": true,
+      "checks": 10,
+      "elapsedMs": 54532,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:conversation-width",
+      "passed": true,
+      "checks": 11,
+      "elapsedMs": 13578,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:messages",
+      "passed": true,
+      "checks": 16,
+      "elapsedMs": 11476,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:chat-disclosure",
+      "passed": true,
+      "checks": 8,
+      "elapsedMs": 15449,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:stream-reveal",
+      "passed": true,
+      "checks": 11,
+      "elapsedMs": 9859,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:user-bubbles",
+      "passed": true,
+      "checks": 9,
+      "elapsedMs": 20928,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:turn-cards",
+      "passed": true,
+      "checks": 22,
+      "elapsedMs": 23166,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:turn-divider",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 9530,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:context-particles",
+      "passed": true,
+      "checks": 10,
+      "elapsedMs": 38622,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:particle-conversion",
+      "passed": true,
+      "checks": 4,
+      "elapsedMs": 30539,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:whale-particles",
+      "passed": true,
+      "checks": 0,
+      "elapsedMs": 28341,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:header-project",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 3228,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:particle-images",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 31730,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:running",
+      "passed": true,
+      "checks": 12,
+      "elapsedMs": 21180,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:opening-themes",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 20532,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:settings-hierarchy",
+      "passed": true,
+      "checks": 11,
+      "elapsedMs": 30921,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:hero-greeting",
+      "passed": true,
+      "checks": 1,
+      "elapsedMs": 2644,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:process-disclosure",
+      "passed": true,
+      "checks": 1,
+      "elapsedMs": 3609,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:output-preview-animation",
+      "passed": true,
+      "checks": 1,
+      "elapsedMs": 2144,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:settings-config-motion",
+      "passed": true,
+      "checks": 8,
+      "elapsedMs": 23049,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+    },
+    {
+      "name": "test:output-copy",
+      "passed": true,
+      "checks": 7,
+      "elapsedMs": 11694,
+      "attempt": 1,
+      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
     }
   ],
   "assertions": [
@@ -137,120 +555,11 @@
     "全局配置 → 欢迎语 → 全局配置往返、延迟预设、深色窄屏均无二次裁切；保留浏览器原生滚动锚定。",
     "键盘下载格式示例 ZIP，文件可保存且下载不改设置；校验说明、素材和授权后重新导入，预览有真实动画帧。"
   ],
-  "desktopAcceptance": false,
-  "completedAt": "2026-10-29T11:29:01.699Z",
-  "globalPatchCheck": {
-    "exitCode": 1,
-    "missingOptional": [
-      "dsh-ui-early-opening",
-      "dsh-startup-feedback"
-    ],
-    "unchangedFromPreviousRelease": true
-  },
-  "releaseStatus": "unreleased",
-  "releaseAuthorizationRequired": true,
-  "increments": [
-    {
-      "commit": "82c1cf17a70f282da15e0912e131898db3a09292",
-      "scope": "全局配置切页抖动修复"
-    },
-    {
-      "commit": "00a841222eddc50bb490ec7b3a4fd5759cdc1a67",
-      "scope": "对话页签下划线中心收拢与展开"
-    },
-    {
-      "baseCommit": "71622b1028d27281420ebef7753bf7d7bef3dc20",
-      "scope": "Artifact 阅读卡片复制全文及反馈"
-    },
-    {
-      "baseCommit": "40ff23a0681dbfa9bd48943a978623c615f74e2a",
-      "scope": "修正全局配置进场高度动画再次裁切已显示卡片的情况"
-    },
-    {
-      "baseCommit": "228be74",
-      "scope": "思考动图导入格式示例下载"
-    }
+  "testHarnessFixes": [
+    "材质选中状态在 React 提交后的首帧采样，仍断言真实边框过渡中间色。",
+    "启动时长在浏览器内测量真实遮罩生命周期，保留 2700ms 截止要求。",
+    "侧栏提醒创建与点击退场时在同一浏览器任务冻结指定帧，仍验证透明度、位移和模糊。"
   ],
-  "latestBatch": {
-    "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273",
-    "suites": 3,
-    "checks": 112,
-    "results": [
-      {
-        "name": "test",
-        "passed": true,
-        "checks": 96,
-        "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
-      },
-      {
-        "name": "test:running",
-        "passed": true,
-        "checks": 12,
-        "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
-      },
-      {
-        "name": "test:performance",
-        "passed": true,
-        "checks": 4,
-        "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
-      }
-    ],
-    "buildLens": true,
-    "checkLens": true,
-    "checkRelease": true,
-    "diffCheck": true
-  },
-  "sourceBaseCommit": "228be74",
-  "configClippingFollowup": {
-    "baselineClientSha256": "844c77b96f23e9d5b7b62e837bf5a66c639b7a4e5e12aec11fe81dc5c50a7917",
-    "before": [
-      {
-        "name": "immediate",
-        "retractedFrames": 0,
-        "maxRetractionCssPx": 0
-      },
-      {
-        "name": "duringEntry",
-        "retractedFrames": 20,
-        "maxRetractionCssPx": 41.59375
-      }
-    ],
-    "after": [
-      {
-        "name": "immediate",
-        "retractedFrames": 0,
-        "maxRetractionCssPx": 0
-      },
-      {
-        "name": "duringEntry",
-        "retractedFrames": 0,
-        "maxRetractionCssPx": 0
-      },
-      {
-        "name": "afterEntry",
-        "retractedFrames": 0,
-        "maxRetractionCssPx": 0
-      },
-      {
-        "name": "darkNarrow",
-        "retractedFrames": 0,
-        "maxRetractionCssPx": 0
-      },
-      {
-        "name": "heroEntry",
-        "retractedFrames": 0,
-        "maxRetractionCssPx": 0
-      },
-      {
-        "name": "heroReturn",
-        "retractedFrames": 0,
-        "maxRetractionCssPx": 0
-      }
-    ],
-    "allClippingAncestorsMeasured": true,
-    "nativeScrollAnchoringEnabled": true,
-    "includesHeroRoundTrip": true
-  },
   "runningExampleDownload": {
     "filename": "dsh-running-pack-example.zip",
     "bytes": 119316,
@@ -261,15 +570,34 @@
       "README.txt",
       "LICENSE"
     ],
-    "desktopLinked": true,
-    "desktopAcceptance": false,
-    "packageCheck": {
-      "passed": true,
-      "files": 99,
-      "under10MiB": true,
-      "runtimeDependencies": 0
-    },
-    "fullReleaseSuite": false,
     "normalizedTextLineEndings": true
-  }
+  },
+  "distribution": {
+    "packageName": "dsh-ui-beautify",
+    "assets": [
+      "dsh-ui-beautify-0.4.4.tgz",
+      "dsh-ui-beautify.tgz",
+      "SHA256SUMS.txt"
+    ],
+    "runtimeDependencies": 0,
+    "installHooks": false,
+    "marketEntry": "data/plugins/AumiSatori__dsh-ui-beautify.yml",
+    "marketTarball": "https://github.com/AumiSatori/dsh-ui-beautify/releases/latest/download/dsh-ui-beautify.tgz",
+    "marketVersionField": null
+  },
+  "desktopAcceptance": {
+    "performed": false,
+    "reason": "本轮未操作用户的 DSH 桌面；本机源码链接已核对，刷新与真实桌面体验由使用者执行。"
+  },
+  "globalPatchCheck": {
+    "exitCode": 1,
+    "missingOptional": [
+      "dsh-ui-early-opening",
+      "dsh-startup-feedback"
+    ],
+    "unchangedFromPreviousRelease": true,
+    "action": "两个可选宿主启动补丁未安装，本轮不修改宿主安装包。"
+  },
+  "startedAt": "2026-10-29T11:34:20.726Z",
+  "completedAt": "2026-10-29T12:07:55.116Z"
 }

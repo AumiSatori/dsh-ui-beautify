@@ -75,16 +75,18 @@ try{
   await page.evaluate(()=>fixture.expand());await page.waitForTimeout(700);await page.evaluate(()=>{fixture.set('c',{pendingInteraction:null});fixture.motion(false);fixture.collapse()});await settle();assert.equal(await root().count(),0)
  })
  await check('completion animates in with a drawn green check and keeps the input focus',async()=>{
-  await page.getByRole('textbox').focus();await set('b',{running:true});await set('b',{running:false,completionUnread:true});await root().waitFor()
-  const frame=await page.evaluate(()=>{const a=document.getAnimations().find(a=>a.id==='dcb-attention-in');a.pause();a.currentTime=110;const c=getComputedStyle(document.querySelector('.dcb-sidebar-attention'));return{opacity:+c.opacity,filter:c.filter,transform:c.transform}})
+  await page.getByRole('textbox').focus();await set('b',{running:true})
+  // Freeze the frame in the same browser task that creates the animation;
+  // a protocol round trip can otherwise outlast the complete 260ms entrance.
+  const frame=await page.evaluate(()=>{fixture.set('b',{running:false,completionUnread:true});attention.sync();const a=document.getAnimations().find(a=>a.id==='dcb-attention-in');a.pause();a.currentTime=110;const c=getComputedStyle(document.querySelector('.dcb-sidebar-attention'));return{opacity:+c.opacity,filter:c.filter,transform:c.transform}})
   assert.ok(frame.opacity>0&&frame.opacity<1);assert.notEqual(frame.filter,'blur(0px)');assert.notEqual(frame.transform,'none');await shot('entry-middle')
   await page.evaluate(()=>document.getAnimations().filter(a=>a.id.startsWith('dcb-attention-')).forEach(a=>a.finish()));await settle()
   assert.equal(await icon('done').locator('svg path').count(),1);assert.equal(await page.getByRole('textbox').evaluate(n=>document.activeElement===n),true)
   const path=icon('done').locator('path'),positions=[];for(const time of [0,700])positions.push(await path.evaluate((n,time)=>{const a=n.getAnimations()[0];a.pause();a.currentTime=time;return getComputedStyle(n).strokeDashoffset},time));assert.notEqual(...positions);await shot('done-light')
  })
  await check('click fades and blurs out, opens the sidebar, and acknowledges that occurrence',async()=>{
-  await icon('done').click();assert.equal(await page.locator('.af_frame').getAttribute('data-sidebar-collapsed'),'false')
-  const middle=await page.evaluate(()=>{const a=document.getAnimations().find(a=>a.id==='dcb-attention-out');a.pause();a.currentTime=120;const c=getComputedStyle(document.querySelector('.dcb-sidebar-attention'));return{opacity:+c.opacity,filter:c.filter}});assert.ok(middle.opacity>0&&middle.opacity<1);assert.notEqual(middle.filter,'blur(0px)')
+  const middle=await icon('done').evaluate(node=>{node.click();attention.sync();const a=document.getAnimations().find(a=>a.id==='dcb-attention-out');a.pause();a.currentTime=120;const c=getComputedStyle(document.querySelector('.dcb-sidebar-attention'));return{opacity:+c.opacity,filter:c.filter}});assert.ok(middle.opacity>0&&middle.opacity<1);assert.notEqual(middle.filter,'blur(0px)')
+  assert.equal(await page.locator('.af_frame').getAttribute('data-sidebar-collapsed'),'false')
   await page.evaluate(()=>document.getAnimations().find(a=>a.id==='dcb-attention-out').finish());await settle();assert.equal(await root().count(),0)
   await page.evaluate(()=>fixture.collapse());await page.waitForTimeout(70);assert.equal(await root().count(),0)
  })

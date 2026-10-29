@@ -249,15 +249,18 @@ try {
     assert.ok(layout.options.every(option => Math.abs(option.width - layout.options[0].width) < 1 && Math.abs(option.height - layout.options[0].height) < 1))
     assert.ok(layout.options.every(option => Math.abs(option.y - layout.options[0].y) < 1), 'The four material choices share one desktop row')
     const clear = page.getByRole('radio', { name: '透明玻璃', exact: true })
-    const start = await clear.evaluate(node => getComputedStyle(node).borderTopColor)
-    await clear.evaluate(node => node.click())
-    const motion = await clear.evaluate(node => {
+    const motion = await clear.evaluate(async node => {
+      const start = getComputedStyle(node).borderTopColor
+      node.click()
+      // React commits the selection after the click handler. Sample the
+      // transition in its first frame, without a protocol round trip race.
+      await new Promise(done => requestAnimationFrame(done))
       const animations = node.getAnimations().filter(item => item instanceof CSSTransition)
       for (const animation of animations) { animation.pause(); animation.currentTime = 110 }
-      return { properties: animations.map(item => item.transitionProperty), border: getComputedStyle(node).borderTopColor }
+      return { start, properties: animations.map(item => item.transitionProperty), border: getComputedStyle(node).borderTopColor }
     })
     assert.ok(motion.properties.includes('border-top-color'), 'Selecting a material animates its visible border')
-    assert.notEqual(motion.border, start)
+    assert.notEqual(motion.border, motion.start)
     await settingsCard.screenshot({ path: resolve(output, 'settings-redesign-selection-110.png') })
     await clear.evaluate(node => { for (const animation of node.getAnimations()) animation.finish() })
     const finish = await clear.evaluate(node => getComputedStyle(node).borderTopColor)

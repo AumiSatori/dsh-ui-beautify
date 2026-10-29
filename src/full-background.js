@@ -1,5 +1,6 @@
 import {htmlDocument} from './background-html.js'
 import {backgroundChatSurfacesCss} from './background-chat-surfaces.js'
+import {createBackgroundInk} from './background-ink.js'
 import {normalizeBackground,themeBackground,backgroundThemeSelection,patchBackgroundTheme,createBackgroundStore,inspectBackgroundMedia,backgroundThumbnail} from './background-media.js'
 export {normalizeBackground} from './background-media.js'
 
@@ -24,11 +25,16 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
   let sourceSettings=normalizeBackground(null),theme=doc.body.hasAttribute('data-ds-dark-theme')?'dark':'light',legacyKind='',legacyPreviousRevision=''
   let settings=normalizeBackground(null),snapshot={error:'',notice:'',preview:'',hasPrevious:false,recent:[],theme},layer=null,media=null,url=null,timer=0,loaded=false,disposed=false,generation=0,wanted='',assetKind='',htmlSource='',htmlActive=false,htmlFrame=0,pointerTime=0,surfacesDirty=true,surfaceFrame=0,appearanceKey='',soundBlocked=false,infoRevision=null,importSequence=0
   const publish=patch=>{if(disposed)return;const next={...snapshot,...patch};if(Object.keys(next).every(key=>next[key]===snapshot[key]))return;snapshot=next;for(const listener of listeners)listener()}
+  // An HTML background lives inside a sandboxed frame, so only a still picture
+  // or video can be sampled for the per-row ink correction.
+  const ink=createBackgroundInk(doc,win,()=>loaded&&settings.backgroundEnabled&&settings.backgroundInk&&media&&assetKind!=='html'
+    ?{media,kind:assetKind,fit:settings.backgroundFit,position:settings.backgroundPosition,opacity:settings.backgroundOpacity/100}:null)
   const restore=(el,key,value)=>value===null?el.removeAttribute(key):el.setAttribute(key,value)
   function releaseSurfaces(){for(const [node,previous]of surfaces)restore(node,SURFACE,previous);surfaces.clear();restore(doc.body,FLAG,priorFlag);surfacesDirty=true}
   function syncSurfaces(){
     const active=loaded&&settings.backgroundEnabled&&!forced.matches
     if(layer)layer.hidden=!active
+    ink.schedule()
     if(!active){releaseSurfaces();return}
     if(!doc.body.hasAttribute(FLAG))doc.body.setAttribute(FLAG,'')
     if(!surfacesDirty)return
@@ -154,6 +160,9 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
   // Chat scrolling and streaming do not rescan the layout or redraw an image.
   const structure=new win.MutationObserver(records=>{
     if(!loaded||disposed)return
+    // A fresh chat row carries no ink correction until the picture behind it
+    // has been measured again.
+    if(records.some(record=>record.target?.closest?.('[data-chat-flow]')))ink.schedule()
     const changed=records.some(record=>[...record.addedNodes,...record.removedNodes].some(node=>node.nodeType===1&&(node.matches(SEEDS)||!record.target.closest?.('[data-conversation-scroll],[data-chat-flow]')&&node.querySelector(SEEDS))))
     if(!changed)return
     surfacesDirty=true
@@ -199,6 +208,6 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
     },
     async restore(){importSequence++;const state=sourceSettings.backgroundThemes?await store.read(settings.previousRevision||''):await store.restore();publish({hasPrevious:!!state.previous,recent:state.recent});return state.current},
     async clear(){importSequence++;await store.clear();publish({hasPrevious:false,preview:''})},
-    dispose(){doc.removeEventListener('pointermove',pointer);disposed=true;generation++;importSequence++;structure.disconnect();themeObserver.disconnect();win.cancelAnimationFrame(surfaceFrame);releaseMedia();store.dispose();listeners.clear();doc.removeEventListener('visibilitychange',visibility);forced.removeEventListener('change',visibility);reduced.removeEventListener('change',visibility)},
+    dispose(){doc.removeEventListener('pointermove',pointer);disposed=true;generation++;importSequence++;structure.disconnect();themeObserver.disconnect();win.cancelAnimationFrame(surfaceFrame);ink.dispose();releaseMedia();store.dispose();listeners.clear();doc.removeEventListener('visibilitychange',visibility);forced.removeEventListener('change',visibility);reduced.removeEventListener('change',visibility)},
   }
 }

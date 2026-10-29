@@ -207,6 +207,7 @@ export function createBackgroundSettings(React,{background,onThemeChange}={}){
         slider('背景模糊','backgroundBlur',20,'','数值越高背景越模糊，可柔化细节、减少画面干扰。'),
         choices('铺放方式','背景铺放方式','backgroundFit',[['cover','铺满'],['contain','完整显示'],['fill','拉伸']],'铺满可能裁切边缘；完整显示可能留白；拉伸会填满窗口，但可能改变画面比例。'),
         choices('画面位置','背景画面位置','backgroundPosition',[['center','居中'],['top','靠上'],['bottom','靠下'],['left','靠左'],['right','靠右']],'选择铺满时优先保留的画面区域。')),
+      h('label',{className:'dcb-background-sound',htmlFor:uid+'-ink'},h('div',null,h('strong',null,'文字自动加深'),h('p',null,'按壁纸明暗自动调深文字，壁纸本身不动。')),h('button',{id:uid+'-ink',type:'button',className:'dcb-switch',role:'switch','aria-label':'文字自动加深','aria-checked':value.backgroundInk,onClick:()=>onChange({backgroundInk:!value.backgroundInk})})),
       h('label',{className:'dcb-background-sound',htmlFor:uid+'-sound'},h('div',null,h('strong',null,'视频声音'),h('p',null,'仅影响视频背景；关闭时静音，切到后台时视频自动暂停。')),h('button',{id:uid+'-sound',type:'button',className:'dcb-switch',role:'switch','aria-label':'视频声音','aria-checked':value.backgroundSound,onClick:()=>onChange({backgroundSound:!value.backgroundSound})})),
       state.notice&&h('p',{role:'status',className:'dcb-settings-footnote'},state.notice),
       h('p',{className:'dcb-settings-footnote'},'支持 JPG / PNG / WebP / GIF / MP4 / WebM。文件仅保存在本机；关闭背景仍保留文件。'))

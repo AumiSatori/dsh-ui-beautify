@@ -134,6 +134,9 @@ function identify(button,doc){
 }
 
 export function createUnifiedIcons(doc,win,schedule=()=>{}){
+  // Message action rows are stable but numerous in long transcripts; reuse
+  // their classification until the button's own label, class or parent changes.
+  const flowKinds=new WeakMap()
   const records=new Map(),groups=new Map(),settingsButtons=new Map(),captions=new Map(),fileDecorations=new Map(),original=doc.body.getAttribute(HOST),resize=new win.ResizeObserver(()=>schedule())
   let mode='native',disposed=false,pendingSettings=null,settingsCommand=null
   const restore=(node,key,value)=>value===null?node.removeAttribute(key):node.setAttribute(key,value)
@@ -198,7 +201,7 @@ export function createUnifiedIcons(doc,win,schedule=()=>{}){
       if(title){
         const bounds=(header.hasAttribute('data-dcb-toolbar-layout')?title:row).getBoundingClientRect()
         const base=bounds.left-(parseFloat(header.style.getPropertyValue('--dcb-caption-inset'))||0),inset=(collapsed?Math.max(0,end+12-base):0)+'px'
-        header.setAttribute('data-dcb-caption-host','')
+        if(!header.hasAttribute('data-dcb-caption-host'))header.setAttribute('data-dcb-caption-host','')
         if(header.style.getPropertyValue('--dcb-caption-inset')!==inset)header.style.setProperty('--dcb-caption-inset',inset)
       }
       if(mode==='glass'&&collapsed){
@@ -268,8 +271,11 @@ export function createUnifiedIcons(doc,win,schedule=()=>{}){
     const candidates=mode==='native'?[]:[...doc.querySelectorAll(`${HEADER} ${names('headerUtilities')} button,${HEADER} ${names('headerCorner')} button,${SIDEBAR} button,[data-composer-card] button,${ACTIONS} button,.dcb-fullscreen-exit,.dsh-read-aloud-btn`)]
     const wanted=new Set()
     for(const button of candidates){
-      if(button.closest(EXCLUDE)||button.matches(names('brand'))||button.closest('[data-sidebar-right-panel]'))continue
-      const kind=identify(button,doc)
+      const signature=[button.className,button.getAttribute('aria-label'),button.getAttribute('title')].join('|')
+      const known=flowKinds.get(button)
+      if(known&&known.signature===signature&&known.parent===button.parentElement&&(!known.kind||records.has(button))){if(known.kind)wanted.add(button);continue}
+      const kind=button.closest(EXCLUDE)||button.matches(names('brand'))||button.closest('[data-sidebar-right-panel]')?null:identify(button,doc)
+      if(button.closest('[data-chat-flow]'))flowKinds.set(button,{signature,parent:button.parentElement,kind})
       if(!kind)continue
       wanted.add(button)
       let record=records.get(button)

@@ -169,14 +169,16 @@ async function profile(){
 }
 try{
   if(process.env.DSH_TABS_PROFILE)await profile()
-  await check('session switches fade only the clipped viewport, preserve draft/scroll and smoothly interrupt the previous transition',async()=>{
+  await check('session switches bring in the transcript under the clipped viewport, keep the composer still, preserve draft/scroll and smoothly interrupt the previous transition',async()=>{
     await boot();await page.evaluate(()=>{window.sessionDraft=document.querySelector('textarea');document.querySelector('[data-conversation-scroll]').scrollTop=100});await tick()
     const before=await page.locator('textarea').boundingBox(),scroll=await page.locator('[data-conversation-scroll]').evaluate(el=>el.scrollTop)
     await page.evaluate(()=>window.fixture.update({session:'b'}));await tick()
-    let calls=await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session'&&c.a.playState!=='idle').map(c=>({target:c.el.hasAttribute('data-conversation-scroll'),frames:c.frames})))
-    assert.equal(calls.length,1);assert.equal(calls[0].target,true);assert.equal(Object.keys(calls[0].frames[0]).join(','),'opacity')
-    await page.evaluate(()=>window.frameAt(100));const mid=await page.locator('[data-conversation-scroll]').evaluate(el=>getComputedStyle(el).opacity)
-    assert.ok(Number(mid)>.68&&Number(mid)<1)
+    let calls=await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session'&&c.a.playState!=='idle').map(c=>({target:c.el.parentElement?.hasAttribute('data-conversation-scroll')&&!c.el.hasAttribute('data-composer-seat'),frames:c.frames})))
+    assert.equal(calls.length,1);assert.equal(calls[0].target,true);assert.equal(Object.keys(calls[0].frames[0]).sort().join(','),'opacity,translate')
+    const content='[data-conversation-scroll] > :not([data-composer-seat])'
+    await page.evaluate(()=>window.frameAt(100));const mid=await page.locator(content).first().evaluate(el=>getComputedStyle(el).opacity)
+    assert.ok(Number(mid)>0&&Number(mid)<1)
+    assert.equal(await page.locator('[data-composer-seat]').evaluate(el=>getComputedStyle(el).opacity),'1')
     await page.screenshot({path:resolve(output,'session-transition-middle.png')})
     await page.evaluate(()=>window.fixture.update({session:'a'}));await tick()
     calls=await page.evaluate(()=>window.calls.filter(c=>c.a.id==='dcb-conversation-session'&&c.a.playState!=='idle').map(c=>c.frames))

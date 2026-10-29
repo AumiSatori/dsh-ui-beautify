@@ -12,6 +12,9 @@ const appearance=value=>({
     backgroundPosition:['center','top','bottom','left','right'].includes(value?.backgroundPosition)?value.backgroundPosition:'center',
     backgroundOpacity:Math.round(bound(value?.backgroundOpacity,0,100,45)),
     backgroundBlur:Math.round(bound(value?.backgroundBlur,0,20,0)),
+    // Readable text over a picture is the default: only an explicit opt-out
+    // keeps the host's original ink when a wallpaper is on.
+    backgroundInk:value?.backgroundInk!==false,
     backgroundSound:value?.backgroundSound===true,
 })
 export function normalizeBackground(value){

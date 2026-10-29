@@ -22,6 +22,17 @@ export function affectsPresentation(records){
   })
 }
 
+// A transcript scroll (or a thinking/code box scrolling inside it) moves no
+// control. Only the task panel follows it, so it asks for geometry, not a rescan.
+export function scrollScope(target,doc){
+  if(target===doc||target===doc.documentElement||target===doc.body)return'full'
+  const el=element(target)
+  if(!el)return''
+  if(el.closest(LOCAL))return'full'
+  if(el.closest('[data-conversation-scroll]'))return'geometry'
+  return el.querySelector(LOCAL)?'full':''
+}
+
 export function affectsScroll(target,doc){
   if(target===doc||target===doc.documentElement||target===doc.body)return true
   const el=element(target)

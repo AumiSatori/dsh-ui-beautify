@@ -114,11 +114,16 @@ try{
  })
  await check('entry and exit fade without blur, reverse continuously and leave no queued animations',async()=>{
   const samples=await page.evaluate(async()=>{
-   const click=()=>document.querySelector('.dcb-focus-toggle:not(.dcb-background-exit)').click(),wait=ms=>new Promise(r=>setTimeout(r,ms)),header=document.querySelector('header')
-   click();await wait(80);const first=Number(getComputedStyle(header).opacity);document.querySelector('.dcb-background-exit').click();const reversed=Number(getComputedStyle(header).opacity);await wait(55);click();await wait(350)
-   return {first,reversed,filter:getComputedStyle(header).filter,active:document.body.hasAttribute('data-dcb-background-only'),animations:document.getAnimations().filter(a=>a.id.startsWith('dcb-focus-')).length}
+   const click=()=>document.querySelector('.dcb-focus-toggle:not(.dcb-background-exit)').click(),header=document.querySelector('header'),animations=()=>document.getAnimations().filter(a=>a.id.startsWith('dcb-focus-'))
+   // Sample the actual timeline so a busy renderer cannot skip the intermediate frame.
+   const seek=time=>{for(const animation of animations()){animation.pause();animation.currentTime=time}}
+   click();const entryFrames=header.getAnimations().filter(a=>a.id==='dcb-focus-visibility').length;seek(80);const first=Number(getComputedStyle(header).opacity)
+   document.querySelector('.dcb-background-exit').click();const reversed=Number(getComputedStyle(header).opacity);seek(55);click()
+   const final=animations(),finished=final.map(animation=>animation.finished);for(const animation of final)animation.finish();await Promise.allSettled(finished)
+   return {first,reversed,entryFrames,filter:getComputedStyle(header).filter,active:document.body.hasAttribute('data-dcb-background-only'),animations:animations().length}
   })
-  assert.ok(samples.first>0&&samples.first<1);assert.ok(Math.abs(samples.reversed-samples.first)<.1);assert.equal(samples.filter,'none');assert.equal(samples.active,true);assert.equal(samples.animations,0)
+  writeFileSync(resolve(output,'visibility-transition-frames.json'),JSON.stringify(samples,null,2))
+  assert.equal(samples.entryFrames,1);assert.ok(samples.first>0&&samples.first<1,JSON.stringify(samples));assert.ok(Math.abs(samples.reversed-samples.first)<.1);assert.equal(samples.filter,'none');assert.equal(samples.active,true);assert.equal(samples.animations,0)
   await page.keyboard.press('Escape');await idle()
  })
  await check('new hidden UI stays hidden, while replacing the conversation or adding a particle layer preserves an exit',async()=>{

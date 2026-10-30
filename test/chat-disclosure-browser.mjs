@@ -11,7 +11,7 @@ mkdirSync(output,{recursive:true})
 const archive=process.env.DSH_ASAR
 assert.ok(archive,'DSH_ASAR is required: use installed native DisclosureRow and ReasoningRow')
 const fd=openSync(archive,'r')
-let host,frontend,css,reasoning
+let host,frontend,css,reasoning,reasoningHelper=''
 try{
  const head=Buffer.alloc(16);readSync(fd,head,0,16,0)
  const json=Buffer.alloc(head.readUInt32LE(12));readSync(fd,json,0,json.length,16)
@@ -24,6 +24,10 @@ try{
  find(tree)
  const a=host.indexOf('const ReasoningRow ='),b=host.indexOf('//#endregion',a)
  assert.ok(a>=0&&b>a);reasoning=host.slice(a,b)
+ if(reasoning.includes('reasoningText(')){
+  const helper=host.indexOf('function reasoningText('),end=host.indexOf('//#endregion',helper)
+  assert.ok(helper>=0&&end>helper,'Installed reasoning text helper exists');reasoningHelper=host.slice(helper,end)
+ }
  css=JSON.parse(host.match(/const css\$\d+ = ("\.VJlF5q_root[^\n]+);/)[1])
 }finally{closeSync(fd)}
 assert.ok(frontend,'Installed frontend exports native DisclosureRow')
@@ -36,6 +40,7 @@ const t2=({children,className})=>d.jsx('span',{className,children});const Fv=()=
 const NativeDisclosure=${frontend.slice(start,end)};
 const react=C,react_jsx_runtime=d,THINK_ICON='☁',ReasoningRow_module_css_default={root:'VJlF5q_root',row:'VJlF5q_row',leading:'VJlF5q_leading',title:'VJlF5q_title',separator:'VJlF5q_separator',summary:'VJlF5q_summary',summaryText:'VJlF5q_summaryText',thinkBody:'VJlF5q_thinkBody'},accessibility_module_css_default={visuallyHidden:'sr-only'};
 const _deepseek_ai_dsh_client_ui_primitives={DisclosureRow:NativeDisclosure,TextShimmer:t2},firstLine=text=>text.split('\\n')[0],latestCompletedParagraphFirstLine=firstLine;
+${reasoningHelper}
 ${reasoning}
 const useDisclosure=()=>{const[expanded,set]=C.useState(false);return{expanded,toggle:()=>set(value=>!value)}};
 const t=value=>value==='message.think'?'思考':value;
@@ -62,6 +67,7 @@ async function boot(){
  </style><header><strong>dsh-UI美化 · 详情展开动效</strong><div>思考 / 工具调用 / 运行命令</div></header><main data-conversation-content data-conversation-session="synthetic"><div data-chat-flow></div></main><div class="outside"><div class="native_disclosure_root"><div data-disclosure-header><div data-disclosure-row role="button" tabindex="0" aria-expanded="false" onclick="this.setAttribute('aria-expanded','true');this.parentElement.parentElement.setAttribute('data-open','')">其他插件控件</div></div></div></div>`)
  await page.addScriptTag({content:bundle.outputFiles[0].text});await page.evaluate(()=>window.mount())
  await page.addScriptTag({content:feature.outputFiles[0].text});await page.evaluate(()=>window.motion=DisclosureFeature.createChatDisclosureMotion(document,window));await tick()
+ assert.deepEqual(errors,[],'Installed native disclosure components mount without errors')
 }
 async function check(name,run){await boot();await run();passed++;console.log('PASS '+name)}
 try{

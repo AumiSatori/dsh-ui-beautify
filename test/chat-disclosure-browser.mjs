@@ -67,6 +67,11 @@ async function boot(){
  </style><header><strong>dsh-UI美化 · 详情展开动效</strong><div>思考 / 工具调用 / 运行命令</div></header><main data-conversation-content data-conversation-session="synthetic"><div data-chat-flow></div></main><div class="outside"><div class="native_disclosure_root"><div data-disclosure-header><div data-disclosure-row role="button" tabindex="0" aria-expanded="false" onclick="this.setAttribute('aria-expanded','true');this.parentElement.parentElement.setAttribute('data-open','')">其他插件控件</div></div></div></div>`)
  await page.addScriptTag({content:bundle.outputFiles[0].text});await page.evaluate(()=>window.mount())
  await page.addScriptTag({content:feature.outputFiles[0].text});await page.evaluate(()=>window.motion=DisclosureFeature.createChatDisclosureMotion(document,window));await tick()
+ await page.evaluate(()=>{
+  const inset=el=>{const v=/inset\(([^)]*)\)/.exec(getComputedStyle(el).clipPath)?.[1].split(/\s+/).map(x=>parseFloat(x)||0);return v?v[v.length>2?2:0]:0}
+  window.visibleH=el=>{const box=el.getBoundingClientRect();let h=box.height-inset(el);const ghost=el.querySelector('[data-dcb-detail-ghost]');if(ghost){const g=ghost.getBoundingClientRect();h=Math.max(h,g.bottom-inset(ghost)-box.top)}return h}
+  window.byId=id=>document.getAnimations().filter(a=>a.id===id)
+ })
  assert.deepEqual(errors,[],'Installed native disclosure components mount without errors')
 }
 async function check(name,run){await boot();await run();passed++;console.log('PASS '+name)}
@@ -74,8 +79,10 @@ try{
  await check('native reasoning expands with real intermediate height and restores exact layout',async()=>{
   assert.equal(await effects(),0);const initial=await page.locator('[data-variant=think]').evaluate(el=>el.getBoundingClientRect().height)
   await button('思考').click();await tick()
-  const state=await page.evaluate(()=>{for(const a of document.getAnimations())if(a.id.startsWith('dcb-detail-')){a.pause();a.currentTime=60}const el=document.querySelector('[data-variant=think]');return{height:el.getBoundingClientRect().height,initial:24,target:el.scrollHeight,opacity:Number(getComputedStyle(el.querySelector('.VJlF5q_thinkBody')).opacity),id:document.getAnimations().filter(a=>a.id.startsWith('dcb-detail-')).map(a=>a.id)}})
-  assert.ok(state.height>initial&&state.height<state.target);assert.ok(state.opacity>0&&state.opacity<1)
+  const state=await page.evaluate(()=>{for(const a of document.getAnimations())if(a.id.startsWith('dcb-detail-')){a.pause();a.currentTime=60}const el=document.querySelector('[data-variant=think]');return{height:visibleH(el),layout:el.getBoundingClientRect().height,initial:24,target:el.scrollHeight,opacity:Number(getComputedStyle(el.querySelector('.VJlF5q_thinkBody')).opacity),followers:byId('dcb-detail-follow').length,heightEffects:byId('dcb-detail-height').length,id:document.getAnimations().filter(a=>a.id.startsWith('dcb-detail-')).map(a=>a.id)}})
+  assert.ok(state.height>initial&&state.height<state.target,'the visible reveal is mid-way');assert.ok(state.opacity>0&&state.opacity<1)
+  assert.ok(Math.abs(state.layout-state.target)<2,'layout is final at once; no per-frame height animation');assert.equal(state.heightEffects,0)
+  assert.ok(state.followers>0,'content below rides on a translate')
   await page.screenshot({path:resolve(output,'reasoning-opening-light-middle.png')})
   await page.evaluate(()=>document.getAnimations().forEach(a=>a.play()));await finish()
   assert.equal(await effects(),0);assert.equal(await page.locator('[data-dcb-detail-motion]').count(),0)
@@ -86,8 +93,8 @@ try{
   await button('思考').click();await tick();await finish()
   const expanded=await page.locator('[data-variant=think]').evaluate(el=>el.getBoundingClientRect().height)
   await button('思考').click();await tick()
-  const state=await page.evaluate(()=>{for(const a of document.getAnimations())if(a.id.startsWith('dcb-detail-')){a.pause();a.currentTime=60}const el=document.querySelector('[data-variant=think]'),ghost=el.querySelector('[data-dcb-detail-ghost]');return{height:el.getBoundingClientRect().height,ghost:!!ghost,inert:ghost?.inert,hidden:ghost?.getAttribute('aria-hidden'),duplicateIds:ghost?.querySelectorAll('[id]').length,opacity:ghost&&Number(getComputedStyle(ghost).opacity)}})
-  assert.ok(state.height>24&&state.height<expanded);assert.equal(state.inert,true);assert.equal(state.hidden,'true');assert.equal(state.duplicateIds,0);assert.ok(state.opacity>0&&state.opacity<1)
+  const state=await page.evaluate(()=>{for(const a of document.getAnimations())if(a.id.startsWith('dcb-detail-')){a.pause();a.currentTime=60}const el=document.querySelector('[data-variant=think]'),ghost=el.querySelector('[data-dcb-detail-ghost]');return{height:visibleH(el),layout:el.getBoundingClientRect().height,ghost:!!ghost,inert:ghost?.inert,hidden:ghost?.getAttribute('aria-hidden'),duplicateIds:ghost?.querySelectorAll('[id]').length,opacity:ghost&&Number(getComputedStyle(ghost).opacity)}})
+  assert.ok(state.height>24&&state.height<expanded);assert.equal(state.layout,24,'layout collapses at once');assert.equal(state.inert,true);assert.equal(state.hidden,'true');assert.equal(state.duplicateIds,0);assert.ok(state.opacity>0&&state.opacity<1)
   await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''));await page.screenshot({path:resolve(output,'reasoning-closing-dark-middle.png')})
   await page.evaluate(()=>document.getAnimations().forEach(a=>a.play()));await finish()
   assert.equal(await page.locator('[data-variant=think]').evaluate(el=>el.getBoundingClientRect().height),24);assert.equal(await page.locator('[data-dcb-detail-ghost]').count(),0)
@@ -97,13 +104,39 @@ try{
   for(let i=0;i<9;i++){
    await button('思考').click();await tick()
    await page.evaluate(()=>{for(const a of document.getAnimations())if(a.id.startsWith('dcb-detail-')){a.pause();a.currentTime=45}})
-   const before=await page.locator('[data-variant=think]').evaluate(el=>{const node=el.querySelector('[data-dcb-detail-ghost]')||el.querySelector('.VJlF5q_thinkBody');return{h:el.getBoundingClientRect().height,opacity:Number(getComputedStyle(node).opacity)}})
+   const before=await page.locator('[data-variant=think]').evaluate(el=>{const node=el.querySelector('[data-dcb-detail-ghost]')||el.querySelector('.VJlF5q_thinkBody');return{h:visibleH(el),opacity:Number(getComputedStyle(node).opacity)}})
    await button('思考').click();await tick()
-   const next=await page.evaluate(()=>{for(const a of document.getAnimations())if(a.id.startsWith('dcb-detail-')){a.pause();a.currentTime=0}const el=document.querySelector('[data-variant=think]'),node=el.querySelector('[data-dcb-detail-ghost]')||el.querySelector('.VJlF5q_thinkBody');return{h:el.getBoundingClientRect().height,opacity:Number(getComputedStyle(node).opacity),effects:document.getAnimations().filter(a=>a.id.startsWith('dcb-detail-')).length,ghosts:document.querySelectorAll('[data-dcb-detail-ghost]').length}})
-   assert.ok(Math.abs(before.h-next.h)<1);assert.ok(Math.abs(before.opacity-next.opacity)<.02);assert.ok(next.effects<=2);assert.ok(next.ghosts<=1)
+   const next=await page.evaluate(()=>{for(const a of document.getAnimations())if(a.id.startsWith('dcb-detail-')){a.pause();a.currentTime=0}const el=document.querySelector('[data-variant=think]'),node=el.querySelector('[data-dcb-detail-ghost]')||el.querySelector('.VJlF5q_thinkBody');const follow=byId('dcb-detail-follow').map(a=>a.effect.target);return{h:visibleH(el),opacity:Number(getComputedStyle(node).opacity),clips:byId('dcb-detail-clip').length,contents:byId('dcb-detail-content').length,doubled:follow.length-new Set(follow).size,ghosts:document.querySelectorAll('[data-dcb-detail-ghost]').length}})
+   assert.ok(Math.abs(before.h-next.h)<1,`visible height continues: ${before.h} -> ${next.h}`);assert.ok(Math.abs(before.opacity-next.opacity)<.02);assert.ok(next.clips<=1&&next.contents<=1&&next.doubled===0);assert.ok(next.ghosts<=1)
    await page.evaluate(()=>document.getAnimations().forEach(a=>a.play()));await finish()
   }
   assert.equal(await effects(),0)
+ })
+ await check('thinking with code holds the first frame until the host highlight lands, then slides',async()=>{
+  // Like the host: code mounts plain, and a highlighted copy replaces it a few frames later.
+  const probe=swap=>page.evaluate(swap=>{
+   window.__codeObserver?.disconnect()
+   window.__codeObserver=new MutationObserver(()=>{
+    const body=document.querySelector('.VJlF5q_thinkBody');if(!body||body.querySelector('[data-code-block-content]'))return
+    const wrap=document.createElement('div');wrap.setAttribute('data-code-block-content','');wrap.innerHTML='<pre class="plain">'+'const value = compute(item)\n'.repeat(12)+'</pre>';body.append(wrap)
+    if(swap!==null)setTimeout(()=>{const pre=document.createElement('pre');pre.className='shiki';pre.textContent=wrap.firstChild.textContent;wrap.replaceChildren(pre)},swap)
+   })
+   window.__codeObserver.observe(document.querySelector('[data-chat-flow]'),{subtree:true,childList:true})
+  },swap)
+  const states=()=>page.evaluate(()=>document.getAnimations().filter(a=>a.id.startsWith('dcb-detail-')).map(a=>a.playState))
+  await probe(40);await button('思考').click();await tick()
+  const held=await page.evaluate(()=>({states:document.getAnimations().filter(a=>a.id.startsWith('dcb-detail-')).map(a=>[a.playState,a.currentTime]),plain:!!document.querySelector('[data-code-block-content] > pre.plain')}))
+  assert.ok(held.plain&&held.states.length&&held.states.every(([state,time])=>state==='paused'&&!time),`held at the first frame while code is plain: ${JSON.stringify(held)}`)
+  await page.waitForFunction(()=>!!document.querySelector('pre.shiki'));await tick()
+  assert.ok((await states()).every(state=>state==='running'),'slides once the highlighted copy has landed')
+  await finish();assert.equal(await effects(),0)
+  await button('思考').click();await tick();await finish()
+  // A block whose highlight never arrives still opens after the cap.
+  await page.evaluate(()=>document.querySelector('[data-code-block-content]')?.remove());await probe(null);await button('思考').click();await tick()
+  assert.ok((await states()).every(state=>state==='paused'))
+  await page.evaluate(()=>new Promise(done=>setTimeout(done,220)))
+  assert.ok((await states()).every(state=>state==='running'||state==='finished'),'never waits past the cap')
+  await finish();assert.equal(await effects(),0);await page.evaluate(()=>window.__codeObserver.disconnect())
  })
  await check('tool and command clicks plus keyboard preserve native state and focus',async()=>{
   await button('工具调用').focus();await page.keyboard.press('Enter');await tick();assert.ok(await effects()>0);await finish()

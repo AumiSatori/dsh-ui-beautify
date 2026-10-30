@@ -1,9 +1,15 @@
 import {motion} from './motion.js'
 
 const HEADER='[data-disclosure-header]',GHOST='data-dcb-detail-ghost',MARK='data-dcb-detail-motion'
+// Code the host has mounted but not yet swapped for its highlighted copy.
+const PLAIN='[data-code-block-content] > pre:not(.shiki)',HOLD_MS=150
 
 // Native DisclosureRow unmounts its body on close. A bounded, inert copy of
 // just that body bridges the exit; React retains every real node and event.
+// Layout jumps to its final size at once; the reveal is a clip-path inset and
+// everything below rides on an additive translate, so a slow main-thread frame
+// (the host swaps plain code for its Shiki copy right after mounting) never
+// stalls the motion, and nothing re-lays out the transcript on every frame.
 export function createChatDisclosureMotion(doc,win,initiallyEnabled=true){
   const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
   const pending=new Map(),active=new Map()
@@ -15,9 +21,37 @@ export function createChatDisclosureMotion(doc,win,initiallyEnabled=true){
     const css=win.getComputedStyle(node)
     return Math.max(0,box.height-(css.boxSizing==='border-box'?0:['paddingTop','paddingBottom','borderTopWidth','borderBottomWidth'].reduce((sum,key)=>sum+(parseFloat(css[key])||0),0)))
   }
+  // The bottom inset of an element's current clip-path (computed shorthand).
+  function clipBottom(element){
+    const values=/inset\(([^)]*)\)/.exec(win.getComputedStyle(element).clipPath)?.[1].split(/\s+/).map(value=>parseFloat(value)||0)
+    return values?values[values.length>2?2:0]:0
+  }
+  // What the reader currently sees of the seat, including a closing ghost that
+  // still hangs below it; a reversal continues from exactly there.
+  function visible(seat,box,old){
+    let height=box.height-clipBottom(seat)
+    if(old?.ghost){const ghost=old.ghost.getBoundingClientRect();height=Math.max(height,ghost.bottom-clipBottom(old.ghost)-box.top)}
+    return height
+  }
+  // Boxes laid out after the seat, up to the transcript flow, that are on or
+  // near the screen; display:contents wrappers contribute their children.
+  function followers(seat,reach){
+    const flow=seat.closest('[data-chat-flow]:not([data-step-process-content])'),list=[],limit=win.innerHeight+Math.abs(reach)
+    const add=element=>{
+      if(list.length>=60||element.hasAttribute(GHOST))return true
+      if(win.getComputedStyle(element).display==='contents'){for(const child of element.children)if(add(child))return true;return false}
+      const box=element.getBoundingClientRect()
+      if(box.top>limit)return true
+      if(box.width||box.height)list.push(element)
+      return false
+    }
+    for(let element=seat;element&&element!==flow;element=element.parentElement)
+      for(let next=element.nextElementSibling;next;next=next.nextElementSibling)if(add(next))return list
+    return list
+  }
   function stop(record){
     if(active.get(record.root)!==record)return
-    active.delete(record.root);record.resize?.disconnect()
+    active.delete(record.root);record.resize?.disconnect();record.hold?.disconnect();win.clearTimeout(record.holdTimer)
     for(const effect of record.effects)effect.cancel()
     record.ghost?.remove()
     for(const [name,value,priority] of record.styles)value?record.seat.style.setProperty(name,value,priority):record.seat.style.removeProperty(name)
@@ -59,12 +93,13 @@ export function createChatDisclosureMotion(doc,win,initiallyEnabled=true){
     if(target.closest(HEADER)!==header)return
     const seat=root.closest('[data-variant="think"]')||root,box=seat.getBoundingClientRect()
     if(!box.width||!box.height||oversized(box)||seat.closest('[hidden],[inert]'))return
-    const old=active.get(root),source=old?.ghost||bodies(root)[0]
-    const css=source?win.getComputedStyle(source):null,open=root.hasAttribute('data-open')
+    const old=active.get(root),source=old?.ghost||bodies(root)[0],shown=visible(seat,box,old)
+    // A closing ghost fades on its outer layer and lifts on its inner one.
+    const css=source?win.getComputedStyle(source):null,lift=old?.ghost?win.getComputedStyle(old.ghost.firstElementChild).translate:css?.translate,open=root.hasAttribute('data-open')
     const copies=open?snapshot(bodies(root),box):null
     if(open&&!copies)return
-    pending.set(root,{root,seat,open,height:box.height,session:session(seat),copies,
-      opacity:css?.opacity??'1',translate:css?.translate??'none'})
+    pending.set(root,{root,seat,open,height:shown,session:session(seat),copies,
+      opacity:css?.opacity??'1',translate:lift??'none'})
     if(!frame)frame=win.requestAnimationFrame(flush)
   }
   function flush(){
@@ -77,24 +112,41 @@ export function createChatDisclosureMotion(doc,win,initiallyEnabled=true){
       if(oversized(box)||typeof seat.animate!=='function')continue
       if(open&&!nodes.length)continue
       while(active.size>=4)stop(active.values().next().value)
-      const record={...before,open,effects:[],styleMark:seat.getAttribute('style'),styles:['overflow','position','contain'].map(name=>[name,seat.style.getPropertyValue(name),seat.style.getPropertyPriority(name)]),mark:seat.getAttribute(MARK)}
+      const from=before.height,to=box.height,shift=from-to
+      if(Math.abs(shift)<1&&!previous)continue
+      const record={...before,open,effects:[],styleMark:seat.getAttribute('style'),styles:['overflow','position'].map(name=>[name,seat.style.getPropertyValue(name),seat.style.getPropertyPriority(name)]),mark:seat.getAttribute(MARK)}
       active.set(root,record)
       seat.setAttribute(MARK,open?'opening':'closing')
-      seat.style.setProperty('overflow','clip','important');seat.style.setProperty('contain','none','important')
-      if(win.getComputedStyle(seat).position==='static')seat.style.setProperty('position','relative','important')
       const options={duration:motion.time.scene,easing:motion.ease.smooth,fill:'both'}
-      const height=seat.animate([{height:`${size(seat,{height:before.height})}px`},{height:`${size(seat,box)}px`}],{...options,id:'dcb-detail-height'})
-      record.effects.push(height)
-      if(!open&&before.copies?.length){
-        const ghost=doc.createElement('div');ghost.setAttribute(GHOST,'');ghost.setAttribute('aria-hidden','true');ghost.inert=true
-        ghost.style.cssText='position:absolute;inset:0;pointer-events:none;overflow:clip;'
-        ghost.append(...before.copies);seat.append(ghost);record.ghost=ghost
+      let main
+      if(open){
+        // Reveal the grown seat from its previously visible edge downwards.
+        main=seat.animate([{clipPath:`inset(0px 0px ${Math.max(0,to-from)}px 0px)`},{clipPath:'inset(0px 0px 0px 0px)'}],{...options,id:'dcb-detail-clip'})
+      }else{
+        if(win.getComputedStyle(seat).position==='static')seat.style.setProperty('position','relative','important')
+        seat.style.setProperty('overflow','visible','important')
+        if(before.copies?.length){
+          // The copy keeps the old height and hangs below the shrunken seat;
+          // its clip closes upwards to the seat's new edge.
+          const ghost=doc.createElement('div');ghost.setAttribute(GHOST,'');ghost.setAttribute('aria-hidden','true');ghost.inert=true
+          ghost.style.cssText=`position:absolute;left:0;right:0;top:0;height:${Math.max(from,to)}px;pointer-events:none;overflow:clip;`
+          const lifted=doc.createElement('div');lifted.style.cssText='position:absolute;inset:0;'
+          lifted.append(...before.copies);ghost.append(lifted);seat.append(ghost);record.ghost=ghost
+          main=ghost.animate([{clipPath:'inset(0px 0px 0px 0px)'},{clipPath:`inset(0px 0px ${Math.max(0,from-to)}px 0px)`}],{...options,id:'dcb-detail-clip'})
+        }
       }
-      const targets=open?nodes:record.ghost?[record.ghost]:[]
-      for(const node of targets)record.effects.push(node.animate([
-        {opacity:previous?before.opacity:open?0:1,translate:previous?before.translate:open?'0 -8px':'none'},
-        {opacity:open?1:0,translate:open?'none':'0 -6px'},
-      ],{...options,id:'dcb-detail-content'}))
+      if(main)record.effects.push(main)
+      // Content below keeps its painted place, then eases into its new layout.
+      if(Math.abs(shift)>=1)for(const node of followers(seat,shift))
+        record.effects.push(node.animate([{translate:`0px ${shift}px`},{translate:'0px 0px'}],{...options,composite:'add',id:'dcb-detail-follow'}))
+      const fade=[{opacity:previous?before.opacity:open?0:1},{opacity:open?1:0}]
+      const rise=[{translate:previous?before.translate:open?'0 -8px':'none'},{translate:open?'none':'0 -6px'}]
+      if(open)for(const node of nodes)record.effects.push(node.animate(fade.map((frame,i)=>({...frame,...rise[i]})),{...options,id:'dcb-detail-content'}))
+      else if(record.ghost){
+        record.effects.push(record.ghost.animate(fade,{...options,id:'dcb-detail-content'}))
+        record.effects.push(record.ghost.firstElementChild.animate(rise,{...options,id:'dcb-detail-lift'}))
+      }
+      if(!record.effects.length){stop(record);continue}
       if(open&&typeof win.ResizeObserver==='function'){
         const sizes=new Map(nodes.map(node=>[node,[node.offsetWidth,node.offsetHeight]]))
         record.resize=new win.ResizeObserver(entries=>{
@@ -102,7 +154,24 @@ export function createChatDisclosureMotion(doc,win,initiallyEnabled=true){
         })
         for(const node of nodes)record.resize.observe(node)
       }
-      height.finished.then(()=>stop(record),()=>stop(record))
+      // The host highlights visible code a few frames after mounting it and
+      // replaces the whole block in one heavy frame. Hold the first frame until
+      // that lands (bounded), so the slide itself never carries it.
+      if(open){
+        const waiting=()=>nodes.some(node=>[...node.querySelectorAll(PLAIN)].some(pre=>{const box=pre.getBoundingClientRect();return box.bottom>0&&box.top<win.innerHeight}))
+        if(waiting()){
+          for(const effect of record.effects)effect.pause()
+          const go=()=>{
+            if(active.get(root)!==record||!record.hold)return
+            record.hold.disconnect();record.hold=null;win.clearTimeout(record.holdTimer)
+            win.requestAnimationFrame(()=>{if(active.get(root)===record)for(const effect of record.effects)effect.play()})
+          }
+          record.hold=new win.MutationObserver(()=>{if(!waiting())go()})
+          for(const node of nodes)record.hold.observe(node,{subtree:true,childList:true})
+          record.holdTimer=win.setTimeout(go,HOLD_MS)
+        }
+      }
+      record.effects[0].finished.then(()=>stop(record),()=>stop(record))
     }
     pending.clear()
   }

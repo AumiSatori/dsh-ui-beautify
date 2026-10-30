@@ -117,6 +117,25 @@ await settle(20)
 assert.deepEqual(await levels(),idle)
 pass('user rows are ignored')
 
+// Thinking (the reasoning block and its summary) streams natively; only the answer body types out.
+const thinking=await page.evaluate(async()=>{
+  const flow=document.querySelector('[data-chat-flow]'),seen=[]
+  const row=document.createElement('div');row.setAttribute('data-chat-flow-kind','assistant-step');row.setAttribute('data-chat-group-part','reasoning')
+  row.innerHTML='<div data-variant="think"><div data-disclosure-header><div class="x_markdown_6"><p>思考摘要</p></div></div><div class="x_markdown_7"><p>思考</p></div></div>'
+  flow.append(row)
+  await new Promise(done=>setTimeout(done,30))
+  for(const token of ['过程继续','写下去','一段很长的推理']){
+    for(const selector of ['.x_markdown_6 p','.x_markdown_7 p'])document.querySelector(selector).firstChild.nodeValue+=token
+    await new Promise(done=>queueMicrotask(done))
+    seen.push(Array.from({length:10},(_,level)=>CSS.highlights.get('dcb-stream-'+level).size).reduce((a,b)=>a+b))
+    await new Promise(done=>setTimeout(done,40))
+  }
+  return seen
+})
+assert.deepEqual(thinking,[0,0,0],'thinking text is never hidden or animated')
+assert.equal(await page.evaluate(()=>engine.active),0,'no animation state remains for thinking')
+pass('thinking block and summary stream natively')
+
 // DS Bot bubbles belong to another plugin and are never touched, even on native rows.
 await page.evaluate(()=>{
   const row=document.createElement('div');row.setAttribute('data-chat-flow-kind','assistant-step')

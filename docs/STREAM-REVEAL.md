@@ -10,7 +10,7 @@
 
 `src/stream-reveal.js`，效果参照桌面聊天客户端的流式输出：
 
-- 只处理主页面原生对话：`[data-chat-flow]` 里 `[data-chat-flow-kind^="assistant"]`、`[data-chat-group-part="reasoning"]` 行内的 Markdown。DS Bot 是另一个插件，它的气泡（`.bt-msg`、`.bt-bubble`、`.bt-astack`）即使挂在原生行上也完全不处理。
+- 只处理主页面原生回答正文：`[data-chat-flow]` 里 `[data-chat-flow-kind^="assistant"]` 行内的 Markdown。思考过程（`[data-chat-group-part="reasoning"]`、`[data-variant="think"]` 的思考区块与摘要）保持宿主原生的直接显示。DS Bot 是另一个插件，它的气泡（`.bt-msg`、`.bt-bubble`、`.bt-astack`）即使挂在原生行上也完全不处理。
 - 第一次看到的内容（历史、切换会话）不重播。例外：对话已稳定显示 800ms 以上时，底部新插入的一两条回答（回答行带着首块文字一起出现）也从开头打出；上方分页加载的历史和一次插入多行的会话加载仍直接显示。
 - 新增文字通过 CSS Custom Highlight API（`::highlight(dcb-stream-0…9)`）绘制，不包裹、不替换 React 的文本节点，不触发重排。
 - **平滑打字**：刚到达的文字先隐藏进待显示队列，一个帧时钟按自适应速度从队首逐字放出：速度 = 积压字数 / 跟随延迟（轻柔 260ms、标准 340ms、明显 440ms），下限 40 字/秒、上限 4000 字/秒。稳定输出时显示位置均匀地落后到达位置约一个延迟；模型一次吐出一大段时先快后慢地追上，不会整段跳出。超过 6000 字的单次到达直接显示。

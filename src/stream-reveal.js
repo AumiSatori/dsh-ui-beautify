@@ -16,7 +16,9 @@ const PROFILES={
   vivid:{fade:motion.time.standard+40,glow:2.6,lag:440},
 }
 const LEVELS=10,NAME='dcb-stream-',STYLE='data-dcb-stream-reveal'
-const ROWS='[data-chat-flow-kind^="assistant"], [data-chat-group-part="reasoning"]'
+const ROWS='[data-chat-flow-kind^="assistant"]'
+// Only the answer body types out; thinking (its block and summary) stays native.
+const THINKING='[data-chat-group-part="reasoning"], [data-variant="think"]'
 // Another plugin (DS Bot) draws its own chat bubbles over the same rows; its
 // content is left entirely to it.
 const FOREIGN='.bt-msg, .bt-bubble, .bt-astack'
@@ -54,7 +56,7 @@ export function createStreamReveal(doc,win,options={}){
     const root=element?.closest(ROOT)
     if(!root)return null
     if(root.hasAttribute('data-dcb-stream-demo'))return root
-    return root.closest(ROWS)&&root.closest('[data-chat-flow]')&&!root.closest(FOREIGN)?root:null
+    return root.closest(ROWS)&&root.closest('[data-chat-flow]')&&!root.closest(FOREIGN)&&!root.closest(THINKING)?root:null
   }
   // The outermost chat flow and when its current session was first seen; a
   // session switch or a freshly mounted transcript restarts the clock.

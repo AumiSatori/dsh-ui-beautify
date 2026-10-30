@@ -17,7 +17,7 @@ const fixture=await build({stdin:{contents:`import React from 'react';import * a
 const html=`<!doctype html><html><head><style>body{margin:0;font:30px system-ui;background:#f0efec;color:#242424}header{height:250px;padding:60px;background:linear-gradient(135deg,#f2c171,#6861b0);color:white}h1{font-size:54px;margin:0 0 14px}section{padding:30px 60px;display:flex;gap:25px}.shape{width:100px;height:100px;background:#fff4a2;border-radius:50%}.shape+div{background:#fff;border-radius:0}</style></head><body><header><h1>Artifact Preview</h1><p>Independent output beside the chat</p></header><section><div class="shape"></div><div class="shape"></div></section><script>parent.postMessage('artifact-cover-script-ran','*')</script></body></html>`
 const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=','base64')
 const files=[{path:'outputs/Preview page.html',description:'页面演示'},{path:'outputs/report.md'},{path:'outputs/query.sql'},{path:'outputs/result.json'},{path:'outputs/data.csv'},{path:'outputs/frame.png'},{path:'outputs/demo.mp4'},{path:'outputs/archive.zip'}]
-const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'))],'/fixture.js':['text/javascript',fixture.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'))]}
+const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'))],'/fixture.js':['text/javascript',fixture.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(process.env.DSH_CLAUDE_CLIENT||resolve(project,'client.js'))]}
 if(process.env.DSH_ARTIFACT_CLIENT)routes['/artifact.js']=['text/javascript',readFileSync(process.env.DSH_ARTIFACT_CLIENT)]
 const server=createServer((req,res)=>{
  const route=routes[req.url]
@@ -62,8 +62,10 @@ async function boot({companion=false,noPortal=false,native=false,missingSessionH
    },
   }
   window.testFace=face
+  window.applicationQueries=[];window.applicationOpens=[];window.testApplications=[{id:'fixture-editor',name:'Synthetic Editor',default:true,icon:null},{id:'fixture-viewer',name:'Synthetic Viewer',default:false,icon:null}]
+  const sessionFace={workspacePathApplications:async request=>{window.applicationQueries.push(request);return{ok:true,value:window.testApplications}},openWorkspacePath:async request=>{window.applicationOpens.push(request);return{ok:true,value:{opened:true}}}}
   window.testCtx={
-   get:name=>name==='remote'?{workspaceFiles:face}:name==='remote.workspaceFiles'?face:undefined,
+   get:name=>name==='remote'?{workspaceFiles:face}:name==='remote.workspaceFiles'?face:name==='remote.session'?sessionFace:undefined,
    slots:{inject(_slot,cb){cb()},register(spec,component){if(spec.name==='settings.section')window.fixtureSettings=component;else{window.fixtureHeader=component;window.fixtureHeaderSpec=spec}return()=>{}}},
    sessions:{binding:id=>window.fixtureBinding(id)},sidebarRight:{openResource:address=>window.opened.push(address)},effect(cb){window.cleanups.push(cb())},inject(_names,cb){cb(window.testCtx)},
   }
@@ -112,7 +114,7 @@ try{
   await card.locator('.dcb-output').filter({hasText:'report'}).click({button:'right'})
   const menu=page.getByRole('menu',{name:'report.md 文件操作',exact:true})
   await menu.waitFor()
-  assert.deepEqual(await menu.locator('button > span:last-child').allTextContents(),['打开','复制路径','打开文件位置','重命名','删除','属性'])
+  assert.deepEqual(await menu.locator('button > span:last-child').allTextContents(),['打开','打开方式','复制文件','复制路径','打开文件位置','重命名','删除','属性'])
   await page.keyboard.press('Escape');await menu.waitFor({state:'hidden'})
   const artifact=card.locator('.dcb-artifact[data-preview-state=ready]').first().locator('.dcb-artifact-open')
   await artifact.click({button:'right'})
@@ -120,6 +122,61 @@ try{
   await artifactMenu.waitFor();await artifactMenu.getByRole('menuitem',{name:'属性',exact:true}).click()
   await page.locator('.dcb-file-context-status').filter({hasText:'D:/synthetic/a/outputs/Preview page.html'}).waitFor()
   await page.keyboard.press('Escape');await artifactMenu.waitFor({state:'hidden'})
+ })
+ await check('copy file sends the selected file to the native endpoint while copy path remains a text-only action',async()=>{
+  await boot();const requests=[]
+  await page.route('**/dsh-ui-beautify/copy-file',async route=>{requests.push(route.request().postDataJSON());await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true})})})
+  try{
+   await page.evaluate(()=>{window.pathCopies=[];Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>pathCopies.push(text)}})})
+   await card.locator('.dcb-output').filter({hasText:'report'}).click({button:'right'})
+   const menu=page.getByRole('menu',{name:'report.md 文件操作',exact:true})
+   await menu.getByRole('menuitem',{name:'复制文件',exact:true}).click();await menu.getByRole('status').filter({hasText:'已复制文件，可直接粘贴'}).waitFor()
+   assert.deepEqual(requests,[{path:'D:/synthetic/a/outputs/report.md'}]);assert.deepEqual(await page.evaluate(()=>pathCopies),[])
+   await menu.getByRole('menuitem',{name:'复制路径',exact:true}).click();await menu.getByRole('status').filter({hasText:'已复制文件路径'}).waitFor()
+   assert.deepEqual(await page.evaluate(()=>pathCopies),['D:/synthetic/a/outputs/report.md']);assert.equal(requests.length,1)
+   await menu.screenshot({path:resolve(output,'file-context-copy.png')});await page.keyboard.press('Escape')
+  }finally{await page.unroute('**/dsh-ui-beautify/copy-file')}
+ })
+ await check('open with lists registered applications, supports keyboard/back and revalidates the selected handler',async()=>{
+  await boot();await card.locator('.dcb-output').filter({hasText:'report'}).click({button:'right'})
+  const menu=page.getByRole('menu',{name:'report.md 文件操作',exact:true})
+  await menu.getByRole('menuitem',{name:'打开方式',exact:true}).focus();await page.keyboard.press('Enter')
+  await menu.getByRole('menuitem',{name:'Synthetic Editor 默认',exact:true}).waitFor()
+  assert.equal(await menu.locator('select,input[type=checkbox]').count(),0)
+  await page.keyboard.press('ArrowLeft');await menu.getByRole('menuitem',{name:'打开方式',exact:true}).click()
+  await menu.getByRole('menuitem',{name:'Synthetic Viewer',exact:true}).waitFor()
+  await menu.screenshot({path:resolve(output,'file-open-with.png')})
+  await menu.getByRole('menuitem',{name:'Synthetic Viewer',exact:true}).click();await menu.waitFor({state:'hidden'})
+  assert.deepEqual(await page.evaluate(()=>applicationOpens),[{path:'D:/synthetic/a/outputs/report.md',application:'fixture-viewer'}])
+  assert.equal(await page.evaluate(()=>applicationQueries.length),3)
+ })
+ await check('file-copy failures stay retryable, pending copies cannot double-submit or mark a reopened menu as copied',async()=>{
+  await boot();let failure=true,release,pending=false,calls=0
+  await page.route('**/dsh-ui-beautify/copy-file',async route=>{calls++;if(pending)await new Promise(done=>release=done);await route.fulfill({status:failure?400:200,contentType:'application/json',body:JSON.stringify(failure?{ok:false,message:'剪贴板被占用，请重试。'}:{ok:true})})})
+  try{
+   const row=card.locator('.dcb-output').filter({hasText:'report'}),menu=page.getByRole('menu',{name:'report.md 文件操作',exact:true})
+   await row.click({button:'right'});await menu.getByRole('menuitem',{name:'复制文件',exact:true}).click();await menu.getByRole('status').filter({hasText:'剪贴板被占用'}).waitFor();assert.equal(await menu.getByText('已复制文件，可直接粘贴。',{exact:true}).count(),0)
+   failure=false;pending=true;await menu.getByRole('menuitem',{name:'复制文件',exact:true}).click();await menu.getByRole('menuitem',{name:'正在复制…',exact:true}).waitFor();assert.equal(await menu.getByRole('menuitem',{name:'正在复制…',exact:true}).isDisabled(),true)
+   await page.keyboard.press('Escape');await row.click({button:'right'});await menu.waitFor();release();await page.waitForTimeout(100)
+   assert.equal(await menu.getByRole('status').count(),0);assert.equal(calls,2);await page.keyboard.press('Escape')
+  }finally{release?.();await page.unroute('**/dsh-ui-beautify/copy-file')}
+ })
+ await check('the expanded file menu fits a narrow dark viewport and retains an animated intermediate frame',async()=>{
+  await boot();await page.setViewportSize({width:390,height:430});await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''))
+  await card.locator('.dcb-output').filter({hasText:'report'}).evaluate(node=>node.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:innerWidth-2,clientY:innerHeight-2})))
+  const menu=page.getByRole('menu',{name:'report.md 文件操作',exact:true});await menu.waitFor()
+  const frame=await menu.evaluate(node=>{const animation=node.getAnimations().find(item=>item.animationName==='dcb-file-context-enter');animation.pause();animation.currentTime=90;const style=getComputedStyle(node);return{opacity:Number(style.opacity),filter:style.filter}})
+  assert.ok(frame.opacity>0&&frame.opacity<1);assert.notEqual(frame.filter,'blur(0px)')
+  await menu.evaluate(node=>node.getAnimations({subtree:true}).forEach(animation=>animation.finish()));const box=await menu.evaluate(node=>{const b=node.getBoundingClientRect(),s=getComputedStyle(node);return{x:b.x,y:b.y,width:b.width,height:b.height,position:s.position,left:s.left,top:s.top,transform:s.transform,inline:node.getAttribute('style'),parent:node.parentElement.className}})
+  assert.ok(box.x>=7&&box.y>=7&&box.x+box.width<=383&&box.y+box.height<=423,JSON.stringify(box))
+  await menu.screenshot({path:resolve(output,'file-context-dark-narrow.png')})
+  await page.evaluate(()=>window.testApplications=Array.from({length:50},(_,index)=>({id:'app-'+index,name:'应用 '+index,default:false})))
+  await menu.getByRole('menuitem',{name:'打开方式',exact:true}).click();await menu.getByRole('menuitem',{name:'应用 49',exact:true}).waitFor()
+  await page.keyboard.press('End');await page.waitForTimeout(60)
+  assert.equal(await menu.getByRole('menuitem',{name:'应用 49',exact:true}).evaluate(node=>node===document.activeElement),true)
+  assert.ok(await menu.evaluate(node=>node.scrollTop)>0)
+  await page.keyboard.press('Home');await page.keyboard.press('ArrowLeft');await menu.getByRole('menuitem',{name:'打开方式',exact:true}).waitFor()
+  await page.keyboard.press('Escape');await page.setViewportSize({width:1440,height:1000})
  })
  await check('one visual output uses one column; multiple image and HTML covers use two while attachments span the row',async()=>{
   const grid=card.locator('.dcb-output-grid')

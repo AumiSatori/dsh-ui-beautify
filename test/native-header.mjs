@@ -39,6 +39,7 @@ const react=React,react_jsx_runtime=jsxRuntime,clsx=(...values)=>values.filter(B
 const _deepseek_ai_dsh_client_ui_primitives={Tooltip:({children})=>children};
 const ConversationRoot_module_css_default=new Proxy({},{get:(_,key)=>${JSON.stringify(prefix)}+'_'+key});
 const conversationPhase=()=> 'active',deriveAncestry=()=>[{id:'a',displayTitle:'页头兼容测试'}],equalBreadcrumbs=()=>true;
+${source.includes('function ViewTabLabel(')?source.slice(source.indexOf('const WIDE_GLYPH'),source.indexOf('function deriveAncestry(')):''}
 ${component('resolveActiveView')}
 ${component('ConversationHeader')}
 ${component('ConversationSessionHeader')}

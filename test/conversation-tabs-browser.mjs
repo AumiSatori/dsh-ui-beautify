@@ -222,8 +222,8 @@ try{
   await check('session transitions stay legible in a narrow dark viewport and leave no persistent visual layer',async()=>{
     await boot();await page.setViewportSize({width:560,height:780});await page.evaluate(()=>{document.body.classList.add('dark');window.fixture.update({session:'b'})});await tick()
     await page.evaluate(()=>window.frameAt(90))
-    const value=await page.locator('[data-conversation-scroll]').evaluate(el=>({opacity:Number(getComputedStyle(el).opacity),transform:getComputedStyle(el).transform,filter:getComputedStyle(el).filter}))
-    assert.ok(value.opacity>.68&&value.opacity<1);assert.equal(value.transform,'none');assert.equal(value.filter,'none')
+    const value=await page.locator('[data-conversation-scroll]').evaluate(el=>{const content=[...el.children].find(child=>!child.hasAttribute('data-composer-seat')),style=getComputedStyle(content);return{opacity:Number(style.opacity),translateY:parseFloat(style.translate.split(' ').at(-1)),transform:style.transform,filter:style.filter,viewportOpacity:getComputedStyle(el).opacity,composerOpacity:getComputedStyle(el.querySelector('[data-composer-seat]')).opacity}})
+    assert.ok(value.opacity>0&&value.opacity<1);assert.ok(value.translateY>0&&value.translateY<10);assert.equal(value.transform,'none');assert.equal(value.filter,'none');assert.equal(value.viewportOpacity,'1');assert.equal(value.composerOpacity,'1')
     await page.screenshot({path:resolve(output,'session-transition-dark-narrow.png')});await complete()
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
     assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el=>el.style.willChange),'')

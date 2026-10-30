@@ -135,7 +135,7 @@ try{
           assert.equal(await control.getAttribute('aria-checked'),original)
         }
       }
-      assert.equal(count,22) // Includes the 0.4.2 streaming reveal switch.
+      assert.equal(count,23) // Includes streaming reveal and background ink correction.
       await select('开屏欢迎');await page.mouse.move(1,1);await page.waitForTimeout(250)
       await dialog.screenshot({path:resolve(output,`switches-${dark?'dark':'light'}.png`)})
     }

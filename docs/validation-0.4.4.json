@@ -1,9 +1,9 @@
 {
   "version": "0.4.4",
   "baseline": "v0.4.3",
-  "sourceBaseCommit": "7f3e0de65a2f640fe2cf0edc33a520022a52349e",
-  "scope": "全局配置切页高度与卡片裁切修复、对话页签下划线分段收放、Artifact 全文复制、思考动图格式示例 ZIP 下载。",
-  "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273",
+  "sourceBaseCommit": "636546b928271e5a357a92df6888b11deebc399f",
+  "scope": "全局配置切页与裁切修复、页签和会话正文切换、Artifact 全文复制、动图格式示例下载，以及视频背景滚动、图标识别和次要文字对比度改进。",
+  "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f",
   "earlyOpeningSha256": "05791a4ca40e4ab012a5f0ba5a61f713c7e8e33aac68965fc7956f263622ae92",
   "host": {
     "version": "0.2.1-rc.3",
@@ -18,8 +18,8 @@
     "suites": 62,
     "passed": 62,
     "failed": 0,
-    "reportedChecks": 726,
-    "nodeTests": 96,
+    "reportedChecks": 736,
+    "nodeTests": 106,
     "aliases": "含纯背景兼容命令的重复执行；部分性能组以 JSON 指标输出。"
   },
   "results": [
@@ -27,518 +27,518 @@
       "name": "test:unified-icons",
       "passed": true,
       "checks": 21,
-      "elapsedMs": 23043,
+      "elapsedMs": 18069,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:fullscreen",
       "passed": true,
       "checks": 14,
-      "elapsedMs": 12876,
+      "elapsedMs": 11869,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test",
       "passed": true,
-      "checks": 96,
-      "elapsedMs": 8707,
+      "checks": 106,
+      "elapsedMs": 3760,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:browser",
       "passed": true,
       "checks": 16,
-      "elapsedMs": 13277,
-      "attempt": 2,
-      "previousAttempts": [
-        {
-          "code": 1,
-          "elapsedMs": 9463,
-          "log": "test-browser-attempt1.log"
-        }
-      ],
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "elapsedMs": 8168,
+      "attempt": 1,
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:summary",
       "passed": true,
       "checks": 48,
-      "elapsedMs": 219331,
-      "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "elapsedMs": 191536,
+      "attempt": 2,
+      "previousAttempts": [
+        {
+          "code": 1,
+          "elapsedMs": 47405,
+          "log": "test-summary-attempt1.log"
+        }
+      ],
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:progress-liquid",
       "passed": true,
       "checks": 9,
-      "elapsedMs": 12727,
+      "elapsedMs": 9372,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:skills",
       "passed": true,
       "checks": 8,
-      "elapsedMs": 21008,
+      "elapsedMs": 16906,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:scope",
       "passed": true,
       "checks": 13,
-      "elapsedMs": 56611,
+      "elapsedMs": 40338,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:artifact",
       "passed": true,
       "checks": 19,
-      "elapsedMs": 75204,
+      "elapsedMs": 57909,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:materials",
       "passed": true,
       "checks": 13,
-      "elapsedMs": 48516,
+      "elapsedMs": 30173,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:theme-palette",
       "passed": true,
       "checks": 18,
-      "elapsedMs": 24065,
+      "elapsedMs": 17256,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:theme-switch",
       "passed": true,
       "checks": 13,
-      "elapsedMs": 12892,
+      "elapsedMs": 10830,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:focus",
       "passed": true,
       "checks": 12,
-      "elapsedMs": 22309,
+      "elapsedMs": 14691,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:focus-header",
       "passed": true,
       "checks": 12,
-      "elapsedMs": 22321,
+      "elapsedMs": 14560,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:focus-performance",
       "passed": true,
       "checks": 12,
-      "elapsedMs": 22304,
+      "elapsedMs": 14550,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:startup",
       "passed": true,
       "checks": 19,
-      "elapsedMs": 19850,
-      "attempt": 2,
-      "previousAttempts": [
-        {
-          "code": 1,
-          "elapsedMs": 21729,
-          "log": "test-startup-attempt1.log"
-        }
-      ],
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "elapsedMs": 13608,
+      "attempt": 1,
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:welcome",
       "passed": true,
       "checks": 7,
-      "elapsedMs": 11538,
+      "elapsedMs": 12745,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:welcome-media",
       "passed": true,
       "checks": 9,
-      "elapsedMs": 29528,
+      "elapsedMs": 33710,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:welcome-code",
       "passed": true,
       "checks": 8,
-      "elapsedMs": 18160,
+      "elapsedMs": 17072,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:theme-gesture",
       "passed": true,
       "checks": 10,
-      "elapsedMs": 70529,
+      "elapsedMs": 31774,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:early-opening",
       "passed": true,
       "checks": 4,
-      "elapsedMs": 16080,
+      "elapsedMs": 6635,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:settings",
       "passed": true,
       "checks": 14,
-      "elapsedMs": 99763,
-      "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "elapsedMs": 73311,
+      "attempt": 2,
+      "previousAttempts": [
+        {
+          "code": 1,
+          "elapsedMs": 37252,
+          "log": "test-settings-attempt1.log"
+        }
+      ],
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:settings-reset",
       "passed": true,
       "checks": 1,
-      "elapsedMs": 12687,
+      "elapsedMs": 10371,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:settings-presets",
       "passed": true,
       "checks": 1,
-      "elapsedMs": 10185,
+      "elapsedMs": 10426,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:settings-transfer",
       "passed": true,
       "checks": 9,
-      "elapsedMs": 10886,
+      "elapsedMs": 11902,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:background",
       "passed": true,
       "checks": 12,
-      "elapsedMs": 22271,
+      "elapsedMs": 17589,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:background-surfaces",
       "passed": true,
       "checks": 8,
-      "elapsedMs": 3693,
+      "elapsedMs": 3815,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:background-presented",
       "passed": true,
       "checks": 7,
-      "elapsedMs": 3532,
+      "elapsedMs": 3722,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:background-names",
       "passed": true,
       "checks": 9,
-      "elapsedMs": 14639,
+      "elapsedMs": 14017,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:background-theme",
       "passed": true,
       "checks": 7,
-      "elapsedMs": 26577,
+      "elapsedMs": 25735,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:tabs",
       "passed": true,
       "checks": 31,
-      "elapsedMs": 19263,
-      "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "elapsedMs": 18580,
+      "attempt": 2,
+      "previousAttempts": [
+        {
+          "code": 1,
+          "elapsedMs": 3586,
+          "log": "test-tabs-attempt1.log"
+        }
+      ],
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:composer",
       "passed": true,
       "checks": 20,
-      "elapsedMs": 88138,
+      "elapsedMs": 91316,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:composer-scroll-motion",
       "passed": true,
       "checks": 8,
-      "elapsedMs": 6310,
+      "elapsedMs": 5854,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:composer-placement",
       "passed": true,
       "checks": 7,
-      "elapsedMs": 4611,
+      "elapsedMs": 3898,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:slider-glass",
       "passed": true,
       "checks": 5,
-      "elapsedMs": 11617,
+      "elapsedMs": 11903,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:performance",
       "passed": true,
       "checks": 4,
-      "elapsedMs": 7577,
+      "elapsedMs": 7814,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:particle-performance",
       "passed": true,
       "checks": 0,
-      "elapsedMs": 20943,
+      "elapsedMs": 21030,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:reading-performance",
       "passed": true,
       "checks": 0,
-      "elapsedMs": 2087,
+      "elapsedMs": 2044,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:sidebar",
       "passed": true,
       "checks": 17,
-      "elapsedMs": 149465,
+      "elapsedMs": 104736,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:sidebar-attention",
       "passed": true,
       "checks": 14,
-      "elapsedMs": 12506,
-      "attempt": 2,
-      "previousAttempts": [
-        {
-          "code": 1,
-          "elapsedMs": 37931,
-          "log": "test-sidebar-attention-attempt1.log"
-        }
-      ],
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "elapsedMs": 12064,
+      "attempt": 1,
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:sidebar-layout",
       "passed": true,
       "checks": 1,
-      "elapsedMs": 65847,
+      "elapsedMs": 35305,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:sidebar-overlay",
       "passed": true,
       "checks": 10,
-      "elapsedMs": 54532,
+      "elapsedMs": 35531,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:conversation-width",
       "passed": true,
       "checks": 11,
-      "elapsedMs": 13578,
+      "elapsedMs": 7939,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:messages",
       "passed": true,
       "checks": 16,
-      "elapsedMs": 11476,
+      "elapsedMs": 13307,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:chat-disclosure",
       "passed": true,
       "checks": 8,
-      "elapsedMs": 15449,
+      "elapsedMs": 13590,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:stream-reveal",
       "passed": true,
       "checks": 11,
-      "elapsedMs": 9859,
+      "elapsedMs": 9574,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:user-bubbles",
       "passed": true,
       "checks": 9,
-      "elapsedMs": 20928,
+      "elapsedMs": 12422,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:turn-cards",
       "passed": true,
       "checks": 22,
-      "elapsedMs": 23166,
+      "elapsedMs": 16649,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:turn-divider",
       "passed": true,
       "checks": 7,
-      "elapsedMs": 9530,
+      "elapsedMs": 8489,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:context-particles",
       "passed": true,
       "checks": 10,
-      "elapsedMs": 38622,
+      "elapsedMs": 38185,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:particle-conversion",
       "passed": true,
       "checks": 4,
-      "elapsedMs": 30539,
+      "elapsedMs": 29890,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:whale-particles",
       "passed": true,
       "checks": 0,
-      "elapsedMs": 28341,
+      "elapsedMs": 27567,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:header-project",
       "passed": true,
       "checks": 7,
-      "elapsedMs": 3228,
+      "elapsedMs": 2408,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:particle-images",
       "passed": true,
       "checks": 7,
-      "elapsedMs": 31730,
+      "elapsedMs": 29760,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:running",
       "passed": true,
       "checks": 12,
-      "elapsedMs": 21180,
+      "elapsedMs": 19623,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:opening-themes",
       "passed": true,
       "checks": 7,
-      "elapsedMs": 20532,
+      "elapsedMs": 17045,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:settings-hierarchy",
       "passed": true,
       "checks": 11,
-      "elapsedMs": 30921,
+      "elapsedMs": 28848,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:hero-greeting",
       "passed": true,
       "checks": 1,
-      "elapsedMs": 2644,
+      "elapsedMs": 1752,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:process-disclosure",
       "passed": true,
       "checks": 1,
-      "elapsedMs": 3609,
+      "elapsedMs": 2595,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:output-preview-animation",
       "passed": true,
       "checks": 1,
-      "elapsedMs": 2144,
+      "elapsedMs": 1465,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:settings-config-motion",
       "passed": true,
       "checks": 8,
-      "elapsedMs": 23049,
+      "elapsedMs": 21252,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     },
     {
       "name": "test:output-copy",
       "passed": true,
       "checks": 7,
-      "elapsedMs": 11694,
+      "elapsedMs": 10784,
       "attempt": 1,
-      "clientSha256": "ba963293ce120c3d38e3ade280a9c75943bc0407c34d9b0313bdafaa07c44273"
+      "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f"
     }
   ],
   "assertions": [
@@ -553,12 +553,17 @@
     "异步复制完成不会污染新文件反馈，关闭与重新加载清理状态；暗色窄屏、键盘、减少动态效果可用。",
     "已完整显示的导入导出卡片，在后续切页高度动画中不能再次被裁切；计算视口和全部裁切祖先。",
     "全局配置 → 欢迎语 → 全局配置往返、延迟预设、深色窄屏均无二次裁切；保留浏览器原生滚动锚定。",
-    "键盘下载格式示例 ZIP，文件可保存且下载不改设置；校验说明、素材和授权后重新导入，预览有真实动画帧。"
+    "键盘下载格式示例 ZIP，文件可保存且下载不改设置；校验说明、素材和授权后重新导入，预览有真实动画帧。",
+    "背景对比度的 10 项新增 Node 检查通过，覆盖明暗方向、层级限制、开关归一化以及正文和代码色保留。",
+    "最新会话正文过渡、晚到内容、快速反向、输入栏静止与卸载清理通过 31 项页签/会话检查。"
   ],
   "testHarnessFixes": [
     "材质选中状态在 React 提交后的首帧采样，仍断言真实边框过渡中间色。",
     "启动时长在浏览器内测量真实遮罩生命周期，保留 2700ms 截止要求。",
-    "侧栏提醒创建与点击退场时在同一浏览器任务冻结指定帧，仍验证透明度、位移和模糊。"
+    "侧栏提醒创建与点击退场时在同一浏览器任务冻结指定帧，仍验证透明度、位移和模糊。",
+    "配置存储白名单增加 backgroundInk，保持对未知设置及会话数据的严格排除。",
+    "设置页精确检查 23 个自绘开关，包含文字自动加深。",
+    "会话切换中间帧检查正文淡入和上移，另断言外层及输入栏保持不透明。"
   ],
   "runningExampleDownload": {
     "filename": "dsh-running-pack-example.zip",
@@ -598,6 +603,13 @@
     "unchangedFromPreviousRelease": true,
     "action": "两个可选宿主启动补丁未安装，本轮不修改宿主安装包。"
   },
-  "startedAt": "2026-10-29T11:34:20.726Z",
-  "completedAt": "2026-10-29T12:07:55.116Z"
+  "startedAt": "2026-10-30T01:53:42.839Z",
+  "completedAt": "2026-10-30T02:19:54.231Z",
+  "syncVerification": {
+    "profile": "desktop",
+    "linkedToSource": true,
+    "runtimeClientMatchesSource": true,
+    "clientSha256": "532c4e91f54d7e38f0d23df5bcf10c0d8dae8a22583ee03cfec8cac1591af86f",
+    "desktopWindowReloadRequired": true
+  }
 }

@@ -25,7 +25,7 @@ dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/relea
 
 ## 0.4.4 发布验证
 
-本版包括全局配置切页抖动与卡片裁切修复、对话页签下划线分段收放、Artifact 文本复制，以及思考动图格式示例下载。62 组自动回归全部通过，记录 726 项检查（含兼容命令别名重复执行及单独输出 JSON 指标的性能组）。结果与客户端 SHA-256 绑定，详见 [validation-0.4.4.json](validation-0.4.4.json)。测试只读取已安装宿主组件，在独立无头 Chrome 中使用合成内容；真实桌面体验单独验收。
+本版包括全局配置切页抖动与卡片裁切修复、对话页签下划线分段收放、Artifact 文本复制、思考动图格式示例下载，以及视频背景滚动、会话切换和次要文字可读性改进。62 组自动回归全部通过，记录 736 项检查（含兼容命令别名重复执行及单独输出 JSON 指标的性能组）。结果与客户端 SHA-256 绑定，详见 [validation-0.4.4.json](validation-0.4.4.json)。测试只读取已安装宿主组件，在独立无头 Chrome 中使用合成内容；真实桌面体验单独验收。
 
 Release 提供带版本安装包、固定名 `dsh-ui-beautify.tgz` 和 `SHA256SUMS.txt`。社区市场继续使用固定的 latest Release 下载地址，无需修改版本字段；发布后核对该地址下载的包与本地安装包一致。本机源码链接指向主分支，客户端更新后 Ctrl+R 刷新。
 

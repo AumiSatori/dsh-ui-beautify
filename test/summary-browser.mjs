@@ -11,7 +11,7 @@ const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..
 const presentationSettingKeys = [
   'iconStyle', 'runningAnimationLabel', 'runningAnimationLabelRandom', 'toolbar', 'userBubbleThemes', 'welcomeThemes', 'welcomeWindowScale',
   'runningAnimationEnabled','runningAnimationPack','runningAnimationActions','runningAnimationRandom','runningAnimationSize','runningAnimationGap','runningAnimationOpacity',
-  'backgroundBlur', 'backgroundEnabled', 'backgroundFit', 'backgroundName', 'backgroundOpacity', 'backgroundPosition', 'backgroundRevision', 'backgroundSound', 'backgroundThemes',
+  'backgroundBlur', 'backgroundEnabled', 'backgroundFit', 'backgroundInk', 'backgroundName', 'backgroundOpacity', 'backgroundPosition', 'backgroundRevision', 'backgroundSound', 'backgroundThemes',
   'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'detailMotion', 'enabled', 'headerCentered',
   'heroGreetingCode', 'heroGreetingCss', 'heroGreetingCustomLogo', 'heroGreetingLogoSize', 'heroGreetingMessages', 'heroGreetingMode', 'heroGreetingShowLogo', 'heroGreetingShowPreview', 'messageMotionCode', 'messageMotionMode',
   'messageMotion', 'modules', 'particleCount', 'particleDensityVersion', 'particleEnabled', 'particleFull', 'particleImageName', 'particleImageRevision', 'particleManualProgress', 'particleProgressMode', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarOverlay', 'sidebarStyle',

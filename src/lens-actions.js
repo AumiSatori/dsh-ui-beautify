@@ -46,6 +46,7 @@ export {createOutputPreviewBridge,createOutputArtifact,outputPreviewReader,outpu
 export {createOutputViewer,outputContentReader,outputViewerCss} from './output-viewer.js'
 export {createFileContextMenu,fileContextMenuCss} from './file-context-menu.js'
 export {createStatPopoverMotion,statPopoverCss} from './stat-popover-motion.js'
+export {createHeaderMenuMotion,headerMenuMotionCss} from './header-menu-motion.js'
 export {motion} from './motion.js'
 export {messageImageLayoutCss} from './message-image-layout.js'
 export {fileOpenHitTargetCss} from './file-open-hit-target.js'

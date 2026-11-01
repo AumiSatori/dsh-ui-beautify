@@ -15,8 +15,8 @@ const scrollBuilt=(await build({entryPoints:[process.env.DSH_TAIL_SOURCE||resolv
 const browser=await chromium.launch({channel:'chrome',headless:true}),page=await browser.newPage({viewport:{width:1280,height:850},deviceScaleFactor:1.25}),results=[],errors=[]
 page.on('pageerror',e=>errors.push(e.message))
 try{
- for(const mode of ['single','multiline','late-commit','narrow-dark','short','overflow-boundary','image-overflow','image-boundary','native-reversal']){
-  const collapse=true,tail=true,lines=['single','short','overflow-boundary'].includes(mode)?1:5,late=mode==='late-commit',narrow=mode==='narrow-dark',image=mode.startsWith('image-'),history=mode==='short'?2:mode==='overflow-boundary'?4:mode==='image-boundary'?3:15
+ for(const mode of ['single','multiline','late-commit','narrow-dark','short','overflow-boundary','image-overflow','image-boundary','native-reversal','stream-single','stream-multiline']){
+  const collapse=true,tail=true,lines=['single','short','overflow-boundary','stream-single'].includes(mode)?1:5,late=mode==='late-commit',narrow=mode==='narrow-dark',image=mode.startsWith('image-'),history=mode==='short'?2:mode==='overflow-boundary'?4:mode==='image-boundary'?3:15
   await page.setViewportSize(narrow?{width:520,height:850}:{width:1280,height:850})
   await page.goto('about:blank');await page.setContent(`<!doctype html><style>${css}*{box-sizing:border-box}body{margin:0;font:14px/24px system-ui}:root{--dsw-font-family:system-ui;--dsh-content-font-size:14px;--dsh-composer-card-max-width:720px;--dsw-radius-panel:20px;--dsw-alias-bg-base:#fff;--dsw-specific-input-major:#f4f5f7}.root{height:800px;display:flex;flex-direction:column}.cr_scrollBody{overflow-anchor:none}.ib_dock{height:24px}[data-chat-flow]{width:720px;margin:auto}.row{height:140px;border-bottom:1px solid #8884;padding:24px}.ib_input p{margin:0}.ib_card{line-height:24px}</style><main class=root><div class=cr_body data-conversation-content data-conversation-session=synthetic data-content-phase=active><div class=cr_scrollBody data-conversation-scroll><section data-chat-following-tail><div data-chat-flow><div data-slot="conversation.chat.flow"></div></div></section><footer class=cr_composerSeat data-composer-seat><div class=ib_root><div class=ib_card data-composer-card><div class=ib_scroll data-input-scroll><div class=ib_grow><div class=ib_input contenteditable=true role=textbox aria-label=合成草稿 data-composer-input></div></div></div><div class=ib_row><span>合成模型</span><button class=ib_primary aria-label=发送消息>↑</button></div></div><div class=ib_dock></div></div></footer></div></div></main>`)
   await page.evaluate(()=>{window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(()=>({}))}})
@@ -33,18 +33,23 @@ try{
    window.resize=new ResizeObserver(()=>{if(follow.active)follow.toBottom(scroller,metrics(),'instant');if(until)events.push(sample('resize'))});resize.observe(document.querySelector('[data-composer-seat]'));resize.observe(flow)
    scroller.addEventListener('scroll',()=>{follow.sample(metrics(),false);if(until)events.push(sample('scroll'))});scroller.scrollTop=scroller.scrollHeight
    if(collapse)window.submitMotion=plugin.__test.createComposerSubmitMotion(document,window)
-   window.tailMotion=TailMotion.createComposerScrollMotion(document,window,tail)
+   window.tailMotion=TailMotion.createComposerScrollMotion(document,window,tail);if(mode.startsWith('stream-'))tailMotion.setFollow(true)
    function commit(){editor.innerHTML='<p><br></p>';document.querySelector('#draft-image')?.remove();const sent=row();if(image)sent.style.height='300px';list.append(sent);follow.toBottom(scroller,metrics(),'instant');events.push(sample('native-commit'));if(mode==='native-reversal'){const floor=metrics().floor;[floor-18,floor-48,floor-24,floor-62,floor-40].forEach((target,index)=>setTimeout(()=>{scroller.scrollTop=target},index*34))}setTimeout(()=>{const old=list.lastElementChild;old.replaceWith(old.cloneNode(true));follow.toBottom(scroller,metrics(),'instant')},65)}
    function submit(){until=performance.now()+850;frames.push(sample('before'));if(late)requestAnimationFrame(commit);else commit();function step(){frames.push(sample('frame'));if(performance.now()<until)requestAnimationFrame(step)}requestAnimationFrame(step)}
    editor.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();submit()}})
   },{collapse,tail,lines,late,image,history,mode});await page.waitForTimeout(80);await page.getByRole('textbox',{name:'合成草稿'}).press('Enter');await page.waitForTimeout(950)
   const result=await page.evaluate(()=>({frames,events,final:{rows:document.querySelectorAll('[data-dcb-send-scroll-row]').length,range:scroller.scrollHeight,top:scroller.scrollTop,draft:editor.textContent}}));let reverse=0,lastSign=0;for(let i=1;i<result.frames.length;i++){const delta=result.frames[i].probe-result.frames[i-1].probe;if(Math.abs(delta)<=.8)continue;const sign=Math.sign(delta);if(lastSign&&sign!==lastSign)reverse++;lastSign=sign}
-  results.push({mode,reverse,...result});console.log(JSON.stringify({mode,reverse,first:result.frames.slice(0,8).map(({probe,top,floor,cardHeight})=>({probe,top,floor,cardHeight}))}))
+  // Frames where the composer is still collapsing but the painted transcript
+  // stands still: the v0.5.0 spring retarget held it until the collapse ended.
+  let stall=0;for(let i=1;i<result.frames.length;i++){const a=result.frames[i-1],b=result.frames[i];if(b.cardHeight<a.cardHeight-.5&&Math.abs(b.probe-a.probe)<.3)stall++}
+  results.push({mode,reverse,stall,...result});console.log(JSON.stringify({mode,reverse,stall,first:result.frames.slice(0,8).map(({probe,top,floor,cardHeight})=>({probe,top,floor,cardHeight}))}))
   if(narrow)await page.screenshot({path:resolve(out,'coordinated-dark-narrow.png')})
  }
  const report=resolve(out,process.env.DSH_TAIL_SOURCE?'coordination-before.json':'coordination-after.json')
  writeFileSync(report,JSON.stringify({results,errors},null,2))
  assert.deepEqual(errors,[])
- for(const result of results){if(result.mode!=='native-reversal')assert.equal(result.reverse,0,result.mode+' must not reverse the painted transcript during one send');assert.equal(result.final.rows,0);assert.equal(result.final.draft,'');assert.ok(Math.abs(result.frames.at(-1).top-result.frames.at(-1).floor)<.81)}
- console.log('PASS 9 coordinated native follow / collapse / acknowledgement / overflow-boundary / native-reversal cases')
+ for(const result of results){if(result.mode!=='native-reversal')assert.equal(result.reverse,0,result.mode+' must not reverse the painted transcript during one send');if(result.mode!=='native-reversal'&&result.frames.some(frame=>frame.cardHeight>120))assert.ok(result.stall<=1,result.mode+' must keep moving while the composer collapses ('+result.stall+' still frames)');assert.equal(result.final.rows,0);assert.equal(result.final.draft,'');if(result.mode!=='native-reversal')assert.ok(Math.abs(result.frames.at(-1).top-result.frames.at(-1).floor)<.81)}
+ // native-reversal ends where its own synthetic scroll writes leave it; it only
+ // returned to the floor while the old height-animated collapse kept resizing.
+ console.log('PASS 11 coordinated native follow / collapse / acknowledgement / overflow-boundary / native-reversal / stream-follow cases')
 }finally{await browser.close()}

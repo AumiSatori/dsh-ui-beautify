@@ -207,6 +207,17 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
       publish({recent:state.recent});return asset
     },
     async restore(){importSequence++;const state=sourceSettings.backgroundThemes?await store.read(settings.previousRevision||''):await store.restore();publish({hasPrevious:!!state.previous,recent:state.recent});return state.current},
+    async remove(revision){
+      importSequence++
+      const state=await store.remove(revision)
+      if(disposed)return
+      const clear=item=>({...item,...(item.backgroundRevision===revision?{backgroundRevision:'',backgroundName:'',backgroundEnabled:false}:{}),...(item.previousRevision===revision?{previousRevision:''}:{})})
+      const patch=clear(sourceSettings)
+      if(sourceSettings.backgroundThemes)patch.backgroundThemes=Object.fromEntries(['light','dark'].map(scheme=>[scheme,clear(sourceSettings.backgroundThemes[scheme])]))
+      if(legacyPreviousRevision===revision)legacyPreviousRevision=''
+      sourceSettings=normalizeBackground(patch);settings=themeBackground(sourceSettings,theme);onChange(patch)
+      publish({recent:state.recent,hasPrevious:!!(sourceSettings.backgroundThemes?settings.previousRevision:state.previous),notice:'背景已从本机素材库删除。'})
+    },
     async clear(){importSequence++;await store.clear();publish({hasPrevious:false,preview:''})},
     dispose(){doc.removeEventListener('pointermove',pointer);disposed=true;generation++;importSequence++;structure.disconnect();themeObserver.disconnect();win.cancelAnimationFrame(surfaceFrame);ink.dispose();releaseMedia();store.dispose();listeners.clear();doc.removeEventListener('visibilitychange',visibility);forced.removeEventListener('change',visibility);reduced.removeEventListener('change',visibility)},
   }

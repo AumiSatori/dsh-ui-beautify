@@ -1,0 +1,29 @@
+{
+  "version": "0.5.0",
+  "releaseBase": "10ce167def1e0d2f167cac523b2f450bb27f27b8",
+  "checks": {
+    "javascriptSyntax": {
+      "passed": true,
+      "files": 207
+    },
+    "clientBuild": {
+      "passed": true
+    },
+    "clientReproducibleBuildAndExports": {
+      "passed": true
+    },
+    "packageMetadataAndAllowlist": {
+      "passed": true,
+      "runtimeDependencies": 0,
+      "installHooks": false
+    },
+    "functionalAndVisualAcceptance": {
+      "performed": false,
+      "owner": "user"
+    }
+  },
+  "functionalTests": "not run; user performs acceptance",
+  "browserVerification": "not run; user performs acceptance",
+  "performanceClaim": "not measured",
+  "checkedAt": "2026-11-01T05:33:03.554859+00:00"
+}

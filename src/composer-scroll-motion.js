@@ -1,22 +1,30 @@
 import {motion} from './motion.js'
+import {streamSpring,sampleStreamSpring,streamSpringKeyframes} from './stream-spring.js'
 const FLOW='[data-chat-flow]:not([data-step-process-content])',MARK='data-dcb-send-scroll-row'
 const KEYS=new Set(['PageUp','PageDown','Home','End','ArrowUp','ArrowDown','Escape'])
 // Rows are only the paint carrier for a send-time offset. The cap keeps the
 // per-frame work bounded; it must never decide whether the send can be
 // smoothed at all, because bailing out mid-flight used to drop a half-applied
 // offset and paint a hard jump (measured up to 88px on a dense transcript).
-const MAX_ROWS=48,AREA_BUDGET=4_000_000,FADE_MS=160
+const MAX_ROWS=48,MAX_VISITS=192,AREA_BUDGET=4_000_000,FADE_MS=160
+const ATOMIC='p,h1,h2,h3,h4,h5,h6,pre,table,svg,canvas,img,video,iframe,math,[data-chat-group-part="reasoning"],[data-variant="think"],[role="button"],[contenteditable="true"]'
+const ASSISTANT='[data-chat-flow-kind^="assistant"]'
 // Smooth only the painted, visible tail after a native send/follow jump. The
 // host retains the real scroll offset, events, anchors and follow controller.
 export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
  const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)'),jobs=new Map()
- let enabled=initiallyEnabled,follow=false,disposed=false,intent=null,frame=0,expiry=0,userAt=0
+ let enabled=initiallyEnabled,follow=false,continuous=true,disposed=false,intent=null,frame=0,expiry=0,userAt=0,readBatch=null
  // The reader's own scrolling (wheel, touch, drag, reading keys) is never a
  // follow jump; the stream glide stays out of it for a moment afterwards.
  const USER_QUIET=1200,tops=new WeakMap(),reading=()=>now()-userAt<USER_QUIET
  const now=()=>win.performance.now()
- const current=job=>{for(const row of job.effects.keys())if(row.isConnected){const v=win.getComputedStyle(row).translate.split(' ');return parseFloat(v[1])||0}return 0}
- const translated=row=>parseFloat(win.getComputedStyle(row).translate.split(' ')[1])||0
+ function measured(row){
+  let record=readBatch?.get(row)
+  if(!record){const css=win.getComputedStyle(row);record={box:row.getBoundingClientRect(),translate:parseFloat(css.translate.split(' ')[1])||0,transform:css.transform,rawTranslate:css.translate,display:css.display};readBatch?.set(row,record)}
+  return record
+ }
+ const translated=row=>readBatch?measured(row).translate:parseFloat(win.getComputedStyle(row).translate.split(' ')[1])||0
+ const current=job=>{for(const row of job.effects.keys())if(row.isConnected)return translated(row);return 0}
  function restore(job){
   for(const [name,value,priority] of job.styles)if(job.flow.style.getPropertyValue(name)==='clip'){value?job.flow.style.setProperty(name,value,priority):job.flow.style.removeProperty(name)}
   if(job.styleMark===null&&!job.flow.style.length)job.flow.removeAttribute('style')
@@ -56,15 +64,45 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
   clearIntent()
  }
  function clear(){clearIntent();win.cancelAnimationFrame(frame);frame=0;for(const job of [...jobs.values()])release(job,'cancel')}
+ // A long native answer is one tall row. Carry its visible blocks instead of
+ // abandoning the whole glide or promoting a transcript-sized GPU surface.
+ // Targets never overlap; large indivisible code/table/media blocks stay native.
+ function streamCandidates(job,offset){
+  const view=job.scroll.getBoundingClientRect(),margin=Math.abs(offset)+24,rows=[]
+  const scale=(win.devicePixelRatio||1)**2;let area=0,visited=0
+  function visit(row,depth){
+   if(visited++>=MAX_VISITS||rows.length>=MAX_ROWS||depth>12||row.matches('[hidden],[data-turn-process-hidden="true"]'))return
+   const record=measured(row),box=record.box
+   const children=()=>{for(let child=row.lastElementChild;child&&visited<MAX_VISITS&&rows.length<MAX_ROWS;child=child.previousElementSibling)visit(child,depth+1)}
+   if(record.display==='contents'){children();return}
+   if(record.display==='inline')return
+   if(!box.height||box.bottom<view.top-margin||box.top>view.bottom+margin)return
+   if(!job.effects.has(row)&&(record.rawTranslate!=='none'||record.transform!=='none'))return
+   const cost=box.width*box.height*scale
+   if(box.height>win.innerHeight*1.5||area+cost>AREA_BUDGET){
+    // Splitting a leaf's inline text would leave part of one paragraph fixed.
+    if(!row.matches(ATOMIC)&&(row.closest(ASSISTANT)||row.querySelector(ASSISTANT))&&![...row.childNodes].some(node=>node.nodeType===3&&node.textContent.trim()))children()
+    return
+   }
+   rows.push(row);area+=cost
+  }
+  for(let row=job.list.lastElementChild;row&&visited<MAX_VISITS&&rows.length<MAX_ROWS;row=row.previousElementSibling){
+   const box=measured(row).box
+   if(box.height&&box.bottom<view.top-margin)break
+   visit(row,0)
+  }
+  return rows
+ }
  function candidates(job,offset){
+  if(continuous&&job.stream)return streamCandidates(job,offset)
   const view=job.scroll.getBoundingClientRect(),rows=[];let area=0,visited=0
   for(let row=job.list.lastElementChild;row&&visited++<60;row=row.previousElementSibling){
    if(row.matches('[hidden],[data-turn-process-hidden="true"]'))continue
-   const box=row.getBoundingClientRect()
+   const box=readBatch?measured(row).box:row.getBoundingClientRect()
    if(!box.height)continue
    if(box.bottom<view.top-Math.abs(offset)-24)break
    if(box.top>view.bottom+Math.abs(offset)+24)continue
-   const css=win.getComputedStyle(row)
+   const css=readBatch?{translate:measured(row).rawTranslate,transform:measured(row).transform}:win.getComputedStyle(row)
    // 我们正在动的行不算 transform 冲突，否则第二次补偿会把整屏行全部跳过
    if(!job.effects.has(row)&&(css.translate!=='none'||css.transform!=='none'))return null
    if(box.height>win.innerHeight*1.5||area>AREA_BUDGET)return null
@@ -86,17 +124,26 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
  }
  // Content-space top of a row: free of our translate and of the scroll offset,
  // so a header inserted above the answer shows up as a shift of the rows below.
- const placed=(row,scroll)=>row.getBoundingClientRect().top-translated(row)+scroll.scrollTop
+ function painted(job,row){
+  let value=translated(row)
+  // When a growing row is split into blocks, their measured boxes still carry
+  // the outgoing parent's animation until all new targets have been prepared.
+  if(continuous)for(let parent=row.parentElement;parent&&parent!==job?.list;parent=parent.parentElement)if(job?.effects?.has(parent))value+=translated(parent)
+  return value
+ }
+ const placed=(row,scroll,job)=>(readBatch?measured(row).box:row.getBoundingClientRect()).top-painted(job,row)+scroll.scrollTop
  function shifts(job){
   const layout=intent?.flow===job.flow?intent.layout:null,result=new Map()
   if(!layout)return result
-  for(const [row,top] of layout)if(row.isConnected){const shift=placed(row,job.scroll)-top;if(Math.abs(shift)>.5)result.set(row,shift)}
+  for(const [row,top] of layout)if(row.isConnected){const shift=placed(row,job.scroll,job.effects?job:jobs.get(job.flow))-top;if(Math.abs(shift)>.5)result.set(row,shift)}
   return result
  }
- function remember(job,rows){if(intent?.flow===job.flow)intent.layout=new Map(rows.map(row=>[row,placed(row,job.scroll)]))}
+ function remember(job,rows){if(intent?.flow===job.flow)intent.layout=new Map(rows.map(row=>[row,placed(row,job.scroll,job)]))}
  function schedule(){if(!frame)frame=win.requestAnimationFrame(flush)}
  function flush(){
   frame=0;if(disposed||!(enabled||follow)||quiet.matches||doc.hidden){clear();return}
+  readBatch=continuous?new Map():null
+  try{
   for(const job of [...jobs.values()]){
    if(!job.flow.isConnected||job.session!==(job.owner.getAttribute('data-conversation-session')||'')||job.owner.querySelector('[data-input-fold], [data-chat-motion="collapse"]')){release(job,'abandon');continue}
    const delta=job.delta,t=now();job.delta=0
@@ -127,16 +174,32 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
    // start; dropping them snapped rows below an inserted header back down.
    const starts=keep?job.starts||new Map():new Map()
    if(!keep&&moved.size){let last=0;for(const row of [...rows].reverse()){const own=job.effects.has(row)?translated(row)+delta:job.from;if(moved.has(row))last=moved.get(row);else if(intent?.layout?.has(row))last=0;starts.set(row,own-last)}}
-   for(const [row,record]of job.effects){record.animation.cancel();record.mark===null?row.removeAttribute(MARK):row.setAttribute(MARK,record.mark)}
-   job.effects.clear();win.clearTimeout(job.timer)
+   if(continuous&&job.stream&&keep){const offset=current(job)+delta;for(const row of rows)if(!job.effects.has(row))starts.set(row,offset)}
+   // Finish geometry reads before replacing animations. All repeated reads of
+   // a visible row within this update share the same pre-write measurement.
+   if(job.stream&&continuous)remember(job,rows)
+   const previous=job.effects;job.effects=new Map();win.clearTimeout(job.timer)
    // Clip overflow at its unchanged layout box so translated rows cannot grow
    // the native scroll range. No transcript wrapper, copy or screenshot.
    job.flow.style.setProperty('overflow-x','clip');job.flow.style.setProperty('overflow-y','clip')
-   for(const row of rows){row.setAttribute(MARK,'');const animation=row.animate([{translate:`0px ${starts.get(row)??job.from}px`},{translate:`0px ${job.to}px`}],{duration:job.duration,easing:job.easing,fill:'forwards',id:'dcb-send-scroll'});animation.currentTime=t-job.start;animation.finished.catch(()=>{});job.effects.set(row,{animation,mark:null})}
+   let deadline=job.start+job.duration
+   for(const row of rows){
+    const old=previous.get(row);previous.delete(row)
+    if(continuous&&job.stream&&keep&&old?.spring&&old.spring.to===job.to){job.effects.set(row,old);deadline=Math.max(deadline,old.spring.started+old.spring.duration);continue}
+    const from=starts.get(row)??job.from
+    const spring=continuous&&job.stream?streamSpring(from,job.to,old?.spring?sampleStreamSpring(old.spring,t-old.spring.started).velocity:0,t):null
+    old?.animation.cancel();row.setAttribute(MARK,'')
+    const animation=row.animate(spring?streamSpringKeyframes(spring):[{translate:`0px ${from}px`},{translate:`0px ${job.to}px`}],{duration:spring?.duration??job.duration,easing:spring?'linear':job.easing,fill:'forwards',id:'dcb-send-scroll'})
+    animation.currentTime=spring?0:t-job.start;animation.finished.catch(()=>{});job.effects.set(row,{animation,mark:old?.mark??null,spring})
+    if(spring)deadline=Math.max(deadline,spring.started+spring.duration)
+   }
+   for(const [row,record]of previous){record.animation.cancel();record.mark===null?row.removeAttribute(MARK):row.setAttribute(MARK,record.mark)}
    job.starts=starts
-   if(job.stream)remember(job,rows)
-   job.timer=win.setTimeout(()=>release(job,'done'),job.start+job.duration+35-t)
+   if(job.stream&&!continuous)remember(job,rows)
+   if(continuous&&job.stream)job.duration=deadline-job.start
+   job.timer=win.setTimeout(()=>release(job,'done'),Math.max(0,deadline+35-t))
   }
+  }finally{readBatch=null}
  }
  function begin(event){
   if(disposed||!(enabled||follow)||quiet.matches||doc.hidden||event.defaultPrevented)return
@@ -239,5 +302,5 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
  doc.addEventListener('keydown',begin,true);doc.addEventListener('click',begin,true);doc.addEventListener('scroll',scroll,true)
  for(const name of ['wheel','touchstart','pointerdown','keydown'])doc.addEventListener(name,interrupt,{capture:true,passive:true})
  doc.addEventListener('visibilitychange',visibility);quiet.addEventListener('change',preferences);win.addEventListener('resize',clear)
- return{setEnabled(value){enabled=value;if(!enabled&&!follow)clear()},setFollow(value){follow=value;if(!follow&&intent?.stream)clear()},dispose(){disposed=true;clear();observer.disconnect();doc.removeEventListener('keydown',begin,true);doc.removeEventListener('click',begin,true);doc.removeEventListener('scroll',scroll,true);for(const name of ['wheel','touchstart','pointerdown','keydown'])doc.removeEventListener(name,interrupt,true);doc.removeEventListener('visibilitychange',visibility);quiet.removeEventListener('change',preferences);win.removeEventListener('resize',clear)}}
+ return{setEnabled(value){enabled=value;if(!enabled&&!follow)clear()},setFollow(value){follow=value;if(!follow&&intent?.stream)clear()},setMode(value){const next=value!=='legacy';if(next!==continuous){clear();continuous=next}},dispose(){disposed=true;clear();observer.disconnect();doc.removeEventListener('keydown',begin,true);doc.removeEventListener('click',begin,true);doc.removeEventListener('scroll',scroll,true);for(const name of ['wheel','touchstart','pointerdown','keydown'])doc.removeEventListener(name,interrupt,true);doc.removeEventListener('visibilitychange',visibility);quiet.removeEventListener('change',preferences);win.removeEventListener('resize',clear)}}
 }

@@ -8,3 +8,5 @@ test-results/
 playwright-report/
 dist/
 .dsh-ops-update-*.lock
+.idea/
+.scratch/

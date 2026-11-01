@@ -2,8 +2,13 @@ import {createHtmlEditor} from './background-html.js'
 import {motion} from './motion.js'
 import {themeBackground} from './background-media.js'
 import {themeAssignments,themeAssignmentsCss} from './theme-assignments.js'
+import {createPresetDelete,presetDeleteCss} from './preset-delete.js'
 
 export const backgroundSettingsCss=`
+  ${presetDeleteCss}
+  .dcb-background-gallery-footer { display:flex; flex-wrap:wrap; align-items:center; min-width:0; padding-inline-end:3px; }
+  .dcb-background-gallery-footer > .dcb-background-gallery-name-row { flex:1 1 0; width:auto; }
+  .dcb-background-gallery-footer > .dcb-background-rename { flex:1 1 100%; }
   ${themeAssignmentsCss}
   .dcb-settings-card.dcb-background-settings { display:grid; gap:22px; }
   .dcb-background-settings .dcb-settings-header { align-items:center; gap:20px; margin:0; }
@@ -144,7 +149,7 @@ export const backgroundSettingsCss=`
 `
 
 export function createBackgroundSettings(React,{background,onThemeChange}={}){
-  const h=React.createElement,HtmlEditor=createHtmlEditor(React,background)
+  const h=React.createElement,HtmlEditor=createHtmlEditor(React,background),PresetDelete=createPresetDelete(React)
   const paths={image:'M4 4h16v16H4zM4 15l5-5 5 5 3-3 3 3M15 8h.01',restore:'M3 10a9 9 0 1 1 2 8M3 4v6h6',remove:'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5',upload:'M12 16V4M7 9l5-5 5 5M4 16v4h16v-4',edit:'m15 5 4 4M4 20l5-1L20 8a2.8 2.8 0 0 0-4-4L5 15z',cancel:'m6 6 12 12M6 18 18 6',save:'m5 12 4 4L19 6'}
   const icon=name=>h('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:paths[name]}))
   return function BackgroundSettings({value:savedValue,onChange:save}){
@@ -195,10 +200,11 @@ export function createBackgroundSettings(React,{background,onThemeChange}={}){
         state.recent.length?h('div',{className:'dcb-background-gallery'},state.recent.slice(0,limit).map(item=>h('div',{key:item.revision,className:'dcb-background-gallery-entry','data-selected':value.backgroundRevision===item.revision},
           h('button',{type:'button',className:'dcb-background-gallery-item','aria-label':`使用背景：${item.name}`,'aria-pressed':value.backgroundRevision===item.revision,disabled:busy,title:item.name,onClick:()=>run(async()=>select(await background.select(item.revision)))},
             h('span',{className:'dcb-background-gallery-picture'},item.preview?h('img',{src:item.preview,alt:'',loading:'lazy',decoding:'async'}):icon('image'),h('span',{className:'dcb-background-gallery-kind'},item.kind==='html'?'HTML':item.kind==='video'?'视频':'图片'),value.backgroundRevision===item.revision&&h('span',{className:'dcb-background-gallery-check','aria-hidden':true},'✓'))),
-          editing?.revision===item.revision?h('form',{className:'dcb-background-rename','aria-label':'重命名背景','aria-busy':busy,onSubmit:event=>{event.preventDefault();if(!busy)rename()}},
+          h('div',{className:'dcb-background-gallery-footer'},editing?.revision===item.revision?h('form',{className:'dcb-background-rename','aria-label':'重命名背景','aria-busy':busy,onSubmit:event=>{event.preventDefault();if(!busy)rename()}},
             h('input',{ref:renameInput,'aria-label':'背景名称',value:editing.name,maxLength:160,disabled:busy,onChange:event=>setEditing({...editing,name:event.target.value}),onKeyDown:event=>{if(event.key==='Escape'&&!busy){event.preventDefault();setEditing(null)}if(event.key==='Enter'&&event.nativeEvent.isComposing)event.preventDefault()}}),
             h('div',{className:'dcb-background-rename-actions'},h('button',{type:'button','aria-label':'取消',title:'取消修改',disabled:busy,onClick:()=>setEditing(null)},icon('cancel')),h('button',{type:'submit','aria-label':'保存',title:busy?'保存中…':'保存名称',disabled:busy||!editing.name.trim()},icon('save'))))
-          :h('button',{type:'button',className:'dcb-background-gallery-name-row',ref:node=>node?renameButtons.current.set(item.revision,node):renameButtons.current.delete(item.revision),'aria-label':`重命名背景：${item.name}`,title:'点击修改名称',disabled:busy,onClick:()=>startRename(item)},h('span',{className:'dcb-background-gallery-name'},item.name),icon('edit')))))
+          :h('button',{type:'button',className:'dcb-background-gallery-name-row',ref:node=>node?renameButtons.current.set(item.revision,node):renameButtons.current.delete(item.revision),'aria-label':`重命名背景：${item.name}`,title:'点击修改名称',disabled:busy,onClick:()=>startRename(item)},h('span',{className:'dcb-background-gallery-name'},item.name),icon('edit')),
+          editing?.revision!==item.revision&&h(PresetDelete,{name:item.name,kind:'背景预设',disabled:busy,description:'将删除这份本机背景文件；使用它的日间或夜间背景会关闭，其他背景保留。',onConfirm:async()=>{setBusy(true);try{await background.remove(item.revision);if(mounted.current&&editing?.revision===item.revision)setEditing(null)}finally{if(mounted.current)setBusy(false)}}})))))
           :h('div',{className:'dcb-background-library-empty'},icon('image'),h('span',null,'上传的图片、视频和 HTML 会留在这里；点击名称可重命名。')),
         state.recent.length>0&&h('p',{className:'dcb-settings-footnote'},'点击名称或铅笔图标可重命名，仅修改本机显示名称。'),
         state.recent.length>limit&&h('button',{className:'dcb-background-gallery-more',type:'button',onClick:()=>setLimit(value=>value+12)},'显示更多')),

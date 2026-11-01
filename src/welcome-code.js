@@ -90,6 +90,21 @@ export function createWelcomeCodeStore(win,{references=()=>[]}={}){
       }
       return old
     }),
+    async removeHistory(revision){
+      let removed=[]
+      await run('readwrite',store=>{
+        const read=store.getAll()
+        read.onsuccess=()=>{
+          const source=read.result.find(item=>item?.revision===revision&&item.source)?.source
+          removed=[...new Set([revision,...read.result.filter(item=>source&&item?.source===source).map(item=>item.revision)].filter(Boolean))]
+          for(const key of removed)store.delete('asset:'+key)
+          const current=store.get(KEY)
+          current.onsuccess=()=>{if(removed.includes(current.result?.revision))store.delete(KEY)}
+        }
+        return read
+      })
+      return removed
+    },
     remove:(revision,keep=[])=>run('readwrite',store=>{
       const read=store.get(KEY)
       read.onsuccess=()=>{const target=revision||read.result?.revision;if(target&&!keep.includes(target))store.delete('asset:'+target);if(read.result?.revision===target&&!keep.includes(target))store.delete(KEY)}

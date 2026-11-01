@@ -116,6 +116,7 @@ export function createBackgroundStore(win){
     read:revision=>transact(null,revision),replace:asset=>transact((old,assets)=>{assets.put(asset,asset.revision);return{...old,currentId:asset.revision,previousId:old.currentId,recent:[metadata(asset),...old.recent.filter(item=>item.revision!==asset.revision)]}}),
     select:revision=>transact(old=>{if(!old.recent.some(item=>item.revision===revision))throw Error('背景已不存在');return{...old,currentId:revision,previousId:old.currentId===revision?old.previousId:old.currentId}}),
     rename(revision,value){const name=renamed(value);return transact(old=>{if(!old.recent.some(item=>item.revision===revision))throw Error('背景已不存在');return{...old,recent:old.recent.map(item=>item.revision===revision?{...item,name}:item)}},revision)},
+    remove:revision=>transact((old,assets)=>{assets.delete(revision);return{...old,currentId:old.currentId===revision?'':old.currentId,previousId:old.previousId===revision?'':old.previousId,recent:old.recent.filter(item=>item.revision!==revision)}}),
     restore:()=>transact(old=>old.previousId?{...old,currentId:old.previousId,previousId:old.currentId}:old),
     clear:()=>transact(old=>({...old,currentId:'',previousId:''})),
     dispose(){disposed=true;database?.close();database=null},

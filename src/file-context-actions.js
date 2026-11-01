@@ -7,6 +7,24 @@ export async function copyFileToClipboard(win,path){
  return '已复制文件，可直接粘贴。'
 }
 
+async function fileOperation(win,route,body,failure){
+ let response
+ try{response=await win.fetch(route,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}catch{throw Error('无法连接文件操作服务，请重启 DSH 后重试。')}
+ if(response.status===404||response.status===503)throw Error('请重启 DSH 以载入文件操作服务，再重试。')
+ let result;try{result=await response.json()}catch{throw Error('文件操作服务响应异常，请重启 DSH 后重试。')}
+ if(!response.ok||result?.ok!==true)throw Error(result?.message||failure)
+ return result
+}
+
+export async function renameFile(win,path,name){
+ const result=await fileOperation(win,'/dsh-ui-beautify/rename-file',{path,name},'重命名失败，请重试。')
+ return typeof result.path==='string'?result.path:path
+}
+
+export async function recycleFile(win,path){
+ await fileOperation(win,'/dsh-ui-beautify/delete-file',{path},'删除失败，请重试。')
+}
+
 export async function fileApplications(api,path){
  if(typeof api?.workspacePathApplications!=='function'||typeof api?.openWorkspacePath!=='function')throw Error('当前宿主不支持打开方式，请升级 DSH 后重试。')
  const result=await api.workspacePathApplications({path})

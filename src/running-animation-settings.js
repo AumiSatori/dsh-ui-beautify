@@ -1,8 +1,11 @@
 import {RUNNING_BUILTIN,runningLabelLines,RUNNING_LABEL_LIMIT} from './running-animation-config.js'
 import {createRunningPlayer} from './running-animation.js'
 import {motion} from './motion.js'
+import {createPresetDelete,presetDeleteCss} from './preset-delete.js'
 import exampleZip from '../assets/running-example.zip'
 export const runningSettingsCss=`
+ ${presetDeleteCss}
+ .dcb-running-pack { display:flex; flex-wrap:wrap; align-items:center; gap:6px; min-width:0; padding:4px; border:1px solid var(--dsh-settings-border); border-radius:12px; }
  .dcb-running-buttons { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0; }
  .dcb-running-buttons button,.dcb-running-download,.dcb-running-choice,.dcb-running-preview-button { min-height:44px; padding:8px 12px; border:1px solid var(--dsh-settings-border); border-radius:10px; background:var(--dsh-settings-subtle); color:var(--dsh-settings-text); font:500 12px/20px system-ui; cursor:pointer; transition:background-color 180ms ${motion.ease.color},border-color 220ms ${motion.ease.color},transform 220ms ${motion.ease.snappy}; }
  .dcb-running-download { box-sizing:border-box; display:inline-flex; align-items:center; text-decoration:none; }
@@ -34,7 +37,7 @@ export const runningSettingsCss=`
  @media(forced-colors:active) { .dcb-running-choice[aria-checked=true]::after { background:Highlight; box-shadow:none; } .dcb-running-item[data-selected=true] { border:2px solid Highlight; } .dcb-running-buttons button[aria-pressed=true] { outline:2px solid Highlight; } }
 `
 export function createRunningSettings(React,doc,win,catalog){
- const h=React.createElement
+ const h=React.createElement,PresetDelete=createPresetDelete(React)
  function Thumbnail({pack,action}){
   const root=React.useRef(null)
   React.useEffect(()=>{
@@ -70,17 +73,17 @@ export function createRunningSettings(React,doc,win,catalog){
   const toggle=(label,key)=>h('button',{type:'button',className:'dcb-switch',role:'switch','aria-label':label,'aria-checked':value[key],onClick:()=>onChange({[key]:!value[key]})})
   const choosePack=id=>{setPreview('');onChange({runningAnimationPack:id,runningAnimationActions:null})}
   async function upload(files){if(busy||!files)return;setBusy(true);setError('');try{const added=await catalog.importPack(files);if(mounted.current)choosePack(added.id)}catch(error){if(mounted.current)setError(error.message||'动图包导入失败')}finally{if(mounted.current)setBusy(false)}}
-  async function remove(){if(!pack||pack.builtin||busy)return;setBusy(true);setError('');try{await catalog.removePack(pack.id);if(mounted.current)choosePack(RUNNING_BUILTIN)}catch(error){if(mounted.current)setError(error.message)}finally{if(mounted.current)setBusy(false)}}
+  async function remove(item){if(!item||item.builtin||busy)return;setBusy(true);setError('');try{await catalog.removePack(item.id);if(value.runningAnimationPack===item.id){if(mounted.current)setPreview('');onChange({runningAnimationPack:RUNNING_BUILTIN,runningAnimationActions:null})}}finally{if(mounted.current)setBusy(false)}}
   const number=(label,key,min,max)=>h('input',{className:'dcb-running-number',type:'number',min,max,step:1,'aria-label':label,value:value[key],onChange:event=>{if(event.target.value!=='')onChange({[key]:Math.max(min,Math.min(max,Number(event.target.value)))})}})
   const labelBox=(label,key)=>h('textarea',{className:'dcb-running-label',rows:2,maxLength:RUNNING_LABEL_LIMIT.chars,'aria-label':label,placeholder:'深度求索中…',value:value[key],onChange:event=>onChange({[key]:event.target.value})})
   return h('section',{className:'dcb-settings-block dcb-settings-card','data-dcb-settings-block':'running'},
    h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'思考动图'),h('p',null,'为“深度求索中”挑选动作，也可以导入自己的动图包。'))),
    row('思考动图','关闭恢复宿主原来的图标；已导入的动图包和选择会保留。',toggle('思考动图','runningAnimationEnabled')),
    row('随机动作','每次新的思考随机选择已勾选动作，避免连续重复。关闭后使用勾选列表中的第一个动作。',toggle('随机动作','runningAnimationRandom')),
-   h('div',{className:'dcb-running-buttons','aria-label':'动图包'},state.packs.map(item=>h('button',{key:item.id,type:'button','aria-pressed':pack?.id===item.id,onClick:()=>choosePack(item.id)},item.builtin?'默认 · 鲸鱼娘':item.name))),
+   h('div',{className:'dcb-running-buttons','aria-label':'动图包'},state.packs.map(item=>h('div',{key:item.id,className:'dcb-running-pack'},h('button',{type:'button',disabled:busy,'aria-pressed':pack?.id===item.id,onClick:()=>choosePack(item.id)},item.builtin?'默认 · 鲸鱼娘':item.name),!item.builtin&&h(PresetDelete,{name:item.name,kind:'动图包',disabled:busy,description:'将删除这份动图包及其动作素材；若正在使用，将切回默认鲸鱼娘。',onConfirm:()=>remove(item)})))),
    h('div',{className:'dcb-running-drop',onDragOver:event=>event.preventDefault(),onDrop:event=>{event.preventDefault();const files=event.dataTransfer.files;if(files.length===1&&/\.zip$/i.test(files[0].name))void upload(files[0]);else if(files.length)void upload(files)}},
     h('p',null,'把 ZIP 动图包拖到这里，或导入一个文件夹。普通 GIF / APNG / WebP 可直接打包；精灵图需附 manifest.json。'),
-    h('div',{className:'dcb-running-buttons'},h('button',{type:'button',disabled:busy,onClick:()=>input.current.click()},busy?'正在导入…':'导入 ZIP 动图包'),h('button',{type:'button',disabled:busy,onClick:()=>folder.current.click()},'导入文件夹'),h('a',{className:'dcb-running-download',href:exampleZip,download:'dsh-running-pack-example.zip'},'下载格式示例 ZIP'),pack&&!pack.builtin&&h('button',{type:'button',disabled:busy,onClick:remove},'删除当前动图包')),
+    h('div',{className:'dcb-running-buttons'},h('button',{type:'button',disabled:busy,onClick:()=>input.current.click()},busy?'正在导入…':'导入 ZIP 动图包'),h('button',{type:'button',disabled:busy,onClick:()=>folder.current.click()},'导入文件夹'),h('a',{className:'dcb-running-download',href:exampleZip,download:'dsh-running-pack-example.zip'},'下载格式示例 ZIP')),
     h('p',null,'示例包含 manifest.json、可播放的精灵图和中文制作说明，可直接导入试用，也可解压后替换素材。'),
     h('input',{ref:input,type:'file',accept:'.zip',hidden:true,'aria-label':'选择动图 ZIP',onChange:event=>{const file=event.target.files[0];event.target.value='';void upload(file)}}),h('input',{ref:folder,type:'file',webkitdirectory:'',multiple:true,hidden:true,'aria-label':'选择动图文件夹',onChange:event=>{const files=Array.from(event.target.files);event.target.value='';void upload(files)}})),
    (error||state.error)&&h('p',{className:'dcb-running-error',role:'status'},error||state.error),state.loading&&h('p',{role:'status'},'正在读取动图包…'),

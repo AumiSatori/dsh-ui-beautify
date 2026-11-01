@@ -31,6 +31,7 @@ export function normalizeStreamReveal(value){
   return {
     streamReveal:value?.streamReveal!==false,
     streamRevealStrength:STRENGTHS.includes(value?.streamRevealStrength)?value.streamRevealStrength:'soft',
+    streamRevealPipeline:value?.streamRevealPipeline==='legacy'?'legacy':'optimized',
   }
 }
 
@@ -48,7 +49,9 @@ export function createStreamReveal(doc,win,options={}){
   const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
   const supported=typeof win.Highlight==='function'&&!!win.CSS?.highlights
   const states=new WeakMap(),flows=new WeakMap(),live=new Set(),levels=[]
-  let wanted=true,enabled=false,strength='soft',profile=PROFILES.soft,frame=0,last=0,watchdog=0,observer=null,style=null,disposed=false
+  let wanted=true,enabled=false,strength='soft',pipeline='optimized',profile=PROFILES.soft,frame=0,last=0,watchdog=0,observer=null,style=null,disposed=false
+  const segmenter=typeof win.Intl?.Segmenter==='function'?new win.Intl.Segmenter(undefined,{granularity:'grapheme'}):null
+  const optimized=()=>pipeline==='optimized'
   const now=()=>win.performance.now()
 
   function rootOf(node){
@@ -99,12 +102,15 @@ export function createStreamReveal(doc,win,options={}){
     }
     return null
   }
-  function resolve(state){
+  function resolve(state,selected=null){
     if(state.hold)state.hold.end=state.length
     const items=state.hold?[...state.pieces,state.hold]:state.pieces
     const first=items.reduce((value,piece)=>Math.min(value,piece.start),Infinity)
-    const nodes=first===Infinity?[]:tail(state.root,first,state.length)
-    for(const piece of items){
+    // A paint-only frame reuses the measured text tail. React mutations mark
+    // it dirty, and re-anchor all live ranges exactly once in the observer.
+    const nodes=optimized()&&!state.dirty&&state.nodes?state.nodes:first===Infinity?[]:tail(state.root,first,state.length)
+    if(optimized()){state.nodes=nodes;state.dirty=false}
+    for(const piece of selected||items){
       levels[piece.level]?.delete(piece.range)
       const start=place(nodes,piece.start,false),end=place(nodes,piece.end,true)
       if(!start||!end||piece.end>state.length){piece.done=true;continue}
@@ -114,11 +120,11 @@ export function createStreamReveal(doc,win,options={}){
     }
     state.pieces=state.pieces.filter(piece=>!piece.done)
     if(state.hold?.done)state.hold=null
-    if(!state.pieces.length&&!state.hold)live.delete(state)
+    if(!state.pieces.length&&!state.hold)finish(state)
   }
   // Arrived text joins the hidden backlog that the typing clock drains.
   function grow(state,from,to){
-    if(to-from>MAX_CHUNK&&!state.hold){finish(state);return}
+    if(to-from>MAX_CHUNK&&!state.hold||optimized()&&to-(state.hold?.start??from)>MAX_CHUNK){finish(state);return}
     if(!state.hold)state.hold={start:from,end:to,level:0,range:new win.Range()}
     state.hold.end=to
     live.add(state)
@@ -126,7 +132,7 @@ export function createStreamReveal(doc,win,options={}){
   function finish(state){
     for(const piece of state.pieces)levels[piece.level]?.delete(piece.range)
     if(state.hold)levels[0]?.delete(state.hold.range)
-    state.pieces=[];state.hold=null;state.carry=0;live.delete(state)
+    state.pieces=[];state.hold=null;state.carry=0;state.nodes=null;state.text=null;state.rate=0;live.delete(state)
   }
   function animate(){
     if(live.size&&!frame){last=0;frame=win.requestAnimationFrame(tick)}
@@ -154,7 +160,7 @@ export function createStreamReveal(doc,win,options={}){
     }
     if(!roots.size)return
     for(const root of roots){
-      const length=root.textContent.length
+      const text=root.textContent,length=text.length
       let state=states.get(root)
       // First sight records history or a session switch without replaying it;
       // the settings preview starts empty and animates from its first token.
@@ -164,7 +170,10 @@ export function createStreamReveal(doc,win,options={}){
       }
       const previous=state.length
       state.length=length
+      state.dirty=true
+      if(optimized())state.text=text
       if(!visible)finish(state)
+      else if(length<previous)finish(state)
       else if(length>previous)grow(state,previous,length)
       if(state.pieces.length||state.hold)resolve(state)
     }
@@ -188,15 +197,32 @@ export function createStreamReveal(doc,win,options={}){
       const hold=state.hold
       if(hold){
         const backlog=hold.end-hold.start
-        state.carry=(state.carry||0)+Math.min(MAX_RATE,Math.max(MIN_RATE,backlog/profile.lag))*dt
-        const count=Math.min(backlog,Math.floor(state.carry))
+        // A queue pressure curve keeps short arrivals moving without the old
+        // 40-character/s floor. Extra catch-up bounds the invisible tail; the
+        // native Markdown layout is never delayed or held behind this queue.
+        const target=optimized()
+          ?Math.min(MAX_RATE,Math.max(.09+Math.pow(backlog,1.25)*.00085,backlog/(profile.lag*2),(backlog-96)/180))
+          :Math.min(MAX_RATE,Math.max(MIN_RATE,backlog/profile.lag))
+        if(optimized()){
+          state.rate=(state.rate||.09)+(target-(state.rate||.09))*(1-Math.exp(-dt/80))
+          state.carry=(state.carry||0)+state.rate*dt
+        }else state.carry=(state.carry||0)+target*dt
+        let count=Math.min(backlog,Math.floor(state.carry))
+        if(optimized()&&count>0&&count<backlog){
+          const pending=(state.text||'').slice(hold.start)
+          let boundary=0
+          if(segmenter){for(const entry of segmenter.segment(pending)){const end=entry.index+entry.segment.length;if(end>count)break;boundary=end}}
+          else{for(const char of pending){if(boundary+char.length>count)break;boundary+=char.length}}
+          count=boundary
+        }
         if(count>0){
           state.carry-=count
-          state.pieces.push({start:hold.start,end:hold.start+count,born:time,level:0,range:new win.Range()})
+          const piece={start:hold.start,end:hold.start+count,born:time,level:0,range:new win.Range()}
+          state.pieces.push(piece)
           hold.start+=count
-          while(state.pieces.length>MAX_PIECES)state.pieces.shift().done=true
+          while(state.pieces.length>MAX_PIECES){const removed=state.pieces.shift();levels[removed.level]?.delete(removed.range)}
           if(hold.start>=hold.end){levels[0].delete(hold.range);state.hold=null;state.carry=0}
-          resolve(state)
+          resolve(state,optimized()?[piece,...(state.hold?[state.hold]:[])]:null)
         }
       }
       for(const piece of state.pieces){
@@ -207,7 +233,7 @@ export function createStreamReveal(doc,win,options={}){
         else{levels[level].add(piece.range);piece.level=level}
       }
       state.pieces=state.pieces.filter(piece=>!piece.done)
-      if(!state.pieces.length&&!state.hold)live.delete(state)
+      if(!state.pieces.length&&!state.hold)finish(state)
     }
     if(live.size){frame=win.requestAnimationFrame(tick);arm()}
     else{win.clearTimeout(watchdog);watchdog=0;last=0}
@@ -240,7 +266,9 @@ export function createStreamReveal(doc,win,options={}){
     enabled?start():stop()
   }
   function setOptions(value){
-    ({streamReveal:wanted,streamRevealStrength:strength}=normalizeStreamReveal(value))
+    const next=normalizeStreamReveal(value)
+    if(next.streamRevealPipeline!==pipeline)clearAll()
+    ({streamReveal:wanted,streamRevealStrength:strength,streamRevealPipeline:pipeline}=next)
     profile=PROFILES[strength]
     sync()
   }
@@ -264,16 +292,16 @@ export const streamRevealSettingsCss=`
   .dcb-stream-reveal .dcb-welcome-speeds { margin-top:0; }
 `
 
-const SAMPLE=[...[...'新回答会以平滑的节奏逐字淡入，不再一顿一顿地跳出来；'.matchAll(/.{1,3}/gu)].map(match=>match[0]),'模型一口气吐出一大段时，也会均匀地打出来，已经输出的内容随之平滑上移，回答结束后不留下任何常驻动画。']
+const SAMPLE=[...[...'新回答会以平滑的节奏逐字淡入，不再一顿一顿地跳出来；'.matchAll(/.{1,3}/gu)].map(match=>match[0]),'模型一口气吐出一大段时，也会逐步追上。表情 👩🏽‍💻 和组合字符 é 一起显示，回答结束后不留下常驻动画。']
 
 export function createStreamRevealSettings(React,win=globalThis.window){
   const h=React.createElement
   const choices=[['soft','轻柔'],['standard','标准'],['vivid','明显']]
-  function Preview({enabled,strength}){
+  function Preview({enabled,strength,pipeline}){
     const text=React.useRef(null),timer=React.useRef(0)
     const stop=()=>{win.clearTimeout(timer.current);timer.current=0}
     React.useEffect(()=>stop,[])
-    React.useEffect(()=>{stop();if(text.current)text.current.textContent=''},[enabled,strength])
+    React.useEffect(()=>{stop();if(text.current)text.current.textContent=''},[enabled,strength,pipeline])
     const play=()=>{
       stop()
       const node=text.current
@@ -283,17 +311,17 @@ export function createStreamRevealSettings(React,win=globalThis.window){
       const next=()=>{
         if(!node.isConnected||index>=SAMPLE.length){timer.current=0;return}
         node.append(SAMPLE[index++])
-        timer.current=win.setTimeout(next,index===SAMPLE.length-1?700:60+Math.random()*60)
+        timer.current=win.setTimeout(next,index===SAMPLE.length-1?700:90)
       }
       next()
     }
     return h('div',{className:'dcb-stream-demo'},
-      h('div',{className:'dcb-stream-demo-head'},h('small',null,'仅预览，不发送消息'),
+      h('div',{className:'dcb-stream-demo-head'},h('small',null,`${pipeline==='optimized'?'连续流式':'原有效果'} · 仅预览文字`),
         h('button',{type:'button',className:'dcb-count-button',onClick:play,disabled:!enabled,'aria-label':'播放流式文字预览'},'↻ 播放预览')),
       h('p',{ref:text,'data-dcb-stream-demo':'','aria-live':'off'}))
   }
   return function StreamRevealSettings({value,onChange}){
-    const {streamReveal,streamRevealStrength}=normalizeStreamReveal(value)
+    const {streamReveal,streamRevealStrength,streamRevealPipeline}=normalizeStreamReveal(value)
     const chosen=choices.findIndex(([id])=>id===streamRevealStrength)
     return h('div',{className:'dcb-stream-reveal'},
       h('div',{className:'dcb-settings-row'},
@@ -303,6 +331,10 @@ export function createStreamRevealSettings(React,win=globalThis.window){
       h('div',{className:'dcb-welcome-speeds',role:'radiogroup','aria-label':'渐显强度'},choices.map(([id,name],index)=>h('button',{key:id,type:'button',role:'radio','aria-checked':streamRevealStrength===id,tabIndex:index===chosen?0:-1,disabled:!streamReveal,
         onClick:()=>onChange({streamRevealStrength:id}),
         onKeyDown:event=>{const size=choices.length,at={ArrowRight:(index+1)%size,ArrowDown:(index+1)%size,ArrowLeft:(index+size-1)%size,ArrowUp:(index+size-1)%size,Home:0,End:size-1}[event.key];if(at!==undefined){event.preventDefault();onChange({streamRevealStrength:choices[at][0]});event.currentTarget.parentElement.children[at].focus()}}},name))),
-      h(Preview,{enabled:streamReveal,strength:streamRevealStrength}))
+      h('div',{className:'dcb-settings-row'},
+        h('div',{className:'dcb-settings-copy'},h('span',{className:'dcb-settings-row-title'},'连续流式优化'),
+          h('p',{className:'dcb-settings-row-desc'},'提高短句跟进速度，让长回答连续上移。关闭可对照原有效果；滚动效果在回答超过一屏并跟随底部时呈现。')),
+        h('button',{type:'button',role:'switch',className:'dcb-switch','aria-label':'连续流式优化','aria-checked':streamRevealPipeline==='optimized',disabled:!streamReveal,onClick:()=>onChange({streamRevealPipeline:streamRevealPipeline==='optimized'?'legacy':'optimized'})})),
+      h(Preview,{enabled:streamReveal,strength:streamRevealStrength,pipeline:streamRevealPipeline}))
   }
 }

@@ -4,12 +4,14 @@ import {motion} from './motion.js'
 import {inspectWelcomeMedia,createWelcomeMediaPlayer,welcomeMediaCss} from './welcome-media.js'
 import {createWelcomeCodePlayer,inspectWelcomeCode,inspectWelcomeCodeFile,welcomeCodeExample} from './welcome-code.js'
 import {createCharacterWelcomeArt,playCharacterWelcome} from './welcome-characters.js'
-import {themeWelcome} from './welcome-theme.js'
+import {themeWelcome,removeWelcomeCodeReferences} from './welcome-theme.js'
+import {createPresetDelete,presetDeleteCss} from './preset-delete.js'
 import {themeAssignments,themeAssignmentsCss} from './theme-assignments.js'
 import {mountWelcomeGesture,welcomeGestureCss,welcomeGestureDocument} from './welcome-gesture.js'
 import {welcomeCodeMode} from './welcome-code-modes.js'
 
 export const welcomeSettingsCss=`
+  ${presetDeleteCss}
   ${welcomeMediaCss}
   ${themeAssignmentsCss}
   ${welcomeGestureCss}
@@ -51,6 +53,9 @@ export const welcomeSettingsCss=`
   .dcb-welcome-history-heading strong { font-size:13px; }
   .dcb-welcome-history-heading small { color:var(--dsh-settings-secondary); font-size:11px; }
   .dcb-welcome-history-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:8px; }
+  .dcb-welcome-history-entry { display:grid; grid-template-columns:minmax(0,1fr) 44px; align-content:start; gap:6px 0; min-width:0; }
+  .dcb-welcome-history-entry > .dcb-welcome-history-item { grid-area:1/1/2/-1; width:100%; padding-inline-end:48px; }
+  .dcb-welcome-history-entry > .dcb-delete-control > .dcb-delete-button { grid-area:1/2; align-self:center; justify-self:end; margin-inline-end:3px; z-index:1; }
   .dcb-welcome-history-item { display:grid; grid-template-columns:54px minmax(0,1fr); align-items:center; gap:10px; min-width:0; min-height:70px; padding:8px; border:1px solid var(--dsh-settings-border); border-radius:10px; background:var(--dsh-settings-surface); color:var(--dsh-settings-text); text-align:left; cursor:pointer; font:inherit; transition:transform 220ms ${motion.ease.snappy},border-color 180ms ${motion.ease.color},background-color 180ms ${motion.ease.color},box-shadow 180ms ${motion.ease.color}; }
   .dcb-welcome-history-item:hover { transform:translateY(-2px); border-color:var(--dsh-settings-text); box-shadow:0 5px 14px #0000000b; }
   .dcb-welcome-history-item:active { transform:scale(.98); }
@@ -92,7 +97,7 @@ export const welcomeSettingsCss=`
 `
 
 export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLogo,onThemeChange}={}){
-  const h=React.createElement
+  const h=React.createElement,PresetDelete=createPresetDelete(React)
   function GestureRecorder({onPattern}){
     const seat=React.useRef(null),callback=React.useRef(onPattern);callback.current=onPattern
     React.useEffect(()=>{const gesture=mountWelcomeGesture(doc,win,{setup:true,onPattern:pattern=>callback.current(pattern)});seat.current.append(gesture.node);return()=>gesture.dispose()},[])
@@ -226,7 +231,7 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
       if(busy)return
       setBusy(true);stop();setPlaying(false)
       const keep=value.welcomeThemes?Object.entries(value.welcomeThemes).filter(([key])=>key!==theme).map(([,item])=>item.welcomeMediaRevision):[value.welcomeMediaRevision]
-      try{await mediaStore.remove(value.welcomeMediaRevision,keep);if(mounted.current){if(activeTheme.current===theme)setAsset(null);onChange({welcomeMode:'characters',welcomeMediaRevision:''},theme);setError('')}}catch(error){if(mounted.current)setError(error.message)}finally{if(mounted.current)setBusy(false)}
+      try{await mediaStore.remove(value.welcomeMediaRevision,keep);onChange({welcomeMode:'characters',welcomeMediaRevision:''},theme);if(mounted.current){if(activeTheme.current===theme)setAsset(null);setError('')}}catch(error){if(mounted.current)setError(error.message);throw error}finally{if(mounted.current)setBusy(false)}
     }
     const applyCode=async()=>{
       if(busy)return
@@ -256,6 +261,18 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
         refreshHistory()
       }catch(error){if(mounted.current)setError(error.message||'本机开屏切换失败')}
       finally{if(mounted.current)setBusy(false)}
+    }
+    const deleteHistory=async item=>{
+      if(busy)return
+      setBusy(true);setError('');stop();setPlaying(false)
+      try{
+        const removed=await codeStore.removeHistory(item.revision)
+        // Keep edits as an unsaved draft, while clearing every saved reference.
+        for(const [key,draft] of drafts.current)if(removed.includes(draft.revision))drafts.current.set(key,{...draft,revision:''})
+        onChange(removeWelcomeCodeReferences(latest.current,removed,activeTheme.current))
+        if(!mounted.current)return
+        await refreshHistory()
+      }finally{if(mounted.current)setBusy(false)}
     }
     const importCode=async file=>{
       if(!file||busy)return
@@ -294,9 +311,10 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
           h('section',{className:'dcb-welcome-history','aria-label':'本机开屏历史'},
             h('div',{className:'dcb-welcome-history-heading'},h('strong',null,'本机开屏历史'),h('small',null,'仅保存在本机 · 点击即可切换')),
             history.length?h('div',{className:'dcb-welcome-history-list'},history.map(item=>{
-              return h('button',{key:item.revision,type:'button',className:'dcb-welcome-history-item','data-selected':value.welcomeCodeRevision===item.revision,disabled:busy,'aria-label':`使用本机开屏：${item.name}`,onClick:()=>activateHistory(item)},
+              return h('div',{key:item.revision,className:'dcb-welcome-history-entry'},h('button',{type:'button',className:'dcb-welcome-history-item','data-selected':value.welcomeCodeRevision===item.revision,disabled:busy,'aria-label':`使用本机开屏：${item.name}`,onClick:()=>activateHistory(item)},
                 h('span',{className:'dcb-welcome-history-icon','aria-hidden':true},h('span',{style:{fontSize:'20px'}},'◌')),
-                h('span',{className:'dcb-welcome-history-copy'},h('span',{className:'dcb-welcome-history-name'},item.name),h('span',{className:'dcb-welcome-history-meta'},item.localOnly?'本机预设 · 快速切换':'本机保存 · 当前代码')))
+                h('span',{className:'dcb-welcome-history-copy'},h('span',{className:'dcb-welcome-history-name'},item.name),h('span',{className:'dcb-welcome-history-meta'},item.localOnly?'本机预设 · 快速切换':'本机保存 · 当前代码'))),
+                h(PresetDelete,{name:item.name,kind:'开屏预设',disabled:busy,description:'将从本机开屏历史中删除这份代码及其重复记录；使用它的日间或夜间开屏会恢复默认 Logo，编辑草稿保留。',onConfirm:()=>deleteHistory(item)}))
             })):h('p',{className:'dcb-welcome-history-empty'},'保存过的代码开屏会出现在这里；点击即可快速切换。')),
           h('input',{ref:codeInput,type:'file',hidden:true,accept:'.html,.htm,.css,.js','aria-label':'导入开屏代码文件',onChange:event=>{const file=event.target.files?.[0];event.target.value='';importCode(file)}}),
           h('div',{className:'dcb-welcome-code-actions'},
@@ -320,7 +338,7 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
           h('p',null,'支持 GIF、APNG、WebP、MP4、WebM；最多 20MB，视频不超过 15 秒。建议 1080p 以下、2–5 秒。'),
           h('input',{ref:fileInput,type:'file',hidden:true,accept:'.gif,.png,.apng,.webp,.mp4,.webm','aria-label':'上传开屏素材',onChange:event=>upload(event.target.files?.[0])}),
           h('div',{className:'dcb-welcome-upload-actions'},h('button',{type:'button',className:'dcb-welcome-play',disabled:busy,onClick:()=>fileInput.current?.click()},busy?'正在检查素材…':asset?'更换开屏素材':'上传开屏素材'),
-            asset&&h('button',{type:'button',className:'dcb-welcome-play',disabled:busy,onClick:remove},'移除素材'))),
+            asset&&h(PresetDelete,{key:asset.revision,name:asset.name,kind:'开屏素材',label:'删除素材',disabled:busy,description:'当前主题将恢复默认 Logo；其他主题仍在使用的素材会保留。',onConfirm:remove}))),
         h('div',{className:'dcb-settings-section-title'},'画面适配'),choices('画面适配',[['contain','完整显示'],['cover','铺满裁切']],value.welcomeMediaFit,welcomeMediaFit=>onChange({welcomeMediaFit})),
         h('div',{className:'dcb-settings-section-title'},'动图显示时长'),choices('动图显示时长',[[2000,'2 秒'],[3000,'3 秒'],[5000,'5 秒']],value.welcomeMediaDuration,welcomeMediaDuration=>onChange({welcomeMediaDuration})),
         h('p',null,'短视频静音播放一次后进入主界面；动图按所选时长退场。文件只保存在本机，可随时移除。'))),

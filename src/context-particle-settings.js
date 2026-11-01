@@ -1,7 +1,9 @@
 import whaleImage from '../assets/context-whale.jpg'
 import {PARTICLE_COUNTS,particleConversion} from './context-particle-config.js'
+import {createPresetDelete,presetDeleteCss} from './preset-delete.js'
 
 export const particleSettingsCss=`
+  ${presetDeleteCss}
   .dcb-particle-options { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:14px 0; }
   .dcb-particle-option { display:flex; flex-direction:column; align-items:center; gap:7px; min-width:0; padding:14px 8px; border:1px solid #8884; border-radius:10px; background:transparent; color:var(--dsh-settings-text); font:12px/20px system-ui; cursor:pointer; transition:background-color 220ms ease,border-color 220ms ease,transform 240ms cubic-bezier(.22,.8,.26,1); }
   .dcb-particle-option[aria-checked=true] { border-color:#888a; background:#8881; }
@@ -56,7 +58,7 @@ export const particleSettingsCss=`
 `
 
 export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
-  const h=React.createElement
+  const h=React.createElement,PresetDelete=createPresetDelete(React)
   function ImagePreview({revision,count}){
     const root=React.useRef(null),handle=React.useRef(null),[error,setError]=React.useState('')
     React.useEffect(()=>{setError('');handle.current=particles.previewImage(root.current,revision,count,setError);return()=>{handle.current?.dispose();handle.current=null}},[revision])
@@ -105,6 +107,13 @@ export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
       catch(e){if(mounted.current&&token===sequence.current)setError(e.message||'素材导入失败，原图形已保留')}
       finally{if(mounted.current&&token===sequence.current)setBusy(false)}
     }
+    const removeArtwork=async image=>{
+      setBusy(true);setError('')
+      try{
+        await (image?particles.clearImage():particles.clearSVG())
+        onChange(image?{particleShape:value.particleShape==='image'?'logo':value.particleShape,particleImageRevision:'',particleImageName:''}:{particleShape:value.particleShape==='custom'?'logo':value.particleShape,particleSvgRevision:'',particleSvgName:''})
+      }finally{if(mounted.current)setBusy(false)}
+    }
     return h('section',{className:'dcb-settings-block dcb-settings-card','data-dcb-settings-block':'particles'},
       h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'会话粒子背景'),h('p',null,'粒子从散开逐渐汇聚成所选图形；可随上下文占用自动变化，也可手动调整。'))),
       row('会话粒子背景','在聊天背景中显示粒子，默认图形为 DeepSeek Logo；关闭后停止绘制。',h('button',{type:'button',role:'switch',className:'dcb-switch','aria-label':'会话粒子背景','aria-checked':value.particleEnabled,onClick:()=>onChange({particleEnabled:!value.particleEnabled})})),
@@ -131,12 +140,12 @@ export function createParticleSettings(React,doc,win,{particles,FishLogo}={}){
         h('p',null,'推荐透明背景、单一主体、轮廓清晰、明暗对比强的图片。彩色底图、低对比渐变、复杂背景和细小文字更容易丢失细节。'),
         h('p',null,'优先保留线条与局部细节，不固定假定人脸位置。只自动略去边缘相连的近白色背景；彩色背景需要先处理为透明。'),
         h('input',{ref:imageInput,type:'file','aria-label':'粒子图片文件',accept:'.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp',hidden:true,onChange:e=>{const file=e.target.files?.[0];e.target.value='';upload(file,true)}}),
-        h('div',{className:'dcb-particle-buttons'},h('button',{type:'button',disabled:busy,onClick:()=>imageInput.current?.click()},busy?'读取中…':'导入图片'),value.particleImageRevision&&h('button',{type:'button',disabled:busy,onClick:async()=>{setBusy(true);setError('');try{await particles.clearImage();if(mounted.current)onChange({particleShape:value.particleShape==='image'?'logo':value.particleShape,particleImageRevision:'',particleImageName:''})}catch(e){if(mounted.current)setError(e.message)}finally{if(mounted.current)setBusy(false)}}},'移除自定义图片')),
+        h('div',{className:'dcb-particle-buttons'},h('button',{type:'button',disabled:busy,onClick:()=>imageInput.current?.click()},busy?'读取中…':'导入图片'),value.particleImageRevision&&h(PresetDelete,{key:value.particleImageRevision,name:value.particleImageName||'自定义图片',kind:'粒子素材',disabled:busy,label:'删除自定义图片',description:'将删除本机粒子图片；若正在使用，将恢复 DeepSeek Logo 图形。',onConfirm:()=>removeArtwork(true)})),
         value.particleImageRevision&&h(ImagePreview,{revision:value.particleImageRevision,count:value.particleCount}),
         h('p',null,'最大 10 MB，宽高不超过 4096 像素。只保存在本机，刷新后保留；完整成形后仍由漂浮粒子绘制。')),
       h('div',{className:'dcb-particle-control'},h('strong',null,'本机 SVG'),h('p',null,value.particleSvgName||'兼容已有 SVG 图形；也可以直接使用上方的图片导入。'),
         h('input',{ref:input,type:'file',accept:'.svg,image/svg+xml',hidden:true,onChange:e=>{const file=e.target.files?.[0];e.target.value='';upload(file)}}),
-        h('div',{className:'dcb-particle-buttons'},h('button',{type:'button',disabled:busy,onClick:()=>input.current?.click()},busy?'读取中…':'导入 SVG'),value.particleSvgRevision&&h('button',{type:'button',disabled:busy,onClick:async()=>{setBusy(true);try{await particles.clearSVG();if(mounted.current)onChange({particleShape:value.particleShape==='custom'?'logo':value.particleShape,particleSvgRevision:'',particleSvgName:''})}catch(e){if(mounted.current)setError(e.message)}finally{if(mounted.current)setBusy(false)}}},'移除自定义 SVG'))),
+        h('div',{className:'dcb-particle-buttons'},h('button',{type:'button',disabled:busy,onClick:()=>input.current?.click()},busy?'读取中…':'导入 SVG'),value.particleSvgRevision&&h(PresetDelete,{key:value.particleSvgRevision,name:value.particleSvgName||'自定义 SVG',kind:'粒子素材',disabled:busy,label:'删除自定义 SVG',description:'将删除本机粒子 SVG；若正在使用，将恢复 DeepSeek Logo 图形。',onConfirm:()=>removeArtwork(false)}))),
       error&&h('div',{role:'alert',className:'dcb-particle-error'},error),
       h('p',{className:'dcb-settings-footnote'},'图片和 SVG 仅保存在当前浏览器的本机存储中，刷新后保留。后台暂停绘制，减少动态效果时静态显示。鲸鱼娘立绘：ZipZipPipe；原型：上善无形；CC BY-NC-SA 4.0，仅供个人非商业使用。'))
   }

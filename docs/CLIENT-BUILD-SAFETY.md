@@ -14,7 +14,7 @@
 4. 在运行目录执行：
 
    ```powershell
-   node scripts/build-lens.mjs --template="D:\workspace\dsh-project\.scratch\本次任务\client.next.js"
+   node scripts/build-lens.mjs --template="D:\projects\client-staging\client.next.js"
    ```
 
    构建完成、所有校验通过后，一次替换为新 bundle 与新外围调用匹配的客户端。模板、任一源码或运行客户端在构建中变化会终止，重新核对并发差异后再接入。

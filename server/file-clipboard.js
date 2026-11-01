@@ -40,13 +40,21 @@ export function createFileClipboard({platform=process.platform,canonical=realpat
  }
 }
 
-function localRequest(req){
+export function localRequest(req){
  const address=req.socket?.remoteAddress
  if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(address)||req.headers?.['sec-fetch-site']==='cross-site')return false
  const origin=req.headers?.origin
  if(origin==='dsh-app://app')return true
- if(!origin)return req.headers?.['sec-fetch-site']==='same-origin'
+ // Desktop forwards dsh-app requests from its main process after stripping
+ // Origin and Sec-Fetch-Site, so it addresses this server's own loopback port.
+ if(!origin)return req.headers?.['sec-fetch-site']==='same-origin'||!req.headers?.['sec-fetch-site']&&directHost(req)
  try{const url=new URL(origin);return ['http:','https:'].includes(url.protocol)&&url.host===req.headers.host&&['localhost','127.0.0.1','[::1]'].includes(url.hostname)}catch{return false}
+}
+
+function directHost(req){
+ const port=req.socket?.localPort
+ if(!Number.isInteger(port))return false
+ try{const url=new URL(`http://${req.headers?.host}`);return ['localhost','127.0.0.1','[::1]'].includes(url.hostname)&&Number(url.port)===port}catch{return false}
 }
 
 export function registerFileClipboard(root,{copy=createFileClipboard()}={}){

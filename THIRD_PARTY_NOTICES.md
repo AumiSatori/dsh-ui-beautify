@@ -45,6 +45,15 @@ inspiration includes greyd097/yzrt's public CSS glass demonstration:
 https://gitee.com/greyd097/yzrt/tree/master/
 No source code from that project is included in this distribution.
 
+## Continuous streaming reference
+
+The continuous streaming adapter was informed by the frame scheduling, queue
+pressure and continuous follower concepts in
+https://github.com/Laplace-bit/dsh-smooth-stream at revision
+`304f90066620316bd54190099ecbba56ece06316` (MIT).
+The implementation uses this plugin's existing CSS Custom Highlights and native
+scroll compensation. No upstream renderer or runtime dependency is bundled.
+
 ## Smooth option switching reference
 
 The sidebar material selector and navigation highlight independently adapt the

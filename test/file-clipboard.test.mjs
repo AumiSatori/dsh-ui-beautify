@@ -57,9 +57,9 @@ function fixture(copy=async()=>{},objectDisposer=false){
  assert.equal(route.kind,'exact');assert.equal(route.path,FILE_CLIPBOARD_PATH)
  return{handler:route.handler,cleanup,get disposed(){return disposed}}
 }
-async function request(handler,{method='POST',address='127.0.0.1',headers={},body=JSON.stringify({path}),chunks}={}){
+async function request(handler,{method='POST',address='127.0.0.1',localPort,headers={},body=JSON.stringify({path}),chunks}={}){
  const req=Readable.from(chunks||[Buffer.from(body)])
- Object.assign(req,{method,headers:{host:'127.0.0.1:65412',origin:'http://127.0.0.1:65412','content-type':'application/json',...headers},socket:{remoteAddress:address}})
+ Object.assign(req,{method,headers:{host:'127.0.0.1:65412',origin:'http://127.0.0.1:65412','content-type':'application/json',...headers},socket:{remoteAddress:address,localPort}})
  const response={status:0,headers:{},body:'',setHeader(name,value){this.headers[name.toLowerCase()]=value},writeHead(status,values){this.status=status;Object.assign(this.headers,values)},end(value){this.body=value||''}}
  await handler(req,response)
  response.json=JSON.parse(response.body)
@@ -74,6 +74,28 @@ test('the local route accepts a same-origin browser and Desktop origin and sends
   assert.equal(response.headers['cache-control'],'no-store')
  }
  assert.deepEqual(copied,Array(5).fill(path))
+})
+
+test('the local route accepts Desktop forwarding, which strips Origin and Sec-Fetch-Site and addresses the server port directly',async()=>{
+ const copied=[],{handler}=fixture(async value=>copied.push(value))
+ for(const host of ['127.0.0.1:65412','localhost:65412','[::1]:65412']){
+  const response=await request(handler,{localPort:65412,headers:{host,origin:undefined}})
+  assert.equal(response.status,200);assert.deepEqual(response.json,{ok:true})
+ }
+ assert.deepEqual(copied,Array(3).fill(path))
+})
+
+test('requests without Origin are rejected when they arrive through a proxy port, a foreign host or with browser fetch metadata',async()=>{
+ let calls=0;const {handler}=fixture(async()=>calls++)
+ for(const options of [
+  {localPort:65412,headers:{host:'localhost:8442',origin:undefined}},
+  {localPort:65412,headers:{host:'192.0.2.1:65412',origin:undefined}},
+  {localPort:65412,headers:{host:undefined,origin:undefined}},
+  {localPort:65412,headers:{origin:undefined,'sec-fetch-site':'cross-site'}},
+  {localPort:65412,headers:{origin:undefined,'sec-fetch-site':'same-site'}},
+  {localPort:65412,address:'192.0.2.1',headers:{origin:undefined}},
+ ])assert.equal((await request(handler,options)).status,403)
+ assert.equal(calls,0)
 })
 
 test('the local route rejects LAN clients, cross-site requests, foreign origins, changed ports and missing browser origin evidence',async()=>{

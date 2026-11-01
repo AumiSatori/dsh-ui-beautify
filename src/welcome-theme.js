@@ -13,6 +13,14 @@ export function themeWelcome(value,theme){
   const normalized=normalizeThemedWelcome(value)
   return {...value,...normalized,...normalized.welcomeThemes?.[scheme(theme)]}
 }
+export function removeWelcomeCodeReferences(value,revisions,theme='light'){
+  const removed=new Set(revisions)
+  const clear=config=>{
+    const next=normalizeWelcome(config),modes=Object.fromEntries(Object.entries(next.welcomeCodeModes).map(([mode,item])=>[mode,removed.has(item.revision)?{revision:'',name:''}:item]))
+    return normalizeWelcome({...next,welcomeCodeModes:modes,...(removed.has(next.welcomeCodeRevision)?{welcomeCodeRevision:'',welcomeCodeName:'',welcomeMode:next.welcomeMode==='code'?'characters':next.welcomeMode}:{})})
+  }
+  return {...clear(themeWelcome(value,theme)),welcomeThemes:Object.fromEntries(['light','dark'].map(scheme=>[scheme,clear(themeWelcome(value,scheme))]))}
+}
 export function patchWelcomeTheme(value,patch,theme){
   if(!keys.some(key=>Object.hasOwn(patch,key)))return patch
   const normalized=normalizeThemedWelcome(value),base=normalizeWelcome(normalized)

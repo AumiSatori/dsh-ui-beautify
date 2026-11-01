@@ -3,9 +3,11 @@ import assert from 'node:assert/strict'
 import { normalizeStreamReveal, streamRevealCss } from '../src/stream-reveal.js'
 
 test('stream reveal defaults on with the restrained strength', () => {
-  assert.deepEqual(normalizeStreamReveal(null), { streamReveal: true, streamRevealStrength: 'soft' })
-  assert.deepEqual(normalizeStreamReveal({ streamReveal: false, streamRevealStrength: 'vivid' }), { streamReveal: false, streamRevealStrength: 'vivid' })
+  assert.deepEqual(normalizeStreamReveal(null), { streamReveal: true, streamRevealStrength: 'soft', streamRevealPipeline: 'optimized' })
+  assert.deepEqual(normalizeStreamReveal({ streamReveal: false, streamRevealStrength: 'vivid' }), { streamReveal: false, streamRevealStrength: 'vivid', streamRevealPipeline: 'optimized' })
   assert.equal(normalizeStreamReveal({ streamRevealStrength: 'loud' }).streamRevealStrength, 'soft')
+  assert.equal(normalizeStreamReveal({ streamRevealPipeline: 'legacy' }).streamRevealPipeline, 'legacy')
+  assert.equal(normalizeStreamReveal({ streamRevealPipeline: 'unknown' }).streamRevealPipeline, 'optimized')
 })
 
 test('stream reveal levels hide waiting text, then fade to full ink', () => {

@@ -1,0 +1,46 @@
+{
+  "version": "0.5.1",
+  "checkedAt": "2026-11-01T17:39:40.177Z",
+  "releaseBase": "f8171e1",
+  "integrationCommit": "ec2072e",
+  "sourceCommits": [
+    "61d50a5",
+    "b1a9537",
+    "4742dd1"
+  ],
+  "clientSha256": "6bcbe35590643d9f4ad750fa42ece5ec536d9c5d30f583b046d783bd68f7c940",
+  "sourceSha256": {
+    "src/composer-scroll-motion.js": "7328a39299762fc011e9bd6a1ed3ff39e0d395b4943f1910dcafbea003375ecc",
+    "src/chat-disclosure-motion.js": "c5147c295aea162aec1d04452e401e1100cf5421ac4dd5d428890f0de34b8598",
+    "src/unified-icons.js": "def5754f9debad310414c0d91b78a70c99dfebd160b0a8082b9ac63c12db5881"
+  },
+  "checks": {
+    "javascriptSyntax": {
+      "passed": true,
+      "files": 220
+    },
+    "nodeRegression": {
+      "passed": true,
+      "tests": 132,
+      "failed": 0
+    },
+    "clientReproducibleBuildAndExports": {
+      "passed": true
+    },
+    "packageMetadataAndAllowlist": {
+      "passed": true,
+      "runtimeDependencies": 0,
+      "installHooks": false
+    }
+  },
+  "testMaintenance": "Updated the existing stream-reveal default assertion to include the pipeline field introduced in 0.5.0; verified optimized, legacy and invalid pipeline values. No production behavior change.",
+  "browserVerification": {
+    "performed": false,
+    "reason": "Browser and Desktop acceptance was not repeated during release preparation. Existing development observations remain in SEND-MOTION-COORDINATION.md and are not counted as new release tests."
+  },
+  "excludedUnreleasedWork": [
+    "mirror-sea HTML background preset and associated image assets",
+    "HTML size-limit and background editor experiments",
+    "other unrelated workspace artifacts"
+  ]
+}

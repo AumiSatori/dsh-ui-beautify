@@ -8,7 +8,7 @@ const SIDEBAR=names('sidebarCol'),ACTIONS=`[data-chat-flow] ${names('actions')}`
 const NAV_ITEM=`${SIDEBAR} ${names('panelList')} ${names('panelRow')}[${MARK}]`
 const EXCLUDE='[data-dcb-sidebar-ghost],[data-dcb-sidebar-layout-probe],[data-composer-overlay],[data-composer-input],[role=menu],[role=listbox],.dcb-settings,.dcs-model-menu,.dcb-summary,[data-dcb-task-panel],.dcb-file-viewer'
 const SETTINGS_MARK='data-dcb-header-settings'
-const CAPTION='data-dcb-caption-tools',CAPTION_BUTTON='data-dcb-caption-button'
+const CAPTION='data-dcb-caption-tools',CAPTION_BUTTON='data-dcb-caption-button',PROXY='data-dcb-caption-proxy',PILLED='data-dcb-caption-pilled'
 const FILE_ICON='data-dcb-file-icon',FILE_TILE='data-dcb-file-tile',FILE_EXT='data-dcb-file-ext',FILE_TONE='data-dcb-file-tone'
 const TONES={
   pdf:'pdf',doc:'document',docx:'document',odt:'document',rtf:'document',md:'document',markdown:'document',txt:'text',log:'text',
@@ -45,7 +45,15 @@ export const unifiedIconsCss=`
   [${CAPTION}]${names('collapsed')} [${CAPTION_BUTTON}] { position:fixed!important; top:var(--dcb-caption-top)!important; left:12px!important; width:30px!important; min-width:30px!important; height:30px!important; min-height:30px!important; margin:0!important; padding:0!important; z-index:30!important; -webkit-app-region:no-drag; }
   [${CAPTION}]${names('collapsed')} [${CAPTION_BUTTON}=new] { left:50px!important; }
   [${CAPTION}]:not(${names('collapsed')}) [${CAPTION_BUTTON}=toggle] { position:relative!important; inset:auto!important; width:30px!important; height:30px!important; margin:0!important; padding:0!important; flex:none; -webkit-app-region:no-drag; }
-  [${CAPTION}] > [${GROUP}=caption] { position:fixed; left:8px; top:calc(var(--dcb-caption-top) - 4px); height:38px; box-sizing:border-box; z-index:29; pointer-events:none; border:1px solid var(--dcb-icon-line); border-radius:15px; background:var(--dcb-icon-fill); box-shadow:inset 0 1px 0 #ffffff45,0 3px 12px #0000000b; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+  /* Glass: the pill is a fixed layer that never moves or resizes. Its own
+     controls forward to the native ones; the sliding sidebar covers it while
+     expanded (a fade, keyed to the host's collapsed class) instead of the
+     native buttons jumping between the pill and the logo row mid-animation. */
+  [${CAPTION}] > [${GROUP}=caption] { position:fixed; left:8px; top:calc(var(--dcb-caption-top) - 4px); height:38px; display:flex; align-items:center; gap:8px; padding:0 3px; box-sizing:border-box; z-index:29; pointer-events:none; border:1px solid var(--dcb-icon-line); border-radius:15px; background:var(--dcb-icon-fill); box-shadow:inset 0 1px 0 #ffffff45,0 3px 12px #0000000b; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); opacity:0; visibility:hidden; transition:opacity ${motion.time.quick}ms ${motion.ease.smooth},visibility 0s linear ${motion.time.quick}ms; -webkit-app-region:no-drag; }
+  [${CAPTION}]${names('collapsed')} > [${GROUP}=caption] { opacity:1; visibility:visible; transition:opacity ${motion.time.standard}ms ${motion.ease.smooth}; }
+  [${CAPTION}]:not(${names('collapsed')}) > [${GROUP}=caption] > [${PROXY}] { pointer-events:none; }
+  [${GROUP}=caption] > [${PROXY}] { position:static!important; inset:auto!important; align-self:center!important; transform:none!important; translate:none!important; width:30px!important; min-width:30px!important; height:30px!important; min-height:30px!important; margin:0!important; padding:0!important; flex:none; pointer-events:auto; -webkit-app-region:no-drag; }
+  [${CAPTION}][${PILLED}]${names('collapsed')} [${CAPTION_BUTTON}] { visibility:hidden!important; pointer-events:none!important; }
   [${FILE_ICON}],[${FILE_TILE}] { --dcb-file-color:#718096; --dcb-file-ink:#fff; }
   [${FILE_ICON}][${FILE_TONE}=pdf],[${FILE_TILE}][${FILE_TONE}=pdf] { --dcb-file-color:#df4d4d; }
   [${FILE_ICON}][${FILE_TONE}=document],[${FILE_TILE}][${FILE_TONE}=document] { --dcb-file-color:#4778d0; }
@@ -84,7 +92,7 @@ export const unifiedIconsCss=`
   .dcb-button-surface-preview i { display:block; width:16px; height:16px; border-radius:5px; background:var(--dsh-settings-text,#687080); opacity:.32; }
   [data-surface-preview=glass] { background:linear-gradient(135deg,#ffffff66,#ffffff0a); box-shadow:inset 0 0 0 1px #8884,0 2px 5px #0001; }
   [data-surface-preview=native] { background:var(--dsh-settings-surface,#fff); border:1px solid #8883; }
-  @media(prefers-reduced-motion:reduce) { [${MARK}]:not([data-dcb-icon-primary]),.dcb-icon-style-choice,[${GROUP}=left],[${GROUP}=right]::before { transition:none!important; } }
+  @media(prefers-reduced-motion:reduce) { [${MARK}]:not([data-dcb-icon-primary]),.dcb-icon-style-choice,[${GROUP}=left],[${GROUP}=right]::before,[${GROUP}=caption] { transition:none!important; } }
   @media(prefers-reduced-transparency:reduce) { [${GROUP}=caption],[${GROUP}=right]::before { backdrop-filter:none!important; -webkit-backdrop-filter:none!important; background:var(--dsw-alias-bg-base,#fff); } }
   @media(forced-colors:active) { body[${HOST}] ${NAV_ITEM} { background:Canvas!important; } body[${HOST}] ${NAV_ITEM}:is(:hover,:active,[aria-pressed=true],[aria-expanded=true],${names('panelActive')}) { background:Highlight!important; color:HighlightText!important; } }
   @media(forced-colors:active) { [${GROUP}=caption],[${GROUP}=right]::before { background:Canvas; border-color:CanvasText; backdrop-filter:none!important; -webkit-backdrop-filter:none!important; box-shadow:none; } body[${HOST}] [${MARK}]:not([data-dcb-icon-primary]),.dcb-icon-style-choice { background-color:ButtonFace!important; box-shadow:none!important; outline:1px solid ButtonText; outline-offset:-1px; } [${MARK}]:is([aria-pressed=true],[aria-expanded=true]),.dcb-icon-style-choice[aria-checked=true] { outline:2px solid Highlight; outline-offset:-3px; } [${MARK}]:focus-visible { outline-color:Highlight!important; } }
@@ -171,8 +179,20 @@ export function createUnifiedIcons(doc,win,schedule=()=>{}){
     }
     for(const[node,record]of fileDecorations)if(!wanted.has(node))releaseFileNode(node,record)
   }
+  // The host flips collapse through a class change this module does not
+  // otherwise watch. Mirror it onto the pill at once (no layout reads), so the
+  // fading pill is never a second, stale-labelled control.
+  function pillState(record){
+    const pane=record.pane;if(!pane)return
+    const collapsed=record.root.matches(names('collapsed'))||record.frame?.getAttribute('data-sidebar-collapsed')==='true'
+    if(pane.inert===!collapsed)return
+    pane.inert=!collapsed;if(collapsed)pane.removeAttribute('aria-hidden');else pane.setAttribute('aria-hidden','true')
+    const copy=record.proxies?.get('toggle')?.copy
+    if(!collapsed&&doc.activeElement===copy&&record.toggle.isConnected)record.toggle.focus({preventScroll:true})
+    if(collapsed&&doc.activeElement===record.toggle&&copy)copy.focus({preventScroll:true})
+  }
   function releaseCaption(root,record){
-    record.pane?.remove();resize.unobserve(record.header);restore(root,CAPTION,record.mark)
+    record.state?.disconnect();record.pane?.remove();root.removeAttribute(PILLED);resize.unobserve(record.header);restore(root,CAPTION,record.mark)
     restore(record.header,'data-dcb-caption-host',record.headerMark)
     if(record.headerInset)record.header.style.setProperty('--dcb-caption-inset',record.headerInset,record.headerPriority);else record.header.style.removeProperty('--dcb-caption-inset')
     for(const[node,value]of record.buttons)restore(node,CAPTION_BUTTON,value)
@@ -189,7 +209,8 @@ export function createUnifiedIcons(doc,win,schedule=()=>{}){
       let record=captions.get(root)
       if(record&&(record.header!==header||record.toggle!==toggle||record.add!==add)){releaseCaption(root,record);record=null}
       if(!record){
-        record={header,toggle,add,mark:root.getAttribute(CAPTION),headerMark:header.getAttribute('data-dcb-caption-host'),headerInset:header.style.getPropertyValue('--dcb-caption-inset'),headerPriority:header.style.getPropertyPriority('--dcb-caption-inset'),buttons:[toggle,add].map(node=>[node,node.getAttribute(CAPTION_BUTTON)]),variables:['--dcb-caption-top','--dcb-caption-padding'].map(key=>[key,root.style.getPropertyValue(key),root.style.getPropertyPriority(key)]),padding:parseFloat(win.getComputedStyle(root).paddingTop)||0,pane:null}
+        record={root,frame,header,toggle,add,mark:root.getAttribute(CAPTION),headerMark:header.getAttribute('data-dcb-caption-host'),headerInset:header.style.getPropertyValue('--dcb-caption-inset'),headerPriority:header.style.getPropertyPriority('--dcb-caption-inset'),buttons:[toggle,add].map(node=>[node,node.getAttribute(CAPTION_BUTTON)]),variables:['--dcb-caption-top','--dcb-caption-padding'].map(key=>[key,root.style.getPropertyValue(key),root.style.getPropertyPriority(key)]),padding:parseFloat(win.getComputedStyle(root).paddingTop)||0,pane:null}
+        record.state=new win.MutationObserver(()=>pillState(record));record.state.observe(root,{attributes:true,attributeFilter:['class']});if(frame)record.state.observe(frame,{attributes:true,attributeFilter:['data-sidebar-collapsed']})
         captions.set(root,record);root.setAttribute(CAPTION,'');toggle.setAttribute(CAPTION_BUTTON,'toggle');add.setAttribute(CAPTION_BUTTON,'new');resize.observe(header)
       }
       wanted.add(root)
@@ -204,11 +225,21 @@ export function createUnifiedIcons(doc,win,schedule=()=>{}){
         if(!header.hasAttribute('data-dcb-caption-host'))header.setAttribute('data-dcb-caption-host','')
         if(header.style.getPropertyValue('--dcb-caption-inset')!==inset)header.style.setProperty('--dcb-caption-inset',inset)
       }
-      if(mode==='glass'&&collapsed){
-        if(!record.pane){record.pane=doc.createElement('div');record.pane.setAttribute(GROUP,'caption');record.pane.setAttribute('aria-hidden','true');root.append(record.pane)}
-        const width=Math.max(toggle.getBoundingClientRect().right,add.getBoundingClientRect().right)-8+4
-        if(record.pane.style.width!==width+'px')record.pane.style.width=width+'px'
-      }else{record.pane?.remove();record.pane=null}
+      if(mode==='glass'){
+        if(!record.pane){record.pane=doc.createElement('div');record.pane.setAttribute(GROUP,'caption');record.proxies=new Map();root.append(record.pane);root.setAttribute(PILLED,'')}
+        for(const [kind,native] of [['toggle',toggle],['new',add]]){
+          // Mirror the native glyph and label; rebuild only when they change.
+          const signature=[native.className,native.getAttribute('aria-label'),native.title,native.innerHTML].join('|'),known=record.proxies.get(kind)
+          if(known?.signature===signature&&known.native===native)continue
+          const copy=native.cloneNode(true);copy.removeAttribute(CAPTION_BUTTON);copy.removeAttribute('id');for(const node of copy.querySelectorAll('[id]'))node.removeAttribute('id')
+          copy.setAttribute(PROXY,kind);copy.addEventListener('click',()=>native.click())
+          const focused=known&&doc.activeElement===known.copy
+          if(known)known.copy.replaceWith(copy);else record.pane.append(copy)
+          if(focused)copy.focus({preventScroll:true})
+          record.proxies.set(kind,{signature,native,copy})
+        }
+        pillState(record)
+      }else if(record.pane){record.pane.remove();record.pane=null;record.proxies=null;root.removeAttribute(PILLED)}
     }
     for(const[root,record]of captions)if(!wanted.has(root))releaseCaption(root,record)
   }
@@ -271,6 +302,7 @@ export function createUnifiedIcons(doc,win,schedule=()=>{}){
     const candidates=mode==='native'?[]:[...doc.querySelectorAll(`${HEADER} ${names('headerUtilities')} button,${HEADER} ${names('headerCorner')} button,${SIDEBAR} button,[data-composer-card] button,${ACTIONS} button,.dcb-fullscreen-exit,.dsh-read-aloud-btn`)]
     const wanted=new Set()
     for(const button of candidates){
+      if(button.hasAttribute(PROXY))continue
       const signature=[button.className,button.getAttribute('aria-label'),button.getAttribute('title')].join('|')
       const known=flowKinds.get(button)
       if(known&&known.signature===signature&&known.parent===button.parentElement&&(!known.kind||records.has(button))){if(known.kind)wanted.add(button);continue}
@@ -300,8 +332,11 @@ export function createUnifiedIcons(doc,win,schedule=()=>{}){
     }
     for(const[node,record]of groups)if(!desired.has(node))releaseGroup(node,record)
   }
-  const state=event=>{const button=event.target.closest?.(`[${MARK}]`);if(button)sync()}
-  const observer=new win.MutationObserver(entries=>{if(mode!=='native'&&entries.some(entry=>entry.type==='attributes'&&entry.target.matches(`[${MARK}]`)||entry.type==='childList'&&[...entry.addedNodes,...entry.removedNodes].some(node=>node.nodeType===1&&!node.matches('[data-dcb-icon-group=left]')&&(node.matches('button,header,[data-composer-card]')||node.querySelector?.('button')))))schedule()})
+  // A click can swap or relabel controls, but syncing here forced a layout in
+  // the same frame the host starts its sidebar transition (about 20ms on every
+  // toggle). Batch it with the mutation-driven resync instead.
+  const state=event=>{const button=event.target.closest?.(`[${MARK}]`);if(button)schedule()}
+  const observer=new win.MutationObserver(entries=>{if(mode!=='native'&&entries.some(entry=>entry.type==='attributes'&&entry.target.matches(`[${MARK}]`)||entry.type==='childList'&&[...entry.addedNodes,...entry.removedNodes].some(node=>node.nodeType===1&&!node.matches('[data-dcb-icon-group=left],[data-dcb-icon-group=caption],[data-dcb-caption-proxy]')&&(node.matches('button,header,[data-composer-card]')||node.querySelector?.('button')))))schedule()})
   observer.observe(doc.body,{subtree:true,childList:true,attributes:true,attributeFilter:['aria-label','title','aria-expanded','aria-pressed']})
   win.addEventListener('resize',schedule,{passive:true});doc.addEventListener('fullscreenchange',schedule);doc.addEventListener('click',state)
     return{sync,connectShortcuts(service){settingsCommand=typeof service?.registry?.invoke==='function'?()=>service.registry.invoke('settings.open',{target:doc.activeElement,region:'page',modal:null}):null},owns:button=>mode!=='native'&&!!button.closest(`[${MARK}]`),dispose(){if(disposed)return;disposed=true;settingsCommand=null;cancelSettings();observer.disconnect();resize.disconnect();win.removeEventListener('resize',schedule);doc.removeEventListener('fullscreenchange',schedule);doc.removeEventListener('click',state);for(const[tools,record]of settingsButtons)releaseSettings(tools,record);for(const[button,record]of records)release(button,record);for(const[node,record]of groups)releaseGroup(node,record);for(const[root,record]of captions)releaseCaption(root,record);for(const[node,record]of fileDecorations)releaseFileNode(node,record);restore(doc.body,HOST,original)}}

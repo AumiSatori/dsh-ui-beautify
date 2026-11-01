@@ -2,7 +2,7 @@ import {motion} from './motion.js'
 
 const HEADER='[data-disclosure-header]',GHOST='data-dcb-detail-ghost',MARK='data-dcb-detail-motion'
 // Code the host has mounted but not yet swapped for its highlighted copy.
-const PLAIN='[data-code-block-content] > pre:not(.shiki)',HOLD_MS=150
+const PLAIN='[data-code-block-content] > pre:not(.shiki)',HOLD_MS=150,HOLD_ANCHOR_MS=700
 
 // Native DisclosureRow unmounts its body on close. A bounded, inert copy of
 // just that body bridges the exit; React retains every real node and event.
@@ -13,7 +13,7 @@ const PLAIN='[data-code-block-content] > pre:not(.shiki)',HOLD_MS=150
 export function createChatDisclosureMotion(doc,win,initiallyEnabled=true){
   const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
   const pending=new Map(),active=new Map()
-  let enabled=initiallyEnabled,disposed=false,frame=0
+  let enabled=initiallyEnabled,disposed=false,frame=0,anchor=null
   const bodies=root=>[...root.children].filter(child=>!child.matches(HEADER)&&!child.hasAttribute(GHOST))
   const session=seat=>seat.closest('[data-conversation-session]')?.getAttribute('data-conversation-session')||''
   const oversized=box=>box.height>win.innerHeight*1.5||box.width*box.height*(win.devicePixelRatio||1)**2>4_000_000
@@ -58,7 +58,30 @@ export function createChatDisclosureMotion(doc,win,initiallyEnabled=true){
     if(record.styleMark===null&&!record.seat.style.length)record.seat.removeAttribute('style')
     record.mark===null?record.seat.removeAttribute(MARK):record.seat.setAttribute(MARK,record.mark)
   }
+  // Keep the header the reader just clicked where it was. At the transcript
+  // floor the host's follow controller scrolls with the new height, which
+  // threw the clicked header (and the reader's eye) up by the whole body.
+  // An observer created now runs after the host's, so the correction lands
+  // before paint; the host then sees the reader off the floor and stops
+  // following, as after a manual scroll. Any reader input releases it.
+  function release(){if(!anchor)return;anchor.observer.disconnect();win.clearTimeout(anchor.timer);anchor=null}
+  function hold(header){
+    release()
+    const scroller=header.closest('[data-conversation-scroll]'),flow=header.closest('[data-chat-flow]:not([data-step-process-content])')
+    if(!scroller||!flow||typeof win.ResizeObserver!=='function')return
+    const record={header,scroller,top:header.getBoundingClientRect().top,observer:null,timer:0}
+    record.observer=new win.ResizeObserver(()=>{
+      if(anchor!==record)return
+      if(!header.isConnected){release();return}
+      const drift=header.getBoundingClientRect().top-record.top
+      if(Math.abs(drift)>.5)scroller.scrollTop+=drift
+    })
+    record.observer.observe(flow)
+    record.timer=win.setTimeout(()=>{if(anchor===record)release()},HOLD_ANCHOR_MS)
+    anchor=record
+  }
   function clear(){
+    release()
     for(const record of [...active.values()])stop(record)
     pending.clear();if(frame)win.cancelAnimationFrame(frame);frame=0
   }
@@ -84,13 +107,15 @@ export function createChatDisclosureMotion(doc,win,initiallyEnabled=true){
     return result
   }
   function capture(event){
-    if(disposed||!enabled||quiet.matches||doc.hidden||event.defaultPrevented)return
+    if(disposed||!enabled||event.defaultPrevented)return
     if(event.type==='keydown'&&(event.repeat||event.isComposing||!['Enter',' '].includes(event.key)))return
     const target=event.target?.closest?.('[data-disclosure-row],button[aria-expanded]')
     const header=target?.closest(HEADER),root=header?.parentElement
     if(!root||!header.closest('[data-chat-flow]')||target.getAttribute('aria-expanded')===null||target.matches(':disabled,[aria-disabled="true"]'))return
     // Only the header's own native control, never a link in the expanded body.
     if(target.closest(HEADER)!==header)return
+    hold(header)
+    if(quiet.matches||doc.hidden)return
     const seat=root.closest('[data-variant="think"]')||root,box=seat.getBoundingClientRect()
     if(!box.width||!box.height||oversized(box)||seat.closest('[hidden],[inert]'))return
     const old=active.get(root),source=old?.ghost||bodies(root)[0],shown=visible(seat,box,old)
@@ -183,10 +208,12 @@ export function createChatDisclosureMotion(doc,win,initiallyEnabled=true){
   })
   observer.observe(doc.body,{subtree:true,childList:true,attributes:true,attributeFilter:['data-conversation-session']})
   const quietChanged=()=>{if(quiet.matches||doc.hidden)clear()}
+  const interrupt=event=>{if(anchor&&(event.type!=='keydown'||['PageUp','PageDown','Home','End','ArrowUp','ArrowDown'].includes(event.key)))release()}
   doc.addEventListener('click',capture,true);doc.addEventListener('keydown',capture,true)
   doc.addEventListener('visibilitychange',quietChanged);quiet.addEventListener('change',quietChanged)
+  for(const name of ['wheel','touchstart','pointerdown','keydown'])doc.addEventListener(name,interrupt,{capture:true,passive:true})
   return{
     setEnabled(value){enabled=!!value;if(!enabled)clear()},
-    dispose(){disposed=true;clear();observer.disconnect();doc.removeEventListener('click',capture,true);doc.removeEventListener('keydown',capture,true);doc.removeEventListener('visibilitychange',quietChanged);quiet.removeEventListener('change',quietChanged)},
+    dispose(){disposed=true;clear();observer.disconnect();doc.removeEventListener('click',capture,true);doc.removeEventListener('keydown',capture,true);doc.removeEventListener('visibilitychange',quietChanged);quiet.removeEventListener('change',quietChanged);for(const name of ['wheel','touchstart','pointerdown','keydown'])doc.removeEventListener(name,interrupt,true)},
   }
 }

@@ -40,11 +40,11 @@ export function createOutputPreviewBridge(viewer,{enabled=true}={}){
 export function outputPreviewReader(binding,sessionId){
   return async(path,signal)=>{
     const face=binding.current
-    if(!face)return null
+    if(!face||signal?.aborted)return null
     const stat=await face.stat(sessionId,path,signal)
-    if(!stat?.ok||!Number.isFinite(Number(stat.value?.bytes))||Number(stat.value.bytes)>MAX_HTML_BYTES)return null
+    if(signal?.aborted||!stat?.ok||!Number.isFinite(Number(stat.value?.bytes))||Number(stat.value.bytes)>MAX_HTML_BYTES)return null
     const file=await face.readBytes(sessionId,path,{},signal)
-    if(!file?.ok||!file.value?.data)return null
+    if(signal?.aborted||!file?.ok||!file.value?.data)return null
     const bytes=file.value.data instanceof Uint8Array?file.value.data:Uint8Array.from(file.value.data)
     if(bytes.byteLength>MAX_HTML_BYTES)return null
     return new TextDecoder('utf-8',{fatal:true}).decode(bytes)

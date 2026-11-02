@@ -15,9 +15,9 @@ const presentationSettingKeys = [
   'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'detailMotion', 'enabled', 'headerCentered',
   'heroGreetingCode', 'heroGreetingCss', 'heroGreetingCustomLogo', 'heroGreetingLogoSize', 'heroGreetingMessages', 'heroGreetingMode', 'heroGreetingShowLogo', 'heroGreetingShowPreview', 'messageMotionCode', 'messageMotionMode',
   'messageMotion', 'modules', 'particleCount', 'particleDensityVersion', 'particleEnabled', 'particleFull', 'particleImageName', 'particleImageRevision', 'particleManualProgress', 'particleProgressMode', 'particleShape', 'particleStart', 'particleSvgName', 'particleSvgRevision', 'progressView', 'sidebarMotion', 'sidebarOverlay', 'sidebarStyle',
-  'skillDetails', 'streamReveal', 'streamRevealStrength', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnDividerColor', 'turnDividerCss', 'turnDividerImageRevision', 'turnDividerMotion', 'turnDividerPreset', 'turnGlass', 'userBubbleCss', 'userBubbleStyle', 'welcomeDuration',
+  'skillDetails', 'streamReveal', 'streamRevealPipeline', 'streamRevealStrength', 'summaryScope', 'toolDetails', 'turnCardStyle', 'turnDividerColor', 'turnDividerCss', 'turnDividerImageRevision', 'turnDividerMotion', 'turnDividerPreset', 'turnGlass', 'userBubbleCss', 'userBubbleStyle', 'welcomeDuration',
   'welcomeCharacters', 'welcomeCodeDuration', 'welcomeCodeInteractive', 'welcomeCodeModes', 'welcomeCodeName', 'welcomeCodeRevision', 'welcomeEnabled', 'welcomeFont', 'welcomeLogo', 'welcomeMediaDuration',
-  'welcomeMediaFit', 'welcomeMediaRevision', 'welcomeMode', 'welcomeText', 'width',
+  'welcomeMediaFit', 'welcomeMediaRevision', 'welcomeMode', 'welcomeText', 'width', 'triggerMenuTransparency', 'panelModules',
 ].sort()
 mkdirSync(output, { recursive: true })
 // Portable runs use a synthetic silhouette. DSH_ASAR borrows the installed
@@ -506,7 +506,7 @@ try {
     await settled()
     assert.equal(await card.count(), 1, 'Arranging new steps during a run automatically pins and reveals the panel')
     assert.equal(await page.evaluate(() => window.dropdownReveals.length), beforeStart + 1)
-    assert.ok((await entryButton.innerText()).includes('5/6'))
+    assert.ok((await entryButton.innerText()).includes('处理中'))
     assert.equal((await entryButton.boundingBox()).height, 24, 'The working label also keeps the same compact height')
     await page.locator('.header-utilities').screenshot({ path: resolve(output, 'summary-entry-working.png') })
     assert.equal(await card.getByRole('listitem').count(), 3)
@@ -534,7 +534,7 @@ try {
     })
     await settled()
     assert.equal(await card.count(), 0, 'Task progress does not reopen a panel manually closed during the same run')
-    assert.ok((await entryButton.innerText()).includes('6/6'))
+    assert.ok((await entryButton.innerText()).includes('处理中'))
     await entryButton.click()
     await page.evaluate(() => {
       window.fixture.running(false)
@@ -785,14 +785,20 @@ try {
       const card = document.querySelector('.dcb-summary')
       const toggle = card.querySelector('[data-testid="dcb-outputs"] .dcb-module-toggle')
       const height = () => card.getBoundingClientRect().height
+      const frame = time => {
+        for (const animation of card.getAnimations({ subtree: true })) if (animation instanceof CSSTransition) { animation.pause(); animation.currentTime = time }
+      }
       const initial = height()
       toggle.click()
       await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))
-      await new Promise(done => setTimeout(done, 90))
+      frame(90)
       const midway = height()
       toggle.click()
       await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))
-      return { initial, midway, reversed: height() }
+      frame(0)
+      const reversed = height()
+      for (const animation of card.getAnimations({ subtree: true })) if (animation instanceof CSSTransition) animation.play()
+      return { initial, midway, reversed }
     })
     assert.ok(result.midway < result.initial - 5)
     assert.ok(result.reversed < result.initial - 1, 'Reversing does not jump to the expanded height')
@@ -1218,7 +1224,7 @@ try {
     await page.waitForFunction(() => document.querySelector('.dcb-step-window > ol').start === 1)
     await settled()
     assert.deepEqual(await viewport.getByRole('listitem').allTextContents(), ['交接步骤 1', '交接步骤 2', '交接步骤 3'])
-    assert.ok((await page.getByRole('button', { name: '会话进度与输出', exact: true }).innerText()).includes('5/9'))
+    assert.ok((await page.getByRole('button', { name: '会话进度与输出', exact: true }).innerText()).includes('处理中'))
     await viewport.focus()
     await page.keyboard.press('Home')
     await settled()
@@ -2167,6 +2173,7 @@ try {
     await page.reload()
     await mountPlugin()
     await page.evaluate(tasks => { window.fixture.running(true); window.fixture.update(tasks) }, fastTasks)
+    await settled()
     const entry = page.getByRole('button', { name: '会话进度与输出', exact: true })
     if (await entry.getAttribute('aria-expanded') !== 'true') await entry.click()
     await settled()
@@ -2438,9 +2445,10 @@ try {
     const original = await liquidState()
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     await page.evaluate(() => window.fixture.settings(true))
-    await page.getByRole('radio', { name: '毛玻璃', exact: true }).click()
-    await card.evaluate(async el => {
+    await page.getByRole('radio', { name: '毛玻璃', exact: true }).evaluate(async radio => {
+      radio.click()
       await new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))
+      const el = document.querySelector('.dcb-summary')
       window.liquidMaterialAnimations = el.getAnimations().filter(animation => 'transitionProperty' in animation)
       for (const animation of window.liquidMaterialAnimations) { animation.pause(); animation.currentTime = 120 }
     })

@@ -92,6 +92,8 @@
     "check:release": "node scripts/check-release.mjs",
     "test:browser": "node test/browser.mjs",
     "test:summary": "node test/summary-browser.mjs",
+    "test:panel-modules": "node test/task-panel-modules-browser.mjs",
+    "test:summary-entry": "node test/summary-entry-browser.mjs",
     "test:progress-liquid": "node test/progress-liquid-browser.mjs",
     "test:skills": "node test/skills-browser.mjs",
     "test:scope": "node test/summary-scope-browser.mjs",

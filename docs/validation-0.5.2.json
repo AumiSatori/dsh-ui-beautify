@@ -1,0 +1,53 @@
+{
+  "version": "0.5.2",
+  "checkedAt": "2026-11-02T14:30:18.190Z",
+  "releaseBase": "0400f44",
+  "clientSha256": "24853cfecb5d000c3828d38f3f292109427e1a178fbe616f05ed7b77a661b3cd",
+  "sourceSha256": {
+    "src/composer-scroll-motion.js": "6f5c7d3ec84f3e610431ab2b82b72bfb943a1dd17bb81c47c706b83e2369e5fc"
+  },
+  "checks": {
+    "javascriptSyntax": {
+      "passed": true,
+      "files": 219
+    },
+    "nodeRegression": {
+      "passed": true,
+      "tests": 131,
+      "failed": 0
+    },
+    "clientRebuiltFromReleaseSources": {
+      "passed": true
+    },
+    "browserRegression": {
+      "passed": true,
+      "suites": {
+        "send-motion-coordination": 13,
+        "composer-scroll-motion": 8,
+        "composer": 20,
+        "messages": 16,
+        "send-motion-smooth": 1
+      }
+    },
+    "packageMetadataAndAllowlist": {
+      "passed": true,
+      "runtimeDependencies": 0,
+      "installHooks": false
+    }
+  },
+  "newRegressionCases": {
+    "stream-echo-gap": {
+      "before": "reverse 2",
+      "after": "reverse 0"
+    },
+    "stream-long-task": {
+      "before": "0px after a 160ms main-thread task",
+      "after": ">20px, continuous"
+    }
+  },
+  "liveVerification": {
+    "desktop": "Fresh-start sends recorded via screencast before the long-task fix: no large single-frame move (was +38px/+12px). Not re-recorded after the long-task fix; user reported it is noticeably smoother.",
+    "web": "localhost:8442 first send after a session switch: host long tasks 147-172ms, transcript moved one way only, no leftover hold copies or animations."
+  },
+  "excludedUnreleasedWork": "Workspace-only mirror-sea background experiments are not part of this release; client.js was rebuilt from the release worktree."
+}

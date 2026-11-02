@@ -18,13 +18,24 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
  // follow jump; the stream glide stays out of it for a moment afterwards.
  const USER_QUIET=1200,tops=new WeakMap(),reading=()=>now()-userAt<USER_QUIET
  const now=()=>win.performance.now()
+ // The offset rides on transform, not translate: a row entering with its own
+ // translate motion keeps it, both combine, and both stay on the compositor
+ // (an additive translate would run on the main thread and stall in long
+ // frames).
+ const shift=css=>css.transform&&css.transform!=='none'?new win.DOMMatrixReadOnly(css.transform).m42:0
+ const lift=y=>`translateY(${y}px)`
+ const springFrames=spring=>streamSpringKeyframes(spring).map(({offset,translate})=>({offset,transform:lift(parseFloat(translate.split(' ')[1])||0)}))
  function measured(row){
   let record=readBatch?.get(row)
-  if(!record){const css=win.getComputedStyle(row);record={box:row.getBoundingClientRect(),translate:parseFloat(css.translate.split(' ')[1])||0,transform:css.transform,rawTranslate:css.translate,display:css.display};readBatch?.set(row,record)}
+  if(!record){const css=win.getComputedStyle(row);record={box:row.getBoundingClientRect(),translate:shift(css),transform:css.transform,rawTranslate:css.translate,display:css.display};readBatch?.set(row,record)}
   return record
  }
- const translated=row=>readBatch?measured(row).translate:parseFloat(win.getComputedStyle(row).translate.split(' ')[1])||0
- const current=job=>{for(const row of job.effects.keys())if(row.isConnected)return translated(row);return 0}
+ const translated=row=>readBatch?measured(row).translate:shift(win.getComputedStyle(row))
+ // This module's own offset on a row, read from its spring's playback rather
+ // than computed style, which can include another animation's translate (a
+ // row entering with its own motion).
+ const own=(job,row)=>{const record=job?.effects?.get(row);if(!record)return 0;if(record.spring&&record.animation.currentTime!==null)return sampleStreamSpring(record.spring,record.animation.currentTime).position;return translated(row)}
+ const current=job=>{for(const row of job.effects.keys())if(row.isConnected)return own(job,row);return 0}
  function restore(job){
   for(const [name,value,priority] of job.styles)if(job.flow.style.getPropertyValue(name)==='clip'){value?job.flow.style.setProperty(name,value,priority):job.flow.style.removeProperty(name)}
   if(job.styleMark===null&&!job.flow.style.length)job.flow.removeAttribute('style')
@@ -35,10 +46,10 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
  function fade(job){
   let pending=0
   for(const [row,record] of job.effects){
-   const value=row.isConnected?translated(row):0
+   const value=row.isConnected?own(job,row):0
    record.animation.cancel()
    if(row.isConnected&&Math.abs(value)>=.5){
-    const animation=row.animate([{translate:`0px ${value}px`},{translate:'0px 0px'}],{duration:FADE_MS,easing:motion.ease.smooth,id:'dcb-send-scroll-fade'})
+    const animation=row.animate([{transform:lift(value)},{transform:lift(0)}],{duration:FADE_MS,easing:motion.ease.smooth,id:'dcb-send-scroll-fade'})
     animation.finished.catch(()=>{}).finally(()=>row.removeAttribute(MARK))
     pending=Math.max(pending,value)
    }else row.removeAttribute(MARK)
@@ -63,7 +74,39 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
   if(intent?.stream&&follow&&!reading()&&intent.owner.isConnected&&intent.owner.querySelector('[data-chat-following-tail]')&&streaming(intent.flow)){intent.until=now()+1900;expiry=win.setTimeout(expire,1900);return}
   clearIntent()
  }
- function clear(){clearIntent();win.cancelAnimationFrame(frame);frame=0;for(const job of [...jobs.values()])release(job,'cancel')}
+ // Right after the host starts, the first send can drop the echoed message
+ // row a few frames before its real row renders. At the transcript floor that
+ // gap pulled every line down by the row's height and pushed it back up. An
+ // inert copy holds the place until the real row arrives (bounded).
+ const HOLD='data-dcb-echo-hold',echo=node=>node.nodeType===1&&!node.hasAttribute(HOLD)&&(node.matches('[data-submission-echo]')||!!node.querySelector('[data-submission-echo]'))
+ const userRow=node=>node.nodeType===1&&!node.hasAttribute(HOLD)&&(node.matches('[data-chat-flow-kind="user"],[data-chat-flow-kind="steering"],[data-submission-echo]')||!!node.querySelector('[data-submission-echo]'))
+ let hold=null
+ function dropHold(){if(!hold)return;win.clearTimeout(hold.timer);hold.node.remove();hold=null}
+ function keepEcho(records){
+  if(!intent)return false
+  const list=intent.flow.querySelector(':scope > [data-slot="conversation.chat.flow"]')||intent.flow
+  const mine=records.filter(record=>record.type==='childList'&&record.target===list)
+  if(!mine.length)return false
+  const arrived=mine.some(record=>[...record.addedNodes].some(userRow))
+  if(hold&&arrived){dropHold();return true}
+  if(hold||arrived)return false
+  for(const record of mine){
+   const gone=[...record.removedNodes].find(echo)
+   if(!gone)continue
+   const copy=gone.cloneNode(true)
+   for(const element of [copy,...copy.querySelectorAll('*')]){element.removeAttribute('id');element.removeAttribute(MARK)}
+   copy.setAttribute(HOLD,'');copy.setAttribute('aria-hidden','true');copy.inert=true
+   // A layout read between removal and here clamps a bottom-pinned
+   // scroller by the missing row; give that back once the copy is in.
+   const scroll=intent.scroll,top=scroll.scrollTop,floor=scroll.scrollHeight-scroll.clientHeight
+   list.insertBefore(copy,record.nextSibling?.parentNode===list?record.nextSibling:null)
+   if(top>=floor-.5)scroll.scrollTop=Math.min(scroll.scrollHeight-scroll.clientHeight,top+copy.getBoundingClientRect().height)
+   hold={node:copy,timer:win.setTimeout(()=>{dropHold();schedule()},1500)}
+   return true
+  }
+  return false
+ }
+ function clear(){dropHold();clearIntent();win.cancelAnimationFrame(frame);frame=0;for(const job of [...jobs.values()])release(job,'cancel')}
  // A long native answer is one tall row. Carry its visible blocks instead of
  // abandoning the whole glide or promoting a transcript-sized GPU surface.
  // Targets never overlap; large indivisible code/table/media blocks stay native.
@@ -77,7 +120,7 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
    if(record.display==='contents'){children();return}
    if(record.display==='inline')return
    if(!box.height||box.bottom<view.top-margin||box.top>view.bottom+margin)return
-   if(!job.effects.has(row)&&(record.rawTranslate!=='none'||record.transform!=='none'))return
+   if(!job.effects.has(row)&&record.transform!=='none')return
    const cost=box.width*box.height*scale
    if(box.height>win.innerHeight*1.5||area+cost>AREA_BUDGET){
     // Splitting a leaf's inline text would leave part of one paragraph fixed.
@@ -104,7 +147,7 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
    if(box.top>view.bottom+Math.abs(offset)+24)continue
    const css=readBatch?{translate:measured(row).rawTranslate,transform:measured(row).transform}:win.getComputedStyle(row)
    // 我们正在动的行不算 transform 冲突，否则第二次补偿会把整屏行全部跳过
-   if(!job.effects.has(row)&&(css.translate!=='none'||css.transform!=='none'))return null
+   if(!job.effects.has(row)&&css.transform!=='none')return null
    if(box.height>win.innerHeight*1.5||area>AREA_BUDGET)return null
    if(rows.length>=MAX_ROWS)break
    rows.push(row)
@@ -125,10 +168,10 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
  // Content-space top of a row: free of our translate and of the scroll offset,
  // so a header inserted above the answer shows up as a shift of the rows below.
  function painted(job,row){
-  let value=translated(row)
+  let value=own(job,row)
   // When a growing row is split into blocks, their measured boxes still carry
   // the outgoing parent's animation until all new targets have been prepared.
-  if(continuous)for(let parent=row.parentElement;parent&&parent!==job?.list;parent=parent.parentElement)if(job?.effects?.has(parent))value+=translated(parent)
+  if(continuous)for(let parent=row.parentElement;parent&&parent!==job?.list;parent=parent.parentElement)if(job?.effects?.has(parent))value+=own(job,parent)
   return value
  }
  const placed=(row,scroll,job)=>(readBatch?measured(row).box:row.getBoundingClientRect()).top-painted(job,row)+scroll.scrollTop
@@ -167,20 +210,25 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
    if(!moved.size&&Math.abs(job.from)<.5&&Math.abs(job.to)<.5){release(job,'done');continue}
    const rows=candidates(job,Math.max(Math.abs(job.from),Math.abs(job.to))+shift)
    if(!rows||!rows.length){release(job,'abandon');continue}
-   // A row swap can reshuffle the visible candidates (budget, visit order).
-   // Rows still mid-glide stay in the set; cancelling them snapped every
-   // visible line by its remaining offset in one frame.
-   if(keep)for(const row of job.effects.keys())if(row.isConnected&&!rows.includes(row)&&!rows.some(other=>other.contains(row)||row.contains(other)))rows.push(row)
+   // A row swap can reshuffle the visible candidates (budget, visit order),
+   // also when a header shift forces a restart. Rows still mid-glide stay in
+   // the set; cancelling them snapped every visible line by its remaining
+   // offset in one frame.
+   for(const row of job.effects.keys())if(row.isConnected&&!rows.includes(row)&&!rows.some(other=>other.contains(row)||row.contains(other)))rows.push(row)
    // Each row starts where it was painted: its own current offset plus the
    // scroll delta, minus how far the layout moved it. New rows follow the row
    // before them.
    // Rebuilding the same timeline (a row swap, a resize) keeps each row's own
    // start; dropping them snapped rows below an inserted header back down.
    const starts=keep?job.starts||new Map():new Map()
-   if(!keep&&moved.size){let last=0;for(const row of [...rows].reverse()){const own=job.effects.has(row)?translated(row)+delta:job.from;if(moved.has(row))last=moved.get(row);else if(intent?.layout?.has(row))last=0;starts.set(row,own-last)}}
+   if(!keep&&moved.size){let last=0;for(const row of [...rows].reverse()){const mine=job.effects.has(row)?own(job,row)+delta:job.from;if(moved.has(row))last=moved.get(row);else if(intent?.layout?.has(row))last=0;starts.set(row,mine-last)}}
    // A replaced or newly visible row joins at its neighbour's painted offset.
    // Rows can carry different offsets (a block moved by an inserted header);
    // borrowing whichever row came first stepped the replacement out of line.
+   // The host swaps the echoed message for its real row mid-glide. Starting
+   // that row from rest let it drift apart from neighbours that were already
+   // moving; it now joins the neighbour's own spring at the same moment.
+   const adopt=new Map()
    if(continuous&&job.stream&&keep){
     const fallback=current(job)+delta
     for(let i=0;i<rows.length;i++){
@@ -189,7 +237,8 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
      let near=null
      for(let k=i+1;k<rows.length&&!near;k++)if(job.effects.has(rows[k]))near=rows[k]
      for(let k=i-1;k>=0&&!near;k--)if(job.effects.has(rows[k]))near=rows[k]
-     starts.set(rows[i],near?translated(near)+delta:fallback)
+     starts.set(rows[i],near?own(job,near)+delta:fallback)
+     if(near)adopt.set(rows[i],near)
     }
    }
    // Finish geometry reads before replacing animations. All repeated reads of
@@ -200,18 +249,36 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
    // the native scroll range. No transcript wrapper, copy or screenshot.
    job.flow.style.setProperty('overflow-x','clip');job.flow.style.setProperty('overflow-y','clip')
    let deadline=job.start+job.duration
-   for(const row of rows){
+   // Rows that keep or retarget their own spring go first, so an adopting row
+   // finds its neighbour's current spring.
+   for(const row of [...rows.filter(row=>previous.has(row)),...rows.filter(row=>!previous.has(row))]){
     const old=previous.get(row);previous.delete(row)
+    const lead=adopt.has(row)?job.effects.get(adopt.get(row)):null,shared=lead?.spring
+    if(shared){
+     row.setAttribute(MARK,'')
+     const animation=row.animate(springFrames(shared),{duration:shared.duration,easing:'linear',fill:'forwards',id:'dcb-send-scroll'})
+     // Share the neighbour's timeline exactly. A currentTime set on a new
+     // (still pending) animation lags it by a frame; the planned start time
+     // ran ahead of its actual one.
+     if(lead.animation.startTime!==null)animation.startTime=lead.animation.startTime;else animation.currentTime=lead.animation.currentTime??Math.max(0,t-shared.started)
+     animation.finished.catch(()=>{});job.effects.set(row,{animation,mark:null,spring:shared})
+     deadline=Math.max(deadline,shared.started+shared.duration);continue
+    }
     if(continuous&&job.stream&&keep&&old?.spring&&old.spring.to===job.to){job.effects.set(row,old);deadline=Math.max(deadline,old.spring.started+old.spring.duration);continue}
-    const state=old?.spring?sampleStreamSpring(old.spring,t-old.spring.started):null
+    const state=old?.spring?sampleStreamSpring(old.spring,old.animation.currentTime??t-old.spring.started):null
     // A collapse frame retargets a running spring: continue from where the row
     // is painted. Restarting at the timeline's first offset held the transcript
     // still until a multiline composer finished shrinking, then let it jump.
     const from=keep&&state?state.position+delta:starts.get(row)??job.from
     const spring=continuous&&job.stream?streamSpring(from,job.to,state?state.velocity:0,t):null
     old?.animation.cancel();row.setAttribute(MARK,'')
-    const animation=row.animate(spring?streamSpringKeyframes(spring):[{translate:`0px ${from}px`},{translate:`0px ${job.to}px`}],{duration:spring?.duration??job.duration,easing:spring?'linear':job.easing,fill:'forwards',id:'dcb-send-scroll'})
-    animation.currentTime=spring?0:t-job.start;animation.finished.catch(()=>{});job.effects.set(row,{animation,mark:old?.mark??null,spring})
+    const animation=row.animate(spring?springFrames(spring):[{transform:lift(from)},{transform:lift(job.to)}],{duration:spring?.duration??job.duration,easing:spring?'linear':job.easing,fill:'forwards',id:'dcb-send-scroll'})
+    // A running spring is sampled at the frame's timeline time, which a long
+    // host task (session switch, first render) holds while the compositor keeps
+    // gliding. Continue from that same instant: starting at the next frame
+    // replayed the stretch the task covered as a visible drop.
+    const frameTime=doc.timeline?.currentTime
+    if(spring&&state&&typeof frameTime==='number')animation.startTime=frameTime;else animation.currentTime=spring?0:t-job.start;animation.finished.catch(()=>{});job.effects.set(row,{animation,mark:old?.mark??null,spring})
     if(spring)deadline=Math.max(deadline,spring.started+spring.duration)
    }
    for(const [row,record]of previous){record.animation.cancel();record.mark===null?row.removeAttribute(MARK):row.setAttribute(MARK,record.mark)}
@@ -316,7 +383,10 @@ export function createComposerScrollMotion(doc,win,initiallyEnabled=false){
   // Reading scrollTop here forces layout inside React's commit (about 30ms on
   // the desktop app). Only a row added or removed can come with a follow write
   // that must be caught before paint; streaming text deep in a reply cannot.
+  const held=keepEcho(records)
   if(intent&&records.some(record=>record.type==='childList'&&(record.target===intent.flow||record.target.parentElement===intent.flow)))sample()
+  // The held copy (or the row that replaces it) joins the glide before paint.
+  if(held&&jobs.size){if(frame){win.cancelAnimationFrame(frame);frame=0}flush()}
   for(const job of [...jobs.values()]){
    if(!job.flow.isConnected||job.session!==(job.owner.getAttribute('data-conversation-session')||'')){release(job,'abandon');continue}
    if(job.effects.size&&records.some(record=>record.target===job.list||record.target===job.flow))schedule()

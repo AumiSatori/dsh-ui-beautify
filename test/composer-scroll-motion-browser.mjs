@@ -38,7 +38,7 @@ async function boot(){
 try{
  await check('native follow lands immediately while visible content has a real intermediate transition',async()=>{
   await boot();await page.getByRole('textbox',{name:'合成输入'}).press('Enter');await page.waitForFunction(()=>document.querySelector('[data-dcb-send-scroll-row]'))
-  const result=await page.evaluate(()=>{const row=list.lastElementChild,a=row.getAnimations().find(a=>a.id==='dcb-send-scroll');a.pause();a.currentTime=90;return{top:scroll.scrollTop,floor:metrics().floor,active:follow.active,shift:parseFloat(getComputedStyle(row).translate.split(' ')[1]),writes:nativeWrites,events,range:scroll.scrollHeight}})
+  const result=await page.evaluate(()=>{const row=list.lastElementChild,a=row.getAnimations().find(a=>a.id==='dcb-send-scroll');a.pause();a.currentTime=90;return{top:scroll.scrollTop,floor:metrics().floor,active:follow.active,shift:new DOMMatrixReadOnly(getComputedStyle(row).transform).m42,writes:nativeWrites,events,range:scroll.scrollHeight}})
   assert.ok(Math.abs(result.top-result.floor)<.81);assert.equal(result.active,true);assert.equal(result.writes,1);assert.ok(result.events>0);assert.ok(result.shift>0&&result.shift<150)
   await page.screenshot({path:resolve(out,'send-middle.png')});await page.evaluate(()=>document.querySelectorAll('[data-dcb-send-scroll-row]').forEach(row=>row.getAnimations().forEach(a=>a.play())))
  })
@@ -62,7 +62,7 @@ try{
     document.addEventListener('keydown',e=>{
      if(e.key==='Enter')document.querySelector('[data-composer-seat]').style.height='90px'
     },{capture:true,once:true})
-    window.recordShort=()=>{shortFrames.push({top:scroll.scrollTop,probe:probe.getBoundingClientRect().top,marked:document.querySelectorAll('[data-dcb-send-scroll-row]').length,shift:parseFloat(getComputedStyle(probe).translate.split(' ')[1])||0});if(shortFrames.length<32)requestAnimationFrame(recordShort)}
+    window.recordShort=()=>{shortFrames.push({top:scroll.scrollTop,probe:probe.getBoundingClientRect().top,marked:document.querySelectorAll('[data-dcb-send-scroll-row]').length,shift:new DOMMatrixReadOnly(getComputedStyle(probe).transform).m42});if(shortFrames.length<32)requestAnimationFrame(recordShort)}
     recordShort()
    },count)
    await tick()
@@ -81,7 +81,7 @@ try{
   await prepare(4)
   await page.getByRole('textbox',{name:'合成输入'}).press('Enter')
   await page.waitForFunction(()=>document.querySelector('[data-dcb-send-scroll-row]'))
-  const crossing=await page.evaluate(()=>{const animation=probe.getAnimations().find(a=>a.id==='dcb-send-scroll');if(!animation)return null;animation.pause();animation.currentTime=90;return{shift:parseFloat(getComputedStyle(probe).translate.split(' ')[1]),flowHeight:flow.scrollHeight,available:document.querySelector('[data-composer-seat]').getBoundingClientRect().top-scroll.getBoundingClientRect().top}})
+  const crossing=await page.evaluate(()=>{const animation=probe.getAnimations().find(a=>a.id==='dcb-send-scroll');if(!animation)return null;animation.pause();animation.currentTime=90;return{shift:new DOMMatrixReadOnly(getComputedStyle(probe).transform).m42,flowHeight:flow.scrollHeight,available:document.querySelector('[data-composer-seat]').getBoundingClientRect().top-scroll.getBoundingClientRect().top}})
   assert.ok(crossing&&crossing.flowHeight>crossing.available,'the sent message must actually cross the composer boundary')
   assert.ok(crossing.shift>0,'the crossing must have a real intermediate compensation frame')
  })
@@ -92,7 +92,7 @@ try{
    await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);const after=probe.getBoundingClientRect().top
    const old=list.lastElementChild,copy=old.cloneNode(true);old.replaceWith(copy)
    await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame)
-   return{before,after,shift:parseFloat(getComputedStyle(copy).translate.split(' ')[1]),active:follow.active,writes:nativeWrites}
+   return{before,after,shift:new DOMMatrixReadOnly(getComputedStyle(copy).transform).m42,active:follow.active,writes:nativeWrites}
   })
   assert.ok(Math.abs(result.after-result.before)<55,'Retarget moves forward from its displayed frame, without replaying the full prior offset');assert.ok(result.shift>0);assert.equal(result.active,true);assert.equal(result.writes,2)
   await page.waitForTimeout(360);assert.equal(await page.locator('[data-dcb-send-scroll-row]').count(),0,'Acknowledged rows release their owned marker')
@@ -128,7 +128,7 @@ try{
   await page.waitForFunction(()=>document.querySelectorAll('[data-dcb-send-scroll-row]').length>16)
   const result=await page.evaluate(()=>{
    const marked=[...document.querySelectorAll('[data-dcb-send-scroll-row]')]
-   const shifts=marked.map(el=>parseFloat(getComputedStyle(el).translate.split(' ')[1])||0)
+   const shifts=marked.map(el=>new DOMMatrixReadOnly(getComputedStyle(el).transform).m42)
    return {count:marked.length,min:Math.min(...shifts),max:Math.max(...shifts),overflow:flow.style.overflow}
   })
   assert.ok(result.count>16,'capped selection must not abort the whole correction')

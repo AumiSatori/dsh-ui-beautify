@@ -120,6 +120,7 @@
     "test:background-theme": "node test/background-theme-browser.mjs",
     "test:tabs": "node test/conversation-tabs-browser.mjs",
     "test:composer": "node test/composer-browser.mjs",
+    "test:trigger-menu-opacity": "node test/trigger-menu-opacity-browser.mjs",
     "test:composer-scroll-motion": "node test/composer-scroll-motion-browser.mjs",
     "test:composer-placement": "node test/composer-placement-browser.mjs",
     "test:slider-glass": "node test/slider-glass-browser.mjs",

@@ -51,6 +51,7 @@ export {createHeaderMenuMotion,headerMenuMotionCss} from './header-menu-motion.j
 export {motion} from './motion.js'
 export {messageImageLayoutCss} from './message-image-layout.js'
 export {fileOpenHitTargetCss} from './file-open-hit-target.js'
+export {normalizeTriggerMenuOpacity,createTriggerMenuOpacity,createTriggerMenuOpacitySettings,triggerMenuOpacityCss} from './trigger-menu-opacity.js'
 export {summaryEntryState,summaryEventStatus,createSummaryEntryStatus,summaryEntryCss} from './summary-entry-status.js'
 export {createChatDisclosureMotion} from './chat-disclosure-motion.js'
 export {createProcessDisclosureMotion} from './process-disclosure-motion.js'

@@ -8,10 +8,10 @@ export const headerMenuMotionCss=`
   [${GHOST}] { pointer-events:none!important; user-select:none!important; }
 `
 
-// Native Menu portals unmount synchronously. Observe only the body boundary;
-// an inert copy can finish leaving while native focus/dismissal stays immediate.
+// Portals use the body boundary; inline menus use a short-lived observation of
+// the triggering header. Never observe the transcript subtree for menu motion.
 export function createHeaderMenuMotion(doc,win,{enabled=true}={}){
-  const records=new Map(),ghosts=new Map(),quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
+  const records=new Map(),ghosts=new Map(),headers=new Set(),quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
   let active=enabled,disposed=false,gesture=null,serial=0
   const allowed=()=>active&&!disposed&&!doc.hidden&&!quiet.matches
   const visual=node=>{const s=win.getComputedStyle(node);return{opacity:s.opacity,transform:s.transform,filter:s.filter}}
@@ -27,18 +27,36 @@ export function createHeaderMenuMotion(doc,win,{enabled=true}={}){
     if(marked==='folder'||marked==='more')return {kind:marked,button}
     const folderClass=moduleClass('@deepseek-ai/dsh-client-ui-open-in-app/OpenTargetButton.module.css','chevron')
     const moreClass=moduleClass('@deepseek-ai/dsh-client-ui-conversation/ConversationRoot.module.css','viewsMore')
+    const actionsClass=moduleClass('@deepseek-ai/dsh-session-log-export/HeaderAction.module.css','moreButton')
     if(folderClass&&button.classList.contains(folderClass)&&button.closest('[data-open-target="directory"]'))return {kind:'folder',button}
     if(moreClass&&button.classList.contains(moreClass))return {kind:'more',button}
+    if(actionsClass&&button.classList.contains(actionsClass))return {kind:'more',button}
     return null
   }
   function identify(node){
     if(node.nodeType!==1||node.hasAttribute(GHOST)||node.getAttribute('role')!=='menu'||!node.hasAttribute('data-menu-material'))return null
     const moreClass=moduleClass('@deepseek-ai/dsh-client-ui-conversation/ConversationRoot.module.css','viewsMoreMenu')
     if(moreClass&&node.classList.contains(moreClass))return 'more'
+    if(node.closest('header')){
+      const button=node.parentElement?.querySelector('button[aria-haspopup="menu"]')
+      return button&&!node.contains(button)?triggerKind(button)?.kind:null
+    }
     // Directory menus have no dedicated list class. Associate only the portal
     // created by the actual header chevron gesture, never every open Menu.
     if(gesture?.button.isConnected&&gesture.button.getAttribute('aria-expanded')==='true')return gesture.kind
     return null
+  }
+  function syncHeaders(){
+    const wanted=new Set([...records.values()].map(record=>record.header).filter(header=>header?.isConnected))
+    const pending=gesture?.button.closest('header');if(pending?.isConnected)wanted.add(pending)
+    if(wanted.size===headers.size&&[...wanted].every(header=>headers.has(header)))return
+    headerObserver.disconnect();headers.clear()
+    for(const header of wanted){headers.add(header);headerObserver.observe(header,{childList:true,subtree:true})}
+  }
+  function layoutBox(node,style=win.getComputedStyle(node)){
+    const rect=node.getBoundingClientRect(),matrix=new win.DOMMatrixReadOnly(style.transform==='none'?undefined:style.transform)
+    const [x,y]=style.transformOrigin.split(' ').map(parseFloat)
+    return{left:rect.left-matrix.e-(1-matrix.a)*x,top:rect.top-matrix.f-(1-matrix.d)*y,width:rect.width/Math.abs(matrix.a||1),height:rect.height/Math.abs(matrix.d||1)}
   }
   const backingFor=node=>{
     const anchor=node.style.getPropertyValue('--dsh-menu-anchor')
@@ -55,7 +73,7 @@ export function createHeaderMenuMotion(doc,win,{enabled=true}={}){
   function enter(record){
     const node=record.node,s=win.getComputedStyle(node)
     if(!node.isConnected||s.visibility==='hidden'||s.display==='none')return
-    record.box={left:parseFloat(node.style.left),top:parseFloat(node.style.top),width:node.offsetWidth,height:node.offsetHeight}
+    record.box=layoutBox(node,s)
     record.backing=backingFor(node)
     if(record.placed)return
     record.placed=true
@@ -74,13 +92,15 @@ export function createHeaderMenuMotion(doc,win,{enabled=true}={}){
     if(records.has(node))return
     const kind=identify(node);if(!kind)return
     if(gesture?.kind===kind)gesture=null
-    const record={node,kind,placed:!animate,animation:null,backingAnimation:null,box:null,snapshot:null,backing:null}
+    const record={node,kind,header:node.closest('header'),placed:!animate,animation:null,backingAnimation:null,box:null,snapshot:null,backing:null}
     records.set(node,record);node.setAttribute(MARK,kind)
     record.observer=new win.MutationObserver(()=>enter(record));record.observer.observe(node,{attributes:true,attributeFilter:['style']})
     enter(record)
+    syncHeaders()
   }
   function remove(record){
     records.delete(record.node);record.observer.disconnect()
+    if(gesture?.kind===record.kind&&gesture.button.getAttribute('aria-expanded')!=='true')gesture=null
     // A removal callback runs after disconnection, where computed style loses
     // its stylesheet. Input capture retains the current in-flight visual frame.
     const from=record.snapshot||resting,box=record.box
@@ -111,22 +131,31 @@ export function createHeaderMenuMotion(doc,win,{enabled=true}={}){
   function capture(event){
     if(event.type==='keydown'&&!['Escape','Enter',' ','Tab'].includes(event.key))return
     // Capture before the native React handler disposes its portal.
-    for(const record of records.values())if(record.node.isConnected&&record.placed)record.snapshot=visual(record.node)
-    const target=triggerKind(event.target)
+    for(const record of records.values())if(record.node.isConnected&&record.placed){record.snapshot=visual(record.node);record.box=layoutBox(record.node)}
+    const activating=event.type!=='keydown'||event.key==='Enter'||event.key===' '
+    const target=activating&&!(event.type==='pointerdown'&&event.button!==0)?triggerKind(event.target):null
     gesture=target
+    syncHeaders()
   }
-  const observer=new win.MutationObserver(changes=>{
-    for(const change of changes)for(const node of change.removedNodes){const record=records.get(node);if(record&&!node.isConnected)remove(record)}
-    for(const change of changes)for(const node of change.addedNodes)if(node.isConnected)attach(node)
-  })
+  function attachTree(node,animate=true){
+    if(node.nodeType!==1)return
+    attach(node,animate)
+    for(const menu of node.querySelectorAll('[role="menu"][data-menu-material]'))attach(menu,animate)
+  }
+  function changesReceived(changes){
+    for(const record of [...records.values()])if(!record.node.isConnected)remove(record)
+    for(const change of changes)for(const node of change.addedNodes)if(node.isConnected)attachTree(node)
+    syncHeaders()
+  }
+  const observer=new win.MutationObserver(changesReceived),headerObserver=new win.MutationObserver(changesReceived)
   function settle(){for(const record of records.values()){cancelEntry(record);record.snapshot=null}for(const record of [...ghosts.values()])endGhost(record)}
   const accessibility=()=>{if(!allowed())settle()}
-  for(const node of doc.body.children)attach(node,false)
+  for(const node of doc.querySelectorAll('[role="menu"][data-menu-material]'))attach(node,false)
   observer.observe(doc.body,{childList:true})
   for(const type of ['pointerdown','click','keydown'])doc.addEventListener(type,capture,true)
   quiet.addEventListener('change',accessibility);doc.addEventListener('visibilitychange',accessibility)
   return{
     sync(value){active=value===true;if(!active)settle()},
-    dispose(){disposed=true;observer.disconnect();settle();for(const record of records.values()){record.observer.disconnect();record.node.removeAttribute(MARK)}records.clear();gesture=null;for(const type of ['pointerdown','click','keydown'])doc.removeEventListener(type,capture,true);quiet.removeEventListener('change',accessibility);doc.removeEventListener('visibilitychange',accessibility)},
+    dispose(){disposed=true;observer.disconnect();headerObserver.disconnect();headers.clear();settle();for(const record of records.values()){record.observer.disconnect();record.node.removeAttribute(MARK)}records.clear();gesture=null;for(const type of ['pointerdown','click','keydown'])doc.removeEventListener(type,capture,true);quiet.removeEventListener('change',accessibility);doc.removeEventListener('visibilitychange',accessibility)},
   }
 }

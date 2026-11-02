@@ -11,17 +11,17 @@ const fd=openSync(archive,'r'),header=Buffer.alloc(16);readSync(fd,header,0,16,0
 const bytes=Buffer.alloc(header.readUInt32LE(12));readSync(fd,bytes,0,bytes.length,16)
 const tree=JSON.parse(bytes),base=8+header.readUInt32LE(4)
 function source(path){let item=tree;for(const name of path.split('/'))item=item.files[name];const bytes=Buffer.alloc(item.size);readSync(fd,bytes,0,bytes.length,base+Number(item.offset));return bytes.toString()}
-let conversation,opener,frontend,nativeCss
+let conversation,opener,sessionExport,frontend,nativeCss
 try{
  const pkg=name=>`dsh/node_modules/@deepseek-ai/${name}`
- conversation=source(pkg('dsh-client-ui-conversation')+'/lib/client.js');opener=source(pkg('dsh-client-ui-open-in-app')+'/lib/client.js')
+ conversation=source(pkg('dsh-client-ui-conversation')+'/lib/client.js');opener=source(pkg('dsh-client-ui-open-in-app')+'/lib/client.js');sessionExport=source(pkg('dsh-session-log-export')+'/lib/client.js')
  const assets=tree.files.dsh.files.node_modules.files['@deepseek-ai'].files['dsh-web-frontend'].files.dist.files.assets.files
  frontend=source(pkg('dsh-web-frontend')+'/dist/assets/'+Object.keys(assets).find(name=>/^index-.+\.js$/.test(name)))
  nativeCss=source(pkg('dsh-web-frontend')+'/dist/assets/'+Object.keys(assets).find(name=>/^index-.+\.css$/.test(name)))
 }finally{closeSync(fd)}
 function region(text,anchor,end='//#endregion'){const start=text.indexOf(anchor);assert.ok(start>=0,'native anchor '+anchor);return text.slice(start,text.indexOf(end,start))}
 function sheet(text,name){const start=text.indexOf(name+'.module.css.mjs'),code=text.slice(text.lastIndexOf('//#region',start),text.indexOf('//#endregion',start));return JSON.parse(code.match(/const css\$?\d* = ("(?:[^"\\]|\\.)*");/)[1])}
-function classes(text,name){return text.match(new RegExp(`var ${name}_module_css_default = \\{[\\s\\S]*?\\n\\s*\\};`))[0]}
+function classes(text,name){const start=text.indexOf("var "+name+"_module_css_default = ");assert.ok(start>=0);return text.slice(start,text.indexOf("};",start)+2)}
 function frontendMap(name){const body=frontend.match(new RegExp('\\b'+name+'=\\{([^}]+)\\}'))[1];const values=new Map([...frontend.matchAll(/([\w$]+)="([^"\n]*)"/g)].map(match=>[match[1],match[2]]));return JSON.stringify(Object.fromEntries(body.split(',').map(pair=>{const[k,v]=pair.split(':');assert.ok(values.has(v),`native class ${v}`);return[k,values.get(v)]})))}
 const menu=region(frontend,'function b_(','function sA('),surface=region(frontend,'const j1=C.forwardRef(','function iA(')
 const demo=`import React from 'react';import * as jsx from 'react/jsx-runtime';import * as dom from 'react-dom';import {createRoot}from'react-dom/client';import{createHeaderMenuMotion,headerMenuMotionCss}from'./src/header-menu-motion.js';
@@ -33,11 +33,14 @@ function C8(item){return item.type==='separator'}function $8(item){return item.t
 ${menu}
 ${classes(opener,'OpenTargetButton')}
 ${classes(conversation,'ConversationRoot')}
-const _deepseek_ai_dsh_client_ui_primitives={Menu:b_,Tooltip:({children})=>children,Button:({size,variant,...props})=><button {...props}/>,IconEllipsisOutlineRegular:()=> <span>…</span>,IconChevronDownOutlineRegular:()=> <span>⌄</span>,IconFolderOpenOutlineRegular:()=> <span>▣</span>};
+${classes(sessionExport,'HeaderAction')}
+const _deepseek_ai_dsh_client_ui_primitives={Menu:b_,Tooltip:({children})=>children,Button:({size,variant,...props})=><button {...props}/>,IconEllipsisOutlineRegular:()=> <span>…</span>,IconDownloadOutlineRegular:()=> <span>↓</span>,IconPaperPlaneOutlineRegular:()=> <span>➤</span>,IconChevronDownOutlineRegular:()=> <span>⌄</span>,IconFolderOpenOutlineRegular:()=> <span>▣</span>};
 function useOpenTargetGesture(execute){return{pending:false,toast:null,act:operation=>execute(operation)}}function ApplicationIcon(){return <span>▣</span>}
 ${region(opener,'function OpenTargetButton(')}
 ${region(conversation,'function ViewsMoreMenu(').split('/** Approximate')[0]}
-const labels={'path.more':'打开方式','open.title':'打开目录','session.moreViews':'更多会话视图'},t=key=>labels[key]||key;
+function SessionLogDownloadDialog(){return null}
+${region(sessionExport,'function SessionLogDownloadHeaderAction(')}
+const labels={'path.more':'打开方式','open.title':'打开目录','session.moreViews':'更多会话视图','header.more':'更多操作','menu.download':'下载 Session 日志','menu.feedback':'反馈'},t=key=>labels[key]||key;
 const style=document.createElement('style');style.textContent=headerMenuMotionCss;document.head.append(style);
 let manager=createHeaderMenuMotion(document,window);window.motion=manager;window.install=()=>{manager.dispose();manager=createHeaderMenuMotion(document,window);window.motion=manager};
 function App(){
@@ -46,7 +49,8 @@ function App(){
  const refresh=()=>{if(delay){setLoading(true);setTimeout(()=>setLoading(false),1150)}};
  return <><header>{present&&<>
   <span data-dcb-toolbar-item={marked?'folder':undefined}><OpenTargetButton applications={[{id:'explorer',name:'文件资源管理器',icon:null},{id:'editor',name:'编辑器',icon:null}]} defaultId="explorer" kind="directory" loading={loading} refresh={refresh} execute={op=>window.chosen=op} t={t}/></span>
-  <span data-dcb-toolbar-item={marked?'more':undefined}><ViewsMoreMenu label="更多会话视图" entries={[]} renderSlot={()=> <><button role="menuitem" onClick={()=>window.chosen='trace'}>轨迹</button><button role="menuitem">上下文</button></>}/></span>
+  <span data-dcb-toolbar-item={marked?'more':undefined}><SessionLogDownloadHeaderAction sessionId="synthetic" useSessionLogDownload={selector=>selector({bySession:{}})} useFeedbackAvailable={selector=>selector(true)} request={()=>window.chosen='download'} openFeedback={()=>window.chosen='feedback'} t={t}/></span>
+  <ViewsMoreMenu label="更多会话视图" entries={[]} renderSlot={()=> <><button role="menuitem" onClick={()=>window.chosen='trace'}>轨迹</button><button role="menuitem">上下文</button></>}/>
  </>}</header><main><textarea aria-label="草稿" defaultValue="保持草稿"/><button id="outside">外部区域</button></main>
  <section><header id="preview"><OpenTargetButton applications={[{id:'viewer',name:'查看器',icon:null}]} defaultId="viewer" kind="file" execute={()=>{}} t={key=>key==='path.more'?'预览打开方式':t(key)}/></header></section>
  <b_ open={other} portal autoFocus onClose={()=>setOther(false)} items={[{id:'unrelated',label:'无关菜单'}]} anchor={<button id="other" aria-haspopup="menu" onClick={()=>setOther(v=>!v)}>其他菜单</button>}/></>
@@ -55,16 +59,25 @@ createRoot(document.getElementById('root')).render(<App/>);`
 // Lowercase JSX names are DOM tags, so use the native function through an alias.
 const built=await build({stdin:{contents:demo.replaceAll('<b_','<NativeMenu').replaceAll('</b_','</NativeMenu').replace('function App(){','const NativeMenu=b_;function App(){'),loader:'jsx',resolveDir:project},bundle:true,write:false,format:'iife'})
 const css=sheet(opener,'OpenTargetButton')+sheet(conversation,'ConversationRoot')
-const html=`<!doctype html><meta charset="utf-8"><html data-platform="win32"><style>${nativeCss}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-open-in-app/OpenTargetButton.module.css">${sheet(opener,'OpenTargetButton')}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-conversation/ConversationRoot.module.css">${sheet(conversation,'ConversationRoot')}</style><style>${css}
+const html=`<!doctype html><meta charset="utf-8"><html data-platform="win32"><style>${nativeCss}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-open-in-app/OpenTargetButton.module.css">${sheet(opener,'OpenTargetButton')}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-conversation/ConversationRoot.module.css">${sheet(conversation,'ConversationRoot')}</style><style data-plugin-css="@deepseek-ai/dsh-session-log-export/HeaderAction.module.css">${sheet(sessionExport,'HeaderAction')}</style><style>${css}${sheet(sessionExport,'HeaderAction')}
 :root{--dsw-radius-lg:12px;--dsw-radius-sm:8px;--dsw-radius-md:10px;--dsw-menu-surface-fill:#fbfcfce8;--dsw-menu-backdrop-filter:blur(16px);--dsw-alias-bg-base:#f6f6f6;--dsw-alias-label-primary:#252734;--dsw-alias-label-secondary:#626574;--dsw-alias-border-l1:#8883;--dsw-alias-border-l2:#8882;--dsw-alias-border-l4:#8883;--dsw-alias-interactive-bg-hover:#8882;--dsw-elevation-prominent:0 12px 36px #10182a24,0 0 0 1px #8882}*{box-sizing:border-box}body{margin:0;background:#f7f7f7;color:#252734;font:14px/1.5 system-ui}header{display:flex;justify-content:flex-end;align-items:center;gap:12px;height:72px;padding:16px 28px;border-bottom:1px solid #8882}button{font:inherit;cursor:pointer;color:inherit}main{padding:30px}textarea{width:400px;height:120px;display:block;margin-bottom:20px}body[data-ds-dark-theme]{background:#191b21;color:#eee;--dsw-menu-surface-fill:#24262de8;--dsw-alias-bg-base:#191b21;--dsw-alias-label-primary:#eee;--dsw-alias-label-secondary:#bbb}body[data-ds-dark-theme] textarea{background:#25262c;color:#eee}body>button{margin:20px}</style><div id="root"></div><script src="/demo.js"></script>`
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','..','outputs','dsh-ui-beautify-validation'),'header-menu-motion');mkdirSync(output,{recursive:true})
 const server=createServer((req,res)=>{if(req.url==='/demo.js')res.writeHead(200,{'content-type':'text/javascript'}).end(built.outputFiles[0].text);else res.writeHead(200,{'content-type':'text/html;charset=utf-8'}).end(html)})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const browser=await chromium.launch({headless:true,channel:'chrome'}),page=await browser.newPage({viewport:{width:1100,height:760}}),errors=[],checks=[]
 page.on('pageerror',error=>{errors.push(error.message);console.error('FIXTURE ERROR',error.message)})
+await page.addInitScript(()=>{
+ const NativeObserver=MutationObserver
+ window.observedMenuHeaders=0;window.menuBodySubtreeWatches=0
+ window.MutationObserver=class extends NativeObserver{
+  constructor(callback){super(callback);this.headers=new Set()}
+  observe(target,options){if(target.matches?.('header')&&!this.headers.has(target)){this.headers.add(target);window.observedMenuHeaders++}if(target===document.body&&options.subtree)window.menuBodySubtreeWatches++;return super.observe(target,options)}
+  disconnect(){window.observedMenuHeaders-=this.headers.size;this.headers.clear();return super.disconnect()}
+ }
+})
 const active=()=>page.locator('[data-dcb-header-menu]'),ghost=()=>page.locator('[data-dcb-header-menu-ghost]'),tick=()=>page.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))))
 async function check(name,fn){await fn();checks.push(name);console.log('PASS '+name)}
-const trigger=kind=>page.getByRole('button',{name:kind==='folder'?'打开方式':'更多会话视图',exact:true})
+const trigger=kind=>page.getByRole('button',{name:kind==='folder'?'打开方式':kind==='views'?'更多会话视图':'更多操作',exact:true})
 async function finish(){await page.evaluate(()=>{for(const a of document.getAnimations())if(a.id.startsWith('dcb-header-menu'))a.finish()});await tick()}
 async function mid(locator,time=80){return locator.evaluate((node,time)=>{const a=node.getAnimations().find(a=>a.id.startsWith('dcb-header-menu'));if(!a)return null;a.pause();a.currentTime=time;const s=getComputedStyle(node);return{opacity:Number(s.opacity),transform:s.transform,filter:s.filter,left:node.style.left,top:node.style.top,willChange:s.willChange,duration:a.effect.getTiming().duration}},time)}
 async function close(){await page.locator('#outside').click();await finish()}
@@ -76,9 +89,9 @@ try{
    const sample=await mid(active());assert.ok(sample&&sample.opacity>0&&sample.opacity<1);assert.notEqual(sample.transform,'none');assert.match(sample.filter,/blur\(/);assert.match(sample.willChange,/opacity/);assert.equal(sample.duration,240)
    await page.screenshot({path:resolve(output,kind+'-enter.png')});await finish()
    assert.equal(await active().evaluate(n=>getComputedStyle(n).willChange),'auto')
-   const seat=await active().evaluate(n=>({left:n.style.left,top:n.style.top}));await trigger(kind).click();await expect(active()).toHaveCount(0);await expect(ghost()).toHaveCount(1)
+   const seat=await active().boundingBox();await trigger(kind).click();await expect(active()).toHaveCount(0);await expect(ghost()).toHaveCount(1)
    assert.equal(await ghost().getAttribute('inert'),'');assert.equal(await ghost().getAttribute('aria-hidden'),'true');assert.equal(await ghost().locator('[id],[role],[tabindex]').count(),0)
-   const exit=await mid(ghost());assert.ok(exit.opacity>0&&exit.opacity<1);assert.equal(exit.left,seat.left);assert.equal(exit.top,seat.top);assert.equal(exit.duration,200)
+   const exit=await mid(ghost());assert.ok(exit.opacity>0&&exit.opacity<1);assert.ok(Math.abs(parseFloat(exit.left)-seat.x)<1);assert.ok(Math.abs(parseFloat(exit.top)-seat.y)<1);assert.equal(exit.duration,200)
    await page.screenshot({path:resolve(output,kind+'-exit.png')});await finish();await expect(ghost()).toHaveCount(0)
   }
  })
@@ -86,6 +99,23 @@ try{
   await trigger('folder').click();const open=await mid(active(),65);await trigger('folder').click();await expect(ghost()).toHaveCount(1);const leaving=await mid(ghost(),0);assert.ok(Math.abs(leaving.opacity-open.opacity)<.025)
   const closing=await mid(ghost(),60);await trigger('folder').click();const returned=await mid(active(),0);assert.ok(Math.abs(returned.opacity-closing.opacity)<.025);await expect(ghost()).toHaveCount(0);await finish()
   for(let i=0;i<6;i++){await trigger(i%2?'folder':'more').click();assert.ok(await ghost().count()<=2)}await close();await expect(ghost()).toHaveCount(0)
+ })
+ await check('the actual Session log and feedback menu animates inside the header and keeps both native actions',async()=>{
+  for(const [name,result]of [['反馈','feedback'],['下载 Session 日志','download']]){
+   await trigger('more').click();await finish();assert.equal(await active().evaluate(node=>!!node.closest('header')),true)
+   await page.getByRole('menuitem',{name,exact:false}).click();await expect(active()).toHaveCount(0);assert.equal(await page.evaluate(()=>window.chosen),result)
+   await expect(ghost()).toHaveCount(1);await finish()
+  }
+  await trigger('more').click();const entered=await mid(active(),60);await trigger('more').click();const leaving=await mid(ghost(),0);assert.ok(Math.abs(entered.opacity-leaving.opacity)<.025)
+  const closed=await mid(ghost(),70);await trigger('more').click();const returned=await mid(active(),0);assert.ok(Math.abs(returned.opacity-closed.opacity)<.025);await finish();await close()
+ })
+ await check('view overflow still animates and inline observation exists only while its own header menu is active',async()=>{
+  assert.equal(await page.evaluate(()=>window.observedMenuHeaders),0)
+  await trigger('more').focus();await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>window.observedMenuHeaders),0)
+  await trigger('more').click();await finish();assert.equal(await page.evaluate(()=>window.observedMenuHeaders),1)
+  await close();assert.equal(await page.evaluate(()=>window.observedMenuHeaders),0)
+  await trigger('views').click();await expect(active()).toHaveAttribute('data-dcb-header-menu','more');assert.ok(await mid(active()));await finish();await close()
+  assert.equal(await page.evaluate(()=>window.observedMenuHeaders),0);assert.equal(await page.evaluate(()=>window.menuBodySubtreeWatches),0)
  })
  await check('keyboard and outside dismissal preserve native focus and selected actions',async()=>{
   await trigger('folder').focus();await page.keyboard.press('Enter');await finish();await expect(active()).toHaveCount(1);await page.keyboard.press('End');await page.keyboard.press('Enter');await expect(active()).toHaveCount(0);assert.equal(await page.evaluate(()=>window.chosen.kind),'application');await finish()

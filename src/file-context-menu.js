@@ -16,6 +16,7 @@ export const fileContextMenuCss = `
   .dcb-file-context-default { color:#6f7784; font-size:11px; }
   .dcb-file-context-menu { position:fixed; z-index:2147483000; width:216px; max-width:calc(100vw - 16px); max-height:calc(100vh - 16px); overflow-y:auto; padding:6px; border:1px solid #ffffffa8; border-radius:14px; background:rgba(249,250,252,.96); color:#252a31; box-shadow:0 16px 48px #1721362e,inset 0 1px 0 #fff; backdrop-filter:blur(16px) saturate(1.18); font:13px/20px system-ui,sans-serif; transform-origin:top left; animation:dcb-file-context-enter 180ms cubic-bezier(.22,.8,.26,1); }
   .dcb-file-context-menu,.dcb-file-context-menu * { box-sizing:border-box; }
+  .dcb-file-context-menu[data-closing] { pointer-events:none; animation:dcb-file-context-leave 180ms cubic-bezier(.4,0,.2,1) both; }
   .dcb-file-context-head { padding:5px 8px 7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#6f7784; font-size:11px; }
   .dcb-file-context-menu button { display:flex; align-items:center; gap:9px; width:100%; min-height:32px; margin:0; padding:5px 8px; border:0; border-radius:8px; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
   .dcb-file-context-menu button:hover:not(:disabled),.dcb-file-context-menu button:focus-visible { background:#202a3c10; outline:none; }
@@ -46,6 +47,7 @@ export const fileContextMenuCss = `
   body[data-ds-dark-theme] .dcb-file-context-separator { background:#ffffff1c; }
   body[data-ds-dark-theme] .dcb-file-context-status { background:#ffffff0d; color:#aeb8c6; }
   @keyframes dcb-file-context-enter { from { opacity:0; transform:translateY(-6px) scale(.94); filter:blur(2px); } to { opacity:1; transform:none; filter:blur(0); } }
+  @keyframes dcb-file-context-leave { from { opacity:1; transform:none; filter:blur(0); } to { opacity:0; transform:translateY(-6px) scale(.94); filter:blur(2px); } }
   @media(prefers-reduced-motion:reduce),(forced-colors:active) { .dcb-file-context-menu,.dcb-file-context-items,.dcb-file-context-status { animation:none; } }
   @media(forced-colors:active) { .dcb-file-context-menu { border:1px solid CanvasText; background:Canvas; color:CanvasText; box-shadow:none; backdrop-filter:none; } .dcb-file-context-menu button:hover:not(:disabled),.dcb-file-context-menu button:focus-visible { background:Highlight; color:HighlightText; } .dcb-file-context-input { border-color:CanvasText; background:Canvas; color:CanvasText; box-shadow:none; } .dcb-file-context-menu .dcb-file-context-actions [data-primary] { border:1px solid ButtonText; background:ButtonFace; color:ButtonText; filter:none; } }
   @media(prefers-reduced-motion:reduce) { .dcb-file-context-input { transition:none; } }
@@ -55,7 +57,7 @@ const fileName = path => String(path || '').replaceAll('\\', '/').split('/').at(
 
 export function createFileContextMenu(React, doc, win, {createPortal} = {}) {
   const h = React.createElement
-  return function FileContextMenu({file, children, onOpen, onOpenWith, onOpenWithApplication, onCopyFile, onCopy, onReveal, onRename, onDelete, onProperties}) {
+  return function FileContextMenu({file, children, request, onOpen, onOpenWith, onOpenWithApplication, onCopyFile, onCopy, onReveal, onRename, onDelete, onProperties}) {
     const [point, setPoint] = React.useState(null)
     const [status, setStatus] = React.useState('')
     const [busy, setBusy] = React.useState('')
@@ -65,16 +67,19 @@ export function createFileContextMenu(React, doc, win, {createPortal} = {}) {
     const input = React.useRef(null)
     const [size, setSize] = React.useState({width:216,height:360})
     const menu = React.useRef(null)
+    const [closing,setClosing] = React.useState(false), exitTimer = React.useRef(0)
     const operation = React.useRef(0), pending = React.useRef(false), mounted = React.useRef(false)
-    const close = React.useCallback(() => { operation.current++;pending.current=false;setPoint(null);setStatus('');setBusy('');setApplications(null);setMode(null) }, [])
-    React.useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;operation.current++}},[])
-    React.useLayoutEffect(()=>{close()},[file?.path,close])
+    const reset = React.useCallback(() => { win.clearTimeout(exitTimer.current);setClosing(false);setPoint(null);setStatus('');setBusy('');setApplications(null);setMode(null) }, [])
+    const close = React.useCallback(() => { operation.current++;pending.current=false;if(win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)').matches){reset();return}setClosing(true);win.clearTimeout(exitTimer.current);exitTimer.current=win.setTimeout(reset,180) }, [reset])
+    React.useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;operation.current++;win.clearTimeout(exitTimer.current)}},[])
+    React.useLayoutEffect(()=>{operation.current++;pending.current=false;reset()},[file?.path,reset])
+    React.useLayoutEffect(()=>{if(!request)return;operation.current++;pending.current=false;reset();setPoint({x:request.x,y:request.y})},[request,reset])
     React.useLayoutEffect(()=>{if(!point||!menu.current)return;const {offsetWidth:width,offsetHeight:height}=menu.current;setSize(value=>value.width===width&&value.height===height?value:{width,height})},[point,status,applications,busy,mode])
     React.useEffect(() => {
-      if (!point) return undefined
+      if (!point || closing) return undefined
       const outside = event => { if (!menu.current?.contains(event.target)) close() }
       // Escape steps back out of a sub-view before it closes the whole menu.
-      const escape = event => { if (event.key !== 'Escape') return; event.preventDefault(); if ((mode||applications)&&!pending.current) { setMode(null);setApplications(null);setStatus('') } else close() }
+      const escape = event => { if (event.key !== 'Escape') return; event.preventDefault(); event.stopPropagation(); if ((mode||applications)&&!pending.current) { setMode(null);setApplications(null);setStatus('') } else close() }
       const reposition = () => setPoint(value => value ? {...value} : value)
       doc.addEventListener('pointerdown', outside, true)
       doc.addEventListener('keydown', escape, true)
@@ -83,7 +88,7 @@ export function createFileContextMenu(React, doc, win, {createPortal} = {}) {
       const first = menu.current?.querySelector('button:not(:disabled)')
       if(!menu.current?.contains(doc.activeElement))first?.focus({preventScroll:true})
       return () => { doc.removeEventListener('pointerdown', outside, true); doc.removeEventListener('keydown', escape, true); win.removeEventListener('resize', reposition); win.removeEventListener('scroll', reposition, true) }
-    }, [point, applications, mode, close])
+    }, [point, applications, mode, closing, close])
     React.useLayoutEffect(()=>{if(mode!=='rename'||!input.current)return;const field=input.current,stem=field.value.lastIndexOf('.');field.focus({preventScroll:true});field.setSelectionRange(0,stem>0?stem:field.value.length)},[mode])
     React.useLayoutEffect(()=>{if(point&&!busy&&!menu.current?.contains(doc.activeElement))menu.current?.querySelector('button:not(:disabled)')?.focus({preventScroll:true})},[point,busy,applications,mode])
     const run = async (kind, callback) => {
@@ -101,7 +106,7 @@ export function createFileContextMenu(React, doc, win, {createPortal} = {}) {
       finally{if(current()){pending.current=false;setBusy('')}}
     }
     const open = event => {
-      event.preventDefault();event.stopPropagation();operation.current++;pending.current=false;setBusy('');setStatus('');setApplications(null);setMode(null)
+      event.preventDefault();event.stopPropagation();operation.current++;pending.current=false;reset()
       const box=event.currentTarget.getBoundingClientRect(),pointer=Number.isFinite(event.clientX)&&Number.isFinite(event.clientY)&&(event.clientX!==0||event.clientY!==0)
       setPoint({x:pointer?event.clientX:box.left+8,y:pointer?event.clientY:box.bottom})
     }
@@ -126,7 +131,7 @@ export function createFileContextMenu(React, doc, win, {createPortal} = {}) {
           h('button',{type:'button',disabled:!!busy,onClick:back},'取消'),
           h('button',{type:'button','data-primary':true,'data-danger':true,disabled:!!busy,onClick:()=>run('delete',onDelete)},busy==='delete'?'正在删除…':'移到回收站')))
       :null
-    const menuNode = point && h('div', {className:'dcb-file-context-menu',ref:menu,role:'menu','aria-label':`${name} 文件操作`,'aria-busy':!!busy,style:{left:Math.max(8,Math.min(point.x,win.innerWidth-size.width-8)),top:Math.max(8,Math.min(point.y,win.innerHeight-size.height-8))},onKeyDown:keyboard,onContextMenu:event=>event.preventDefault()},
+    const menuNode = point && h('div', {className:'dcb-file-context-menu',ref:menu,role:'menu','aria-label':`${name} 文件操作`,'aria-busy':!!busy,'data-closing':closing||undefined,'aria-hidden':closing||undefined,inert:closing||undefined,style:{left:Math.max(8,Math.min(point.x,win.innerWidth-size.width-8)),top:Math.max(8,Math.min(point.y,win.innerHeight-size.height-8))},onKeyDown:keyboard,onContextMenu:event=>event.preventDefault()},
       h('div',{className:'dcb-file-context-head',title:file?.path},name),
       h('div',{className:'dcb-file-context-items',key:applications?'applications':mode||'actions'},mode?subview:applications?h(React.Fragment,null,
         backButton,

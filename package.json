@@ -101,6 +101,7 @@
     "test:scope": "node test/summary-scope-browser.mjs",
     "test:artifact": "node test/artifact-browser.mjs",
     "test:file-open-hit-target": "node test/file-open-hit-target-browser.mjs",
+    "test:conversation-search": "node test/conversation-search-browser.mjs",
     "test:materials": "node test/material-browser.mjs",
     "test:theme-palette": "node test/theme-palette-browser.mjs",
     "test:theme-switch": "node test/theme-switch-browser.mjs",

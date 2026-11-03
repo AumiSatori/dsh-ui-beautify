@@ -85,6 +85,55 @@ try{
   const pills=[];for(const closed of [true,false,true]){const toggle=page.getByRole('button',{name:closed?'收起侧栏':'打开侧栏',exact:true});if(await toggle.count())await toggle.click();await page.waitForTimeout(70);const position=await page.evaluate(()=>{const add=document.querySelector('[data-dcb-caption-tools]:not([data-dcb-sidebar-ghost]) [data-dcb-caption-proxy=new]')||document.querySelector('[data-dcb-caption-tools]:not([data-dcb-sidebar-ghost]) [data-dcb-caption-button=new]'),r=add.getBoundingClientRect(),pill=document.querySelector('[data-dcb-caption-tools]:not([data-dcb-sidebar-ghost]) > [data-dcb-icon-group=caption]')?.getBoundingClientRect();return{x:r.x,y:r.y,pill:pill&&[pill.x,pill.y,pill.width,pill.height].join(','),top:document.querySelector('.cr_headerUtilities').getBoundingClientRect().top,ghostControls:document.querySelectorAll('[data-dcb-sidebar-ghost] [data-dcb-caption-button],[data-dcb-sidebar-ghost] [data-dcb-icon-group=caption],[data-dcb-sidebar-ghost] [data-dcb-caption-proxy]').length}});if(closed){assert.equal(position.x,50);assert.equal(position.y,position.top)}if(position.pill)pills.push(position.pill);assert.equal(position.ghostControls,0)}assert.equal(new Set(pills).size<=1,true,'the glass pill keeps one fixed rectangle in every state: '+pills.join(' / '))
   await page.evaluate(()=>{window.fixture.sidebarMotion(false);window.fixture.overlay(false)});await settle()
  })
+ await check('repeated caption clicks keep one usable toggle below the Windows application menu',async()=>{
+  const samples=[]
+  await page.evaluate(()=>{
+   // Mirror the preload-owned shadow menu so the regression includes its real
+   // caption boundary without opening native Electron menus or live chats.
+   const menu=document.createElement('div');menu.dataset.windowsMenu=''
+   menu.attachShadow({mode:'open'}).innerHTML='<style>:host{position:fixed;top:0;left:var(--dsh-windows-menu-start,48px);z-index:1100;height:var(--dsh-windows-titlebar-height);display:flex;align-items:center;font:14px system-ui}[role=menubar]{display:flex;gap:2px}button{height:28px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:inherit;font:inherit}</style><div role="menubar"><button>应用</button><button>编辑</button></div>'
+   document.body.append(menu);window.captionMenu=menu
+   window.fixture.sidebarMotion(true)
+  })
+  for(const overlay of [false,true])for(const style of ['glass','plain','native']){
+   await mode(style);await page.evaluate(value=>window.fixture.overlay(value),overlay);await page.waitForTimeout(650)
+   const result=await page.evaluate(()=>new Promise(done=>{
+    const frames=[],start=performance.now();let clicks=0,last=start
+    function tick(now){
+     const root=document.querySelector('.sb_root:not([data-dcb-sidebar-ghost])'),closed=root.classList.contains('sb_collapsed')
+     if(clicks<13&&now-last>=65){
+      const toggle=closed?root.querySelector('[data-dcb-caption-proxy=toggle]')||root.querySelector('.sb_toggle'):root.querySelector('.sb_toggle')
+      toggle.click();clicks++;last=now
+     }
+     const tools=document.querySelector('.cr_headerUtilities').getBoundingClientRect(),nodes=[...root.querySelectorAll('.sb_toggle,.sb_newSession,[data-dcb-caption-proxy]')]
+     frames.push({time:now-start,closed,controls:nodes.map(node=>{const box=node.getBoundingClientRect(),s=getComputedStyle(node);return{proxy:node.getAttribute('data-dcb-caption-proxy'),top:box.top,left:box.left,visibility:s.visibility,opacity:s.opacity}}),toolsTop:tools.top,ghostControls:document.querySelectorAll('[data-dcb-sidebar-ghost] .sb_toggle,[data-dcb-sidebar-ghost] [data-dcb-caption-proxy]').length})
+     if(clicks<13||now-last<700)requestAnimationFrame(tick);else done(frames)
+    }requestAnimationFrame(tick)
+   }))
+   samples.push({overlay,style,frames:result})
+   assert.ok(result.length>30)
+   assert.ok(result.every(frame=>frame.ghostControls===0),'exit snapshots contain no caption controls')
+   for(const frame of result.filter(frame=>frame.closed)){
+    const proxies=frame.controls.filter(control=>control.proxy&&control.visibility!=='hidden')
+    assert.ok(proxies.every(control=>Math.abs(control.top-frame.toolsTop)<1),'projected buttons stay in the conversation header')
+   }
+   assert.equal(await page.locator('[data-dcb-sidebar-ghost]').count(),0)
+   assert.equal(await page.locator('[data-dcb-caption-proxy]').count(),style==='glass'?2:0)
+   const painted=await page.locator('.sb_toggle,[data-dcb-caption-proxy=toggle]').evaluateAll(nodes=>nodes.filter(node=>{const box=node.getBoundingClientRect();return box.width&&box.height&&node.contains(document.elementFromPoint(box.x+box.width/2,box.y+box.height/2))}).length)
+   assert.equal(painted,1,'one usable sidebar toggle survives each burst')
+   assert.equal(await page.evaluate(()=>{
+    const menu=window.captionMenu,bottom=menu.getBoundingClientRect().bottom
+    return menu.isConnected&&menu.shadowRoot.querySelectorAll('button').length===2&&[...document.querySelectorAll('.sb_toggle,.sb_newSession,[data-dcb-caption-proxy]')].every(node=>{
+     const box=node.getBoundingClientRect()
+     return !box.width||!box.height||getComputedStyle(node).visibility==='hidden'||box.top>=bottom
+    })
+   }),true,'native menu entries remain intact and sidebar controls never overlap them')
+   assert.equal(await page.getByRole('textbox',{name:'输入草稿'}).inputValue(),'保留草稿及选区')
+  }
+  writeFileSync(resolve(output,'caption-rapid-clicks.json'),JSON.stringify(samples,null,2))
+  await page.screenshot({path:resolve(output,'caption-after-rapid-clicks.png'),clip:{x:0,y:0,width:360,height:180}})
+  await page.evaluate(()=>{window.captionMenu.remove();delete window.captionMenu;window.fixture.sidebarMotion(false);window.fixture.overlay(false)});await mode('glass');await settle()
+ })
  await check('dark theme retains the original animated glass scene and whale logo',async()=>{
   const logo=await page.locator('.dcb-logo').evaluate(el=>el.outerHTML);await page.locator('.dcb-theme-toggle').click();await page.locator('body[data-ds-dark-theme]').waitFor();assert.equal(await page.locator('.dcb-theme-toggle[data-dcb-icon]').count(),0);assert.notEqual(await page.locator('.animated-cloud').evaluate(el=>getComputedStyle(el).animationName),'none');assert.equal(await page.locator('.dcb-logo').evaluate(el=>el.outerHTML),logo);await settle();await page.screenshot({path:resolve(output,'glass-dark.png')})
  })

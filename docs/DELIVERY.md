@@ -23,6 +23,12 @@ dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/relea
 - 字体、用户图片/视频、SVG 与 HTML 保存在当前浏览器来源；不随账号自动跨设备同步。
 - 本卡片的 Artifact 阅读器不接管其他插件接口；多个预览窗口可能重叠。需要外部脚本、相邻文件或网络请求的 HTML 请用原生入口打开。
 
+## 0.5.3 发布验证
+
+本版包含会话搜索、正文文件引用右键菜单、图片预览层级及 macOS 平台隔离兼容修复。检查记录与最终客户端校验值见 [validation-0.5.3.json](validation-0.5.3.json)，功能与验证边界见 [发布说明](RELEASE-0.5.3.md)。Windows 自动回归使用安装版原生组件和合成内容；macOS 分支模拟不能代替 Mac 实机验收。
+
+Release 提供带版本安装包、固定名 `dsh-ui-beautify.tgz` 与 `SHA256SUMS.txt`。既有市场条目继续使用 latest Release 下载地址；升级后按宿主提示重载，源码链接窗口按 Ctrl+R 刷新。
+
 ## 0.4.5 发布验证
 
 本版在 0.4.4 上增加输出行与 Artifact 的“复制文件”和“打开方式”，修复文件应用图标被图片放大误认，并增加页头文件夹与更多菜单的进出过渡。64 组自动回归全部通过，记录 768 项检查（含 118 项 Node 检查及兼容命令别名的重复执行）。发布验证记录与客户端 SHA-256 绑定，见 [validation-0.4.5.json](validation-0.4.5.json)。自动回归只读取已安装宿主组件，并使用合成内容与独立无头 Chrome；不操作真实桌面或改写用户剪贴板，资源管理器实际粘贴单独验收。

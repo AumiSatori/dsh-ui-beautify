@@ -117,10 +117,12 @@ try{
   await check('interactive startup stays after the old 30-second deadline, rejects wrong patterns, and completes on the right one',async()=>{
     await page.evaluate(()=>window.fixture.settings(false));await startup()
     const frame=page.frameLocator('[data-dcb-welcome] iframe'),svg=frame.locator('svg')
-    await page.clock.install();await page.clock.fastForward(31000);await expect(page.locator('[data-dcb-welcome]')).toHaveCount(1)
+    // Keep this deadline check on real time. A virtual clock survives into
+    // newly mounted iframe players and can stall their readiness/skip checks.
+    await page.waitForTimeout(31000);await expect(page.locator('[data-dcb-welcome]')).toHaveCount(1)
     await page.locator('[data-dcb-welcome]').screenshot({path:resolve(output,'gesture-dark.png')})
-    await draw(svg,[0,3,4,5]);await expect(frame.locator('.dcb-gesture')).toHaveAttribute('data-state','error');await page.clock.fastForward(700)
-    await draw(svg,[0,1,4,7]);await expect(frame.locator('.dcb-gesture')).toHaveAttribute('data-state','success');await page.clock.fastForward(1200);await expect(page.locator('[data-dcb-welcome]')).toHaveCount(0)
+    await draw(svg,[0,3,4,5]);await expect(frame.locator('.dcb-gesture')).toHaveAttribute('data-state','error');await page.waitForTimeout(700)
+    await draw(svg,[0,1,4,7]);await expect(frame.locator('.dcb-gesture')).toHaveAttribute('data-state','success');await page.waitForTimeout(1200);await expect(page.locator('[data-dcb-welcome]')).toHaveCount(0)
   })
   await check('iframe Escape and the outer Skip button always release an interactive opening',async()=>{
     await startup();await page.frameLocator('[data-dcb-welcome] iframe').getByRole('button',{name:'手势点 1',exact:true}).focus();await page.keyboard.press('Escape');await expect(page.locator('[data-dcb-welcome]')).toHaveCount(0)
@@ -128,11 +130,11 @@ try{
   })
   await check('gesture keyboard input, midpoint inclusion and interrupted drags remain recoverable',async()=>{
     await startup();const frame=page.frameLocator('[data-dcb-welcome] iframe'),svg=frame.locator('svg')
-    await draw(svg,[0,2]);await expect(frame.locator('.dcb-gesture')).toHaveAttribute('data-state','error');await expect(svg.locator('polyline')).toHaveAttribute('points','70,70 150,70 230,70');await page.clock.fastForward(700)
+    await draw(svg,[0,2]);await expect(frame.locator('.dcb-gesture')).toHaveAttribute('data-state','error');await expect(svg.locator('polyline')).toHaveAttribute('points','70,70 150,70 230,70');await page.waitForTimeout(700)
     await svg.evaluate(el=>el.addEventListener('pointerdown',event=>window.testGesturePointer=event.pointerId,{once:true}));const box=await svg.boundingBox();await page.mouse.move(box.x+70*box.width/300,box.y+70*box.height/300);await page.mouse.down()
     await svg.evaluate(el=>el.dispatchEvent(new PointerEvent('pointercancel',{pointerId:window.testGesturePointer,bubbles:true})));await page.mouse.up();await expect(frame.locator('.dcb-gesture')).toHaveAttribute('data-state','idle');await expect(svg.locator('[data-selected=true]')).toHaveCount(0)
     for(const i of [0,1,4,7]){await frame.getByRole('button',{name:`手势点 ${i+1}`,exact:true}).focus();await page.keyboard.press('Enter')}
-    await frame.getByRole('button',{name:'确认图案',exact:true}).click();await page.clock.fastForward(1200);await expect(page.locator('[data-dcb-welcome]')).toHaveCount(0)
+    await frame.getByRole('button',{name:'确认图案',exact:true}).click();await page.waitForTimeout(1200);await expect(page.locator('[data-dcb-welcome]')).toHaveCount(0)
   })
   await check('theme assignment cards switch the host theme and keep the right top switch synchronized',async()=>{
     await page.evaluate(()=>window.fixture.settings(true));await page.getByRole('tab',{name:'全局布局',exact:true}).waitFor()

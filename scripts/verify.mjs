@@ -17,7 +17,15 @@ for(const [name,command]of cases){
  const result=await new Promise(done=>{
   const child=spawn(process.execPath,[process.env.npm_execpath,'run',name],{cwd:root,env:process.env,windowsHide:true,stdio:['ignore','pipe','pipe']})
   child.stdout.on('data',chunk=>log.push(chunk.toString()));child.stderr.on('data',chunk=>log.push(chunk.toString()))
-  const timer=setTimeout(()=>{child.kill();},300000)
+  const timer=setTimeout(()=>{
+   log.push('\nTIMEOUT after 300s; terminating this test process tree.\n')
+   // On Windows, killing npm alone leaves its browser test and inherited
+   // output pipes alive, so close never arrives and the release gate stalls.
+   if(process.platform==='win32'&&child.pid){
+    const cleanup=spawn('taskkill',['/PID',String(child.pid),'/T','/F'],{windowsHide:true,stdio:'ignore'})
+    cleanup.on('error',()=>child.kill())
+   }else child.kill()
+  },300000)
   child.on('error',error=>log.push(error.message));child.on('close',(code,signal)=>{clearTimeout(timer);done({code,signal})})
  })
  const text=log.join(''),checks=(text.match(/^PASS /gm)||[]).length||Number(text.match(/(?:ℹ pass |^# pass )(\d+)/m)?.[1]||0)

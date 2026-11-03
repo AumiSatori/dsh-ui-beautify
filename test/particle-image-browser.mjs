@@ -115,7 +115,7 @@ try{
   assert.equal(await page.getByRole('dialog').evaluate(el=>el.scrollWidth>el.clientWidth),false)
   await page.getByRole('button',{name:'导入图片',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:resolve(output,'image-settings-narrow-dark.png')})
   const paused=(await scene()).frames;await page.waitForTimeout(250);assert.equal((await scene()).frames,paused)
-  await page.getByRole('button',{name:'移除自定义图片',exact:true}).click();await expect(page.getByRole('radio',{name:'自定义图片',exact:true})).toBeDisabled();assert.equal((await saved()).particleImageRevision,'')
+  await page.getByRole('button',{name:/^删除粒子素材：/}).click();await page.getByRole('alertdialog',{name:'删除粒子素材确认',exact:true}).getByRole('button',{name:'确认删除',exact:true}).click();await expect(page.getByRole('radio',{name:'自定义图片',exact:true})).toBeDisabled();assert.equal((await saved()).particleImageRevision,'')
   await close();await settle('logo');await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(180)
   const still=(await scene()).frames;await page.waitForTimeout(250);assert.equal((await scene()).frames,still)
   await page.evaluate(()=>{for(const cleanup of window.cleanups.reverse())cleanup?.()});assert.equal(await page.locator('.dcb-particle-layer').count(),0)

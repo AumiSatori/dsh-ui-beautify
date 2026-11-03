@@ -4,6 +4,7 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
+import vm from 'node:vm'
 import {fileOpenHitTargetCss} from '../src/file-open-hit-target.js'
 
 const root=fileURLToPath(new URL('..',import.meta.url))
@@ -30,8 +31,14 @@ const nativeCss=JSON.parse(host.slice(cssStart,host.indexOf('//#endregion',cssSt
 const meme=readFileSync(process.env.DSH_MEME_CLIENT,'utf8')
 const zoomStart=meme.indexOf('function installMemeZoom('),zoomEnd=meme.indexOf('\n    async function apiGet(',zoomStart)
 assert.ok(zoomStart>=0&&zoomEnd>zoomStart,'Installed meme zoom implementation exists')
-const zoom=meme.slice(zoomStart,zoomEnd)
-const zoomStyle=meme.match(/const zoomStyle = createOwnedStyle\('([^']+)'\)/)?.[1]
+const interactive=meme.match(/const INTERACTIVE_IMG_SEL\s*=\s*'[^']+'/)?.[0]||''
+const zoom=interactive+'\n'+meme.slice(zoomStart,zoomEnd)
+// New meme versions exempt interactive icons themselves. Retain the earlier
+// capture behavior as a regression fixture and exercise the installed one too.
+const legacyZoom=zoom.replace(/^\s*if \(t\.closest\(INTERACTIVE_IMG_SEL\)\) return\s*$/m,'')
+const styleStart=meme.indexOf('const zoomStyle = createOwnedStyle('),styleEnd=meme.indexOf('ctx.effect(',styleStart)
+assert.ok(styleStart>=0&&styleEnd>styleStart,'Installed meme image cursor stylesheet exists')
+const zoomStyle=vm.runInNewContext(interactive+'\n'+meme.slice(styleStart,styleEnd)+'\nzoomStyle',{createOwnedStyle:value=>value})
 assert.ok(zoomStyle,'Installed meme image cursor stylesheet exists')
 const icon='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="#f45b32"/></svg>')
 const fixture=(await build({stdin:{resolveDir:root,contents:`
@@ -62,7 +69,7 @@ async function mount(target,patched=true){
  await target.goto('about:blank')
  await target.setContent(`<!doctype html><style>${nativeCss}*{box-sizing:border-box}body{margin:30px;font:14px/22px system-ui;background:#f7f7f7;color:#222;--dsw-radius-sm:6px;--dsw-radius-md:8px;--dsw-alias-border-l2:#8884;--dsw-alias-label-primary:#222;--dsw-alias-interactive-bg-hover:#8882}body[data-ds-dark-theme]{background:#202124;color:#eee;--dsw-alias-label-primary:#eee}.file{display:flex;align-items:center;justify-content:space-between;gap:15px;border:1px solid #8885;padding:16px;border-radius:16px;min-height:90px}.name{min-width:0;overflow-wrap:anywhere}#opener{flex:none}[role=menu]{position:fixed;right:30px;top:135px;padding:8px;background:#eee;border:1px solid #888;border-radius:10px}[role=menu] button{display:flex;align-items:center;gap:8px;padding:8px;border:0;background:transparent}[data-content-image]{display:block;margin-top:28px;width:100px;height:75px}</style><article data-slot="conversation.chat.node"><div class=file><div class=name>交付文件-对照表.xlsx<br>在侧边栏预览</div><div id=opener></div></div><img data-content-image src="${icon}" alt="正文内容图片"></article>`)
  // Install the real capture listener first, as in the problematic load order.
- await target.addScriptTag({content:zoom+';window.stopMemeZoom=installMemeZoom(document);'})
+ await target.addScriptTag({content:(patched?zoom:legacyZoom)+';window.stopMemeZoom=installMemeZoom(document);'})
  await target.addScriptTag({content:fixture})
  if(patched)await target.addStyleTag({content:fileOpenHitTargetCss})
  // Cursor styles may arrive later than the fix; CSS must still route actual
@@ -84,10 +91,12 @@ async function verifyClick(target,locator,position,expectedTag='BUTTON'){
  assert.equal(await target.evaluate(()=>window.clicks.at(-1).tag),expectedTag)
 }
 try{
- await check('the installed meme listener reproduces the original icon interception without the fix',async()=>{
+ await check('legacy capture interception is reproduced and corrected while installed listener compatibility is retained',async()=>{
   await mount(page,false);await primary().locator('img').click()
   assert.equal(await count(page),0);assert.equal(await zoomed(page),true)
   assert.deepEqual(await page.evaluate(()=>window.clicks.at(-1)),{tag:'IMG',prevented:true})
+  await page.keyboard.press('Escape');await page.addStyleTag({content:fileOpenHitTargetCss})
+  await verifyClick(page,primary().locator('img'));assert.equal(await zoomed(page),false)
  })
  await check('native file opener icon center and internal corners always reach the file action',async()=>{
   await mount(page)

@@ -268,7 +268,9 @@ export function createStreamReveal(doc,win,options={}){
   function setOptions(value){
     const next=normalizeStreamReveal(value)
     if(next.streamRevealPipeline!==pipeline)clearAll()
-    ({streamReveal:wanted,streamRevealStrength:strength,streamRevealPipeline:pipeline}=next)
+    wanted=next.streamReveal
+    strength=next.streamRevealStrength
+    pipeline=next.streamRevealPipeline
     profile=PROFILES[strength]
     sync()
   }

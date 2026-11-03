@@ -122,6 +122,9 @@ try{
   await page.screenshot({path:resolve(output,'aligned-project-narrow-dark.png')})
  })
  await check('layout preference preserves the project prefix and disposal removes only plugin decorations',async()=>{
+  // This scenario tests preference cleanup independently of the preceding
+  // deliberately crowded 390px native-header layout.
+  await page.setViewportSize({width:1440,height:900})
   await page.evaluate(key=>{const value=JSON.stringify({...JSON.parse(localStorage.getItem(key)),headerCentered:false});localStorage.setItem(key,value);dispatchEvent(new StorageEvent('storage',{key,newValue:value}))},key)
   await expect(page.locator('[data-dcb-header-centered]')).toHaveCount(0);await expect(page.locator('.dcb-header-project')).toHaveCount(1)
   await page.evaluate(()=>window.fixture.blank(true));await expect(page.locator('.dcb-header-project')).toHaveCount(0)

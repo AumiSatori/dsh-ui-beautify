@@ -127,7 +127,9 @@ try{
     await page.evaluate(()=>{window.fixture.settings(false);for(const cb of window.cleanups.reverse())cb?.()});await page.waitForTimeout(100);assert.equal(await urls(),0)
   })
   await check('missing or undecodable media falls back to native-logo welcome, and no asset fetch leaves the device',async()=>{
-    await page.reload();await mount();await page.keyboard.press('Escape');await settings();await section.getByRole('button',{name:'移除素材'}).click()
+    await page.reload();await mount();await page.keyboard.press('Escape');await settings()
+    await section.getByRole('button',{name:/^删除开屏素材：/}).click()
+    await section.getByRole('alertdialog',{name:'删除开屏素材确认',exact:true}).getByRole('button',{name:'确认删除',exact:true}).click()
     await page.waitForFunction(key=>JSON.parse(localStorage.getItem(key)).welcomeMode==='characters',key)
     await nextBoot({welcomeMode:'media'});await page.locator(logo?'[data-dcb-welcome-character-logo]':'[data-dcb-welcome-art]').waitFor()
     if(logo)assert.equal(await page.locator('[data-dcb-welcome-character-logo] mask path').getAttribute('d'),logo.path)

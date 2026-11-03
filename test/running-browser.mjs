@@ -23,6 +23,10 @@ const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGH
 page.on('pageerror',error=>errors.push(error.message));let passed=0
 const key='dsh-ui-beautify:settings:v1',select=name=>selectSettingsCategory(page,name),prefs=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)),key)
 async function check(name,fn){await fn();passed++;console.log('PASS '+name)}
+async function removePack(name){
+ await page.getByRole('button',{name:'删除动图包：'+name,exact:true}).click()
+ await page.getByRole('alertdialog',{name:'删除动图包确认',exact:true}).getByRole('button',{name:'确认删除',exact:true}).click()
+}
 async function mount(){
  await page.getByTestId('todo-panel').waitFor()
  await page.evaluate(installLogoFixture,nativeLogo())
@@ -88,7 +92,7 @@ try{
   const first=await page.locator('.dcb-running-demo .dcb-running-strip').evaluate(node=>getComputedStyle(node).backgroundPosition)
   await page.waitForTimeout(180)
   assert.notEqual(await page.locator('.dcb-running-demo .dcb-running-strip').evaluate(node=>getComputedStyle(node).backgroundPosition),first)
-  await page.getByRole('button',{name:'删除当前动图包',exact:true}).click();await page.getByRole('button',{name:'动图格式示例',exact:true}).waitFor({state:'detached'})
+  await removePack('动图格式示例');await page.getByRole('button',{name:'动图格式示例',exact:true}).waitFor({state:'detached'})
  })
  await check('custom labels replace only the wording and keep the host clock and shimmer in sync',async()=>{
   const runOf=id=>page.locator(`#${id} .test_shimmerContent:not(.test_shimmerHighlight) .test_shimmerRun`)
@@ -146,7 +150,7 @@ try{
   await upload(createRunningZip(new Map([['开心.gif',gif],['困了.gif',gif]])),'普通动图.zip');await page.getByRole('button',{name:'普通动图',exact:true}).waitFor();assert.equal(await page.getByRole('checkbox').count(),2);await page.getByRole('checkbox',{name:'开心',exact:true}).waitFor()
   const directory=resolve(output,'folder-pack');mkdirSync(directory,{recursive:true});writeFileSync(resolve(directory,'manifest.json'),JSON.stringify({format:'dsh-running-pack',version:1,name:'文件夹动作包',actions:[{id:'hello',name:'打招呼',file:'hello.gif'}]}));writeFileSync(resolve(directory,'hello.gif'),gif)
   await page.getByLabel('选择动图文件夹',{exact:true}).setInputFiles(directory);await page.getByRole('button',{name:'文件夹动作包',exact:true}).waitFor();await page.getByRole('checkbox',{name:'打招呼',exact:true}).waitFor();assert.equal(await page.getByRole('checkbox').count(),1)
-  await page.getByRole('button',{name:'删除当前动图包',exact:true}).click();await page.getByRole('button',{name:'文件夹动作包',exact:true}).waitFor({state:'detached'});await page.getByRole('button',{name:'普通动图',exact:true}).click();await page.getByRole('button',{name:'删除当前动图包',exact:true}).click();await page.getByRole('button',{name:'普通动图',exact:true}).waitFor({state:'detached'});await page.getByRole('button',{name:'测试动作包',exact:true}).click();await page.getByRole('checkbox',{name:'小憩',exact:true}).click()
+  await removePack('文件夹动作包');await page.getByRole('button',{name:'文件夹动作包',exact:true}).waitFor({state:'detached'});await page.getByRole('button',{name:'普通动图',exact:true}).click();await removePack('普通动图');await page.getByRole('button',{name:'普通动图',exact:true}).waitFor({state:'detached'});await page.getByRole('button',{name:'测试动作包',exact:true}).click();await page.getByRole('checkbox',{name:'小憩',exact:true}).click()
  })
  await check('light, dark, narrow and keyboard-focused settings remain readable without overflow',async()=>{
   await page.getByLabel('搜索动作',{exact:true}).fill('');await page.getByRole('checkbox',{name:'认真工作',exact:true}).focus();await page.getByRole('dialog').evaluate(node=>node.scrollTop=0)
@@ -162,7 +166,7 @@ try{
  })
  await check('custom packs and explicit selections survive a full browser reload',async()=>{
   const before=await prefs();await page.reload();await mount();await page.evaluate(()=>window.fixture.settings(true));await select('思考动图');await page.getByRole('button',{name:'测试动作包',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'测试动作包',exact:true}).getAttribute('aria-pressed'),'true');assert.deepEqual((await prefs()).runningAnimationActions,before.runningAnimationActions)
-  await page.getByRole('button',{name:'删除当前动图包',exact:true}).click();await page.getByRole('button',{name:'测试动作包',exact:true}).waitFor({state:'detached'});assert.equal((await prefs()).runningAnimationPack,'builtin-whale')
+  await removePack('测试动作包');await page.getByRole('button',{name:'测试动作包',exact:true}).waitFor({state:'detached'});assert.equal((await prefs()).runningAnimationPack,'builtin-whale')
  })
  await check('plugin disposal restores the native icon and releases all owned animations and URLs',async()=>{
   await page.evaluate(()=>{window.fixture.settings(false);for(const cleanup of window.cleanups)cleanup?.()});await page.waitForTimeout(100);assert.equal((await animations()).length,0);assert.equal(await page.evaluate(()=>window.activeRunningURLs.size),0);assert.equal(await page.locator('[data-dcb-running-ready]').count(),0);assert.deepEqual(errors,[])

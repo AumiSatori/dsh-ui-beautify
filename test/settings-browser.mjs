@@ -119,9 +119,13 @@ try{
       let count=0
       for(const category of categories){
         await select(category)
-        const switches=page.getByRole('tabpanel').getByRole('switch')
-        for(let i=0;i<await switches.count();i++){
-          const control=switches.nth(i);count++
+        const panel=page.getByRole('tabpanel'),labels=await panel.getByRole('switch').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('aria-label')))
+        assert.ok(labels.every(Boolean),'every switch exposes its own accessible label')
+        assert.equal(new Set(labels).size,labels.length,'switch labels are unique within a settings category')
+        for(const label of labels){
+          // Enabling a parent can insert subordinate switches before the next
+          // control. Keep the semantic target rather than a shifting nth index.
+          const control=panel.getByRole('switch',{name:label,exact:true});count++
           const original=await control.getAttribute('aria-checked'),disabled=await control.isDisabled()
           const sample=()=>control.evaluate(el=>{const s=getComputedStyle(el),thumb=getComputedStyle(el,'::after'),rgb=color=>color.match(/[\d.]+/g).map(Number);return{checked:el.getAttribute('aria-checked')==='true',track:rgb(s.backgroundColor),thumb:rgb(thumb.backgroundColor),knobWidth:parseFloat(thumb.width),knobHeight:parseFloat(thumb.height),radius:parseFloat(s.borderRadius),shadow:s.boxShadow,x:new DOMMatrix(thumb.transform).m41,width:el.offsetWidth,height:el.offsetHeight,opacity:Number(s.opacity)}})
           for(let state=0;state<(disabled?1:2);state++){
@@ -135,7 +139,7 @@ try{
           assert.equal(await control.getAttribute('aria-checked'),original)
         }
       }
-      assert.equal(count,23) // Includes streaming reveal and background ink correction.
+      assert.ok(count>=23,'all existing and newly added category switches are sampled')
       await select('开屏欢迎');await page.mouse.move(1,1);await page.waitForTimeout(250)
       await dialog.screenshot({path:resolve(output,`switches-${dark?'dark':'light'}.png`)})
     }

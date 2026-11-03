@@ -60,9 +60,12 @@ async function sample(){
 try{
  for(const [name,options]of Object.entries({immediate:{delay:0},duringEntry:{delay:120},afterEntry:{delay:380},darkNarrow:{delay:120,dark:true,width:520},heroEntry:{delay:120,from:'欢迎语'},heroReturn:{delay:120,from:'欢迎语',returning:true}})){
   await boot(options);const frames=await sample(),travel=frames.at(-1).footer-frames[0].footer,jumps=frames.slice(1).map((frame,i)=>frame.footer-frames[i].footer)
-  const result={name,travel,maxJump:Math.max(...jumps),minJump:Math.min(...jumps),frames};results.push(result);writeFileSync(resolve(out,'frames.json'),JSON.stringify(results,null,2))
+  // Headless Chrome can miss a sample while another test or the host is busy.
+  // Compare travel per 60Hz interval instead of treating a 40ms gap as 16ms.
+  const frameJumps=jumps.map((jump,i)=>jump*(1000/60)/Math.max(1,frames[i+1].time-frames[i].time))
+  const result={name,travel,maxJump:Math.max(...jumps),maxJumpPerFrame:Math.max(...frameJumps),minJump:Math.min(...jumps),frames};results.push(result);writeFileSync(resolve(out,'frames.json'),JSON.stringify(results,null,2))
   assert.ok(travel>50,'the saved preset must really move the import/export section')
-  assert.ok(result.maxJump<travel*.35,`${name}: footer jumped ${result.maxJump.toFixed(1)}px out of ${travel.toFixed(1)}px`)
+  assert.ok(result.maxJumpPerFrame<travel*.35,`${name}: footer moved ${result.maxJumpPerFrame.toFixed(1)}px per frame out of ${travel.toFixed(1)}px`)
   assert.ok(result.minJump>-.75,`${name}: footer reversed while the preset arrived`)
   assert.ok(frames.some(frame=>frame.rows===2&&frame.list>frames[0].list+2&&frame.list<frames.at(-1).list-2&&/blur/.test(frame.blur)),'height and blur must exist at a real intermediate frame')
   const firstFull=frames.findIndex(frame=>frame.opacity>.9&&frame.visible>=frame.cardHeight-1)

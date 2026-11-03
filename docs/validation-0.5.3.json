@@ -1,0 +1,408 @@
+{
+  "version": "0.5.3",
+  "status": "passed",
+  "releaseBase": "48bb6aeacf7e152eb8a09b0cb3fe8b4f0e5f07f3",
+  "host": {
+    "desktop": "0.2.1-rc.5",
+    "runtime": "0.2.1-rc.5",
+    "browser": "Windows Chrome; installed native DSH components with synthetic data"
+  },
+  "clientSha256": "188285981369ba7b6e1f193b663f6d666ce50c40ef6592f828682574527cbec7",
+  "sourceSha256": {
+    "src/conversation-search.js": "7a9fcc0d9f219148e512d1e601ebc8f2895f3fdf4699fb8f4d76988b082ea675",
+    "src/chat-file-context-menu.js": "857c5bfeb0e6a1ae50de0a39847de6e6ff3f02c90ca267b5d6e789c585c340f6",
+    "src/file-context-menu.js": "eccd89f2f9388065336499eaf913344b6e1b7f5ed24b1eb82d70d6600aa97b5d",
+    "src/toolbar-settings.js": "5f88ffe71282bf630950036cfe68d8ff6e7753bcd2e706f64f24af226364b5f6",
+    "src/unified-icons.js": "da3e7089c4c4f82ef97c7ac6414d88646d8bae078adbe6c12b1b5ed29ba2ac7d",
+    "src/stream-reveal.js": "a3d0511ce45eff2a11712375f61b98160489f2acb9f724e7da550cfd61210817"
+  },
+  "checks": {
+    "javascriptSyntax": {
+      "passed": true,
+      "files": 228
+    },
+    "clientRebuiltFromReleaseSources": {
+      "passed": true
+    },
+    "packageMetadataAndAllowlist": {
+      "passed": true,
+      "runtimeDependencies": 0,
+      "installHooks": false
+    },
+    "finalRegression": {
+      "passed": true,
+      "suites": 69,
+      "failed": 0,
+      "checks": 832,
+      "nodeChecks": 134,
+      "execution": "Two independent browser batches; performance suites run separately; failed checks rerun and original attempts retained in local logs.",
+      "results": [
+        {
+          "name": "test:unified-icons",
+          "checks": 22,
+          "passed": true
+        },
+        {
+          "name": "test:fullscreen",
+          "checks": 14,
+          "passed": true
+        },
+        {
+          "name": "test:browser",
+          "checks": 16,
+          "passed": true
+        },
+        {
+          "name": "test:summary",
+          "checks": 48,
+          "passed": true
+        },
+        {
+          "name": "test:panel-modules",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:summary-entry",
+          "checks": 6,
+          "passed": true
+        },
+        {
+          "name": "test:skills",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:materials",
+          "checks": 13,
+          "passed": true
+        },
+        {
+          "name": "test:theme-palette",
+          "checks": 18,
+          "passed": true
+        },
+        {
+          "name": "test:focus",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:focus-performance",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:startup",
+          "checks": 19,
+          "passed": true
+        },
+        {
+          "name": "test:settings-transfer",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:background",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:background-names",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:tabs",
+          "checks": 31,
+          "passed": true
+        },
+        {
+          "name": "test:composer",
+          "checks": 20,
+          "passed": true
+        },
+        {
+          "name": "test:trigger-menu-opacity",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:composer-scroll-motion",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:composer-placement",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:sidebar-layout",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:conversation-width",
+          "checks": 11,
+          "passed": true
+        },
+        {
+          "name": "test:stream-reveal",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:turn-divider",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:header-menu-motion",
+          "checks": 10,
+          "passed": true
+        },
+        {
+          "name": "test:particle-images",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:running",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:opening-themes",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:settings-hierarchy",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:hero-greeting",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:process-disclosure",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:output-copy",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test",
+          "checks": 134,
+          "passed": true
+        },
+        {
+          "name": "test:progress-liquid",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:scope",
+          "checks": 13,
+          "passed": true
+        },
+        {
+          "name": "test:artifact",
+          "checks": 24,
+          "passed": true
+        },
+        {
+          "name": "test:file-open-hit-target",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:conversation-search",
+          "checks": 10,
+          "passed": true
+        },
+        {
+          "name": "test:macos-compat",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:theme-switch",
+          "checks": 13,
+          "passed": true
+        },
+        {
+          "name": "test:focus-header",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:welcome",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:welcome-media",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:welcome-code",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:theme-gesture",
+          "checks": 10,
+          "passed": true
+        },
+        {
+          "name": "test:early-opening",
+          "checks": 4,
+          "passed": true
+        },
+        {
+          "name": "test:settings",
+          "checks": 14,
+          "passed": true
+        },
+        {
+          "name": "test:settings-reset",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:settings-presets",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:background-surfaces",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:background-presented",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:background-theme",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:slider-glass",
+          "checks": 5,
+          "passed": true
+        },
+        {
+          "name": "test:sidebar",
+          "checks": 17,
+          "passed": true
+        },
+        {
+          "name": "test:sidebar-attention",
+          "checks": 14,
+          "passed": true
+        },
+        {
+          "name": "test:sidebar-overlay",
+          "checks": 11,
+          "passed": true
+        },
+        {
+          "name": "test:messages",
+          "checks": 16,
+          "passed": true
+        },
+        {
+          "name": "test:chat-disclosure",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:user-bubbles",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:turn-cards",
+          "checks": 22,
+          "passed": true
+        },
+        {
+          "name": "test:context-particles",
+          "checks": 10,
+          "passed": true
+        },
+        {
+          "name": "test:particle-conversion",
+          "checks": 4,
+          "passed": true
+        },
+        {
+          "name": "test:whale-particles",
+          "checks": 0,
+          "passed": true
+        },
+        {
+          "name": "test:header-project",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:output-preview-animation",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:settings-config-motion",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:performance",
+          "checks": 4,
+          "passed": true
+        },
+        {
+          "name": "test:particle-performance",
+          "checks": 0,
+          "passed": true
+        },
+        {
+          "name": "test:reading-performance",
+          "checks": 0,
+          "passed": true
+        }
+      ]
+    }
+  },
+  "liveVerification": {
+    "windows": "User confirmed the refreshed client works before authorizing publication.",
+    "macos": "Platform branch simulated in Windows Chrome; actual macOS Electron not exercised."
+  },
+  "preExistingOptionalPatchStatus": {
+    "missing": [
+      "dsh-ui-early-opening",
+      "dsh-startup-feedback"
+    ],
+    "changed": false
+  },
+  "checkedAt": "2026-11-03T08:02:37.481Z",
+  "regressionHarnessUpdates": [
+    "Updated deletion checks to the existing confirmation controls.",
+    "Use accessible switch labels when dependent controls mount.",
+    "Gesture deadline checks use real time to avoid virtual-clock state leaking into iframe players.",
+    "Motion sampling accounts for elapsed frame time and still checks actual intermediate geometry and clipping.",
+    "Windows timeout cleanup terminates the owned test process tree.",
+    "File-opening integration covers current installed meme code and a legacy capture-listener fixture."
+  ]
+}

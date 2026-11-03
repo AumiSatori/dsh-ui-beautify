@@ -88,7 +88,8 @@ try{
     await welcome().locator('.dcb-welcome-upload').getByText('synthetic-night.gif',{exact:false}).waitFor();dayId=(await saved()).welcomeThemes.light.welcomeMediaRevision
   })
   await check('removing one theme opening leaves the opposite file usable, including a second browser window',async()=>{
-    await welcome().getByRole('button',{name:'移除素材',exact:true}).click()
+    await welcome().getByRole('button',{name:/^删除开屏素材：/}).click()
+    await welcome().getByRole('alertdialog',{name:'删除开屏素材确认',exact:true}).getByRole('button',{name:'确认删除',exact:true}).click()
     assert.equal((await saved()).welcomeThemes.dark.welcomeMediaRevision,'');assert.equal((await saved()).welcomeThemes.light.welcomeMediaRevision,dayId)
     const other=await context.newPage();try{await mount(other);await theme('light',other);await settings('开屏欢迎',other);await welcome(other).locator('.dcb-welcome-upload').getByText('async-day.gif',{exact:false}).waitFor();await welcome(other).locator('[data-dcb-welcome-media] canvas').waitFor()}finally{await other.close()}
     await uploadWelcome(movie);nightId=(await saved()).welcomeThemes.dark.welcomeMediaRevision
@@ -125,7 +126,8 @@ try{
         localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,particleEnabled:false,welcomeMode:'media',welcomeMediaRevision:'legacy'}))
       },{key,bytes:[...readFileSync(day)]})
       await mount(legacy);await settings('开屏欢迎',legacy);await welcome(legacy).locator('.dcb-welcome-upload').getByText('legacy.gif',{exact:false}).waitFor()
-      await welcome(legacy).getByRole('button',{name:'移除素材',exact:true}).click()
+      await welcome(legacy).getByRole('button',{name:/^删除开屏素材：/}).click()
+      await welcome(legacy).getByRole('alertdialog',{name:'删除开屏素材确认',exact:true}).getByRole('button',{name:'确认删除',exact:true}).click()
       await theme('dark',legacy);await welcome(legacy).locator('.dcb-welcome-upload').getByText('legacy.gif',{exact:false}).waitFor();await welcome(legacy).locator('[data-dcb-welcome-media] canvas').waitFor()
       await theme('light',legacy);await uploadWelcome(night,legacy);await theme('dark',legacy)
       await welcome(legacy).locator('.dcb-welcome-upload').getByText('legacy.gif',{exact:false}).waitFor();await welcome(legacy).locator('[data-dcb-welcome-media] canvas').waitFor()

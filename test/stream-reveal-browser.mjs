@@ -37,11 +37,14 @@ const hidden=selector=>page.evaluate(selector=>{
 },selector)
 
 await page.evaluate(()=>{
-  window.engine=StreamReveal.createStreamReveal(document,window,{streamReveal:true,streamRevealStrength:'soft'})
+  window.engine=StreamReveal.createStreamReveal(document,window,{streamReveal:false,streamRevealStrength:'soft'})
   let frames=0;const raf=window.requestAnimationFrame.bind(window)
   window.requestAnimationFrame=callback=>{frames++;return raf(callback)}
   window.frames$=()=>frames
 })
+assert.equal(await page.evaluate(()=>CSS.highlights.size),0,'a disabled initial preference must not install highlights')
+assert.equal(await page.locator('style[data-dcb-stream-reveal]').count(),0)
+await page.evaluate(()=>engine.setOptions({streamReveal:true,streamRevealStrength:'soft'}))
 assert.equal((await levels()).length,10)
 assert.equal(await page.locator('style[data-dcb-stream-reveal]').count(),1)
 pass('installs one style element and ten highlight levels')

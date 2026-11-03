@@ -4,6 +4,7 @@ export const toolbarItems=[
   {id:'folder',label:'项目文件夹',hint:'打开项目目录与打开方式菜单',icon:'folder'},
   {id:'more',label:'更多操作',hint:'会话的更多操作菜单',icon:'more'},
   {id:'theme',label:'昼夜切换',hint:'保留原有昼夜切换与过渡',icon:'sun'},
+  {id:'search',label:'会话搜索',hint:'搜索当前会话；隐藏入口后仍可使用 Ctrl+F / ⌘F',icon:'search'},
   {id:'focus',label:'纯背景入口',hint:'仅隐藏入口；纯背景模式仍可按 Esc 退出',icon:'image'},
   {id:'summary',label:'任务面板入口',hint:'仅控制入口，不改变任务面板与文件预览功能',icon:'tasks'},
   {id:'settings',label:'设置入口',hint:'隐藏后仍可从左下账号菜单打开设置',icon:'settings'},
@@ -12,7 +13,11 @@ export const toolbarItems=[
 export const toolbarDefaultOrder=toolbarItems.map(item=>item.id)
 export function normalizeToolbar(value){
   const input=value?.toolbar||value||{},order=Array.isArray(input.order)?input.order:[],hidden=Array.isArray(input.hidden)?input.hidden:[]
-  return {order:[...new Set([...order.filter(id=>toolbarDefaultOrder.includes(id)),...toolbarDefaultOrder])],hidden:[...new Set(hidden.filter(id=>toolbarDefaultOrder.includes(id)))]}
+  const normalized=[...new Set([...order.filter(id=>toolbarDefaultOrder.includes(id)),...toolbarDefaultOrder])]
+  // Older saved layouts have no search entry. Insert it beside the theme switch
+  // while preserving every existing control's relative order and hidden state.
+  if(!order.includes('search')){normalized.splice(normalized.indexOf('search'),1);normalized.splice(normalized.indexOf('theme')+1,0,'search')}
+  return {order:normalized,hidden:[...new Set(hidden.filter(id=>toolbarDefaultOrder.includes(id)))]}
 }
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const controls=`${names('headerUtilities')},${names('headerCorner')},.dcb-welcome-tools`
@@ -27,7 +32,7 @@ export const toolbarSettingsCss=`
   header[${LAYOUT}] :is(${names('tabs')},[data-conversation-tabs]) { flex:1 0 100%; order:10000; }
   header[${LAYOUT}] [${ITEM}] { position:relative!important; inset:auto!important; flex:none!important; margin:0!important; order:var(--dcb-toolbar-order,1000); z-index:1; }
   header[${LAYOUT}] [${ITEM}][${HIDDEN}] { display:none!important; }
-  header[${LAYOUT}] [${ITEM}]:is(.dcb-theme-toggle,.dcb-focus-toggle,.dcb-anchor,.dcb-header-settings) { align-self:center; }
+  header[${LAYOUT}] [${ITEM}]:is(.dcb-theme-toggle,.dcb-find-entry,.dcb-focus-toggle,.dcb-anchor,.dcb-header-settings) { align-self:center; }
   header[${LAYOUT}] [data-dcb-icon-group=right]::before { display:none!important; }
   .dcb-toolbar-pane { position:absolute; z-index:0; pointer-events:none; border:1px solid var(--dcb-icon-line,#8883); border-radius:15px; background:var(--dcb-icon-fill,#ffffffb8); box-shadow:inset 0 1px 0 #ffffff45,0 3px 12px #0000000b; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
   .dcb-toolbar-preview { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; min-height:62px; padding:12px 14px; margin:16px 0; border:1px solid var(--dsh-settings-border); border-radius:13px; background:var(--dsh-settings-subtle); }
@@ -65,6 +70,7 @@ export const toolbarSettingsCss=`
 function classify(seat){
   const has=selector=>seat.matches(selector)||seat.querySelector(selector)
   if(has('.dcb-theme-toggle'))return 'theme'
+  if(has('.dcb-find-entry'))return 'search'
   if(has('.dcb-focus-toggle'))return 'focus'
   if(has('.dcb-entry'))return 'summary'
   if(has('[data-dcb-header-settings]'))return 'settings'
@@ -105,8 +111,17 @@ export function createToolbarLayout(doc,win){
     for(const header of headers){
       let record=records.get(header)
       if(!record){record={attrs:new Map(),orders:new Map(),panes:[],seats:[],observer:new win.MutationObserver(entries=>{if(entries.some(entry=>[...entry.addedNodes,...entry.removedNodes].some(node=>node.nodeType===1&&!node.matches('.dcb-toolbar-pane'))))queue()}),resize:new win.ResizeObserver(queue)};record.observer.observe(header,{subtree:true,childList:true});record.resize.observe(header);records.set(header,record)}
-      const containers=[...header.querySelectorAll(controls)],seats=[]
-      for(const container of containers)for(const node of container.children){if(node.matches('.dcb-toolbar-pane,[hidden],.dcb-header-project')||!node.matches('button')&&!node.querySelector('button'))continue;const id=classify(node);if(id){seats.push({node,id});available.add(id)}}
+      const containers=[...header.querySelectorAll(controls)],seats=[],seen=new Set()
+      const collect=container=>{for(const node of container.children){
+        if(node.matches('.dcb-toolbar-pane,[hidden],.dcb-header-project'))continue
+        // SlotOutlet wraps its complete output in a display:contents anchor.
+        // Unwrap that seat before classifying, keeping split file buttons and
+        // the summary's own controls together as their original React nodes.
+        if(node.hasAttribute('data-slot')&&win.getComputedStyle(node).display==='contents'){collect(node);continue}
+        if(seen.has(node)||!node.matches('button')&&!node.querySelector('button'))continue
+        const id=classify(node);if(id){seen.add(node);seats.push({node,id});available.add(id)}
+      }}
+      for(const container of containers)collect(container)
       for(const {node}of record.seats)if(!seats.some(seat=>seat.node===node))restoreNode(record,node)
       for(const node of record.attrs.keys())if(node!==header&&!header.contains(node))restoreNode(record,node)
       record.seats=seats
@@ -128,7 +143,7 @@ export function createToolbarLayout(doc,win){
 }
 
 function icon(h,kind){
-  const paths={folder:'M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v11H3Z',more:'M5 12h.01M12 12h.01M19 12h.01',sun:'M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0',image:'M3 4h18v16H3ZM3 16l5-5 4 4 3-3 6 6M16 8h.01',tasks:'M5 5h14v16H5ZM9 3h6v4H9ZM8 11h8m-8 4h5',settings:'M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1Z',sidebar:'M3 4h18v16H3ZM15 4v16',up:'m6 14 6-6 6 6',down:'m6 10 6 6 6-6'}
+  const paths={folder:'M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v11H3Z',more:'M5 12h.01M12 12h.01M19 12h.01',sun:'M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0',search:'M17 10.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0m-1 5.5 4 4',image:'M3 4h18v16H3ZM3 16l5-5 4 4 3-3 6 6M16 8h.01',tasks:'M5 5h14v16H5ZM9 3h6v4H9ZM8 11h8m-8 4h5',settings:'M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1Z',sidebar:'M3 4h18v16H3ZM15 4v16',up:'m6 14 6-6 6 6',down:'m6 10 6 6 6-6'}
   return h('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:paths[kind]}))
 }
 
@@ -142,7 +157,7 @@ export function createToolbarSettings(React,manager){
     const pointerEnd=event=>{if(!drag.current)return;try{event.currentTarget.releasePointerCapture(event.pointerId)}catch{}drag.current=null;setDragging(null)}
     return h('section',{className:'dcb-settings-block dcb-settings-card dcb-toolbar-settings','data-dcb-settings-block':'toolbar'},
       h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'右上工具栏'),h('p',null,'调整入口顺序与显示，保留每个按钮原有的操作和动效。'))),
-      h('div',{className:'dcb-toolbar-preview','aria-label':'工具栏排列预览'},h('small',null,'排列预览'),config.order.filter(id=>!config.hidden.includes(id)&&(id!=='summary'||value.enabled)).map(id=>{const item=toolbarItems.find(item=>item.id===id);return h('span',{key:id,title:item.label},icon(h,item.icon))})),
+      h('div',{className:'dcb-toolbar-preview','aria-label':'工具栏排列预览'},h('small',null,'排列预览'),config.order.filter(id=>!config.hidden.includes(id)&&(!['summary','search'].includes(id)||value.enabled)).map(id=>{const item=toolbarItems.find(item=>item.id===id);return h('span',{key:id,title:item.label},icon(h,item.icon))})),
       h('p',{className:'dcb-settings-footnote'},'拖动左侧把手，或用上下按钮调整顺序。开关只控制入口显示，不会更改功能本身的开关。'),
       h('div',{className:'dcb-toolbar-list',ref:list},config.order.map((id,index)=>{
         const item=toolbarItems.find(item=>item.id===id),blocked=id==='summary'&&!value.enabled,shown=!config.hidden.includes(id)

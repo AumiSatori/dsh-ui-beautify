@@ -67,7 +67,9 @@ export const toolbarSettingsCss=`
   @media(forced-colors:active) { .dcb-toolbar-list,.dcb-toolbar-preview,.dcb-toolbar-item-icon,.dcb-toolbar-preview > span,.dcb-toolbar-reset { background:Canvas; color:CanvasText; border-color:CanvasText; } .dcb-toolbar-row[data-dragging] { outline-color:Highlight; } }
 `
 
-function classify(seat){
+// Keep the established Windows/web seat policy. macOS needs a separate walk:
+// its host/entry wrappers and Finder opener must not become one toolbar item.
+function classifyLegacy(seat){
   const has=selector=>seat.matches(selector)||seat.querySelector(selector)
   if(has('.dcb-theme-toggle'))return 'theme'
   if(has('.dcb-find-entry'))return 'search'
@@ -80,6 +82,37 @@ function classify(seat){
   if(/右侧(?:边)?栏|右边栏|right sidebar/i.test(text))return 'rightSidebar'
   if(/文件资源管理器|打开目录|open.*(?:folder|explorer)/i.test(text)||has('[data-dcb-icon=folder]'))return 'folder'
   if(/更多|more/i.test(text)||has('[data-dcb-icon=more]'))return 'more'
+  return null
+}
+const folderLabel=label=>/文件资源管理器|文件管理器|访达|finder|打开目录|open.*(?:folder|explorer|directory|file manager)/i.test(label)
+const labelOf=node=>node.getAttribute('aria-label')||node.getAttribute('title')||''
+const ignored='[hidden],[role=menu],[role=listbox],[role=dialog],.dcb-summary,[data-dcb-task-panel],.dcb-toolbar-pane,.dcb-header-project'
+function buttonKind(button){
+  if(button.matches('.dcb-theme-toggle'))return 'theme'
+  if(button.matches('.dcb-find-entry'))return 'search'
+  if(button.matches('.dcb-focus-toggle'))return 'focus'
+  if(button.matches('.dcb-entry'))return 'summary'
+  if(button.matches('[data-dcb-header-settings]'))return 'settings'
+  if(button.matches('[data-sidebar-right-expand]'))return 'rightSidebar'
+  const text=labelOf(button),kind=button.getAttribute('data-dcb-icon')
+  if(/右侧(?:边)?栏|右边栏|right sidebar/i.test(text))return 'rightSidebar'
+  if(folderLabel(text)||kind==='folder')return 'folder'
+  if(/更多|more/i.test(text)||kind==='more')return 'more'
+  return null
+}
+function classify(seat){
+  // A slot/entry wrapper can hold the entire toolbar. Only actual controls,
+  // the summary anchor and a single folder split-button are atomic seats.
+  if(seat.matches('button'))return buttonKind(seat)
+  if(seat.matches('.dcb-anchor')&&seat.querySelector('.dcb-entry'))return 'summary'
+  const buttons=[...seat.querySelectorAll('button')].filter(button=>!button.closest(ignored))
+  if(!buttons.length)return null
+  const targets=[...seat.querySelectorAll('[data-open-target="directory"],[data-open-target="folder"]')]
+  if(seat.matches('[data-open-target="directory"],[data-open-target="folder"]'))targets.push(seat)
+  if(targets.length===1&&buttons.every(button=>targets[0].contains(button)))return 'folder'
+  // Older hosts expose no target marker. Keep the application opener and its
+  // chevron together, but never accept a wrapper containing other entries.
+  if(buttons.some(button=>buttonKind(button)==='folder')&&buttons.every(button=>buttonKind(button)==='folder'||/^(?:更多开放方式|更多打开方式|打开方式|open with|more applications|more open options)$/i.test(labelOf(button))))return 'folder'
   return null
 }
 
@@ -106,29 +139,40 @@ export function createToolbarLayout(doc,win){
   }
   function refresh(){
     if(disposed)return
+    const darwin=doc.documentElement.getAttribute('data-platform')==='darwin'
     const headers=[...doc.querySelectorAll('header')].filter(header=>!header.closest('.dcb-settings,[data-dcb-sidebar-layout-probe],[data-dcb-sidebar-ghost]')&&header.querySelector(controls)),available=new Set(),ordered=config.order.some((id,index)=>id!==toolbarDefaultOrder[index])
     for(const[header,record]of records)if(!headers.includes(header))release(header,record)
     for(const header of headers){
       let record=records.get(header)
       if(!record){record={attrs:new Map(),orders:new Map(),panes:[],seats:[],observer:new win.MutationObserver(entries=>{if(entries.some(entry=>[...entry.addedNodes,...entry.removedNodes].some(node=>node.nodeType===1&&!node.matches('.dcb-toolbar-pane'))))queue()}),resize:new win.ResizeObserver(queue)};record.observer.observe(header,{subtree:true,childList:true});record.resize.observe(header);records.set(header,record)}
-      const containers=[...header.querySelectorAll(controls)],seats=[],seen=new Set()
+      const containers=[...header.querySelectorAll(controls)],seats=[],seen=new Set(),wrappers=new Set()
       const collect=container=>{for(const node of container.children){
-        if(node.matches('.dcb-toolbar-pane,[hidden],.dcb-header-project'))continue
-        // SlotOutlet wraps its complete output in a display:contents anchor.
-        // Unwrap that seat before classifying, keeping split file buttons and
-        // the summary's own controls together as their original React nodes.
-        if(node.hasAttribute('data-slot')&&win.getComputedStyle(node).display==='contents'){collect(node);continue}
+        if(node.matches(darwin?ignored:'.dcb-toolbar-pane,[hidden],.dcb-header-project'))continue
+        if(!darwin&&node.hasAttribute('data-slot')&&win.getComputedStyle(node).display==='contents'){collect(node);continue}
         if(seen.has(node)||!node.matches('button')&&!node.querySelector('button'))continue
-        const id=classify(node);if(id){seen.add(node);seats.push({node,id});available.add(id)}
+        const id=darwin?classify(node):classifyLegacy(node)
+        if(id){seen.add(node);seats.push({node,id});available.add(id)}
+        else if(darwin&&!node.matches('button')){const count=seats.length;collect(node);if(seats.length>count)wrappers.add(node)}
       }}
       for(const container of containers)collect(container)
       for(const {node}of record.seats)if(!seats.some(seat=>seat.node===node))restoreNode(record,node)
       for(const node of record.attrs.keys())if(node!==header&&!header.contains(node))restoreNode(record,node)
       record.seats=seats
       set(record,header,LAYOUT,ordered&&seats.length>0?'':null)
-      for(const container of containers)set(record,container,CONTAINER,ordered?'controls':null)
-      for(const row of header.querySelectorAll(names('titleRow')))set(record,row,CONTAINER,ordered?'row':null)
-      for(const leading of header.querySelectorAll(names('headerLeading')))if(leading.querySelector('.dcb-welcome-tools'))set(record,leading,CONTAINER,ordered?'leading':null)
+      if(darwin){
+        const flattened=new Map([...containers,...wrappers].map(node=>[node,'controls']))
+        for(const row of header.querySelectorAll(names('titleRow')))flattened.set(row,'row')
+        for(const leading of header.querySelectorAll(names('headerLeading')))if(leading.querySelector('.dcb-welcome-tools'))flattened.set(leading,'leading')
+        for(const node of record.flattened||[])if(!flattened.has(node)){const attrs=record.attrs.get(node);if(attrs?.has(CONTAINER))restore(node,CONTAINER,attrs.get(CONTAINER))}
+        for(const [node,kind]of flattened)set(record,node,CONTAINER,ordered?kind:null)
+        record.flattened=new Set(flattened.keys())
+      }else{
+        for(const node of record.flattened||[]){const attrs=record.attrs.get(node);if(attrs?.has(CONTAINER))restore(node,CONTAINER,attrs.get(CONTAINER))}
+        record.flattened=null
+        for(const container of containers)set(record,container,CONTAINER,ordered?'controls':null)
+        for(const row of header.querySelectorAll(names('titleRow')))set(record,row,CONTAINER,ordered?'row':null)
+        for(const leading of header.querySelectorAll(names('headerLeading')))if(leading.querySelector('.dcb-welcome-tools'))set(record,leading,CONTAINER,ordered?'leading':null)
+      }
       for(const {node,id}of seats){
         set(record,node,ITEM,id);set(record,node,HIDDEN,config.hidden.includes(id)?'':null)
         if(!record.orders.has(node))record.orders.set(node,[node.style.getPropertyValue('--dcb-toolbar-order'),node.style.getPropertyPriority('--dcb-toolbar-order')])

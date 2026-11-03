@@ -19,9 +19,13 @@ export function nativeShell(){
     const region=(source,start)=>{const at=source.indexOf(start);if(at<0)throw Error('Missing native component '+start);return source.slice(at,source.indexOf('//#endregion',at))}
     const constants=region(layout,'const SIDEBAR_AUTO_COLLAPSE'),title=region(layout,'function DocumentTitle('),shell=region(layout,'function CenterColumn('),root=region(sidebar,'function SidebarRoot(')
     const collapse=sidebar.match(/const COLLAPSE_SETTLE_MS = ([\d.e]+);/)[1],linger=sidebar.match(/const SCROLLBAR_LINGER_MS = ([\d.e]+);/)[1]
+    const leadingAt=sidebar.indexOf('HeaderLeadingControls.module.css'),leadingRegion=sidebar.slice(sidebar.lastIndexOf('//#region',leadingAt),sidebar.indexOf('//#endregion',leadingAt))
+    const leadingCss=leadingAt<0?'':JSON.parse(leadingRegion.match(/const css\$?\d* = ("(?:[^"\\]|\\.)*");/)[1])
+    const leadingClasses=sidebar.match(/var HeaderLeadingControls_module_css_default = \{[\s\S]*?\n\s*\};/)?.[0]||''
+    const leadingCode=leadingClasses?leadingClasses+'\n'+region(sidebar,'function HeaderLeadingControls('):''
     // Keep the complete session-header region: current hosts define the More
     // menu and ViewTabLabel helpers before deriveAncestry in the same module.
     const conversationHeader=region(conversation,'function ConversationHeader('),sessionHeader=region(conversation,conversation.includes('function ViewsMoreMenu(')?'function ViewsMoreMenu(':'function deriveAncestry(')
-    return{css:frame.css+left.css+panel.css+chat.css,code:`window.FIXED_VIEW_ID="chat";const AppFrame_module_css_default=${classes(layout,'AppFrame',frame.hash,'af')},SidebarRoot_module_css_default=${classes(sidebar,'SidebarRoot',left.hash,'sb')},ConversationRoot_module_css_default=${classes(conversation,'ConversationRoot',chat.hash,'cr')},COLLAPSE_SETTLE_MS=${collapse},SCROLLBAR_LINGER_MS=${linger};${constants}\n${title}\n${shell}\n${root}\n${conversationHeader}\n${sessionHeader}`}
+    return{css:frame.css+left.css+panel.css+chat.css+leadingCss,code:`window.FIXED_VIEW_ID="chat";const AppFrame_module_css_default=${classes(layout,'AppFrame',frame.hash,'af')},SidebarRoot_module_css_default=${classes(sidebar,'SidebarRoot',left.hash,'sb')},ConversationRoot_module_css_default=${classes(conversation,'ConversationRoot',chat.hash,'cr')},COLLAPSE_SETTLE_MS=${collapse},SCROLLBAR_LINGER_MS=${linger};${constants}\n${title}\n${shell}\n${root}\n${leadingCode}\n${conversationHeader}\n${sessionHeader}`}
   }finally{closeSync(fd)}
 }

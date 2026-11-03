@@ -108,7 +108,7 @@ function identify(button,doc){
   if(has('toggle')&&button.closest(SIDEBAR))return 'left'
   if(has('newSession'))return 'chat'
   if(button.matches('[data-sidebar-right-expand]')||/右侧(?:边)?栏|right sidebar|right panel/.test(label))return 'right'
-  if(/使用.*打开|文件资源管理器|open.*(?:folder|explorer)|打开目录/.test(label))return 'folder'
+  if(/使用.*打开|文件资源管理器|open.*(?:folder|explorer)|打开目录/.test(label)||doc.documentElement.getAttribute('data-platform')==='darwin'&&/访达|finder|文件管理器|open.*(?:directory|file manager)/.test(label))return 'folder'
   if(/更多开放方式/.test(label))return 'chevron'
   if(/更多|more/.test(label))return 'more'
   if(/专注|focus/.test(label))return 'focus'
@@ -201,7 +201,11 @@ export function createUnifiedIcons(doc,win,schedule=()=>{}){
   }
   function syncCaptions(){
     const wanted=new Set()
-    if(!doc.documentElement.hasAttribute('data-dcb-fullscreen'))for(const column of doc.querySelectorAll(SIDEBAR)){
+    // macOS owns the collapsed pair through AppFrame's shell.leading seat.
+    // Projecting the hidden sidebar's buttons as well produces two pairs and
+    // positions one over the traffic lights. Keep its native controls intact.
+    const darwin=doc.documentElement.getAttribute('data-platform')==='darwin'
+    if(!darwin&&!doc.documentElement.hasAttribute('data-dcb-fullscreen'))for(const column of doc.querySelectorAll(SIDEBAR)){
       if(column.closest(EXCLUDE))continue
       const frame=column.closest(names('frame')),header=frame?.querySelector(`${names('centerCol')} header:has(> [data-conversation-header-leading])`)
       const toggle=column.querySelector(`button${names('toggle')}`),root=toggle?.closest(names('root')),add=root?.querySelector(`button${names('newSession')}`)

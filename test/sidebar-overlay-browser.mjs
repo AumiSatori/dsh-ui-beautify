@@ -79,6 +79,30 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
 try{
  await page.addInitScript(key=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,particleProgressMode:'manual',particleManualProgress:65}))},key)
  await mount()
+ await check('native image previews cover the sidebar edge visually and receive its pointer hits in both sidebar states',async()=>{
+  const edge=page.locator('[data-dcb-sidebar-toggle-right]'),collapsed=()=>page.locator('.af_frame').evaluate(frame=>frame.getAttribute('data-sidebar-collapsed')==='true'),initial=await collapsed()
+  for(const state of [false,true]){
+   if(await collapsed()!==state){await edge.click();await page.waitForTimeout(400)}
+   const point=await edge.locator('span').evaluate(span=>{const box=span.getBoundingClientRect();return{x:box.left+box.width/2,y:box.top+box.height/2}})
+   assert.equal(await page.evaluate(point=>!!document.elementFromPoint(point.x,point.y)?.closest('[data-dcb-sidebar-toggle-right]'),point),true)
+   await page.evaluate(()=>{
+    window.originalPreviewEdge=document.querySelector('[data-dcb-sidebar-toggle-right]')
+    const layer=document.querySelector('.af_overlayLayer');if(!layer)throw Error('Installed native AppFrame overlay seat is missing')
+    const viewer=document.createElement('div');viewer.id='fixture-image-preview';viewer.setAttribute('role','dialog');viewer.setAttribute('aria-label','放大用户图片');viewer.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000c;pointer-events:auto;padding:24px'
+    const image=document.createElement('img');image.alt='合成用户图片';image.src='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700"><rect width="1200" height="700" fill="#f1eeea"/><text x="80" y="110" font-size="40" fill="#333">User image preview</text></svg>');image.style.cssText='max-width:100%;max-height:100%;border-radius:12px';viewer.append(image);viewer.addEventListener('click',()=>viewer.remove());layer.append(viewer)
+   })
+   assert.equal(await page.evaluate(point=>!!document.elementFromPoint(point.x,point.y)?.closest('#fixture-image-preview'),point),true,'the image preview must paint over the edge and own its hit target')
+   await page.screenshot({path:resolve(output,`image-preview-${state?'collapsed':'expanded'}.png`)})
+   await page.mouse.click(point.x,point.y);assert.equal(await page.locator('#fixture-image-preview').count(),0);assert.equal(await collapsed(),state,'clicking the enlarged image must not toggle the obscured sidebar')
+   assert.equal(await edge.evaluate(node=>node===window.originalPreviewEdge),true)
+   assert.equal(await page.evaluate(point=>!!document.elementFromPoint(point.x,point.y)?.closest('[data-dcb-sidebar-toggle-right]'),point),true,'closing the preview restores the same usable edge control')
+  }
+  if(await collapsed()!==initial){await edge.click();await page.waitForTimeout(400)}
+ })
+ await mount()
+ // The following motion assertions target the original native titlebar button;
+ // glass mode intentionally exposes a separate visible caption proxy.
+ await patch({iconStyle:'native'})
  await check('the native title and tabs align with the text column while utilities and the sidebar switch dock at the right edge without replacing controls',async()=>{
   await page.locator('.sb_toggle').click();await page.waitForTimeout(400)
   const row=await page.locator('.cr_titleRow').boundingBox(),tabs=await page.locator('[data-conversation-tabs]').boundingBox()
@@ -168,7 +192,8 @@ try{
   writeFileSync(resolve(output,'drawer-motion.json'),JSON.stringify({close,open},null,2))
  })
  await check('left and right drawers share mirrored travel, opacity, timing and toggle feedback',async()=>{
-  await page.locator('.sb_toggle').click();await page.waitForTimeout(650)
+  // Start both drawers closed instead of inheriting a previous scenario's state.
+  await page.evaluate(()=>{const layout=window.fixture.layout();if(layout.sidebar!==0)window.fixture.left();if(layout.rightbarShown)window.fixture.right()});await page.waitForTimeout(650)
   const pairs=[]
   for(const direction of['open','close']){
    const result=await page.evaluate(()=>new Promise(done=>{

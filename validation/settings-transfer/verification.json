@@ -1,0 +1,14 @@
+{
+  "checks": [
+    "global JSON export covers normalized settings, independent themes, CSS, toolbar and both widths only",
+    "import is reviewed first, cancel is read-only, apply persists every option and undo restores the prior configuration",
+    "invalid, foreign and unsupported files leave settings untouched and provide an error",
+    "configuration storage quota errors preserve previous preferences and unrelated plugin data",
+    "complete backup contains every beautify asset store with binary bytes and no unrelated browser data",
+    "asset import merges galleries, restores binary records on an empty device and can undo just its changes",
+    "corrupt binary checksums and foreign database names are rejected before writes",
+    "storage failure rolls back earlier asset groups and configuration; later retries remain usable",
+    "the global row works with keyboard and remains readable in light, dark, narrow and forced-color modes"
+  ],
+  "errors": []
+}

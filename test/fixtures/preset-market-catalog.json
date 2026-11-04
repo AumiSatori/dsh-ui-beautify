@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "presets": [
+    {
+      "id": "fixture-soft-glass",
+      "version": "1.0.0",
+      "title": "轻雾玻璃",
+      "description": "侧栏、输入栏与任务卡片统一为轻量玻璃，配合柔和的对话动效。",
+      "author": "AumiSatori",
+      "scope": "full",
+      "source": "official",
+      "tags": [
+        "轻量",
+        "玻璃",
+        "日夜适配"
+      ],
+      "license": "MIT",
+      "palette": [
+        "#e8edf2",
+        "#bac9d8",
+        "#65798f"
+      ],
+      "settings": {
+        "sidebarStyle": "css",
+        "composerStyle": "css",
+        "composerButtonGlass": false,
+        "cardStyle": "css",
+        "messageMotion": true,
+        "particleEnabled": false
+      }
+    },
+    {
+      "id": "fixture-quiet-desk",
+      "version": "1.0.0",
+      "title": "专注书桌",
+      "description": "保留清晰的原生材质，关闭背景粒子与开屏动画，减少视觉干扰。",
+      "author": "AumiSatori",
+      "scope": "full",
+      "source": "official",
+      "tags": [
+        "简约",
+        "专注",
+        "低开销"
+      ],
+      "license": "MIT",
+      "palette": [
+        "#efeee9",
+        "#ccc8bd",
+        "#7d7a70"
+      ],
+      "settings": {
+        "sidebarStyle": "milk",
+        "composerStyle": "milk",
+        "cardStyle": "milk",
+        "particleEnabled": false,
+        "welcomeEnabled": false,
+        "runningAnimationEnabled": false,
+        "messageMotion": false
+      }
+    },
+    {
+      "id": "fixture-frosted-sidebar",
+      "version": "1.0.0",
+      "title": "磨砂侧栏",
+      "description": "只调整侧栏的毛玻璃材质与展开动效，保留其他设置。",
+      "author": "AumiSatori",
+      "scope": "sidebar",
+      "source": "official",
+      "tags": [
+        "毛玻璃",
+        "侧栏"
+      ],
+      "license": "MIT",
+      "palette": [
+        "#e8e8ee",
+        "#c2c2d1",
+        "#85859a"
+      ],
+      "settings": {
+        "sidebarStyle": "glass",
+        "sidebarMotion": true,
+        "sidebarOverlay": true
+      }
+    },
+    {
+      "id": "fixture-whale-particles",
+      "version": "1.0.0",
+      "title": "鲸鱼粒子",
+      "description": "使用内置鲸鱼粒子与上下文进度联动，无需额外下载图片。",
+      "author": "AumiSatori",
+      "scope": "particles",
+      "source": "official",
+      "tags": [
+        "鲸鱼",
+        "粒子"
+      ],
+      "license": "MIT",
+      "palette": [
+        "#dfeefa",
+        "#9ebfdf",
+        "#547ea8"
+      ],
+      "settings": {
+        "particleEnabled": true,
+        "particleShape": "whale",
+        "particleCount": 9600,
+        "particleDensityVersion": 1,
+        "particleProgressMode": "context"
+      }
+    },
+    {
+      "id": "fixture-light-composer",
+      "version": "1.0.0",
+      "title": "轻透输入栏",
+      "description": "只应用轻量输入框材质，关闭小按钮动态折射。",
+      "author": "AumiSatori",
+      "scope": "composer",
+      "source": "official",
+      "tags": [
+        "输入栏",
+        "轻量玻璃"
+      ],
+      "license": "MIT",
+      "palette": [
+        "#e2f0eb",
+        "#b2d2c5",
+        "#5e8b78"
+      ],
+      "settings": {
+        "composerStyle": "css",
+        "composerButtonGlass": false,
+        "chatUnderComposer": true
+      }
+    }
+  ]
+}

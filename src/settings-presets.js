@@ -24,8 +24,9 @@ export function createSettingsPresets(win,transfer){
   const get=id=>transaction('readonly',store=>store.get(id))
   const validName=value=>{const name=String(value||'').trim();if(!name||name.length>40)throw Error('请输入 1 至 40 个字符的预设名称。');return name}
   return {
-    async list(){return (await transaction('readonly',store=>store.getAll())).sort((a,b)=>b.createdAt-a.createdAt).map(({id,name,createdAt,blob})=>({id,name,createdAt,size:blob.size}))},
+    async list(){return (await transaction('readonly',store=>store.getAll())).sort((a,b)=>b.createdAt-a.createdAt).map(({id,name,createdAt,blob,scope='full'})=>({id,name,createdAt,scope,size:blob.size}))},
     async save(name){name=validName(name);const {blob}=await transfer.exportFile(true);const id=win.crypto.randomUUID();await transaction('readwrite',store=>store.add({id,name,createdAt:Date.now(),blob}));return id},
+    async import(name,blob){name=validName(name);const plan=await transfer.inspect(blob),id=win.crypto.randomUUID();await transaction('readwrite',store=>store.add({id,name,createdAt:Date.now(),scope:plan.scope||'full',blob}));return id},
     async rename(id,name){name=validName(name);const item=await get(id);if(!item)throw Error('预设已不存在，请刷新列表。');await transaction('readwrite',store=>store.put({...item,name}))},
     async remove(id){await transaction('readwrite',store=>store.delete(id))},
     async apply(id){if(id==='builtin-default')return transfer.applyDefaults();const item=await get(id);if(!item)throw Error('预设已不存在，请刷新列表。');const plan=await transfer.inspect(item.blob);return transfer.apply(plan,{preserveNavigation:true})},

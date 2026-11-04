@@ -1,4 +1,5 @@
 import {motion} from './motion.js'
+import {presetScope,scopeSettings,databaseScope,sharedPresetRecords} from './preset-scopes.js'
 
 const FORMAT='dsh-ui-beautify-config',VERSION=1,MAGIC='DSHUI01\n'
 const MAIN='dsh-ui-beautify:settings:v1',WIDTH='dsh-ui-beautify:conversation-width:v1'
@@ -24,9 +25,9 @@ const prettySize=size=>size>=1048576?`${(size/1048576).toFixed(1)} MB`:`${Math.c
 async function digest(blob,win){return Array.from(new Uint8Array(await win.crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),byte=>byte.toString(16).padStart(2,'0')).join('')}
 function readJson(storage,key){try{return JSON.parse(storage.getItem(key))}catch{return null}}
 function navigation(value){
-  const pages=['panel','hero','composer','sidebar','welcome','background','particles','running','messages','toolbar','config']
+  const pages=['panel','hero','composer','sidebar','welcome','background','particles','running','messages','toolbar','market','config']
   const result={tab:pages.includes(value?.tab)?value.tab:'panel',children:{}}
-  for(const key of ['components','global','conversation','config'])if(pages.includes(value?.children?.[key]))result.children[key]=value.children[key]
+  for(const key of ['components','global','conversation','market','config'])if(pages.includes(value?.children?.[key]))result.children[key]=value.children[key]
   return result
 }
 function openDB(win,spec,create=false){
@@ -91,11 +92,13 @@ export function createSettingsTransfer(win,{normalize,getSettings,getWidths,onAp
   const cancelled=()=>{if(disposed)throw Error('设置已关闭，未应用配置。')}
   const localSnapshot=()=>[MAIN,WIDTH,...NAV].map(key=>[key,win.localStorage.getItem(key)])
   function restoreLocal(entries){for(const[key,value]of entries)value===null?win.localStorage.removeItem(key):win.localStorage.setItem(key,value)}
-  async function exportFile(includeAssets=false){return exclusive(async()=>{
-    const config={format:FORMAT,version:VERSION,createdAt:date(),settings:normalize(getSettings()),layout:{widths:widths(getWidths())},navigation:navigation({tab:win.localStorage.getItem(NAV[0]),children:readJson(win.localStorage,NAV[1])})}
+  async function exportFile(includeAssets=false,{scope='full',sharing=false}={}){return exclusive(async()=>{
+    presetScope(scope)
+    const normalized=normalize(getSettings()),settings=sharing?JSON.parse(JSON.stringify(normalized,(key,value)=>key==='previousRevision'?'':value)):normalized
+    const config={format:FORMAT,version:VERSION,createdAt:date(),scope,settings:scopeSettings(settings,scope),layout:{widths:widths(getWidths())},navigation:sharing?navigation(null):navigation({tab:win.localStorage.getItem(NAV[0]),children:readJson(win.localStorage,NAV[1])})}
     if(!includeAssets)return{blob:new win.Blob([JSON.stringify(config,null,2)+'\n'],{type:'application/json'}),name:`dsh-ui-config-${date().slice(0,10)}.json`,records:0}
     const blobs=[],databases=[];let count=0,total=0
-    for(const spec of DBS){cancelled();const source=await readStores(win,spec),records=[];for(const record of source){if(++count>MAX_RECORDS)throw Error('素材数量过多，请分批整理后备份。');records.push({...record,value:await packValue(record.value,blobs,win)})}if(records.length)databases.push({name:spec.name,records})}
+    for(const spec of DBS){if(scope!=='full'&&databaseScope(spec.name)!==scope)continue;cancelled();let source=await readStores(win,spec);if(sharing)source=sharedPresetRecords(spec.name,source,settings);const records=[];for(const record of source){if(++count>MAX_RECORDS)throw Error('素材数量过多，请分批整理后备份。');records.push({...record,value:await packValue(record.value,blobs,win)})}if(records.length)databases.push({name:spec.name,records})}
     for(const blob of blobs)total+=blob.size
     if(total>MAX_ARCHIVE)throw Error('完整备份超过 512 MB，请先导出轻量配置或减少素材。')
     const descriptors=[]
@@ -129,12 +132,13 @@ export function createSettingsTransfer(win,{normalize,getSettings,getWidths,onAp
       try{parsed=JSON.parse(await file.text())}catch{throw Error('不是有效的 JSON 配置或完整备份文件。')}
     }
     if(parsed?.format!==FORMAT||parsed.version!==VERSION)throw Error('不是支持的 dsh-UI美化配置版本。')
-    const settings=validateSettings(parsed.settings,normalize),databases=[],seen=new Set();let records=0
+    const scope=presetScope(parsed.scope||'full').id
+    const settings=scope==='layout'&&plain(parsed.settings)?{}:scopeSettings(validateSettings(parsed.settings,normalize),scope),databases=[],seen=new Set();let records=0
     if(hasAssets){
       if(!Array.isArray(parsed.databases)||parsed.databases.length>DBS.length)throw Error('备份素材分组无效。')
       for(const source of parsed.databases){
         const spec=DBS.find(item=>item.name===source?.name)
-        if(!spec||seen.has(spec.name)||!Array.isArray(source.records))throw Error('备份包含不受支持的存储分组。');seen.add(spec.name)
+        if(!spec||scope!=='full'&&databaseScope(spec.name)!==scope||seen.has(spec.name)||!Array.isArray(source.records))throw Error('备份包含不受支持的存储分组。');seen.add(spec.name)
         const keys=new Set(),items=[]
         for(const record of source.records){
           if(++records>MAX_RECORDS||!Object.hasOwn(spec.stores,record?.store)||typeof record.key!=='string'||!record.key||record.key.length>512)throw Error('备份素材条目无效。')
@@ -147,7 +151,7 @@ export function createSettingsTransfer(win,{normalize,getSettings,getWidths,onAp
       }
     }
     cancelled()
-    return{settings,layout:{widths:widths(parsed.layout?.widths)},navigation:navigation(parsed.navigation),databases,hasAssets,records,size:file.size,name:file.name,createdAt:typeof parsed.createdAt==='string'?parsed.createdAt:'',options:Object.keys(settings).length}
+    return{scope,settings,layout:{widths:widths(parsed.layout?.widths)},navigation:navigation(parsed.navigation),databases,hasAssets,records,size:file.size,name:file.name,createdAt:typeof parsed.createdAt==='string'?parsed.createdAt:'',options:Object.keys(settings).length}
   })}
   async function writeGroup(spec,records,{rollback=false}={}){
     const db=await openDB(win,spec,true),before=[]
@@ -181,10 +185,13 @@ export function createSettingsTransfer(win,{normalize,getSettings,getWidths,onAp
     try{
       for(const group of plan.databases){cancelled();if(group.records.length)groups.push(await writeGroup(group.spec,group.records))}
       cancelled()
-      win.localStorage.setItem(WIDTH,JSON.stringify(plan.layout.widths))
-      if(!preserveNavigation){win.localStorage.setItem(NAV[0],plan.navigation.tab);win.localStorage.setItem(NAV[1],JSON.stringify(plan.navigation.children))}
-      win.localStorage.setItem(MAIN,JSON.stringify(normalize(plan.settings)))
-      onApply?.(normalize(plan.settings),plan.layout.widths)
+      const scope=presetScope(plan.scope||'full').id
+      const next=normalize(scope==='full'?plan.settings:{...getSettings(),...scopeSettings(plan.settings,scope)})
+      const nextWidths=scope==='full'||scope==='layout'?plan.layout.widths:widths(getWidths())
+      win.localStorage.setItem(WIDTH,JSON.stringify(nextWidths))
+      if(!preserveNavigation&&scope==='full'){win.localStorage.setItem(NAV[0],plan.navigation.tab);win.localStorage.setItem(NAV[1],JSON.stringify(plan.navigation.children))}
+      win.localStorage.setItem(MAIN,JSON.stringify(next))
+      onApply?.(next,nextWidths)
     }catch(error){let restored=true;try{await rollback(groups);restoreLocal(previous);onApply?.(normalize(readJson(win.localStorage,MAIN)),widths(readJson(win.localStorage,WIDTH)))}catch{restored=false}throw Error(restored?`${error.message} 已保留导入前配置。`:`${error.message} 未能完全回退，请保留备份文件。`)}
     undo={previous,groups};needsReload=needsReload||plan.hasAssets&&plan.records>0;notify();return{reload:needsReload}
   })}

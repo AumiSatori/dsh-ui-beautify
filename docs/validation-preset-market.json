@@ -1,0 +1,33 @@
+{
+  "feature": "preset-market",
+  "releaseStatus": "unreleased",
+  "checks": {
+    "nodeUnitTests": {"passed": 145, "failed": 0},
+    "marketBrowserGroups": {"passed": 10, "failed": 0},
+    "selectedChipHover": "passed: selected filter, submission category and license chips retain at least 4.5:1 text contrast in light and dark themes",
+    "settingsTransferBrowserGroups": {"passed": 9, "failed": 0},
+    "localPresetsBrowser": "passed",
+    "catalogValidation": "passed: empty production catalog; retired bundled examples filtered from stale mirrors and offline caches",
+    "settingsNavigation": "passed: global configuration contains local configuration and preset market child tabs",
+    "officialPublicationDryRun": "passed; no release or submission created",
+    "clientBuildConsistency": "passed",
+    "packageContents": "passed; no runtime dependencies or install hooks"
+  },
+  "knownBaselineFailure": {
+    "suite": "test/settings-browser.mjs",
+    "case": "switching categories preserves edited preferences and cancels preview animations",
+    "assertion": "welcome character preview animation is not observed",
+    "baseline": "49fca8f",
+    "reproduction": "repeated with the unchanged HEAD client and unchanged HEAD test; the same assertion failed",
+    "scope": "existing welcome preview behavior retained; this task only updates the expected navigation to include the new market"
+  },
+  "patchCheck": {
+    "newMissing": [],
+    "existingMissing": ["dsh-startup-feedback", "dsh-onebot-qq-voice"]
+  },
+  "acceptanceLimits": [
+    "Browser integration uses isolated fixtures and mock community packages; no real user submission or preset Release was published.",
+    "The existing desktop installation links this source directory; a full DSH exit and restart is required to load the new backend routes.",
+    "Desktop UI acceptance after restart remains with the user."
+  ]
+}

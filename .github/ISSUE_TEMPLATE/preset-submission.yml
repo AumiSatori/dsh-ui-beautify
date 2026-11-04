@@ -1,0 +1,56 @@
+name: 预设投稿
+description: 上传整套或单项美化预设，审核通过后收录到市场。
+title: "[预设投稿] "
+labels: [preset-submission]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先在插件的「预设市场 → 投稿」导出 ZIP，再将 ZIP 拖入下方「投稿 ZIP」。
+        提交不会自动上架；维护者检查内容和素材许可后，添加 preset-approved 标签发布。
+  - type: input
+    id: preset_id
+    attributes:
+      label: 预设 ID
+    validations:
+      required: true
+  - type: input
+    id: preset_version
+    attributes:
+      label: 版本号
+    validations:
+      required: true
+  - type: input
+    id: scope
+    attributes:
+      label: 预设分类
+      description: full 为整套，其余分类按投稿包内容识别。
+    validations:
+      required: true
+  - type: input
+    id: author
+    attributes:
+      label: 作者署名
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 简介与素材来源
+      description: 请说明效果、素材来源、许可和是否含自定义 HTML / CSS / 代码。
+    validations:
+      required: true
+  - type: textarea
+    id: package
+    attributes:
+      label: 投稿 ZIP
+      description: 将插件导出的 ZIP 拖入这里，等待上传完成后再提交。最多 64 MB。
+    validations:
+      required: true
+  - type: checkboxes
+    id: permission
+    attributes:
+      label: 分享确认
+      options:
+        - label: 我有权按投稿包所列许可分享素材，已确认不含凭据、个人信息或聊天记录。
+          required: true

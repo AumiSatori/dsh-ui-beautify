@@ -1,0 +1,42 @@
+name: Preset market review and publication
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      archive_url:
+        description: Official preset ZIP uploaded to a GitHub issue attachment
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: preset-market-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'preset-approved'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Configure publication identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+      - name: Publish reviewed community submission
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/preset-market.mjs publish --event
+      - name: Publish official submission
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRESET_ARCHIVE_URL: ${{ inputs.archive_url }}
+        run: node scripts/preset-market.mjs publish --official --url "$PRESET_ARCHIVE_URL"

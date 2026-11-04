@@ -10,3 +10,4 @@ dist/
 .dsh-ops-update-*.lock
 .idea/
 .scratch/
+validation/

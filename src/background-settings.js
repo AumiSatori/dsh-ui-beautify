@@ -50,6 +50,18 @@ export const backgroundSettingsCss=`
   .dcb-background-actions button:disabled { opacity:.4; cursor:default; }
   .dcb-background-actions svg { width:15px; height:15px; flex:none; }
   .dcb-background-library { display:grid; gap:12px; padding-top:20px; border-top:1px solid var(--dsh-settings-border); }
+  .dcb-html-presets { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .dcb-html-preset { display:grid; gap:8px; min-width:0; padding:7px; border:1px solid var(--dsh-settings-border); border-radius:12px; background:var(--dsh-settings-surface); color:var(--dsh-settings-text); font:12px/18px system-ui,sans-serif; text-align:left; cursor:pointer; transition:transform 220ms ${motion.ease.snappy},border-color 180ms ${motion.ease.color},background-color 180ms ${motion.ease.color}; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+  .dcb-html-preset:active { transform:scale(.97); }
+  .dcb-html-preset[aria-pressed=true] { border-color:var(--dsh-settings-text); background:var(--dsh-settings-subtle); }
+  .dcb-html-preset-picture { display:block; overflow:hidden; width:100%; aspect-ratio:16/9; border-radius:8px; background:var(--dsh-settings-subtle); }
+  .dcb-html-preset-picture img { display:block; width:100%; height:100%; object-fit:cover; }
+  .dcb-html-preset-swatch { display:block; width:100%; height:100%; }
+  .dcb-html-preset-swatch[data-preset=ocean] { background:radial-gradient(ellipse at 30% 20%,#2a7fd4 0,transparent 58%),radial-gradient(ellipse at 74% 82%,#1d5f8f 0,transparent 62%),linear-gradient(150deg,#04121f,#062a40); }
+  .dcb-html-preset-body { display:grid; gap:2px; min-width:0; padding:0 3px 3px; }
+  .dcb-html-preset-body strong { font-weight:500; font-size:12px; line-height:18px; }
+  .dcb-html-preset-body span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; line-height:16px; color:var(--dsh-settings-secondary); }
+  .dcb-html-preset:focus-visible { outline:2px solid var(--dsh-settings-text); outline-offset:3px; }
   .dcb-background-library-heading { display:flex; align-items:baseline; justify-content:space-between; gap:12px; font-size:13px; }
   .dcb-background-library-heading strong { font-weight:500; }
   .dcb-background-library-heading span { color:var(--dsh-settings-secondary); font-size:11px; }
@@ -128,6 +140,7 @@ export const backgroundSettingsCss=`
   }
   @container dcb-settings-page (max-width:360px) {
     .dcb-background-gallery { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .dcb-html-presets { grid-template-columns:minmax(0,1fr); }
     .dcb-settings-card.dcb-background-settings { padding:16px; gap:20px; }
     .dcb-background-settings .dcb-settings-header { gap:12px; }
     .dcb-background-enable span { display:none; }

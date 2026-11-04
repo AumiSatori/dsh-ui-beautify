@@ -1,6 +1,7 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {normalizeBackground,backgroundMediaType,themeBackground,backgroundThemeSelection} from '../src/background-media.js'
+import {HTML_BACKGROUND_LIMIT,HTML_BACKGROUND_LIMIT_LABEL} from '../src/background-html-limits.js'
 
 test('wallpaper starts disabled and clamps persisted appearance without touching other preferences',()=>{
   assert.equal(normalizeBackground(null).backgroundEnabled,false)
@@ -45,4 +46,11 @@ test('legacy HTML belongs only to its current theme while legacy pictures remain
   const image=backgroundThemeSelection(legacy,'light',{revision:'new',name:'新背景'},{legacyKind:'image'})
   assert.equal(themeBackground(image,'dark').backgroundRevision,'old')
   assert.equal(themeBackground(image,'light').backgroundRevision,'new')
+})
+
+test('HTML backgrounds may inline multi-megabyte artwork under the 4MB cap',()=>{
+  assert.equal(HTML_BACKGROUND_LIMIT,4*1024*1024)
+  assert.equal(HTML_BACKGROUND_LIMIT_LABEL,'4MB')
+  // The cap has to survive a 2560x1440 q90 pair of wallpaper frames.
+  assert.ok(HTML_BACKGROUND_LIMIT>1.5*1024*1024)
 })

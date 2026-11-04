@@ -1,4 +1,5 @@
 import {htmlDocument} from './background-html.js'
+import {HTML_BACKGROUND_LIMIT,HTML_BACKGROUND_LIMIT_LABEL} from './background-html-limits.js'
 import {backgroundChatSurfacesCss} from './background-chat-surfaces.js'
 import {createBackgroundInk} from './background-ink.js'
 import {normalizeBackground,themeBackground,backgroundThemeSelection,patchBackgroundTheme,createBackgroundStore,inspectBackgroundMedia,backgroundThumbnail} from './background-media.js'
@@ -107,6 +108,8 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
       if(assetKind==='html'){
         const source=await asset.blob.text();if(disposed||token!==generation)return;htmlSource=source;
         media=doc.createElement('iframe');media.title='HTML 动态背景';media.setAttribute('sandbox','allow-scripts');media.setAttribute('referrerpolicy','no-referrer');media.tabIndex=-1;
+        // Every (re)load starts with an empty document, so the theme is pushed again.
+        media.addEventListener('load',()=>pushTheme());
         layer.append(media);appearance();doc.body.prepend(layer);loaded=true;publish({error:'',preview:''});syncSurfaces();playback();return
       }
       media=doc.createElement(assetKind==='video'?'video':'img');const player=media
@@ -172,9 +175,12 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
   const themeObserver=new win.MutationObserver(()=>{
     const next=doc.body.hasAttribute('data-ds-dark-theme')?'dark':'light'
     if(next===theme||disposed)return
-    theme=next;publish({theme});sync(sourceSettings)
+    theme=next;publish({theme});pushTheme();sync(sourceSettings)
   })
   themeObserver.observe(doc.body,{attributes:true,attributeFilter:['data-ds-dark-theme']})
+  // HTML presets render their own artwork, so the day/night phase has to come
+  // from the host theme rather than a clock inside the frame.
+  function pushTheme(){if(disposed||assetKind!=='html'||!media)return;media.contentWindow?.postMessage({type:'dcb-background-theme',theme},'*')}
   const pointer=event=>{if(assetKind!=='html'||!htmlActive||!media||Date.now()-pointerTime<50)return;pointerTime=Date.now();media.contentWindow?.postMessage({type:'dcb-background-pointer',x:event.clientX/win.innerWidth,y:event.clientY/win.innerHeight},'*')}
   doc.addEventListener('pointermove',pointer,{passive:true});
   doc.addEventListener('visibilitychange',visibility);forced.addEventListener('change',visibility);reduced.addEventListener('change',visibility)
@@ -184,10 +190,13 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
     selection:(asset,scheme=theme)=>backgroundThemeSelection(sourceSettings,scheme,asset,{legacyKind:legacyKind||snapshot.recent.find(item=>item.revision===sourceSettings.backgroundRevision)?.kind,previousRevision:legacyPreviousRevision}),
     patch(value,scheme=theme){return patchBackgroundTheme(sourceSettings,value,scheme,{legacyKind,previousRevision:legacyPreviousRevision})},
     async readHtml(scheme=theme){const state=await store.read(themeBackground(sourceSettings,scheme).backgroundRevision);if(state.current?.kind!=='html')throw Error('当前主题尚未选择 HTML 背景');return state.current.blob.text()},
-    async importHtml(source,name){
+    async importHtml(source,name,preview){
       if(typeof source!=='string'||!source.trim())throw Error('请输入 HTML 代码');
-      const blob=new win.Blob([source],{type:'text/html'});if(blob.size>2*1024*1024)throw Error('HTML 需小于 2MB');
-      const request=++importSequence,asset={blob,type:'text/html',kind:'html',name,revision:win.crypto.randomUUID(),preview:''};
+      const blob=new win.Blob([source],{type:'text/html'});if(blob.size>HTML_BACKGROUND_LIMIT)throw Error('HTML 需小于 '+HTML_BACKGROUND_LIMIT_LABEL);
+      // Built-in presets hand over a locally rendered thumbnail so the library
+      // shows a picture for HTML entries too; anything else stays icon-only.
+      const poster=typeof preview==='string'&&/^data:image\//.test(preview)&&preview.length<512*1024?preview:'';
+      const request=++importSequence,asset={blob,type:'text/html',kind:'html',name,revision:win.crypto.randomUUID(),preview:poster};
       if(disposed||request!==importSequence)throw Error('背景设置已关闭');
       const state=await store.replace(asset);publish({hasPrevious:!!state.previous,recent:state.recent});return asset
     },

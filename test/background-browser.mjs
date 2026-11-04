@@ -74,6 +74,24 @@ try{
     await page.evaluate(()=>new Promise((resolve,reject)=>{const r=indexedDB.open('dsh-ui-beautify-background',2);r.onsuccess=()=>{const db=r.result,tx=db.transaction(['assets','wallpaper'],'readwrite');tx.objectStore('assets').clear();tx.objectStore('wallpaper').clear();tx.oncomplete=()=>{db.close();resolve()};tx.onerror=reject}}));
     await page.reload();await mount();await settings();
   })
+  await check('HTML preview accepts documents above the old cap and still rejects 4MB',async()=>{
+    await section.locator('summary').click()
+    const editor=section.getByLabel('HTML 背景代码'),previewFrame=page.locator('iframe[title="HTML 动态背景预览"]')
+    // 2.5MB: past the previous 2MB ceiling, far below the new 8MB one.
+    await editor.fill('<canvas id="c"></canvas><!--'+'x'.repeat(2.5*1024*1024)+'-->')
+    await section.getByRole('button',{name:'预览动效',exact:true}).click()
+    await previewFrame.waitFor()
+    assert.match(/** @type {string} */(await previewFrame.getAttribute('srcdoc')).slice(0,40),/doctype/i)
+    await section.getByRole('button',{name:'停止预览',exact:true}).click()
+    await previewFrame.waitFor({state:'detached'})
+    // Well past 4MB is still refused, and the prompt says 4MB.
+    await editor.fill('<canvas id="c"></canvas><!--'+'x'.repeat(4.5*1024*1024)+'-->')
+    await section.getByRole('button',{name:'预览动效',exact:true}).click()
+    assert.equal(await previewFrame.count(),0)
+    assert.match(await section.locator('[role=alert]').innerText(),/4MB/)
+    await editor.fill('<canvas id="c"></canvas>')
+    await section.locator('summary').click()
+  })
   await check('new category starts off and leaves host fills unchanged before import',async()=>{
     assert.equal(await wallpaper.count(),0);assert.equal(await section.getByRole('switch',{name:'启用全图背景'}).getAttribute('aria-checked'),'false')
     assert.equal(await page.getByRole('tab',{name:'全图背景',exact:true}).getAttribute('aria-selected'),'true');assert.equal(await page.locator('.nav').evaluate(node=>getComputedStyle(node).backgroundColor),'rgb(244, 243, 239)')

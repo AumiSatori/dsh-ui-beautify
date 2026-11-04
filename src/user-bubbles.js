@@ -51,11 +51,103 @@ export const userBubbleExamples={
   box-shadow: inset 0 1px 0 #ffffff66, 0 5px 18px #15213b12;
 }`,
 }
+// 果冻气泡：无小尾巴、无扫光，悬停时按果冻物理挤压回弹，按下再压扁一下。
+// 旧版镜海气泡（右侧三角 + 白光扫动）在读取时升级到这一版。
+const JELLY={
+  light:`/* 镜海果冻气泡 v3 · 浅色 */
+.bubble {
+  color: #232a5c;
+  background:
+    radial-gradient(130% 120% at 15% -25%, #ffffffe6 0%, #ffffff00 62%),
+    linear-gradient(155deg, #e9ecfff2 0%, #ffe4f5e6 52%, #dfe3fff2 100%);
+  border: 1px solid #ffffffd9;
+  border-radius: 22px;
+  padding: 12px 18px;
+  backdrop-filter: blur(10px) saturate(1.2);
+  transform-origin: 50% 60%;
+  transition: transform 320ms cubic-bezier(.2, .9, .3, 1.25), border-radius 320ms ease, box-shadow 320ms ease;
+  box-shadow:
+    inset 0 2px 0 #ffffffeb,
+    inset 0 9px 14px -12px #ffffffcc,
+    inset 0 -9px 16px -10px #a99cff8c,
+    0 12px 26px -16px #7d6fd485;
+}
+.bubble:hover {
+  will-change: transform;
+  animation: jelly-wobble 720ms cubic-bezier(.25, .9, .35, 1) both;
+  box-shadow:
+    inset 0 2px 0 #fffffff2,
+    inset 0 11px 16px -12px #ffffffd9,
+    inset 0 -11px 20px -10px #a99cffa6,
+    0 16px 32px -18px #7d6fd4a6;
+}
+.bubble:active {
+  animation: none;
+  transform: scale(.968, .972);
+  transition-duration: 120ms;
+}
+@keyframes jelly-wobble {
+  0% { transform: scale(1, 1) skewX(0deg); border-radius: 22px; }
+  18% { transform: scale(1.035, .952) skewX(-.6deg); border-radius: 24px 24px 20px 20px; }
+  36% { transform: scale(.982, 1.045) skewX(.5deg); border-radius: 20px 20px 25px 25px; }
+  54% { transform: scale(1.018, .978) skewX(-.35deg); border-radius: 23px 23px 21px 21px; }
+  72% { transform: scale(.994, 1.012) skewX(.2deg); border-radius: 21px 21px 23px 23px; }
+  88% { transform: scale(1.004, .996); border-radius: 22px; }
+  100% { transform: scale(1, 1); border-radius: 22px; }
+}`,
+  dark:`/* 镜海果冻气泡 v6 · 深色 */
+.bubble {
+  color: #edf3ff;
+  background:
+    radial-gradient(130% 120% at 15% -25%, #d6c9ff4d 0%, #d6c9ff00 60%),
+    linear-gradient(155deg, #4055bcd9 0%, #c48bc9d9 52%, #6f52b8d9 100%);
+  border: 1px solid #c9b6ff66;
+  border-radius: 22px;
+  padding: 12px 18px;
+  backdrop-filter: blur(12px) saturate(1.25);
+  transform-origin: 50% 60%;
+  transition: transform 320ms cubic-bezier(.2, .9, .3, 1.25), border-radius 320ms ease, box-shadow 320ms ease;
+  box-shadow:
+    inset 0 2px 0 #ffffff3d,
+    inset 0 10px 16px -12px #ffffff1f,
+    inset 0 -10px 18px -10px #8f5fc88c,
+    0 14px 28px -18px #0a0f36d9;
+}
+.bubble:hover {
+  will-change: transform;
+  animation: jelly-wobble 720ms cubic-bezier(.25, .9, .35, 1) both;
+  box-shadow:
+    inset 0 2px 0 #ffffff59,
+    inset 0 12px 18px -12px #ffffff2e,
+    inset 0 -12px 22px -10px #c98dd0a6,
+    0 18px 34px -18px #0a0f36f0;
+}
+.bubble:active {
+  animation: none;
+  transform: scale(.968, .972);
+  transition-duration: 120ms;
+}
+@keyframes jelly-wobble {
+  0% { transform: scale(1, 1) skewX(0deg); border-radius: 22px; }
+  18% { transform: scale(1.035, .952) skewX(-.6deg); border-radius: 24px 24px 20px 20px; }
+  36% { transform: scale(.982, 1.045) skewX(.5deg); border-radius: 20px 20px 25px 25px; }
+  54% { transform: scale(1.018, .978) skewX(-.35deg); border-radius: 23px 23px 21px 21px; }
+  72% { transform: scale(.994, 1.012) skewX(.2deg); border-radius: 21px 21px 23px 23px; }
+  88% { transform: scale(1.004, .996); border-radius: 22px; }
+  100% { transform: scale(1, 1); border-radius: 22px; }
+}`,
+}
+const LEGACY_BUBBLE=/mirror-sea-sheen|rotate\(\s*-45deg\s*\)|镜海果冻气泡/i
+const bubbleCssFor=(css,theme)=>{
+  const next=JELLY[theme]
+  if(!next||css===next)return css
+  return LEGACY_BUBBLE.test(css)?next:css
+}
 const choices=[['default','默认'],['qq','QQ 蓝'],['cream','奶油便签'],['glass','透明玻璃'],['palette','自定义配色'],['custom','自定义 CSS']]
 const palettes={light:{background:'#eeeeee',color:'#242424',border:'#dedede'},dark:{background:'#292929',color:'#eeeeee',border:'#454545'}}
 const normalizeTheme=(value,legacy,theme)=>({
   style:choices.some(([key])=>key===value?.style)?value.style:legacy.userBubbleStyle,
-  css:typeof value?.css==='string'?value.css.slice(0,LIMIT):legacy.userBubbleCss,
+  css:bubbleCssFor(typeof value?.css==='string'?value.css.slice(0,LIMIT):legacy.userBubbleCss,theme),
   ...Object.fromEntries(Object.entries(palettes[theme]).map(([key,fallback])=>[key,/^#[\da-f]{6}$/i.test(value?.[key])?value[key].toLowerCase():fallback])),
 })
 export function normalizeUserBubbles(value){
@@ -120,7 +212,23 @@ ${scope}::before,${scope}::after{pointer-events:none!important;}
 @media(forced-colors:active){${scope}{background:Canvas!important;color:CanvasText!important;border:1px solid CanvasText!important;box-shadow:none!important;backdrop-filter:none!important;} ${scope}::before,${scope}::after{display:none!important;}}
 }`
 
+const SETTINGS_KEY='dsh-ui-beautify:settings:v1'
+// 升级结果写回设置，设置页里看到的也就是果冻这一版，不再留着带尖角的旧 CSS。
+function persistJellyBubbles(win){
+  try{
+    const raw=win.localStorage.getItem(SETTINGS_KEY)
+    if(!raw)return false
+    const stored=JSON.parse(raw),themes=stored?.userBubbleThemes
+    if(!themes)return false
+    const next=normalizeUserBubbles(stored).userBubbleThemes
+    if(JSON.stringify(next)===JSON.stringify(themes))return false
+    win.localStorage.setItem(SETTINGS_KEY,JSON.stringify({...stored,userBubbleThemes:next}))
+    return true
+  }catch{return false}
+}
+
 export function createUserBubbles(doc,win,initial){
+  persistJellyBubbles(win)
   const style=doc.createElement('style');style.dataset.dcbUserBubbles='';doc.head.append(style)
   let key='',disposed=false
   const setOptions=value=>{

@@ -4,6 +4,7 @@ import {normalizeWelcome,playWelcomeInk} from './welcome-font.js'
 import {createWelcomeMediaPlayer,welcomeMediaCss} from './welcome-media.js'
 import {createWelcomeCodePlayer} from './welcome-code.js'
 import {createCharacterWelcomeArt,playCharacterWelcome} from './welcome-characters.js'
+import {cubeLogo} from './welcome-cube-logo.js'
 
 const OPENING=Symbol.for('dsh-ui-beautify.startup-motion.v1')
 const CONTROLLER=Symbol.for('dsh-ui-beautify.startup-controller.v1')
@@ -13,6 +14,10 @@ const suffix=(el,name)=>[...el.classList].some(value=>value.endsWith('_'+name))
 const MAX_NODES=96,MAX_PIXELS=4_000_000,WAIT=30000,HOME_GRACE=1000,CONTENT_WAIT=6500
 const HOLD=200,EXIT=300,STAGE='data-dcb-startup-stage'
 const noop={dispose(){},setSessionState(){},setRestorationTarget(){},setEnabled(){}}
+// The built-in cube opening is registered by the plugin bundle only, so the
+// early-opening launcher stays small.
+let cubeOpening=null
+export function provideCubeOpening(source){cubeOpening=typeof source==='function'?source:null}
 
 export const startupCss=`
   ${welcomeMediaCss}
@@ -57,6 +62,7 @@ export function createStartupMotion(doc,win,options,services={}){
   let visibleAt=0,viewReadyAt=0,revealAt=0,deadline=0,settleTimer=0,waitTimer=0,restorationExpected=false,sessionState=null,identity=null,homeReady=false
   let mediaPlayer=null,codePlayer=null,logo=null,mediaPending=false,codePending=false,mediaLoadTimer=0,codeLoadTimer=0
   const now=()=>win.performance.now()
+  const interactive=()=>settings.welcomeCodeInteractive===true||settings.welcomeMode==='cube'
   const setStage=value=>{status.stage=value;doc.documentElement.setAttribute(STAGE,value)}
   const on=(target,event,handler,options)=>{target.addEventListener(event,handler,options);listeners.push(()=>target.removeEventListener(event,handler,options))}
   const later=(fn,ms)=>{const id=win.setTimeout(()=>{timers.delete(id);fn()},ms);timers.add(id);return id}
@@ -108,7 +114,7 @@ export function createStartupMotion(doc,win,options,services={}){
     const sr=doc.createElement('span');sr.className='dcb-welcome-sr';sr.textContent=settings.welcomeText;copy.append(sr)
     const skip=doc.createElement('button');skip.type='button';skip.textContent='跳过';skip.setAttribute('data-dcb-welcome-skip','');skip.setAttribute('aria-label','跳过欢迎动画')
     overlay.append(copy,skip);doc.body.append(overlay)
-    on(overlay,'pointerdown',event=>{if(!settings.welcomeCodeInteractive||!event.target.closest('[data-dcb-welcome-code]'))finish('skip')})
+    on(overlay,'pointerdown',event=>{if(!interactive()||!event.target.closest('[data-dcb-welcome-code]'))finish('skip')})
     on(skip,'click',()=>finish('skip'))
     if(!animate(copy,[{opacity:0,transform:'translateY(10px) scale(.96)'},{opacity:1,transform:'none'}],{duration:300,easing:motion.ease.smooth},'welcome-in')){finish('unsupported');return}
     deadline=later(()=>finish('loading-timeout'),WAIT)
@@ -126,6 +132,14 @@ export function createStartupMotion(doc,win,options,services={}){
           copy.append(mediaPlayer.node)
         }catch{fail()}
       },fallback)
+    }else if(settings.welcomeMode==='cube'&&cubeOpening){
+      setStage('playing-code');copy.setAttribute('data-code','')
+      const fail=()=>{if(disposed||revealing)return;codePlayer?.dispose();codePlayer=null;copy.removeAttribute('data-code');copy.querySelector('[data-dcb-welcome-code]')?.remove();try{showText()}catch{finish('error')}}
+      try{
+        const host=services.createLogo?.(),source=cubeOpening({logo:cubeLogo(host?.node),text:settings.welcomeText});host?.dispose?.()
+        codePlayer=createWelcomeCodePlayer(doc,win,{source},{...settings,welcomeCodeInteractive:true},{onReady:()=>{cancelTimer(deadline);try{codePlayer?.frame.focus({preventScroll:true})}catch{}},onSkip:()=>finish('skip'),onComplete:()=>{if(!disposed){introDone=true;setStage('waiting-content');schedule()}},onError:fail})
+        copy.append(codePlayer.node)
+      }catch{fail()}
     }else if(settings.welcomeMode==='code'&&services.codeStore){
       setStage('loading-code');codePending=true
       const fallback=()=>{if(!codePending||disposed||revealing)return;codePending=false;cancelTimer(codeLoadTimer);try{showText()}catch{finish('error')}}
@@ -285,7 +299,7 @@ export function createStartupMotion(doc,win,options,services={}){
   }
   if(quiet.matches||!doc.body||typeof win.Element?.prototype.animate!=='function'){finish('unsupported');return noop}
   on(quiet,'change',()=>{if(quiet.matches)finish('reduced-motion')})
-  on(doc,'keydown',event=>{if(!settings.welcomeCodeInteractive||event.key==='Escape')finish('keyboard')},true)
+  on(doc,'keydown',event=>{if(!interactive()||event.key==='Escape')finish('keyboard')},true)
   on(doc,'pointerdown',event=>{if(!overlay||!overlay.contains(event.target))finish('interaction')},true)
   on(doc,'visibilitychange',()=>{if(doc.hidden){if(writing)finish('hidden')}else begin()})
   on(win,'pagehide',()=>finish('pagehide'))

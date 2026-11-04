@@ -16,6 +16,8 @@ export function startEarlyOpening(doc,win){
   if(!stored||win[Symbol.for('dsh-ui-beautify.startup-motion.v1')])return null
   const theme=doc.body.hasAttribute('data-ds-dark-theme')?'dark':win.localStorage.getItem(THEME)||(win.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')
   const settings=themeWelcome(stored,theme)
+  // The cube scene ships only in the plugin bundle; the plugin plays it.
+  if(settings.welcomeMode==='cube')return null
   if(!settings.welcomeEnabled||win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)').matches)return null
   if(theme==='dark')doc.body.setAttribute('data-ds-dark-theme','')
   const codeStore=createWelcomeCodeStore(win),mediaStore=createWelcomeMediaStore(win),previous=doc.body.getAttribute(FLAG),style=doc.createElement('style')

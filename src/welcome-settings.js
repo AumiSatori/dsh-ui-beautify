@@ -9,6 +9,7 @@ import {createPresetDelete,presetDeleteCss} from './preset-delete.js'
 import {themeAssignments,themeAssignmentsCss} from './theme-assignments.js'
 import {mountWelcomeGesture,welcomeGestureCss,welcomeGestureDocument} from './welcome-gesture.js'
 import {welcomeCodeMode} from './welcome-code-modes.js'
+import {cubeLogo,cubeOpeningSource} from './welcome-cube.js'
 
 export const welcomeSettingsCss=`
   ${presetDeleteCss}
@@ -34,9 +35,11 @@ export const welcomeSettingsCss=`
   .dcb-welcome-demo[data-mode=media] { height:240px; padding:0; }
   .dcb-welcome-demo[data-mode=code] { height:240px; padding:0; }
   .dcb-welcome-demo[data-mode=code][data-interactive=true] { height:480px; }
+  .dcb-welcome-demo[data-mode=cube] { height:480px; padding:0; background:#fff; }
   .dcb-welcome-demo-content { width:100%; min-height:0; display:grid; place-items:center; }
   .dcb-welcome-demo[data-mode=media] .dcb-welcome-demo-content { height:100%; }
   .dcb-welcome-demo[data-mode=code] .dcb-welcome-demo-content { height:100%; }
+  .dcb-welcome-demo[data-mode=cube] .dcb-welcome-demo-content { height:100%; }
   .dcb-welcome-preview-brand { display:grid; place-items:center; width:90px; height:64px; margin-bottom:12px; color:#111; overflow:hidden; transition:height 280ms ${motion.ease.smooth},margin-bottom 280ms ${motion.ease.smooth},opacity 220ms ease,transform 280ms ${motion.ease.smooth}; }
   .dcb-welcome-preview-brand[data-shown=false] { height:0; margin-bottom:0; opacity:0; transform:translateY(-8px) scale(.9); }
   .dcb-welcome-preview-brand svg { display:block; width:90px; height:64px; }
@@ -166,6 +169,15 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
           const codePlayer=createWelcomeCodePlayer(doc,win,draft,latest.current,{onComplete:()=>done('预览已结束'),onError:()=>{done('预览未能运行');if(mounted.current&&generation.current===token)setError('代码无法运行：请检查语法，并将图片、字体和脚本内嵌到同一个文件。')}})
           player.current={code:codePlayer};seat.current.append(codePlayer.node);setPlaying(true);setError('');return
         }
+        if(latest.current.welcomeMode==='cube'){
+          seat.current.replaceChildren();setPlaying(false)
+          const note=message=>{const p=doc.createElement('p');p.textContent=message;seat.current?.replaceChildren(p)}
+          if(!animated||quiet){note(quiet?'已减少动态效果，不运行魔方预览':'点击播放预览，按住魔方复原');return}
+          const done=message=>{if(mounted.current&&generation.current===token){player.current?.code?.dispose();player.current=null;setPlaying(false);note(message)}}
+          const source=cubeOpeningSource({logo:cubeLogo(brand.current),text:latest.current.welcomeText})
+          const codePlayer=createWelcomeCodePlayer(doc,win,{source},{...latest.current,welcomeCodeInteractive:true},{onComplete:()=>done('预览已结束'),onSkip:()=>done('预览已跳过'),onError:()=>{done('预览未能运行');if(mounted.current&&generation.current===token)setError('魔方开屏需要 WebGL，当前环境无法运行预览。')}})
+          player.current={code:codePlayer};seat.current.append(codePlayer.node);setPlaying(true);setError('');return
+        }
         if(latest.current.welcomeMode==='characters'){
           const art=createCharacterWelcomeArt(doc,brand.current,latest.current.welcomeCharacters)
           if(art){
@@ -281,13 +293,13 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
       catch(error){if(mounted.current)setError(error.message||'代码读取失败')}
       finally{if(mounted.current)setBusy(false)}
     }
-    const mediaMode=value.welcomeMode==='media',codeMode=value.welcomeMode==='code',characterMode=value.welcomeMode==='characters'
+    const mediaMode=value.welcomeMode==='media',codeMode=value.welcomeMode==='code',characterMode=value.welcomeMode==='characters',cubeMode=value.welcomeMode==='cube',livePreview=codeMode||cubeMode
     return h('section',{className:'dcb-settings-block dcb-settings-card','data-dcb-settings-block':'welcome'},
       h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'开屏欢迎'),h('p',null,'启动或刷新时播放开屏；可使用默认字符 Logo、自定义代码、动图或视频。'))),
-      themeAssignments(h,{scope:'开屏欢迎',theme,onThemeChange,items:Object.fromEntries(['light','dark'].map(scheme=>{const item=themeWelcome(value,scheme),configured=item.welcomeMode==='characters'||!!(item.welcomeMode==='media'?item.welcomeMediaRevision:item.welcomeCodeRevision);return[scheme,{name:item.welcomeMode==='characters'?'Logo 字符填充':item.welcomeMode==='media'?mediaNames[scheme]||'动图 / 短视频 · 尚未选择素材':item.welcomeCodeName||'自定义代码 · 尚未应用',configured,enabled:item.welcomeEnabled&&configured}]}))}),
+      themeAssignments(h,{scope:'开屏欢迎',theme,onThemeChange,items:Object.fromEntries(['light','dark'].map(scheme=>{const item=themeWelcome(value,scheme),configured=item.welcomeMode==='characters'||item.welcomeMode==='cube'||!!(item.welcomeMode==='media'?item.welcomeMediaRevision:item.welcomeCodeRevision);return[scheme,{name:item.welcomeMode==='characters'?'Logo 字符填充':item.welcomeMode==='cube'?'魔方 · 按住复原':item.welcomeMode==='media'?mediaNames[scheme]||'动图 / 短视频 · 尚未选择素材':item.welcomeCodeName||'自定义代码 · 尚未应用',configured,enabled:item.welcomeEnabled&&configured}]}))}),
       h('div',{className:'dcb-settings-row'},h('div',{className:'dcb-settings-copy'},h('span',{className:'dcb-settings-row-title'},'开屏欢迎动效',h('span',{className:'dcb-cost-tag'},'仅启动或预览时运行')),h('p',{className:'dcb-settings-row-desc'},'播放完成后进入聊天；交互式开屏会等待操作，也可随时跳过。关闭后直接展示原生界面。')),
         h('button',{type:'button',role:'switch',className:'dcb-switch','aria-label':'开屏欢迎动效','aria-checked':value.welcomeEnabled,onClick:()=>onChange({welcomeEnabled:!value.welcomeEnabled})})),
-      choices('开屏类型',[['characters','默认 · Logo 字符填充'],['code','自定义代码'],['media','动图 / 短视频']],value.welcomeMode,welcomeMode=>{stop();setPlaying(false);onChange({welcomeMode})}),
+      choices('开屏类型',[['characters','默认 · Logo 字符填充'],['cube','魔方 · 按住复原'],['code','自定义代码'],['media','动图 / 短视频']],value.welcomeMode,welcomeMode=>{stop();setPlaying(false);onChange({welcomeMode})}),
       h('div',{className:'dcb-welcome-collapse','data-open':characterMode,'aria-hidden':!characterMode,inert:!characterMode},h('div',null,
       h('div',{className:'dcb-welcome-fields','data-characters':true},
         h('label',{className:'dcb-welcome-field'},'填充字符',h('input',{'aria-label':'Logo 填充字符',value:chars,maxLength:64,onChange:event=>setChars(event.target.value),onBlur:()=>onChange({welcomeCharacters:normalizeWelcome({...value,welcomeCharacters:chars}).welcomeCharacters}),onKeyDown:event=>{if(event.key==='Enter'&&!event.nativeEvent.isComposing)event.currentTarget.blur()}}))),
@@ -332,6 +344,8 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
           h('p',{className:'dcb-settings-footnote'},'代码可通过 window.dshWelcomeDone() 结束，支持 data-theme 和 --dsh-welcome-background / --dsh-welcome-foreground 主题变量。代码仅保存在本机。')
         )
       )),
+      h('div',{className:'dcb-welcome-collapse','data-open':cubeMode,'aria-hidden':!cubeMode,inert:!cubeMode},h('div',null,
+        h('p',null,'按住魔方（鼠标、触屏或空格）逐层复原，松开会停在整面，再按住从当前进度继续。复原后带 Logo 的一面转到正面，透视压平并融入白色背景，只留下 Logo。点击空白处、Enter、Esc 或“跳过”随时进入；12 秒无操作自动复原。需要 WebGL，仅在选中此类型时加载。'))),
       h('div',{className:'dcb-welcome-collapse','data-open':mediaMode,'aria-hidden':!mediaMode,inert:!mediaMode},h('div',null,
         h('div',{className:'dcb-welcome-upload'},h('span',{className:'dcb-cost-tag','data-cost':'high'},'视频 / 动图较高开销'),
           h('p',{className:'dcb-welcome-file-name'},asset?`${asset.name} · ${(asset.size/1024/1024).toFixed(1)} MB · ${asset.width} × ${asset.height}${asset.kind==='video'?` · ${asset.duration.toFixed(1)} 秒`:''}`:'尚未选择素材'),
@@ -342,8 +356,8 @@ export function createWelcomeSettings(React,doc,win,{mediaStore,codeStore,FishLo
         h('div',{className:'dcb-settings-section-title'},'画面适配'),choices('画面适配',[['contain','完整显示'],['cover','铺满裁切']],value.welcomeMediaFit,welcomeMediaFit=>onChange({welcomeMediaFit})),
         h('div',{className:'dcb-settings-section-title'},'动图显示时长'),choices('动图显示时长',[[2000,'2 秒'],[3000,'3 秒'],[5000,'5 秒']],value.welcomeMediaDuration,welcomeMediaDuration=>onChange({welcomeMediaDuration})),
         h('p',null,'短视频静音播放一次后进入主界面；动图按所选时长退场。文件只保存在本机，可随时移除。'))),
-      h('div',{className:'dcb-motion-preview-head'},h('small',null,'局部预览'),h('button',{type:'button',className:'dcb-welcome-play',onClick:()=>{if(codeMode&&playing){stop();setPlaying(false);const note=doc.createElement('p');note.textContent='预览已停止';seat.current.replaceChildren(note)}else draw(true)}},codeMode&&playing?'停止代码预览':playing?'重新播放欢迎预览':'播放欢迎预览')),
-      h('div',{className:'dcb-welcome-demo','data-mode':value.welcomeMode,'data-interactive':codeMode&&value.welcomeCodeInteractive,role:codeMode&&value.welcomeCodeInteractive?'group':'img','aria-label':codeMode?'自定义代码开屏预览':mediaMode?'自定义素材开屏预览':'鲸鱼 Logo 字符开屏预览'},
+      h('div',{className:'dcb-motion-preview-head'},h('small',null,'局部预览'),h('button',{type:'button',className:'dcb-welcome-play',onClick:()=>{if(livePreview&&playing){stop();setPlaying(false);const note=doc.createElement('p');note.textContent='预览已停止';seat.current.replaceChildren(note)}else draw(true)}},livePreview&&playing?(cubeMode?'停止魔方预览':'停止代码预览'):playing?'重新播放欢迎预览':'播放欢迎预览')),
+      h('div',{className:'dcb-welcome-demo','data-mode':value.welcomeMode,'data-interactive':cubeMode||codeMode&&value.welcomeCodeInteractive,role:cubeMode||codeMode&&value.welcomeCodeInteractive?'group':'img','aria-label':cubeMode?'魔方开屏预览':codeMode?'自定义代码开屏预览':mediaMode?'自定义素材开屏预览':'鲸鱼 Logo 字符开屏预览'},
         h('div',{className:'dcb-welcome-preview-brand',ref:brand,'data-shown':false,'aria-hidden':true},FishLogo&&h(FishLogo,{size:64})),h('div',{className:'dcb-welcome-demo-content',ref:seat})),
       h('p',{role:error?'alert':'status'},error||'选项自动保存；代码需点击应用。下次刷新或启动生效，预览不打断当前聊天。'))
   }

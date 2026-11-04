@@ -2,11 +2,12 @@
   "feature": "preset-market",
   "releaseStatus": "unreleased",
   "checks": {
-    "nodeUnitTests": {"passed": 143, "failed": 0},
+    "nodeUnitTests": {"passed": 145, "failed": 0},
     "marketBrowserGroups": {"passed": 9, "failed": 0},
     "settingsTransferBrowserGroups": {"passed": 9, "failed": 0},
     "localPresetsBrowser": "passed",
-    "catalogValidation": "passed: 5 official presets",
+    "catalogValidation": "passed: empty production catalog; retired bundled examples filtered from stale mirrors and offline caches",
+    "settingsNavigation": "passed: global configuration contains local configuration and preset market child tabs",
     "officialPublicationDryRun": "passed; no release or submission created",
     "clientBuildConsistency": "passed",
     "packageContents": "passed; no runtime dependencies or install hooks"

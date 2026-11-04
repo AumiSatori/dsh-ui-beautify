@@ -5,7 +5,7 @@ import vm from 'node:vm'
 import {createSettingsTransfer} from '../src/settings-transfer.js'
 import {scopeSettings,sharedPresetRecords,settingScope} from '../src/preset-scopes.js'
 import {sha256,normalizePresetMeta,inspectPresetConfig,createPresetZip,inspectPresetZip} from '../src/preset-package.js'
-import {normalizeMarketCatalog,trustedPresetAsset} from '../src/preset-market.js'
+import {normalizeMarketCatalog,trustedPresetAsset,createPresetMarket} from '../src/preset-market.js'
 import {presetSubmissionUrl,nextPresetCatalog} from '../scripts/preset-market.mjs'
 import {registerPresetMarket} from '../server/preset-market.js'
 
@@ -34,12 +34,27 @@ test('package validation rejects cross-category changes, credentials and local f
   await assert.rejects(inspectPresetZip(await pack(config(),{id:'../../outside'})),/ID/)
 })
 test('catalog constrains origins, official badges, unique IDs and trusted URLs',()=>{
-  const catalog=JSON.parse(readFileSync(new URL('../market/catalog.json',import.meta.url)))
-  assert.ok(normalizeMarketCatalog(catalog).length>=5)
+  const catalog=JSON.parse(readFileSync(new URL('./fixtures/preset-market-catalog.json',import.meta.url)))
   assert.throws(()=>normalizeMarketCatalog({...catalog,presets:[catalog.presets[0],catalog.presets[0]]}),/重复/)
   assert.throws(()=>normalizeMarketCatalog({schemaVersion:1,presets:[{...catalog.presets[0],source:'community'}]}),/已审核/)
   assert.equal(trustedPresetAsset('https://github.com/AumiSatori/dsh-ui-beautify/releases/download/a/demo.zip'),true)
   for(const url of ['http://127.0.0.1/secret','https://github.com.evil.test/AumiSatori/dsh-ui-beautify/x','https://github.com/other/repo/releases/download/a/a.zip','file:///C:/a'])assert.equal(trustedPresetAsset(url),false)
+})
+test('production catalog is empty and retired bundled examples cannot reappear through stale mirrors',()=>{
+  assert.deepEqual(normalizeMarketCatalog(JSON.parse(readFileSync(new URL('../market/catalog.json',import.meta.url)))),[])
+  const item=JSON.parse(readFileSync(new URL('./fixtures/preset-market-catalog.json',import.meta.url))).presets[0]
+  const old={...item,id:'official-soft-glass'}
+  assert.deepEqual(normalizeMarketCatalog({schemaVersion:1,presets:[old]}),[])
+  const uploaded={...old,settings:undefined,archiveUrl:'https://github.com/AumiSatori/dsh-ui-beautify/releases/download/new/new.zip',sha256:'a'.repeat(64)}
+  assert.equal(normalizeMarketCatalog({schemaVersion:1,presets:[uploaded]}).length,1)
+})
+test('offline cache removes retired examples without removing unrelated presets',async()=>{
+  const item=JSON.parse(readFileSync(new URL('./fixtures/preset-market-catalog.json',import.meta.url))).presets[0]
+  const cache={at:Date.now(),catalog:{schemaVersion:1,presets:[{...item,id:'official-soft-glass'},item]}}
+  const win={Blob,crypto,AbortController,setTimeout,clearTimeout,fetch:async()=>{throw Error('offline')},localStorage:{getItem:()=>JSON.stringify(cache)}}
+  const manager=createPresetMarket(win,{}, {sources:['https://example.invalid/catalog']})
+  const result=await manager.catalog();assert.equal(result.cached,true);assert.equal(result.items.length,1);assert.equal(result.items[0].id,item.id)
+  manager.dispose()
 })
 test('single-component apply and undo preserve other settings, widths and navigation',async()=>{
   const storage=new Map(),localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)}

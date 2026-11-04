@@ -2,6 +2,9 @@ import builtin from '../market/catalog.json' with {type:'json'}
 import {PRESET_SCOPES,presetScope} from './preset-scopes.js'
 import {MARKET_REPO,MARKET_RAW,MARKET_CDN,PRESET_PACKAGE_LIMIT,normalizePresetMeta,inspectPresetConfig,inspectPresetZip,createPresetZip,sha256} from './preset-package.js'
 
+// Remove the original bundled examples even when an old CDN response or
+// offline cache still contains them. Future reviewed archive uploads remain valid.
+const retiredExamples=new Set(['official-soft-glass','official-quiet-desk','official-frosted-sidebar','official-whale-particles','official-light-composer'])
 export function trustedPresetAsset(url){
   try{const u=new URL(url);return u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash&&(
     u.hostname==='github.com'&&u.pathname.startsWith('/'+MARKET_REPO+'/releases/download/')||
@@ -11,7 +14,7 @@ export function trustedPresetAsset(url){
 export function normalizeMarketCatalog(value){
   if(value?.schemaVersion!==1||!Array.isArray(value.presets)||value.presets.length>1000)throw Error('市场目录格式无效。')
   const seen=new Set()
-  return value.presets.map(item=>{
+  return value.presets.filter(item=>!(item?.source==='official'&&item.settings&&item.version==='1.0.0'&&retiredExamples.has(item.id))).map(item=>{
     const meta=normalizePresetMeta({...item,format:'dsh-ui-preset',schemaVersion:1,configSha256:item.configSha256||'0'.repeat(64)})
     if(seen.has(meta.id)||!['official','community'].includes(item.source))throw Error('市场目录含重复或无效条目。')
     seen.add(meta.id)
@@ -47,7 +50,7 @@ export function createPresetMarket(win,transfer,{sources=['/dsh-ui-beautify/pres
     }catch{
       check()
       try{const cache=JSON.parse(win.localStorage.getItem(cacheKey));if(cache&&Date.now()-cache.at<30*86400000)return{items:normalizeMarketCatalog(cache.catalog),cached:true,builtin:false,error:'网络暂不可用，正在显示最近一次目录。'}}catch{}
-      return {items:fallback,cached:false,builtin:true,error:'网络暂不可用，先显示随插件提供的官方预设。'}
+      return {items:fallback,cached:false,builtin:true,error:'网络暂不可用，暂无可用的市场缓存，请稍后刷新重试。'}
     }
   }
   async function inspect(item){

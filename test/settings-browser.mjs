@@ -38,7 +38,7 @@ try{
   })
   await page.evaluate(()=>window.fixture.settings(true));await select('任务面板')
   await check('hierarchical accessible categories mount one page and use uniform preview cards in all three material scopes',async()=>{
-    assert.deepEqual(await page.getByRole('tablist',{name:'美化设置分组'}).getByRole('tab').allTextContents(),['组件布局','全局布局','对话布局','预设市场','全局配置'])
+    assert.deepEqual(await page.getByRole('tablist',{name:'美化设置分组'}).getByRole('tab').allTextContents(),['组件布局','全局布局','对话布局','全局配置'])
     const geometry=[]
     for(const [name,label]of[['任务面板','卡片样式'],['输入栏','输入栏样式'],['侧栏','侧栏样式']]){
       await select(name);assert.equal(await dialog.locator('[data-dcb-settings-block]').count(),1)

@@ -6,6 +6,7 @@ import {resolve} from 'node:path'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
 import {sha256,createPresetZip,inspectPresetZip} from '../src/preset-package.js'
+import {selectSettingsCategory} from './settings-navigation.mjs'
 
 const root=fileURLToPath(new URL('..',import.meta.url)),output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(root,'../../outputs/dsh-ui-beautify'),'preset-market')
 mkdirSync(output,{recursive:true})
@@ -14,7 +15,8 @@ const portal=await build({stdin:{contents:"import {createPortal} from 'react-dom
 const config=new Blob([JSON.stringify({format:'dsh-ui-beautify-config',version:1,scope:'sidebar',settings:{sidebarStyle:'glass',sidebarMotion:true,sidebarOverlay:false}})])
 const metadata={format:'dsh-ui-preset',schemaVersion:1,id:'community-sidebar',version:'1.0.0',title:'社区磨砂侧栏',description:'仅替换侧栏样式的测试投稿。',author:'demo-author',scope:'sidebar',tags:['侧栏','简约'],license:'MIT',configSha256:await sha256(config)}
 const archive=await createPresetZip(new Map([['manifest.json',new Blob([JSON.stringify(metadata)])],['config.dshui',config]]))
-const catalog={...JSON.parse(readFileSync(resolve(root,'market/catalog.json'),'utf8'))}
+// Demo catalog stays in test fixtures, never in the published/default market.
+const catalog={...JSON.parse(readFileSync(resolve(root,'test/fixtures/preset-market-catalog.json'),'utf8'))}
 catalog.presets.push({...metadata,source:'community',archiveUrl:'https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-community-sidebar-v1.0.0/community-sidebar-1.0.0.zip',sha256:await sha256(archive)})
 let offline=false,corrupt=false
 const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(root,'test/fixture.html'))],'/fixture.js':['text/javascript',fixture.outputFiles[0].text+portal.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(root,'client.js'))]}
@@ -39,13 +41,16 @@ async function boot(){
   await page.addScriptTag({url:url+'client.js'})
   await page.evaluate(()=>{const ctx={slots:{inject(_n,cb){cb()},register(s,c){if(s.name==='settings.section')window.fixtureSettings=c;else{window.fixtureHeader=c;window.fixtureHeaderSpec=s}return()=>{}}},sessions:{binding:id=>window.fixtureBinding(id)},sidebarRight:{openResource(){}},effect(cb){window.cleanups.push(cb())},inject(_n,cb){cb(ctx)}};window.plugin.apply(ctx);window.fixture.refresh();window.fixture.settings(true)})
   await page.addStyleTag({content:'.settings-dialog{inset:20px 6%;padding:24px;overflow:auto}.dcb-settings{min-width:0}'});
-  await page.getByRole('tab',{name:'预设市场',exact:true}).click();await market().waitFor();await wait(650)
+  await selectSettingsCategory(page,'预设市场');await market().waitFor();await wait(650)
 }
 async function select(title){await market().getByRole('button',{name:'查看预设 '+title,exact:true}).click();await dialog().getByRole('button',{name:'应用预设',exact:true}).waitFor();await page.waitForFunction(()=>!document.querySelector('.dcb-market-modal [data-primary]')?.disabled)}
 async function resetFilters(){for(const [group,name] of [['预设类型','全部'],['预设来源','全部来源']])await market().getByRole('group',{name:group,exact:true}).getByRole('button',{name,exact:true}).click();await market().getByRole('textbox',{name:'搜索市场预设'}).fill('');await waitCards(6)}
 try{
   await boot()
   await check('market is integrated into settings, with official and reviewed community cards and no native selectors',async()=>{
+    assert.deepEqual(await page.getByRole('tablist',{name:'美化设置分组'}).getByRole('tab').allTextContents(),['组件布局','全局布局','对话布局','全局配置'])
+    assert.deepEqual(await page.getByRole('tablist',{name:'全局配置子分类'}).getByRole('tab').allTextContents(),['本机配置','预设市场'])
+    assert.equal(await page.getByRole('tab',{name:'全局配置',exact:true}).getAttribute('aria-selected'),'true')
     assert.equal(await cards().count(),6);assert.equal(await market().getByText('社区 · 已审核',{exact:true}).count(),1)
     assert.equal(await page.locator('select,input[type=checkbox],input[type=radio],input[type=range]').count(),0)
     const geometry=await cards().evaluateAll(nodes=>nodes.map(n=>({top:n.getBoundingClientRect().top,bottom:n.getBoundingClientRect().bottom,margin:getComputedStyle(n).marginTop})))
@@ -81,9 +86,9 @@ try{
     assert.equal(await page.evaluate(KEY=>JSON.parse(localStorage.getItem(KEY)).composerStyle,KEY),composer)
     assert.equal(await page.evaluate(WIDTH=>JSON.parse(localStorage.getItem(WIDTH)).window,WIDTH),980)
     await market().getByRole('button',{name:'撤销本次应用',exact:true}).waitFor()
-    await page.getByRole('tab',{name:'全局配置',exact:true}).click();await page.getByRole('button',{name:'切换到 社区磨砂侧栏',exact:true}).waitFor()
+    await selectSettingsCategory(page,'本机配置');await page.getByRole('button',{name:'切换到 社区磨砂侧栏',exact:true}).waitFor()
     await page.getByRole('button',{name:'撤销上次应用',exact:true}).click();await page.waitForFunction(KEY=>JSON.parse(localStorage.getItem(KEY)).sidebarStyle==='milk',KEY)
-    await page.getByRole('tab',{name:'预设市场',exact:true}).click();await wait(600)
+    await selectSettingsCategory(page,'预设市场');await wait(600)
   })
   await check('whole-set application replaces the full normalized configuration',async()=>{
     await select('轻雾玻璃');await dialog().getByRole('button',{name:'应用预设',exact:true}).click()
@@ -118,7 +123,9 @@ try{
   })
   await check('cached and bundled catalogs remain browsable during network failures',async()=>{
     offline=true;await market().getByRole('button',{name:'刷新预设市场'}).click();await market().getByText('网络暂不可用，正在显示最近一次目录。',{exact:true}).waitFor();await wait(500);assert.equal(await cards().count(),6)
-    await page.evaluate(()=>localStorage.removeItem('dsh-ui-beautify:market-cache:v1'));await market().getByRole('button',{name:'刷新预设市场'}).click();await market().getByText('网络暂不可用，先显示随插件提供的官方预设。',{exact:true}).waitFor();await wait(500);assert.equal(await cards().count(),5)
+    await page.evaluate(()=>localStorage.removeItem('dsh-ui-beautify:market-cache:v1'));await market().getByRole('button',{name:'刷新预设市场'}).click();await market().getByText('网络暂不可用，暂无可用的市场缓存，请稍后刷新重试。',{exact:true}).waitFor();await waitCards(0);assert.equal(await cards().count(),0)
+    await market().getByText('市场暂时还没有预设，欢迎投稿分享。',{exact:true}).waitFor()
+    await snapshot('empty-market.png')
     offline=false;await market().getByRole('button',{name:'刷新预设市场'}).click();await wait(650)
   })
   await check('dark, narrow, keyboard and reduced-motion modes remain usable without overflow',async()=>{

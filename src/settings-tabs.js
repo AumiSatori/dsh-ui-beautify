@@ -1,12 +1,11 @@
 import {motion} from './motion.js'
 
-const tabs=[['panel','任务面板'],['hero','欢迎语'],['composer','输入栏'],['sidebar','侧栏'],['welcome','开屏欢迎'],['background','全图背景'],['particles','粒子背景'],['running','思考动图'],['messages','对话动效'],['toolbar','右上工具栏'],['market','预设市场'],['config','全局配置']]
+const tabs=[['panel','任务面板'],['hero','欢迎语'],['composer','输入栏'],['sidebar','侧栏'],['welcome','开屏欢迎'],['background','全图背景'],['particles','粒子背景'],['running','思考动图'],['messages','对话动效'],['toolbar','右上工具栏'],['market','预设市场'],['config','本机配置']]
 export const settingsGroups=[
   {id:'components',label:'组件布局',children:['panel','composer','sidebar','toolbar']},
   {id:'global',label:'全局布局',children:['welcome','background','particles']},
   {id:'conversation',label:'对话布局',children:['hero','running','messages']},
-  {id:'market',label:'预设市场',children:['market']},
-  {id:'config',label:'全局配置',children:['config']},
+  {id:'config',label:'全局配置',children:['config','market']},
 ]
 const groupFor=id=>settingsGroups.find(group=>group.children.includes(id))||settingsGroups[0]
 export const SETTINGS_TAB_KEY='dsh-ui-beautify:settings-tab:v1'

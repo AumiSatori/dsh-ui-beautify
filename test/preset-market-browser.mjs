@@ -45,6 +45,16 @@ async function boot(){
 }
 async function select(title){await market().getByRole('button',{name:'查看预设 '+title,exact:true}).click();await dialog().getByRole('button',{name:'应用预设',exact:true}).waitFor();await page.waitForFunction(()=>!document.querySelector('.dcb-market-modal [data-primary]')?.disabled)}
 async function resetFilters(){for(const [group,name] of [['预设类型','全部'],['预设来源','全部来源']])await market().getByRole('group',{name:group,exact:true}).getByRole('button',{name,exact:true}).click();await market().getByRole('textbox',{name:'搜索市场预设'}).fill('');await waitCards(6)}
+async function assertHoverContrast(button){
+  await button.hover();await wait(240)
+  const ratio=await button.evaluate(el=>{
+    const css=getComputedStyle(el),canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');canvas.width=canvas.height=1
+    const luminance=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);const rgb=[...ctx.getImageData(0,0,1,1).data].slice(0,3).map(value=>{value/=255;return value<=.04045?value/12.92:((value+.055)/1.055)**2.4});return .2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2]}
+    const a=luminance(css.color),b=luminance(css.backgroundColor);return(Math.max(a,b)+.05)/(Math.min(a,b)+.05)
+  })
+  assert.ok(ratio>=4.5,`selected chip hover contrast ${ratio.toFixed(2)} must be at least 4.5`)
+  assert.equal(await button.getAttribute('aria-pressed'),'true')
+}
 try{
   await boot()
   await check('market is integrated into settings, with official and reviewed community cards and no native selectors',async()=>{
@@ -56,6 +66,20 @@ try{
     const geometry=await cards().evaluateAll(nodes=>nodes.map(n=>({top:n.getBoundingClientRect().top,bottom:n.getBoundingClientRect().bottom,margin:getComputedStyle(n).marginTop})))
     assert.ok(geometry.every(n=>n.margin==='0px'));assert.ok(geometry[3].top-geometry[0].bottom<20)
     await snapshot('discover-light.png')
+  })
+  await check('selected filter and submission chips stay readable on hover in both themes',async()=>{
+    for(const dark of [false,true]){
+      await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
+      const whole=market().getByRole('group',{name:'预设类型',exact:true}).getByRole('button',{name:'整套预设',exact:true})
+      await whole.click();await waitCards(2);await assertHoverContrast(whole)
+      await whole.screenshot({path:resolve(output,`selected-filter-hover-${dark?'dark':'light'}.png`)})
+      await assertHoverContrast(market().getByRole('group',{name:'预设来源',exact:true}).getByRole('button',{name:'全部来源',exact:true}))
+      await market().getByRole('tab',{name:'投稿',exact:true}).click();await wait(300)
+      await assertHoverContrast(market().getByRole('group',{name:'投稿分类',exact:true}).getByRole('button',{name:'整套预设',exact:true}))
+      await assertHoverContrast(market().getByRole('group',{name:'分享许可',exact:true}).getByRole('button',{name:'CC-BY-4.0',exact:true}))
+      await market().getByRole('tab',{name:'发现',exact:true}).click();await wait(300);await resetFilters()
+    }
+    await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
   })
   await check('whole sets, component categories, source and keyword filters compose correctly',async()=>{
     await market().getByRole('group',{name:'预设类型',exact:true}).getByRole('button',{name:'整套预设',exact:true}).click();await waitCards(2);assert.equal(await cards().count(),2)

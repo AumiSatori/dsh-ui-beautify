@@ -31,6 +31,7 @@ export const presetMarketCss=`
  .dcb-market-chips { display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
  .dcb-market-chips button { min-height:32px; padding:5px 11px; border-radius:999px; font-size:11px; background:transparent; }
  .dcb-market-chips button[aria-pressed=true] { color:var(--dsh-settings-surface); background:var(--dsh-settings-text); border-color:transparent; }
+ .dcb-market-chips button[aria-pressed=true]:hover:enabled { color:var(--dsh-settings-surface); background:color-mix(in srgb,var(--dsh-settings-text) 88%,var(--dsh-settings-surface)); border-color:transparent; }
  .dcb-market-count { margin-left:auto; font:11px system-ui,sans-serif; color:var(--dsh-settings-secondary); }
  .dcb-market-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
  .dcb-market-card { box-sizing:border-box; margin:0; width:100%; max-width:none; flex:none; overflow:hidden; border:1px solid var(--dsh-settings-border); border-radius:15px; background:var(--dsh-settings-surface); min-width:0; display:flex; flex-direction:column; animation:dcb-market-enter 260ms cubic-bezier(.22,.8,.26,1) both; animation-delay:var(--dcb-market-delay,0ms); }
@@ -71,7 +72,7 @@ export const presetMarketCss=`
  @container dcb-market (max-width:780px) { .dcb-market-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
  @container dcb-market (max-width:480px) { .dcb-market-grid,.dcb-market-fields { grid-template-columns:minmax(0,1fr); }.dcb-market-head { flex-wrap:wrap; }.dcb-market-submit { padding:16px; } }
  @media(prefers-reduced-motion:reduce),(forced-colors:active) { .dcb-market *,.dcb-market *::before,.dcb-market *::after { animation:none!important; transition:none!important; } }
- @media(forced-colors:active) { .dcb-market button,.dcb-market button[data-primary],.dcb-market-chips button[aria-pressed=true] { background:ButtonFace;color:ButtonText;border-color:ButtonText; }.dcb-market-chips button[aria-pressed=true] { outline:2px solid Highlight; }.dcb-market-preview { background:Canvas; }.dcb-market-modal { background:Canvas;color:CanvasText; } }
+ @media(forced-colors:active) { .dcb-market button,.dcb-market button[data-primary],.dcb-market-chips button[aria-pressed=true],.dcb-market-chips button[aria-pressed=true]:hover:enabled { background:ButtonFace;color:ButtonText;border-color:ButtonText; }.dcb-market-chips button[aria-pressed=true] { outline:2px solid Highlight; }.dcb-market-preview { background:Canvas; }.dcb-market-modal { background:Canvas;color:CanvasText; } }
 `
 
 export function createPresetMarketUI(React,win,{createPortal}={}){

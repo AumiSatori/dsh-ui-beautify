@@ -3,7 +3,8 @@
   "releaseStatus": "unreleased",
   "checks": {
     "nodeUnitTests": {"passed": 145, "failed": 0},
-    "marketBrowserGroups": {"passed": 9, "failed": 0},
+    "marketBrowserGroups": {"passed": 10, "failed": 0},
+    "selectedChipHover": "passed: selected filter, submission category and license chips retain at least 4.5:1 text contrast in light and dark themes",
     "settingsTransferBrowserGroups": {"passed": 9, "failed": 0},
     "localPresetsBrowser": "passed",
     "catalogValidation": "passed: empty production catalog; retired bundled examples filtered from stale mirrors and offline caches",

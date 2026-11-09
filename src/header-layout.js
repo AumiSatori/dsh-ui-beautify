@@ -7,12 +7,12 @@ const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 
 export const headerLayoutCss=`
   header[${MARK}] { position:relative; display:grid; grid-template-columns:minmax(0,1fr); padding-left:var(${LEFT},24px); padding-right:var(${END},24px); }
-  header[${MARK}] > ${names('headerLeading')} { position:absolute; top:10px; inset-inline-start:12px; width:auto; min-width:0; margin:0; }
+  header[${MARK}] > ${names('headerLeading')} { position:absolute; grid-area:auto; top:10px; inset-inline-start:12px; width:auto; min-width:0; height:30px; margin:0; }
   header[${MARK}] > ${names('headerLeading')}[${EMPTY}] { display:none; }
   header[${MARK}] ${names('titleRow')} { grid-area:1/1; min-width:0; padding-inline:0 var(${TOOLS},0px); gap:8px 12px; }
   header[${LEADING_ROW}] > ${names('headerLeading')} { position:static; grid-area:1/1; justify-self:start; }
   header[${LEADING_ROW}] ${names('titleRow')} { grid-area:2/1; }
-  header[${MARK}] ${names('titleCluster')} { flex:1 1 320px; min-width:0; flex-wrap:wrap; gap:6px 10px; }
+  header[${MARK}] ${names('titleCluster')} { flex:1 1 320px; min-width:0; margin-inline-end:0; flex-wrap:wrap; gap:6px 10px; }
   header[${MARK}] ${names('crumbs')} { flex:0 1 auto; max-width:100%; }
   header[${MARK}] ${names('headerActions')} { flex-wrap:wrap; }
   header[${MARK}] ${names('headerUtilities')} { position:absolute; inset-block-start:10px; inset-inline-end:var(${RIGHT},50px); min-width:0; max-width:calc(100% - 96px); min-height:30px; flex-wrap:nowrap; gap:8px; margin:0; }

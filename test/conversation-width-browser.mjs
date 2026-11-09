@@ -62,7 +62,7 @@ async function check(name,fn){await fn();checks.push(name);console.log('PASS '+n
 try{
  await check('legacy width migrates once; ordinary window keeps transcript and composer clear of expanded sidebar',async()=>{
   await boot();const g=await geometry();assert.equal(g.saved.window,1400);assert.equal(g.saved.fullscreen,null);assert.equal(g.mode,'window');assert.ok(g.flow.left>=g.sidebar.right+32);assert.ok(g.composer.left>=g.sidebar.right+16);assert.ok(g.composer.right<=1600-16);assert.equal(g.text,806)
-  assert.ok(Math.abs((await page.locator('[data-test-title]').boundingBox()).x-g.flow.left)<1);await page.screenshot({path:resolve(output,'window-light.png')})
+   const title=await page.locator('[data-test-title]').boundingBox();assert.ok(Math.abs(title.x-g.flow.left)<1,JSON.stringify({title,geometry:g}));await page.screenshot({path:resolve(output,'window-light.png')})
  })
  await check('native drag starts at the visible constrained width; switching modes restores separate preferences',async()=>{
   const before=await geometry();await drag(-40);const after=await geometry();assert.ok(Math.abs(after.text-(before.text-80))<2);assert.ok(Math.abs(after.saved.window-after.text)<2)

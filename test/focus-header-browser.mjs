@@ -22,7 +22,7 @@ function Demo(){
  const Header=window.fixtureHeader,injected=Header?window.fixtureHeaderSpec.inject('a'):null,source=injected?.hooks.taskActivity;
  const renderSlot=(slot,props)=>{
   if(slot==='conversation.header.leading')return <span data-slot="conversation.header.leading"/>;
-  if(slot==='conversation.session.header')return <div data-slot="conversation.session.header" style={{display:'contents'}}><ConversationSessionHeader {...props} sessionId="a" useSessions={useSessions} useConversationViews={selector=>selector([{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}])} useStore={selector=>selector({view})} renderSlot={renderSlot} open={()=>{}} selectView={setView} t={key=>key}/></div>;
+  if(slot==='conversation.session.header')return <div data-slot="conversation.session.header" style={{display:'contents'}}><ConversationSessionHeader useContextMenu={()=>({getTriggerProps:()=>({})})} {...props} sessionId="a" useSessions={useSessions} useConversationViews={selector=>selector([{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}])} useStore={selector=>selector({view})} renderSlot={renderSlot} open={()=>{}} selectView={setView} t={key=>key}/></div>;
   if(slot==='conversation.session.header.actions')return <><button>标准模式</button><button>4 个智能体</button></>;
   if(slot==='conversation.session.header.utilities')return Header&&<Header {...injected} sessionId="a" useSession={useSession} useProjection={()=>[]} useTaskActivity={selector=>React.useSyncExternalStore(source.subscribe,()=>selector(source.getSnapshot()))}/>;
   if(slot==='conversation.session.header.corner')return <button aria-label="右侧栏">▥</button>;

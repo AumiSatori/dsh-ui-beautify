@@ -4,6 +4,7 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {chromium} from '@playwright/test'
 import {build} from 'esbuild'
+import {nativeFrontendModule} from './native-frontend.mjs'
 
 const project=fileURLToPath(new URL('..',import.meta.url))
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','claude-beautify'),'chat-disclosure')
@@ -31,13 +32,13 @@ try{
  css=JSON.parse(host.match(/const css\$\d+ = ("\.VJlF5q_root[^\n]+);/)[1])
 }finally{closeSync(fd)}
 assert.ok(frontend,'Installed frontend exports native DisclosureRow')
-const at=frontend.indexOf('"data-disclosure-header":!0'),start=frontend.lastIndexOf('=C.memo(function({icon:',at)+1,end=frontend.indexOf('}),n2=',at)+2
-assert.ok(start>0&&end>at,'Extract exact native component without copying third-party source into repository')
+const disclosure=nativeFrontendModule(frontend,['DisclosureRow'])
 const bundle=await build({stdin:{contents:`
 import * as C from 'react';import * as d from 'react/jsx-runtime';import {createRoot} from 'react-dom/client';import {flushSync} from 'react-dom';
-const br=new Proxy({},{get:(_,key)=>'native_disclosure_'+key}),he=(...args)=>args.filter(Boolean).join(' ');
-const t2=({children,className})=>d.jsx('span',{className,children});const Fv=()=>d.jsx('span',{'aria-hidden':true,children:'⌄'}),Nv=Fv;
-const NativeDisclosure=${frontend.slice(start,end)};
+const React=C,jsxRuntime=d,ReactDOM={};
+${disclosure.code}
+const t2=({children,className})=>d.jsx('span',{className,children});
+const NativeDisclosure=${disclosure.names.DisclosureRow};
 const react=C,react_jsx_runtime=d,THINK_ICON='☁',ReasoningRow_module_css_default={root:'VJlF5q_root',row:'VJlF5q_row',leading:'VJlF5q_leading',title:'VJlF5q_title',separator:'VJlF5q_separator',summary:'VJlF5q_summary',summaryText:'VJlF5q_summaryText',thinkBody:'VJlF5q_thinkBody'},accessibility_module_css_default={visuallyHidden:'sr-only'};
 const _deepseek_ai_dsh_client_ui_primitives={DisclosureRow:NativeDisclosure,TextShimmer:t2},firstLine=text=>text.split('\\n')[0],latestCompletedParagraphFirstLine=firstLine;
 ${reasoningHelper}
@@ -149,7 +150,7 @@ try{
   await button('思考').click();await tick()
   await page.evaluate(()=>{const p=document.createElement('p');p.textContent='流式追加内容 '.repeat(20);document.querySelector('.VJlF5q_thinkBody').append(p)})
   await tick();assert.equal(await effects(),0);assert.equal(await page.locator('[data-dcb-detail-motion]').count(),0)
-  await page.evaluate(()=>{const root=document.querySelector('[data-variant=tool] .native_disclosure_root');root.setAttribute('data-open','');const p=document.createElement('p');p.textContent='外部更新';root.append(p)})
+  await page.evaluate(()=>{const root=document.querySelector('[data-variant=tool] [data-open]')||document.querySelector('[data-variant=tool] > div');root.setAttribute('data-open','');const p=document.createElement('p');p.textContent='外部更新';root.append(p)})
   await tick();assert.equal(await effects(),0)
  })
  await check('switching sessions, hiding the page, disabling and unloading release effects',async()=>{

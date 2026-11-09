@@ -19,24 +19,24 @@ if(process.env.DSH_ASAR){
   const at=source.indexOf('MessageItem.module.css'),region=source.slice(source.lastIndexOf('//#region',at),source.indexOf('//#endregion',at))
   nativeCss=JSON.parse(region.match(/const css\$?\d* = ("(?:[^"\\]|\\.)*");/)[1]);prefix=nativeCss.match(/\.([\w-]+)_userRow/)[1]
   const start=source.indexOf('function UserContent(');assert.ok(start>0);nativeUser=source.slice(start,source.indexOf('//#endregion',start))
-  assert.ok(nativeUser.includes('MessageItem_module_css_default.bubble'))
+  assert.ok(nativeUser.includes('MessageItem_module_css_default.bubble')||nativeUser.includes('data-message-bubble'))
  }finally{closeSync(fd)}
 }
 const fixture=await build({stdin:{resolveDir:project,contents:`import React from 'react';import * as jsxRuntime from 'react/jsx-runtime';import {createRoot} from 'react-dom/client';import {flushSync,createPortal} from 'react-dom';import './test/fixture.jsx';import * as Bubbles from './src/user-bubbles.js';window.Bubbles=Bubbles;window.fixtureCreatePortal=createPortal;
-const EMPTY_LABELS=[],react_jsx_runtime=jsxRuntime,MessageItem_module_css_default=new Proxy({},{get:(_,key)=>${JSON.stringify(prefix)}+'_'+key}),_deepseek_ai_dsh_client_ui_primitives={FileTypeIcon:()=>React.createElement('span',null,'TXT'),fileExtension:()=> 'txt',fileSizeText:()=> '12 B',JsonBlock:()=>null};
+const EMPTY_LABELS=[],react_jsx_runtime=jsxRuntime,MessageItem_module_css_default=new Proxy({},{get:(_,key)=>${JSON.stringify(prefix)}+'_'+key}),_deepseek_ai_dsh_client_ui_primitives={FileTypeIcon:()=>React.createElement('span',null,'TXT'),fileExtension:()=> 'txt',fileSizeText:()=> '12 B',JsonBlock:()=>null,UserMessageBubble:({children,...props})=>React.createElement('div',{...props,className:'fixture-native-user-bubble'},children)};
 ${nativeUser}
 window.mountBubbles=()=>{const seat=document.createElement('div');seat.id='bubble-fixture';seat.dataset.chatFlow='';document.querySelector('[data-conversation-content]').append(seat);const content={text:'把今天的灵感，装进一个小气泡。\\n这是一条较长的消息，也会自然换行。',attachments:[{type:'file',file:{name:'notes.txt',bytes:12}}],extraBlocks:[]};const root=createRoot(seat),h=React.createElement;
 flushSync(()=>root.render(h(React.Fragment,null,...['user','steering','echo'].map((kind,i)=>h('article',{key:kind,'data-chat-flow-kind':kind==='echo'?undefined:kind,'data-submission-echo':kind==='echo'?true:undefined,'data-chat-turn':i+1},h('div',{className:${JSON.stringify(prefix+'_userRow')}},h(UserContent,{content,facts:{},renderFactorySlot:(_name,props)=>h('span',null,props.text),renderSlot:()=>null,t:x=>x}),h('button',{onClick:()=>window.copies++},'复制提问')))),h('article',{'data-chat-flow-kind':'assistant-step'},h('div',{className:${JSON.stringify(prefix+'_bubble')},id:'assistant-control'},'模型回复不变')))));
-window.nativeBubble=document.querySelector('[data-chat-flow-kind=user] [class$=_bubble]');window.nativeCopy=document.querySelector('#bubble-fixture button');window.nativeAttachment=document.querySelector('[data-message-attachments]');window.nativeAssistant=document.getElementById('assistant-control');if(!nativeBubble||!nativeCopy||!nativeAttachment||!nativeAssistant)throw Error('Missing native fixture elements: '+seat.innerHTML);window.baseline={bubble:getComputedStyle(nativeBubble).cssText,background:getComputedStyle(nativeBubble).background,border:getComputedStyle(nativeBubble).borderRadius,copy:getComputedStyle(nativeCopy).background,attachment:getComputedStyle(nativeAttachment).background,assistant:getComputedStyle(nativeAssistant).background};};`},bundle:true,write:false,format:'iife'})
+window.nativeBubble=document.querySelector('[data-chat-flow-kind=user] :is([data-message-bubble],[class$=_bubble])');window.nativeCopy=document.querySelector('#bubble-fixture button');window.nativeAttachment=document.querySelector('[data-message-attachments]');window.nativeAssistant=document.getElementById('assistant-control');if(!nativeBubble||!nativeCopy||!nativeAttachment||!nativeAssistant)throw Error('Missing native fixture elements: '+seat.innerHTML);window.baseline={bubble:getComputedStyle(nativeBubble).cssText,background:getComputedStyle(nativeBubble).background,border:getComputedStyle(nativeBubble).borderRadius,copy:getComputedStyle(nativeCopy).background,attachment:getComputedStyle(nativeAttachment).background,assistant:getComputedStyle(nativeAssistant).background};};`},bundle:true,write:false,format:'iife'})
 const routes={'/':['text/html; charset=utf-8',readFileSync(resolve(project,'test/fixture.html'))],'/fixture.js':['text/javascript',fixture.outputFiles[0].text],'/client.js':['text/javascript',readFileSync(resolve(project,'client.js'))]}
 const server=createServer((req,res)=>{const route=routes[req.url];if(!route)return res.writeHead(404).end();res.writeHead(200,{'Content-Type':route[0]}).end(route[1])})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
 const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'}),page=await browser.newPage({viewport:{width:1440,height:1050}}),url=`http://127.0.0.1:${server.address().port}`,errors=[],requests=[]
 page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>{if(!request.url().startsWith(url))requests.push(request.url())})
-const key='dsh-ui-beautify:settings:v1',bubble=page.locator('[data-chat-flow-kind=user] [class$=_bubble]'),dialog=page.getByRole('dialog')
+const key='dsh-ui-beautify:settings:v1',bubble=page.locator('[data-chat-flow-kind=user] :is([data-message-bubble],[class$=_bubble])'),dialog=page.getByRole('dialog')
 const settled=async()=>{await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));await page.evaluate(()=>Promise.all(document.getAnimations().filter(a=>a.effect?.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{}))))}
 async function boot(preserve=false){
- await page.goto(url);await page.getByTestId('todo-panel').waitFor();await page.addStyleTag({content:nativeCss+' :root{--dsw-specific-bubble:#edf2fb;--dsw-alias-label-primary:#252a32;--dsw-radius-xl:16px} body[data-ds-dark-theme]{--dsw-alias-label-primary:#eee;--dsw-alias-label-secondary:#bbb;--dsw-alias-bg-layer-1:#25252b;--dsw-alias-bg-layer-2:#303038} .settings-dialog{inset:35px 12%;padding:24px} #bubble-fixture{padding:22px} #bubble-fixture>article{margin:18px 0}'});
+ await page.goto(url);await page.getByTestId('todo-panel').waitFor();await page.addStyleTag({content:nativeCss+' .fixture-native-user-bubble{background:var(--dsw-specific-bubble);border-radius:16px;padding:10px 16px} :root{--dsw-specific-bubble:#edf2fb;--dsw-alias-label-primary:#252a32;--dsw-radius-xl:16px} body[data-ds-dark-theme]{--dsw-alias-label-primary:#eee;--dsw-alias-label-secondary:#bbb;--dsw-alias-bg-layer-1:#25252b;--dsw-alias-bg-layer-2:#303038} .settings-dialog{inset:35px 12%;padding:24px} #bubble-fixture{padding:22px} #bubble-fixture>article{margin:18px 0}'});
  await page.evaluate(({key,preserve})=>{
   if(!preserve)localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,messageMotion:false}))
   window.copies=0;window.cleanups=[];window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(name=>name==='react-dom'?{createPortal:window.fixtureCreatePortal}:window.fixtureReact)}
@@ -58,10 +58,10 @@ try{
  await check('QQ styling reaches native user, steering and pending bubbles without replacing content or painting neighboring controls',async()=>{
   await choose('QQ 蓝')
   assert.match(await bubble.evaluate(el=>getComputedStyle(el).backgroundImage),/linear-gradient/);assert.equal(await bubble.evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)')
-  assert.equal(await page.locator('[data-chat-flow-kind=steering] [class$=_bubble]').evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)')
-  assert.equal(await page.locator('[data-submission-echo] [class$=_bubble]').evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)')
+  assert.equal(await page.locator('[data-chat-flow-kind=steering] :is([data-message-bubble],[class$=_bubble])').evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)')
+  assert.equal(await page.locator('[data-submission-echo] :is([data-message-bubble],[class$=_bubble])').evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)')
   assert.equal(await bubble.evaluate(el=>getComputedStyle(el,'::after').pointerEvents),'none')
-  assert.equal(await page.evaluate(()=>nativeBubble===document.querySelector('[data-chat-flow-kind=user] [class$=_bubble]')&&getComputedStyle(nativeCopy).background===baseline.copy&&getComputedStyle(nativeAttachment).background===baseline.attachment&&getComputedStyle(nativeAssistant).background===baseline.assistant),true)
+  assert.equal(await page.evaluate(()=>nativeBubble===document.querySelector('[data-chat-flow-kind=user] :is([data-message-bubble],[class$=_bubble])')&&getComputedStyle(nativeCopy).background===baseline.copy&&getComputedStyle(nativeAttachment).background===baseline.attachment&&getComputedStyle(nativeAssistant).background===baseline.assistant),true)
   await page.evaluate(()=>{window.fixture.settings(false);window.nativeCopy.click()});await settled();assert.equal(await page.evaluate(()=>window.copies),1)
   await page.locator('#bubble-fixture').screenshot({path:resolve(output,'qq-bubbles.png')})
   await page.evaluate(()=>window.fixture.settings(true));await selectSettingsCategory(page,'对话动效')
@@ -107,7 +107,7 @@ try{
   await boot(true);assert.equal((await saved()).userBubbleThemes.light.style,'custom');assert.equal(await bubble.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(40, 90, 120)')
   await page.evaluate(key=>{const prefs=JSON.parse(localStorage.getItem(key));prefs.userBubbleThemes.light.css='.bubble {background:#abcdef;color:#123456}';const next=JSON.stringify(prefs);localStorage.setItem(key,next);dispatchEvent(new StorageEvent('storage',{key,newValue:next}))},key);await settled()
   assert.equal(await bubble.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(171, 205, 239)')
-  const clone=await page.evaluate(()=>{const row=nativeBubble.closest('article').cloneNode(true);row.id='virtual-row';document.getElementById('bubble-fixture').append(row);return getComputedStyle(row.querySelector('[class$=_bubble]')).backgroundColor});assert.equal(clone,'rgb(171, 205, 239)')
+  const clone=await page.evaluate(()=>{const row=nativeBubble.closest('article').cloneNode(true);row.id='virtual-row';document.getElementById('bubble-fixture').append(row);return getComputedStyle(row.querySelector(':is([data-message-bubble],[class$=_bubble])')).backgroundColor});assert.equal(clone,'rgb(171, 205, 239)')
   await page.locator('#virtual-row').evaluate(el=>el.remove())
   await page.getByRole('tab',{name:'深色主题',exact:true}).click();await choose('QQ 蓝');await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''));await page.locator('.dcb-bubble-settings').screenshot({path:resolve(output,'settings-qq.png')})
  })
@@ -132,7 +132,7 @@ try{
  })
  await check('default and disposal restore the original appearance without moving React-owned nodes',async()=>{
   await choose('默认');await page.getByRole('tab',{name:'深色主题',exact:true}).click();await choose('默认');assert.equal(await page.locator('style[data-dcb-user-bubbles]').textContent(),'')
-  assert.equal(await page.evaluate(()=>nativeBubble===document.querySelector('[data-chat-flow-kind=user] [class$=_bubble]')&&getComputedStyle(nativeBubble).borderRadius===baseline.border),true)
+  assert.equal(await page.evaluate(()=>nativeBubble===document.querySelector('[data-chat-flow-kind=user] :is([data-message-bubble],[class$=_bubble])')&&getComputedStyle(nativeBubble).borderRadius===baseline.border),true)
   await page.evaluate(()=>window.cleanups.reverse().forEach(clean=>clean?.()));assert.equal(await page.locator('style[data-dcb-user-bubbles]').count(),0)
  })
  await check('legacy shared CSS migrates into both themes and preserves dark-only overrides',async()=>{

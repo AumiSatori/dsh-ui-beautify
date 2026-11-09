@@ -52,7 +52,7 @@ try{
     assert.equal(await row().evaluate(el=>el.previousElementSibling.classList.contains('dcb-settings-info')&&!el.nextElementSibling),true)
     assert.equal(await sheet().textContent(),'');assert.equal(await row().locator('select,input[type=range],input[type=checkbox],input[type=radio]').count(),0)
     await row().getByRole('button',{name:'恢复原生'}).isDisabled().then(disabled=>assert.ok(disabled))
-    assert.ok((await paint()).color.includes('0.58'));assert.equal((await paint()).filter,'blur(40px) saturate(1.5)')
+    assert.ok(Math.abs((await paint()).alpha-parseInt(lightFill.slice(-2),16)/255)<1/255,JSON.stringify({fill:lightFill,paint:await paint()}));assert.equal((await paint()).filter,'blur(40px) saturate(1.5)')
   })
   await check('keyboard endpoints change only menu fill and keep text and other menus opaque to the same degree',async()=>{
     const unrelated=await page.locator(`[data-unrelated-menu] > .${materialClass}`).evaluate(el=>getComputedStyle(el).backgroundColor)
@@ -80,7 +80,7 @@ try{
     await keyTo('Home',0);await keyTo('PageUp',10);await mount();assert.equal(await slider().getAttribute('aria-valuenow'),'10')
     await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''));await settle();assert.equal((await paint()).color,'rgba(67, 69, 74, 0.9)')
     await patch({composerStyle:'milk',composerButtonGlass:false,enabled:false});assert.equal((await paint()).color,'rgba(67, 69, 74, 0.9)')
-    await row().getByRole('button',{name:'恢复原生'}).click();await settle();assert.equal(await sheet().textContent(),'');assert.ok((await paint()).color.includes('0.45'))
+    await row().getByRole('button',{name:'恢复原生'}).click();await settle();assert.equal(await sheet().textContent(),'');assert.ok(Math.abs((await paint()).alpha-parseInt(darkFill.slice(-2),16)/255)<1/255)
     assert.equal(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)).triggerMenuTransparency,key),null)
   })
   await check('configuration export, import, defaults and undo preserve or restore the saved menu appearance',async()=>{
@@ -106,7 +106,7 @@ try{
     await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'));await row().scrollIntoViewIfNeeded();await settle();await page.locator('[data-dcb-settings-block=composer]').screenshot({path:resolve(out,'opacity-settings-light.png')})
   })
   await check('unloading removes the override and returns an already-open menu to the native fill',async()=>{
-    await page.evaluate(()=>{for(const cleanup of window.cleanups.splice(0).reverse())cleanup?.()});assert.equal(await sheet().count(),0);await settle();assert.ok((await paint()).color.includes('0.58'))
+    await page.evaluate(()=>{for(const cleanup of window.cleanups.splice(0).reverse())cleanup?.()});assert.equal(await sheet().count(),0);await settle();assert.ok(Math.abs((await paint()).alpha-parseInt(lightFill.slice(-2),16)/255)<1/255)
   })
   assert.deepEqual(errors,[]);writeFileSync(resolve(out,'validation.json'),JSON.stringify({passed:results.length,checks:results,source:'Full plugin settings and installed native menu material stylesheet; synthetic menu contents'},null,2));console.log(JSON.stringify({passed:results.length,out}))
 }finally{await browser.close();await new Promise(done=>server.close(done))}

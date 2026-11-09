@@ -5,6 +5,7 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {build} from 'esbuild'
 import {chromium,expect} from '@playwright/test'
+import {nativeFrontendModule} from './native-frontend.mjs'
 
 const project=fileURLToPath(new URL('..',import.meta.url)),archive=process.env.DSH_ASAR||'D:/Program Files/dsh/resources/app.asar'
 const fd=openSync(archive,'r'),header=Buffer.alloc(16);readSync(fd,header,0,16,0)
@@ -22,19 +23,15 @@ try{
 function region(text,anchor,end='//#endregion'){const start=text.indexOf(anchor);assert.ok(start>=0,'native anchor '+anchor);return text.slice(start,text.indexOf(end,start))}
 function sheet(text,name){const start=text.indexOf(name+'.module.css.mjs'),code=text.slice(text.lastIndexOf('//#region',start),text.indexOf('//#endregion',start));return JSON.parse(code.match(/const css\$?\d* = ("(?:[^"\\]|\\.)*");/)[1])}
 function classes(text,name){const start=text.indexOf("var "+name+"_module_css_default = ");assert.ok(start>=0);return text.slice(start,text.indexOf("};",start)+2)}
-function frontendMap(name){const body=frontend.match(new RegExp('\\b'+name+'=\\{([^}]+)\\}'))[1];const values=new Map([...frontend.matchAll(/([\w$]+)="([^"\n]*)"/g)].map(match=>[match[1],match[2]]));return JSON.stringify(Object.fromEntries(body.split(',').map(pair=>{const[k,v]=pair.split(':');assert.ok(values.has(v),`native class ${v}`);return[k,values.get(v)]})))}
-const menu=region(frontend,'function b_(','function sA('),surface=region(frontend,'const j1=C.forwardRef(','function iA(')
+const primitives=nativeFrontendModule(frontend,['Menu'])
 const demo=`import React from 'react';import * as jsx from 'react/jsx-runtime';import * as dom from 'react-dom';import {createRoot}from'react-dom/client';import{createHeaderMenuMotion,headerMenuMotionCss}from'./src/header-menu-motion.js';
-const react=React,react_jsx_runtime=jsx,C=React,d=jsx,Sn=dom,he=(...v)=>v.filter(Boolean).join(' '),clsx=he,ks=${frontendMap('ks')},Ne=${frontendMap('Ne')};
-const fo=node=>node.focus({preventScroll:true}),Ws=x=>x,iu=()=>({guards:()=>false,dispose(){}}),x_=()=>false,Io=()=>null,Bs=()=>null;
-function __(close){const ref=C.useRef(null);const cancel=C.useCallback(()=>{clearTimeout(ref.current);ref.current=null},[]);C.useEffect(()=>cancel,[cancel]);return{arm:()=>{cancel();ref.current=setTimeout(close,180)},cancel}}
-${surface}
-function C8(item){return item.type==='separator'}function $8(item){return item.type==='label'}const oA={visibility:'hidden',left:0,top:0};
-${menu}
+const react=React,react_jsx_runtime=jsx,jsxRuntime=jsx,ReactDOM=dom,clsx=(...values)=>values.filter(Boolean).join(' ');
+${primitives.code}
+const NativeMenu=${primitives.names.Menu};
 ${classes(opener,'OpenTargetButton')}
 ${classes(conversation,'ConversationRoot')}
 ${classes(sessionExport,'HeaderAction')}
-const _deepseek_ai_dsh_client_ui_primitives={Menu:b_,Tooltip:({children})=>children,Button:({size,variant,...props})=><button {...props}/>,IconEllipsisOutlineRegular:()=> <span>…</span>,IconDownloadOutlineRegular:()=> <span>↓</span>,IconPaperPlaneOutlineRegular:()=> <span>➤</span>,IconChevronDownOutlineRegular:()=> <span>⌄</span>,IconFolderOpenOutlineRegular:()=> <span>▣</span>};
+const _deepseek_ai_dsh_client_ui_primitives={Menu:NativeMenu,Tooltip:({children})=>children,Button:({size,variant,...props})=><button {...props}/>,IconEllipsisOutlineRegular:()=> <span>…</span>,IconCopyOutlineRegular:()=> <span>⧉</span>,IconDownloadOutlineRegular:()=> <span>↓</span>,IconPaperPlaneOutlineRegular:()=> <span>➤</span>,IconChevronDownOutlineRegular:()=> <span>⌄</span>,IconFolderOpenOutlineRegular:()=> <span>▣</span>};
 function useOpenTargetGesture(execute){return{pending:false,toast:null,act:operation=>execute(operation)}}function ApplicationIcon(){return <span>▣</span>}
 ${region(opener,'function OpenTargetButton(')}
 ${region(conversation,'function ViewsMoreMenu(').split('/** Approximate')[0]}
@@ -49,15 +46,14 @@ function App(){
  const refresh=()=>{if(delay){setLoading(true);setTimeout(()=>setLoading(false),1150)}};
  return <><header>{present&&<>
   <span data-dcb-toolbar-item={marked?'folder':undefined}><OpenTargetButton applications={[{id:'explorer',name:'文件资源管理器',icon:null},{id:'editor',name:'编辑器',icon:null}]} defaultId="explorer" kind="directory" loading={loading} refresh={refresh} execute={op=>window.chosen=op} t={t}/></span>
-  <span data-dcb-toolbar-item={marked?'more':undefined}><SessionLogDownloadHeaderAction sessionId="synthetic" useSessionLogDownload={selector=>selector({bySession:{}})} useFeedbackAvailable={selector=>selector(true)} request={()=>window.chosen='download'} openFeedback={()=>window.chosen='feedback'} t={t}/></span>
+  <span data-dcb-toolbar-item={marked?'more':undefined}><SessionLogDownloadHeaderAction sessionId="synthetic" useSessionLogDownload={selector=>selector({bySession:{}})} useSessionMarkdownCopy={selector=>selector({copying:false})} copyMarkdown={()=>{}} useFeedbackAvailable={selector=>selector(true)} request={()=>window.chosen='download'} openFeedback={()=>window.chosen='feedback'} t={t}/></span>
   <ViewsMoreMenu label="更多会话视图" entries={[]} renderSlot={()=> <><button role="menuitem" onClick={()=>window.chosen='trace'}>轨迹</button><button role="menuitem">上下文</button></>}/>
  </>}</header><main><textarea aria-label="草稿" defaultValue="保持草稿"/><button id="outside">外部区域</button></main>
  <section><header id="preview"><OpenTargetButton applications={[{id:'viewer',name:'查看器',icon:null}]} defaultId="viewer" kind="file" execute={()=>{}} t={key=>key==='path.more'?'预览打开方式':t(key)}/></header></section>
- <b_ open={other} portal autoFocus onClose={()=>setOther(false)} items={[{id:'unrelated',label:'无关菜单'}]} anchor={<button id="other" aria-haspopup="menu" onClick={()=>setOther(v=>!v)}>其他菜单</button>}/></>
+ <NativeMenu open={other} portal autoFocus onClose={()=>setOther(false)} items={[{id:'unrelated',label:'无关菜单'}]} anchor={<button id="other" aria-haspopup="menu" onClick={()=>setOther(v=>!v)}>其他菜单</button>}/></>
 }
 createRoot(document.getElementById('root')).render(<App/>);`
-// Lowercase JSX names are DOM tags, so use the native function through an alias.
-const built=await build({stdin:{contents:demo.replaceAll('<b_','<NativeMenu').replaceAll('</b_','</NativeMenu').replace('function App(){','const NativeMenu=b_;function App(){'),loader:'jsx',resolveDir:project},bundle:true,write:false,format:'iife'})
+const built=await build({stdin:{contents:demo,loader:'jsx',resolveDir:project},bundle:true,write:false,format:'iife'})
 const css=sheet(opener,'OpenTargetButton')+sheet(conversation,'ConversationRoot')
 const html=`<!doctype html><meta charset="utf-8"><html data-platform="win32"><style>${nativeCss}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-open-in-app/OpenTargetButton.module.css">${sheet(opener,'OpenTargetButton')}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-conversation/ConversationRoot.module.css">${sheet(conversation,'ConversationRoot')}</style><style data-plugin-css="@deepseek-ai/dsh-session-log-export/HeaderAction.module.css">${sheet(sessionExport,'HeaderAction')}</style><style>${css}${sheet(sessionExport,'HeaderAction')}
 :root{--dsw-radius-lg:12px;--dsw-radius-sm:8px;--dsw-radius-md:10px;--dsw-menu-surface-fill:#fbfcfce8;--dsw-menu-backdrop-filter:blur(16px);--dsw-alias-bg-base:#f6f6f6;--dsw-alias-label-primary:#252734;--dsw-alias-label-secondary:#626574;--dsw-alias-border-l1:#8883;--dsw-alias-border-l2:#8882;--dsw-alias-border-l4:#8883;--dsw-alias-interactive-bg-hover:#8882;--dsw-elevation-prominent:0 12px 36px #10182a24,0 0 0 1px #8882}*{box-sizing:border-box}body{margin:0;background:#f7f7f7;color:#252734;font:14px/1.5 system-ui}header{display:flex;justify-content:flex-end;align-items:center;gap:12px;height:72px;padding:16px 28px;border-bottom:1px solid #8882}button{font:inherit;cursor:pointer;color:inherit}main{padding:30px}textarea{width:400px;height:120px;display:block;margin-bottom:20px}body[data-ds-dark-theme]{background:#191b21;color:#eee;--dsw-menu-surface-fill:#24262de8;--dsw-alias-bg-base:#191b21;--dsw-alias-label-primary:#eee;--dsw-alias-label-secondary:#bbb}body[data-ds-dark-theme] textarea{background:#25262c;color:#eee}body>button{margin:20px}</style><div id="root"></div><script src="/demo.js"></script>`

@@ -1,0 +1,417 @@
+{
+  "version": "0.6.1",
+  "status": "incomplete",
+  "releaseBase": "952819c4e2986bf4435358b7f4459ac8a6444b5b",
+  "host": {
+    "desktop": "0.2.2-rc.1",
+    "runtime": "0.2.2-rc.1",
+    "browser": "Windows Chrome; installed native DSH components with synthetic data"
+  },
+  "clientSha256": "bcd25d5483bea5db2dc225dd423170fe0226569ae4ec0cde29d3a2fe1d540fd4",
+  "checks": {
+    "javascriptSyntax": {
+      "passed": true,
+      "files": 246
+    },
+    "clientRebuiltFromReleaseSources": {
+      "passed": true
+    },
+    "packageMetadataAndAllowlist": {
+      "passed": true,
+      "runtimeDependencies": 0,
+      "installHooks": false
+    },
+    "addedSourceSensitiveScan": {
+      "passed": true,
+      "findings": 0
+    },
+    "finalRegression": {
+      "passed": false,
+      "suites": 71,
+      "passedSuites": 70,
+      "failed": 1,
+      "checks": 861,
+      "nodeChecks": 155,
+      "execution": "Full suite execution followed by failed-suite reruns. Original attempt logs and motion samples retained locally.",
+      "results": [
+        {
+          "name": "test:unified-icons",
+          "checks": 22,
+          "passed": true
+        },
+        {
+          "name": "test:fullscreen",
+          "checks": 14,
+          "passed": true
+        },
+        {
+          "name": "test",
+          "checks": 155,
+          "passed": true
+        },
+        {
+          "name": "test:browser",
+          "checks": 16,
+          "passed": true
+        },
+        {
+          "name": "test:summary",
+          "checks": 48,
+          "passed": true
+        },
+        {
+          "name": "test:panel-modules",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:summary-entry",
+          "checks": 6,
+          "passed": true
+        },
+        {
+          "name": "test:progress-liquid",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:skills",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:scope",
+          "checks": 13,
+          "passed": true
+        },
+        {
+          "name": "test:artifact",
+          "checks": 24,
+          "passed": true
+        },
+        {
+          "name": "test:file-open-hit-target",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:conversation-search",
+          "checks": 10,
+          "passed": true
+        },
+        {
+          "name": "test:macos-compat",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:materials",
+          "checks": 13,
+          "passed": true
+        },
+        {
+          "name": "test:theme-palette",
+          "checks": 18,
+          "passed": true
+        },
+        {
+          "name": "test:theme-switch",
+          "checks": 13,
+          "passed": true
+        },
+        {
+          "name": "test:focus",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:focus-header",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:focus-performance",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:startup",
+          "checks": 19,
+          "passed": true
+        },
+        {
+          "name": "test:welcome",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:welcome-media",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:welcome-code",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:theme-gesture",
+          "checks": 10,
+          "passed": true
+        },
+        {
+          "name": "test:early-opening",
+          "checks": 4,
+          "passed": true
+        },
+        {
+          "name": "test:settings",
+          "checks": 14,
+          "passed": true
+        },
+        {
+          "name": "test:settings-reset",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:settings-presets",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:settings-transfer",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:preset-market",
+          "checks": 10,
+          "passed": true
+        },
+        {
+          "name": "test:background",
+          "checks": 13,
+          "passed": true
+        },
+        {
+          "name": "test:background-mirror-sea",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:background-surfaces",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:background-presented",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:background-names",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:background-theme",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:tabs",
+          "checks": 31,
+          "passed": true
+        },
+        {
+          "name": "test:composer",
+          "checks": 20,
+          "passed": true
+        },
+        {
+          "name": "test:trigger-menu-opacity",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:composer-scroll-motion",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:composer-placement",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:slider-glass",
+          "checks": 5,
+          "passed": true
+        },
+        {
+          "name": "test:performance",
+          "checks": 4,
+          "passed": true
+        },
+        {
+          "name": "test:particle-performance",
+          "checks": 0,
+          "passed": true
+        },
+        {
+          "name": "test:reading-performance",
+          "checks": 0,
+          "passed": true
+        },
+        {
+          "name": "test:sidebar",
+          "checks": 17,
+          "passed": true
+        },
+        {
+          "name": "test:sidebar-attention",
+          "checks": 14,
+          "passed": true
+        },
+        {
+          "name": "test:sidebar-layout",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:sidebar-overlay",
+          "checks": 7,
+          "passed": false
+        },
+        {
+          "name": "test:conversation-width",
+          "checks": 11,
+          "passed": true
+        },
+        {
+          "name": "test:messages",
+          "checks": 16,
+          "passed": true
+        },
+        {
+          "name": "test:chat-disclosure",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:stream-reveal",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:user-bubbles",
+          "checks": 9,
+          "passed": true
+        },
+        {
+          "name": "test:turn-cards",
+          "checks": 22,
+          "passed": true
+        },
+        {
+          "name": "test:turn-divider",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:context-particles",
+          "checks": 10,
+          "passed": true
+        },
+        {
+          "name": "test:particle-conversion",
+          "checks": 4,
+          "passed": true
+        },
+        {
+          "name": "test:whale-particles",
+          "checks": 0,
+          "passed": true
+        },
+        {
+          "name": "test:header-project",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:header-menu-motion",
+          "checks": 10,
+          "passed": true
+        },
+        {
+          "name": "test:particle-images",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:running",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:opening-themes",
+          "checks": 7,
+          "passed": true
+        },
+        {
+          "name": "test:settings-hierarchy",
+          "checks": 12,
+          "passed": true
+        },
+        {
+          "name": "test:hero-greeting",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:process-disclosure",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:output-preview-animation",
+          "checks": 1,
+          "passed": true
+        },
+        {
+          "name": "test:settings-config-motion",
+          "checks": 8,
+          "passed": true
+        },
+        {
+          "name": "test:output-copy",
+          "checks": 7,
+          "passed": true
+        }
+      ]
+    }
+  },
+  "liveVerification": {
+    "windows": "User confirmed selected session retention and new-dialog creation after local standard-preset synchronization.",
+    "macos": "Platform branch simulated in Windows Chrome; actual macOS Electron not exercised."
+  },
+  "pending": [
+    "Resolve sidebar-overlay long frames and animation cleanup, then complete remaining scenarios and affected checks.",
+    "Validate final tarball contents and offline installation/import; generate both assets and their digest manifest.",
+    "Create version tag and GitHub Release, then verify latest download assets.",
+    "Perform actual macOS device verification."
+  ],
+  "publication": {
+    "tagCreated": false,
+    "releaseCreated": false
+  },
+  "optionalHostPatches": {
+    "missing": [
+      "dsh-ui-early-opening",
+      "dsh-startup-feedback"
+    ],
+    "verification": "Read-only check with explicit current host archive"
+  },
+  "checkedAt": "2026-11-09T10:13:51.620Z"
+}

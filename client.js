@@ -1010,7 +1010,8 @@ void main(){vec2 p=gl_PointCoord*2.-1.;float r=length(p);if(r>1.)discard;float c
   ${Uo}
   body [${Ve}]:not([data-dcb-focus-frame=on]) { grid-template-columns:var(${ba},0px) minmax(0px,1fr) 0px!important; column-gap:0!important; transition:none!important; }
   [${Ve}] > [${at}=center] { grid-area:1/2; min-width:0; isolation:isolate; }
-  [${Ve}] > [${at}=left] { position:absolute!important; top:var(${xa},0px); bottom:var(${ya},0px); left:0; width:var(${ga},280px); min-width:0; z-index:16; overflow:clip; box-shadow:6px 0 18px #0000000d; transition:none; }
+  /* Anchor to the frame padding box so the native grid row cannot add the titlebar offset again. */
+  [${Ve}] > [${at}=left] { position:absolute!important; grid-area:auto; top:var(${xa},0px); bottom:var(${ya},0px); left:0; width:var(${ga},280px); min-width:0; z-index:16; overflow:clip; box-shadow:6px 0 18px #0000000d; transition:none; }
   [${Ve}][data-dcb-sidebar-frame-motion=true]:not([data-dragging],[data-dcb-sidebar-resizing],[data-rightbar-instant],[data-rightbar-fullscreen]) > [${at}=left] { transition:width ${T.time.sidebar}ms ${T.ease.smooth}; }
   [${Ve}][data-sidebar-collapsed=true] > [${at}=left] { box-shadow:none; }
   [${Ve}] > [${at}=right] { grid-area:1/3; width:0; min-width:0; z-index:16; overflow:visible; }

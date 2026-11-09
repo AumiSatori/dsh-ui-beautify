@@ -9,17 +9,24 @@ import {nativeShell} from './native-shell.mjs'
 import {nativeLogo,installLogoFixture} from './native-logo.mjs'
 import {selectSettingsCategory} from './settings-navigation.mjs'
 
-const project=fileURLToPath(new URL('..',import.meta.url)),output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','.scratch','claude-beautify'),'sidebar-overlay'),native=nativeShell(),logo=nativeLogo()
+const project=fileURLToPath(new URL('..',import.meta.url)),output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','.scratch','claude-beautify'),'sidebar-overlay'),native=nativeShell({workspaceRows:true}),logo=nativeLogo()
 mkdirSync(output,{recursive:true})
 const demo=`import React from 'react';import*as jsxRuntime from'react/jsx-runtime';import{createRoot}from'react-dom/client';import{createFocusMode}from'./src/focus-mode.js';
 const react=React,react_jsx_runtime=jsxRuntime,clsx=(...values)=>values.flat().filter(Boolean).join(' '),localBuildVersion=()=> 'test',conversationPhase=()=> 'blank';
-const _deepseek_ai_dsh_client_ui_primitives=new Proxy({Tooltip:({children})=>children,isDarwinDesktop:()=>document.documentElement.dataset.platform==='darwin'},{get:(obj,key)=>obj[key]||(({className})=><svg width="16" height="16" className={className}><rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor"/></svg>)});
+const _deepseek_ai_dsh_client_ui_primitives=new Proxy({Tooltip:({children})=>children,HoverCard:({anchor})=>anchor,relativeTime:()=>({unit:'now',n:0}),useRowDragPreview:()=>({start(){},clear(){return false}}),isDarwinDesktop:()=>document.documentElement.dataset.platform==='darwin'},{get:(obj,key)=>obj[key]||(({className})=><svg width="16" height="16" className={className}><rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor"/></svg>)});
 ${native.code}
 window.fixtureReact=React;window.cleanups=[];window.headerActions=0;const focus=createFocusMode(React,document,window);window.cleanups.push(()=>focus.dispose());
+function Sessions(){
+ const [current,setCurrent]=React.useState('1')
+ return <div role="tree" aria-label="演示会话" style={{height:'100%',overflow:'auto'}}>{Array.from({length:40},(_,i)=>{
+  const node={id:String(i+1),title:'会话 '+(i+1),running:false,runningSubagentCount:0,updatedAt:0}
+  return <SessionNodeItem key={node.id} node={node} currentId={current} now={0} onOpen={setCurrent} onRenameRequest={()=>{}} renderSlot={()=>null} openSessionMenu={()=>{}} useContextMenu={()=>({getTriggerProps:(_target,props)=>props||{}})} useContextMenuTarget={selector=>selector(null)} useSessionAccess={()=>true} t={key=>key}/>
+ })}</div>
+}
 function Header({right,settings,kind,leading}){
  const [view,setView]=React.useState('chat'),tabs=[{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}];
  const renderSlot=(name,props)=>{
-  if(name==='conversation.session.header')return <ConversationSessionHeader {...props} sessionId="demo" useSessions={selector=>selector({byId:{demo:{id:'demo',displayTitle:'GitHub 仓库能否作 DSH 背景'}}})} useConversationViews={selector=>selector(tabs)} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={selector=>selector({view})} renderSlot={renderSlot} selectView={setView} open={()=>{}} t={key=>key}/>;
+  if(name==='conversation.session.header')return <ConversationSessionHeader {...props} sessionId="demo" useContextMenu={()=>({getTriggerProps:()=>({})})} useSessions={selector=>selector({byId:{demo:{id:'demo',displayTitle:'GitHub 仓库能否作 DSH 背景'}}})} useConversationViews={selector=>selector(tabs)} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={selector=>selector({view})} renderSlot={renderSlot} selectView={setView} open={()=>{}} t={key=>key}/>;
   if(name==='conversation.header.leading')return leading?<button aria-label="返回工作区" onClick={()=>window.headerActions++}>⌂</button>:null;
   if(name==='conversation.session.header.actions')return <><button>标准模式</button><button>6 个智能体⌄</button></>;
   if(name==='conversation.session.header.utilities')return <><button aria-label="打开目录" onClick={()=>window.headerActions++}>📁⌄</button><button className="demo-theme" aria-label="日夜切换">☀︎ ━</button><focus.Button/><span className="dcb-anchor"><button className="dcb-entry" aria-label="全部轮次" onClick={()=>window.headerActions++}>◈ 全部 17 轮</button></span><button aria-label="打开设置" onClick={settings}>设置</button></>;
@@ -36,14 +43,14 @@ function Demo(){
  const right=()=>setLayout(old=>({...old,rightbarShown:!old.rightbarShown,rightbarTrack:!old.rightbarTrack}));
  window.fixture={left,right,settings:setSettings,header:setHeaderKind,leading:setLeading,refresh,panel:setGlobalPanel,remount:()=>setGeneration(n=>n+1),layout:()=>layout,fullscreen:value=>setLayout(old=>({...old,rightbarFullscreen:value})),instant:value=>setLayout(old=>({...old,rightbarInstant:value}))};
  const renderSlot=(name,props)=>{
-  if(name==='sidebar')return <SidebarRoot {...props} toggleSidebar={left} startSession={()=>{}} selectPanel={()=>{}} usePanels={selector=>selector([])} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} trackEntryClick={()=>{}} setPinned={()=>{}} useShortcuts={selector=>selector([])} usePanelInfo={selector=>selector({activePanelId:null})} t={key=>key==='toggle.open'?'打开左侧栏':key==='toggle.collapse'?'收起左侧栏':key} renderSlot={(slot)=>slot==='sidebar.sessions'?<div style={{height:'100%',overflow:'auto'}}>{Array.from({length:40},(_,i)=><button className="sb_sessionRow" key={i}>会话 {i+1}</button>)}</div>:null}/>;
+  if(name==='sidebar')return <SidebarRoot {...props} toggleSidebar={left} startSession={()=>{}} selectPanel={()=>{}} useRemoteAccess={()=>true} usePanels={selector=>selector([])} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} trackEntryClick={()=>{}} setPinned={()=>{}} useShortcuts={selector=>selector([])} usePanelInfo={selector=>selector({activePanelId:null})} t={key=>key==='toggle.open'?'打开左侧栏':key==='toggle.collapse'?'收起左侧栏':key} renderSlot={(slot)=>['sidebar.sessions','sidebar.workspaces'].includes(slot)?<Sessions/>:null}/>;
   if(name==='main')return globalPanel?<div data-testid="global-panel">插件页面</div>:<main className="cr_root" data-phase="active"><Header right={right} settings={()=>setSettings(true)} kind={headerKind} leading={leading}/><div className="cr_body" data-conversation-content="" data-conversation-session="demo"><div data-conversation-scroll="" className="chat-scroll"><article data-chat-flow="">{Array.from({length:180},(_,i)=><p key={i} className="message">演示消息 {i+1}：左右侧栏覆盖主屏幕，正文宽度、滚动位置和输入草稿不会随开合改变。保留真实控件和粒子画布。</p>)}</article></div><div data-composer-seat="" className="composer"><textarea aria-label="输入草稿" defaultValue="保留输入草稿和选区"/></div></div></main>;
   if(name==='rightbar')return <div className="rb_panel" data-sidebar-right-panel={layout.rightbarFullscreen?'fullscreen':'push'} data-sidebar-right-open={layout.rightbarShown||undefined} style={{width:layout.rightbarFullscreen?'100vw':props.width,'--dsh-sidebar-width':props.width+'px'}}><div data-dockkit-empty="" className="right-content"><div className="preview-toolbar"><span>preview.html</span><button aria-label="预览布局">▥</button><button aria-label="预览全屏" onClick={()=>window.fixture.fullscreen(!layout.rightbarFullscreen)}>⛶</button><button aria-label="收起右侧栏" onClick={right}><svg className="rb_collapseGlyph" width="16" height="16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor"/></svg></button></div><h2>原生右侧面板</h2><input aria-label="右侧草稿" defaultValue="保留文件面板状态"/></div></div>;
   if(name==='shell.bottom')return <div className="bottom">原生底栏</div>;
   if(name==='shell.overlay'&&settings&&window.fixtureSettings)return <div className="settings-dialog" role="dialog"><button aria-label="关闭设置" onClick={()=>setSettings(false)}>×</button><window.fixtureSettings/></div>;
   return null;
  };
- return <AppFrame key={generation} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={selector=>selector({layoutInfo:layout})} useSessions={selector=>selector({byId:{}})} usePanelInfo={selector=>selector({activePanelId:null})} actions={actions} renderSlot={renderSlot} t={key=>key}/>;
+ return <AppFrame key={generation} useFoldedLandscape={selector=>selector(false)} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={selector=>selector({layoutInfo:layout})} useSessions={selector=>selector({byId:{}})} usePanelInfo={selector=>selector({activePanelId:null})} actions={actions} renderSlot={renderSlot} t={key=>key}/>;
 }
 createRoot(document.getElementById('root')).render(<Demo/>);`
 const built=await build({stdin:{contents:demo,loader:'jsx',resolveDir:project},bundle:true,write:false,format:'iife'})
@@ -75,10 +82,56 @@ async function sample(action){
  assert.equal(await page.evaluate(()=>window.overlayCanvas===document.querySelector('.dcb-particle-layer canvas')),true)
 }
 async function patch(value){await page.evaluate(({key,value})=>{const next=JSON.stringify({...JSON.parse(localStorage.getItem(key)),...value});localStorage.setItem(key,next);window.dispatchEvent(new StorageEvent('storage',{key,newValue:next}))},{key,value});await page.waitForTimeout(100)}
-async function check(name,fn){await fn();checks.push(name);console.log('PASS '+name)}
+async function check(name,fn){if(process.env.DSH_SIDEBAR_TEST&&!new RegExp(process.env.DSH_SIDEBAR_TEST).test(name))return;await fn();checks.push(name);console.log('PASS '+name)}
 try{
  await page.addInitScript(key=>{if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify({welcomeEnabled:false,particleProgressMode:'manual',particleManualProgress:65}))},key)
  await mount()
+ await check('host update keeps the sidebar below one titlebar and preserves chat through native and edge toggles',async()=>{
+  await patch({iconStyle:'native'})
+  const measure=()=>page.locator('.af_frame').evaluate(frame=>{
+   const left=frame.querySelector('.af_sidebarCol').getBoundingClientRect(),center=frame.querySelector('.af_centerCol').getBoundingClientRect(),bottom=frame.querySelector('[data-shell-bottom]').getBoundingClientRect()
+   return {top:left.top,expectedTop:frame.getBoundingClientRect().top+parseFloat(getComputedStyle(frame).paddingTop),bottom:left.bottom,expectedBottom:bottom.top,centerTop:center.top}
+  })
+  const bounds=await measure()
+  assert.ok(Math.abs(bounds.top-bounds.expectedTop)<.6,JSON.stringify(bounds))
+  assert.ok(Math.abs(bounds.bottom-bounds.expectedBottom)<.6,JSON.stringify(bounds))
+  await page.evaluate(()=>{window.savedChat=document.querySelector('[data-conversation-session]');window.savedEditor=document.querySelector('textarea');window.savedMessage=document.querySelector('.message');window.overlayCanvas=document.querySelector('.dcb-particle-layer canvas')})
+  for(const toggle of [page.locator('.sb_toggle'),page.locator('[data-dcb-sidebar-toggle-right]')]){
+   for(let i=0;i<2;i++){
+    const before=await page.locator('.af_frame').getAttribute('data-sidebar-collapsed')
+    await sample(()=>toggle.click())
+    assert.notEqual(await page.locator('.af_frame').getAttribute('data-sidebar-collapsed'),before)
+    assert.equal(await page.evaluate(()=>window.savedChat===document.querySelector('[data-conversation-session]')&&window.savedEditor===document.querySelector('textarea')&&window.savedMessage===document.querySelector('.message')),true)
+    assert.equal(await page.locator('textarea').inputValue(),'保留输入草稿和选区')
+    assert.equal(await page.locator('.message').first().isVisible(),true)
+    const next=await measure();assert.ok(Math.abs(next.top-next.expectedTop)<.6,JSON.stringify(next))
+   }
+  }
+  await page.evaluate(()=>{if(document.querySelector('.af_frame').hasAttribute('data-sidebar-collapsed'))window.fixture.left()});await page.waitForTimeout(400)
+  await page.screenshot({path:resolve(output,'host-update-sidebar.png')})
+ })
+ await check('host update keeps the selected native session row visible in each sidebar material and theme',async()=>{
+  await page.evaluate(()=>{if(document.querySelector('.af_frame').hasAttribute('data-sidebar-collapsed'))window.fixture.left()});await page.waitForTimeout(400)
+  const rows=page.locator('.sb_root:not([data-dcb-sidebar-ghost]) [data-row-key^="session:"]')
+  assert.equal(await rows.count(),40)
+  for(const dark of [false,true])for(const sidebarStyle of ['milk','css','glass','clear']){
+   await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark)
+   await patch({sidebarStyle})
+   for(const index of [2,1,3]){
+    const row=rows.nth(index)
+    await row.click();await page.waitForTimeout(320)
+    assert.equal(await rows.count(),40)
+    assert.equal(await row.getAttribute('aria-selected'),'true')
+    const state=await row.evaluate(node=>{
+     const title=node.querySelector('.ws_title'),s=getComputedStyle(node),t=getComputedStyle(title),r=title.getBoundingClientRect()
+     return {display:s.display,visibility:s.visibility,opacity:s.opacity,titleOpacity:t.opacity,titleVisibility:t.visibility,titleWidth:r.width,hit:node.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))}
+    })
+    assert.ok(state.display!=='none'&&state.visibility==='visible'&&state.opacity==='1'&&state.titleOpacity==='1'&&state.titleVisibility==='visible'&&state.titleWidth>20&&state.hit,JSON.stringify({dark,sidebarStyle,state}))
+   }
+  }
+  await page.screenshot({path:resolve(output,'host-update-selected-session.png')})
+  await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
+ })
  await check('native image previews cover the sidebar edge visually and receive its pointer hits in both sidebar states',async()=>{
   const edge=page.locator('[data-dcb-sidebar-toggle-right]'),collapsed=()=>page.locator('.af_frame').evaluate(frame=>frame.getAttribute('data-sidebar-collapsed')==='true'),initial=await collapsed()
   for(const state of [false,true]){

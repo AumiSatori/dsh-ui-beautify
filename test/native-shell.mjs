@@ -1,6 +1,6 @@
 import {openSync,readSync,closeSync} from 'node:fs'
 
-export function nativeShell(){
+export function nativeShell({workspaceRows=false}={}){
   if(!process.env.DSH_ASAR)throw Error('Set DSH_ASAR to verify the installed native AppFrame and SidebarRoot')
   const fd=openSync(process.env.DSH_ASAR,'r')
   try{
@@ -26,6 +26,13 @@ export function nativeShell(){
     // Keep the complete session-header region: current hosts define the More
     // menu and ViewTabLabel helpers before deriveAncestry in the same module.
     const conversationHeader=region(conversation,'function ConversationHeader('),sessionHeader=region(conversation,conversation.includes('function ViewsMoreMenu(')?'function ViewsMoreMenu(':'function deriveAncestry(')
-    return{css:frame.css+left.css+panel.css+chat.css+leadingCss,code:`window.FIXED_VIEW_ID="chat";const AppFrame_module_css_default=${classes(layout,'AppFrame',frame.hash,'af')},SidebarRoot_module_css_default=${classes(sidebar,'SidebarRoot',left.hash,'sb')},ConversationRoot_module_css_default=${classes(conversation,'ConversationRoot',chat.hash,'cr')},COLLAPSE_SETTLE_MS=${collapse},SCROLLBAR_LINGER_MS=${linger};${constants}\n${title}\n${shell}\n${root}\n${leadingCode}\n${conversationHeader}\n${sessionHeader}`}
+    let rowsCss='',rowsCode=''
+    if(workspaceRows){
+      const workspace=entry('workspace'),at=workspace.indexOf('Rows.module.css'),cssRegion=workspace.slice(workspace.lastIndexOf('//#region',at),workspace.indexOf('//#endregion',at))
+      const raw=JSON.parse(cssRegion.match(/const css\$?\d* = ("(?:[^"\\]|\\.)*");/)[1]),hash=raw.match(/\.([\w-]+)_projectRow/)[1]
+      rowsCss=raw.replaceAll(hash+'_','ws_')
+      rowsCode=`const Rows_module_css_default=${classes(workspace,'Rows',hash,'ws')};${region(workspace,'const DRAG_PREVIEW_PROPERTIES')}`
+    }
+    return{css:frame.css+left.css+panel.css+chat.css+leadingCss+rowsCss,code:`window.FIXED_VIEW_ID="chat";const AppFrame_module_css_default=${classes(layout,'AppFrame',frame.hash,'af')},SidebarRoot_module_css_default=${classes(sidebar,'SidebarRoot',left.hash,'sb')},ConversationRoot_module_css_default=${classes(conversation,'ConversationRoot',chat.hash,'cr')},COLLAPSE_SETTLE_MS=${collapse},SCROLLBAR_LINGER_MS=${linger};${constants}\n${title}\n${shell}\n${root}\n${leadingCode}\n${conversationHeader}\n${sessionHeader}\n${rowsCode}`}
   }finally{closeSync(fd)}
 }

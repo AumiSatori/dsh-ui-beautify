@@ -16,11 +16,22 @@ const react=React,react_jsx_runtime=jsxRuntime,clsx=(...values)=>values.flat().f
 const _deepseek_ai_dsh_client_ui_primitives=new Proxy({Tooltip:({children})=>children,HoverCard:({anchor})=>anchor,relativeTime:()=>({unit:'now',n:0}),useRowDragPreview:()=>({start(){},clear(){return false}}),isDarwinDesktop:()=>document.documentElement.dataset.platform==='darwin'},{get:(obj,key)=>obj[key]||(({className})=><svg width="16" height="16" className={className}><rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor"/></svg>)});
 ${native.code}
 window.fixtureReact=React;window.cleanups=[];window.headerActions=0;const focus=createFocusMode(React,document,window);window.cleanups.push(()=>focus.dispose());
+const sessionNodes=Array.from({length:40},(_,i)=>({id:String(i+1),title:'会话 '+(i+1),running:false,runningSubagentCount:0,updatedAt:0}));
+const sessionListeners=new Set();let sessionList={ids:sessionNodes.map(node=>node.id),byId:Object.fromEntries(sessionNodes.map(node=>[node.id,node]))};
+const publishSessions=nodes=>{sessionList={ids:nodes.map(node=>node.id),byId:Object.fromEntries(nodes.map(node=>[node.id,node]))};for(const listener of sessionListeners)listener()};
+window.fixtureSessionRemovals=[];window.fixtureSessionRefreshes=0;
+window.fixtureSessions={
+ list:{getSnapshot:()=>sessionList,subscribe:listener=>{sessionListeners.add(listener);return()=>sessionListeners.delete(listener)}},
+ refresh:async()=>{window.fixtureSessionRefreshes++;publishSessions(sessionNodes)},
+ handleSessionRemoved(id){window.fixtureSessionRemovals.push(id);publishSessions(sessionList.ids.filter(value=>value!==id).map(value=>sessionList.byId[value]))},
+};
 function Sessions(){
  const [current,setCurrent]=React.useState('1')
- return <div role="tree" aria-label="演示会话" style={{height:'100%',overflow:'auto'}}>{Array.from({length:40},(_,i)=>{
-  const node={id:String(i+1),title:'会话 '+(i+1),running:false,runningSubagentCount:0,updatedAt:0}
-  return <SessionNodeItem key={node.id} node={node} currentId={current} now={0} onOpen={setCurrent} onRenameRequest={()=>{}} renderSlot={()=>null} openSessionMenu={()=>{}} useContextMenu={()=>({getTriggerProps:(_target,props)=>props||{}})} useContextMenuTarget={selector=>selector(null)} useSessionAccess={()=>true} t={key=>key}/>
+ const list=React.useSyncExternalStore(window.fixtureSessions.list.subscribe,window.fixtureSessions.list.getSnapshot)
+ const open=id=>{setCurrent(id);if(window.fixtureReleaseNextSession){window.fixtureReleaseNextSession=false;setTimeout(()=>window.fixtureSessions.handleSessionRemoved(id),60)}}
+ return <div role="tree" aria-label="演示会话" style={{height:'100%',overflow:'auto'}}>{list.ids.map(id=>{
+  const node=list.byId[id]
+  return <SessionNodeItem key={node.id} node={node} currentId={current} now={0} onOpen={open} onRenameRequest={()=>{}} renderSlot={()=>null} openSessionMenu={()=>{}} useContextMenu={()=>({getTriggerProps:(_target,props)=>props||{}})} useContextMenuTarget={selector=>selector(null)} useSessionAccess={()=>true} t={key=>key}/>
  })}</div>
 }
 function Header({right,settings,kind,leading}){
@@ -66,7 +77,7 @@ async function mount(overlay=true){
  await page.goto(url);await page.locator('.sb_toggle').waitFor();await page.evaluate(installLogoFixture,logo)
  await page.evaluate(()=>{window.__ModuleLoader__={load:spec=>window.plugin=spec.factory(name=>name==='@deepseek-ai/dsh-client-ui-primitives'?{FishLogo:window.fixtureFishLogo,FISH_LOGO_PATH:window.nativeLogo.path,FISH_LOGO_VIEWBOX:window.nativeLogo}:window.fixtureReact)}})
  await page.addScriptTag({url:url+'/client.js'})
- await page.evaluate(()=>{const ctx={slots:{inject(_name,cb){cb()},register(spec,component){if(spec.name==='settings.section')window.fixtureSettings=component;return()=>{}}},effect(cb){window.cleanups.push(cb())},inject(_names,cb){cb(ctx)}};window.plugin.apply(ctx);window.fixture.refresh()})
+ await page.evaluate(()=>{const ctx={sessions:window.fixtureSessions,slots:{inject(_name,cb){cb()},register(spec,component){if(spec.name==='settings.section')window.fixtureSettings=component;return()=>{}}},effect(cb){window.cleanups.push(cb())},inject(_names,cb){cb(ctx)}};window.plugin.apply(ctx);window.fixture.refresh()})
  await page.waitForFunction(overlay=>!!document.querySelector('[data-dcb-sidebar-overlay]')===overlay,overlay)
  await page.waitForFunction(()=>window[Symbol.for('dsh-ui-beautify.context-particles.v1')].snapshot().scenes[0]?.ready)
  await page.waitForTimeout(150)
@@ -131,6 +142,23 @@ try{
   }
   await page.screenshot({path:resolve(output,'host-update-selected-session.png')})
   await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
+ })
+ await check('host update keeps a clicked session visible after its resident object is released',async()=>{
+  await page.evaluate(()=>{if(document.querySelector('.af_frame').hasAttribute('data-sidebar-collapsed'))window.fixture.left()});await page.waitForTimeout(400)
+  const rows=page.locator('.sb_root:not([data-dcb-sidebar-ghost]) [data-row-key^="session:"]'),selected=rows.nth(2)
+  await page.evaluate(()=>{
+   window.fixtureReleaseNextSession=true;window.sessionRowSamples=[];window.sampleSessionRows=true
+   const take=()=>{if(!window.sampleSessionRows)return;window.sessionRowSamples.push(document.querySelectorAll('.sb_root:not([data-dcb-sidebar-ghost]) [data-row-key^="session:"]').length);requestAnimationFrame(take)};take()
+  })
+  await selected.click();await page.waitForTimeout(450)
+  const result=await page.evaluate(()=>{window.sampleSessionRows=false;return {samples:window.sessionRowSamples,removals:window.fixtureSessionRemovals,refreshes:window.fixtureSessionRefreshes}})
+  assert.ok(result.samples.length>3&&result.samples.every(count=>count===40),JSON.stringify(result))
+  assert.deepEqual(result.removals,[])
+  assert.ok(result.refreshes>=2)
+  assert.equal(await selected.getAttribute('aria-selected'),'true')
+  assert.equal(await selected.locator('.ws_title').textContent(),'会话 3')
+  assert.equal(await page.locator('textarea').inputValue(),'保留输入草稿和选区')
+  await page.screenshot({path:resolve(output,'host-update-session-release.png')})
  })
  await check('native image previews cover the sidebar edge visually and receive its pointer hits in both sidebar states',async()=>{
   const edge=page.locator('[data-dcb-sidebar-toggle-right]'),collapsed=()=>page.locator('.af_frame').evaluate(frame=>frame.getAttribute('data-sidebar-collapsed')==='true'),initial=await collapsed()

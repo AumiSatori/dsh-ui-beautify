@@ -30,6 +30,14 @@ export const headerLayoutCss=`
   .dcb-header-project-separator { flex:none; opacity:.55; }
 `
 
+// An open overlay sidebar wider than the text inset covers the crumbs. Its
+// width is the overlay's own variable, so every host layout reads the same.
+export function overlaySidebarCover(header,bounds){
+  const shell=header.closest('[data-dcb-sidebar-overlay]:not([data-dcb-focus-frame=on],[data-sidebar-collapsed=true])')
+  const cover=shell?parseFloat(shell.style.getPropertyValue('--dcb-overlay-left-width')):0
+  return cover>0?Math.max(0,shell.getBoundingClientRect().left+cover-bounds.left):0
+}
+
 // Match actual Workspace membership, including a subagent's owning ancestor.
 // A cwd alone does not make an ungrouped conversation belong to a project.
 export function headerProjectLabel(items,byId,sessionId){
@@ -57,6 +65,7 @@ export function createHeaderLayout(doc,win){
     if(record.flow!==flow){if(record.flow)record.resize.unobserve(record.flow);if(flow)record.resize.observe(flow);record.flow=flow}
     let left=24,right=24
     if(flow?.getClientRects().length){const box=flow.getBoundingClientRect();left=Math.max(0,box.left-bounds.left);right=Math.max(0,bounds.right-box.right)}
+    left=Math.max(left,overlaySidebarCover(header,bounds))
     set(header,LEFT,left+'px');set(header,END,right+'px')
     const empty=!record.leading?.textContent.trim()&&!record.leading?.querySelector('button,a,input,svg,img,canvas,[tabindex]')
     record.leading?.toggleAttribute(EMPTY,empty)

@@ -27,6 +27,10 @@ export const turnCardsCss=`
   ${CARD} { padding-block-start:22px; }
   ${CARD}:not([data-dcb-turn-first]) { margin-block-start:24px!important; }
   ${ROOT} [data-dcb-turn-tail] { padding-block-end:22px; }
+  /* The host widens .md-table-wide into the panel's side spare (100cqw). Inside
+     a finite card that overflows, so keep the table in the column and scroll it.
+     Zero lead with spare: spare alone leaves a negative lead that shifts right. */
+  ${ROOT}:not([data-dcb-turn-surface="line"]) .md-table-wide { --dsh-table-spare:0px!important; --dsh-table-lead:0px!important; width:100%!important; max-width:100%!important; margin-left:0!important; padding-left:0!important; overflow-x:auto!important; overscroll-behavior-x:contain!important; }
   ${INCOMING} { position:relative; box-sizing:border-box; padding-inline:clamp(16px,2.2vw,28px); padding-block:22px 0; }
   ${INCOMING}:not(${firstVisible}) { margin-block-start:24px!important; }
   ${INCOMING_LINE} { padding-inline:4px; padding-block:12px 0; }

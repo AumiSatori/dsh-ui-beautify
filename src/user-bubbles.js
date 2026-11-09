@@ -1,6 +1,8 @@
 import {motion} from './motion.js'
 import {themeAssignments,themeAssignmentsCss} from './theme-assignments.js'
-const NATIVE=':is([data-chat-flow-kind="user"],[data-chat-flow-kind="steering"],[data-submission-echo],[data-pending-steering]) :is([data-message-bubble],[class$="_bubble"],[class*="_bubble "])'
+// DSH 0.2.2 renders answered questions ([data-question-reply]) on the same user
+// message surface; older hosts have no such row, so that branch never matches.
+const NATIVE=':is([data-chat-flow-kind="user"],[data-chat-flow-kind="steering"],[data-submission-echo],[data-pending-steering],[data-question-reply]) :is([data-message-bubble],[class$="_bubble"],[class*="_bubble "])'
 const PREVIEW='[data-dcb-user-preview]'
 const LIMIT=12000
 export const userBubbleExamples={

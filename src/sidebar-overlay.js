@@ -1,5 +1,6 @@
 import {motion} from './motion.js'
 import {sidebarMotionCss} from './sidebar-motion.js'
+import {nativeSidebarWidth} from './host-sidebar-width.js'
 
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const FRAME='data-dcb-sidebar-overlay',PART='data-dcb-sidebar-overlay-part'
@@ -16,6 +17,10 @@ export const sidebarOverlayCss=`
   [${FRAME}] > [${PART}=right] { grid-area:1/3; width:0; min-width:0; z-index:16; overflow:visible; }
   [${FRAME}] > [data-side] { z-index:18; }
   [${FRAME}] > [data-shell-leading] { z-index:19; }
+  /* DSH 0.2.2 leaves a 98px no-drag holder over the titlebar menus. Clicks on the
+     rest of their labels land on the drag region and toggle maximization. Older
+     hosts render no holder, so this rule never matches there. */
+  :root[data-windows-titlebar]:has([${FRAME}]) [data-windows-menu] { left:0!important; top:0!important; width:320px!important; height:40px!important; }
   @media(forced-colors:active) { [${FRAME}] > [${PART}=left] { box-shadow:none; } }
   @media(prefers-reduced-motion:reduce), (forced-colors:active) { [${FRAME}] > [${PART}=left][${PART}=left] { transition:none; } }
 `
@@ -29,7 +34,7 @@ export function createSidebarOverlay(doc,win,schedule=()=>{}){
   function updateWidth(frame,root){
     const desktop=doc.documentElement.hasAttribute('data-windows-titlebar')||doc.documentElement.dataset.platform==='darwin',rail=desktop?0:56
     const collapsed=frame.getAttribute('data-sidebar-collapsed')==='true'
-    const width=collapsed?rail:parseFloat(root?.style.width)||root?.getBoundingClientRect().width||280
+    const width=collapsed?rail:nativeSidebarWidth(frame,root)||280
     set(frame,RAIL,rail+'px');set(frame,WIDTH,Math.max(0,width)+'px')
   }
   function release(frame,record){
@@ -53,7 +58,8 @@ export function createSidebarOverlay(doc,win,schedule=()=>{}){
           // Retarget the running width transition as soon as the host flips
           // state. Deferring this to the next scan lets the drawer travel in
           // the old direction for another rendered frame on rapid reversal.
-          if(entries.some(entry=>entry.type==='attributes'&&((entry.target===frame&&entry.attributeName==='data-sidebar-collapsed')||(entry.target===record.root&&entry.attributeName==='style'))))updateWidth(frame,record.root)
+          // Newer hosts publish the dragged width only on the frame style.
+          if(entries.some(entry=>entry.type==='attributes'&&((entry.target===frame&&(entry.attributeName==='data-sidebar-collapsed'||entry.attributeName==='style'))||(entry.target===record.root&&entry.attributeName==='style'))))updateWidth(frame,record.root)
           schedule()
         })
         record.observer.observe(frame,{attributes:true,attributeFilter:['style','class','data-sidebar-collapsed','data-rightbar-collapsed','data-dcb-focus-frame'],childList:true})

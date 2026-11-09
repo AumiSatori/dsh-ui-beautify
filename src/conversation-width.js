@@ -1,3 +1,5 @@
+import {nativeSidebarWidth} from './host-sidebar-width.js'
+
 const NATIVE_KEY='dsh.conversation.contentWidth'
 const KEY='dsh-ui-beautify:conversation-width:v1'
 const TEXT='--dsh-chat-content-width',USER='--dsh-chat-user-width',MARK='data-dcb-chat-width-mode'
@@ -57,7 +59,7 @@ export function createConversationWidth(doc,win){
     if(shell&&box.width>=1024){
       const left=[...shell.children].find(child=>child.matches(names('sidebarCol'))),root=left?.firstElementChild
       const inline=parseFloat(root?.style.width),expanded=shell.getAttribute('data-sidebar-collapsed')!=='true'
-      const width=expanded?(inline||root?.getBoundingClientRect().width):inline
+      const width=expanded?nativeSidebarWidth(shell,root):inline
       if(width>56)reserves.set(shell,width)
       const reserve=reserves.get(shell)||280
       limit=Math.min(limit,Math.max(1,2*(box.left+box.width/2-shell.getBoundingClientRect().left-reserve-48)))
@@ -94,6 +96,10 @@ export function createConversationWidth(doc,win){
       const requested=preferred??Math.max(680,Math.min(body.offsetWidth*.64,920))
       const width=Math.min(requested,available(body))
       record.width=width
+      // The host republishes its user width from this key whenever content
+      // resizes. Mirror the drag value so wrapping near the minimum cannot
+      // snap the column back to the width saved before the drag.
+      if(drag?.record===record&&drag.mode===mode)write(NATIVE_KEY,String(width))
       const value=width+'px'
       if(body.style.getPropertyValue(TEXT)!==value||body.style.getPropertyPriority(TEXT)!=='important')body.style.setProperty(TEXT,value,'important')
       if(body.getAttribute(MARK)!==mode)body.setAttribute(MARK,mode)

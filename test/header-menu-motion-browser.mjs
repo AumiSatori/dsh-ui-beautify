@@ -165,8 +165,11 @@ try{
   await page.getByRole('button',{name:'预览打开方式',exact:true}).click();assert.equal(await active().count(),0);assert.equal(await page.getByRole('menu').evaluate(n=>n.getAnimations().length),0);await page.locator('#outside').click()
  })
  await check('a slow native application refresh still animates the eventual header menu',async()=>{
+  // Capture the frame in the browser task that receives the delayed portal.
+  // Protocol round trips after the 1.15s refresh can outlast its 240ms entry.
+  await page.evaluate(()=>{window.delayedMenuFrame=new Promise(done=>{const observer=new MutationObserver(()=>{const node=document.querySelector('[data-dcb-header-menu=folder]'),animation=node?.getAnimations().find(a=>a.id==='dcb-header-menu-enter');if(!animation)return;observer.disconnect();animation.pause();animation.currentTime=70;done({opacity:Number(getComputedStyle(node).opacity)})});observer.observe(document.body,{childList:true})})})
   await page.evaluate(()=>window.fixture.delay(true));await trigger('folder').click();await expect(trigger('folder')).toBeDisabled();await expect(active()).toHaveCount(0)
-  await expect(active()).toHaveAttribute('data-dcb-header-menu','folder');const frame=await mid(active(),70);assert.ok(frame&&frame.opacity>0&&frame.opacity<1);await finish();await close();await page.evaluate(()=>window.fixture.delay(false))
+  const frame=await page.evaluate(()=>window.delayedMenuFrame);assert.ok(frame&&frame.opacity>0&&frame.opacity<1);await finish();await close();await page.evaluate(()=>window.fixture.delay(false))
  })
  await check('dark theme, small viewport and Darwin backing keep the native placement',async()=>{
   await page.evaluate(()=>{document.body.setAttribute('data-ds-dark-theme','');document.documentElement.dataset.platform='darwin'});await page.setViewportSize({width:420,height:500});await trigger('folder').click();await finish()

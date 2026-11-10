@@ -8,6 +8,12 @@ const failed=new Set(['error','failed','failure'])
 export const sidebarAttentionCss=`
   .dcb-sidebar-attention { position:fixed; left:26px; top:calc(50% - 46px); z-index:35; display:flex; align-items:center; padding:6px; border:1px solid #d8dce5; border-radius:15px; background:rgba(255,255,255,.96); box-shadow:0 7px 24px #25324a24,0 2px 5px #25324a0d; isolation:isolate; }
   .dcb-sidebar-attention::before { content:''; position:absolute; left:-5px; bottom:11px; width:8px; height:8px; background:inherit; border-left:1px solid #d8dce5; border-bottom:1px solid #d8dce5; transform:rotate(45deg); z-index:-1; }
+  .dcb-sidebar-attention { box-sizing:border-box; }
+  .dcb-sidebar-attention[data-list-open] { width:min(320px,calc(100vw - 16px)); height:var(--dcb-attention-list-height); padding:0; }
+  .dcb-sidebar-attention[data-list-open]::before { top:var(--dcb-attention-tip-top,22px); bottom:auto; }
+  .dcb-sidebar-attention[data-morphing] { overflow:hidden; will-change:width,height,left,top; }
+  .dcb-sidebar-attention > .dcb-attention-cell { transition:opacity 180ms cubic-bezier(.4,0,.2,1),transform 220ms cubic-bezier(.4,0,.2,1),filter 220ms cubic-bezier(.4,0,.2,1); }
+  .dcb-sidebar-attention[data-list-open] > .dcb-attention-cell { position:absolute; top:6px; left:var(--dcb-attention-cell-left,6px); opacity:0; transform:translateX(-8px) scale(.85); filter:blur(2px); pointer-events:none; visibility:hidden; transition:opacity 180ms cubic-bezier(.4,0,.2,1),transform 220ms cubic-bezier(.4,0,.2,1),filter 220ms cubic-bezier(.4,0,.2,1),visibility 0s linear 220ms; }
   .dcb-attention-cell { flex:none; width:40px; overflow:hidden; }
   .dcb-attention-cell[data-kind=error] { order:0; }
   .dcb-attention-cell[data-kind=waiting] { order:1; }
@@ -20,7 +26,7 @@ export const sidebarAttentionCss=`
   .dcb-attention-button[data-kind=error] { --attention-color:#cf424c; --attention-bg:#fcecee; --attention-hover:#f9dce0; }
   .dcb-attention-button svg { width:26px; height:26px; overflow:visible; fill:none; stroke:currentColor; stroke-width:2.3; stroke-linecap:round; stroke-linejoin:round; }
   .dcb-attention-count { position:absolute; top:0; right:0; min-width:15px; height:15px; padding:0 3px; border-radius:8px; background:var(--attention-color); color:white; font:600 10px/15px system-ui,sans-serif; text-align:center; }
-  .dcb-attention-popover { position:fixed; z-index:36; width:min(320px,calc(100vw - 16px)); max-height:calc(100dvh - 16px); display:flex; flex-direction:column; padding:8px; border:1px solid #d8dce5; border-radius:14px; background:rgba(255,255,255,.98); color:#343740; box-shadow:0 10px 34px #25324a2b,0 2px 6px #25324a12; transform-origin:0 24px; }
+  .dcb-attention-popover { box-sizing:border-box; position:absolute; inset:0; width:100%; height:100%; display:flex; flex-direction:column; padding:8px; border:0; border-radius:inherit; background:transparent; color:inherit; transform-origin:0 24px; }
   .dcb-attention-popover[data-moving] { will-change:opacity,transform,filter; }
   .dcb-attention-popover-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0; padding:8px 10px 10px; font:600 13px/20px system-ui,sans-serif; }
   .dcb-attention-popover-total { color:#737985; font-weight:400; }
@@ -57,7 +63,7 @@ export const sidebarAttentionCss=`
   @keyframes dcb-attention-ring { 0%{transform:scale(.86);opacity:.6} 38%{transform:scale(1.18);opacity:0} 100%{transform:scale(1.18);opacity:0} }
   body[data-ds-dark-theme] .dcb-sidebar-attention { background:rgba(40,42,48,.97); border-color:#595b67; box-shadow:0 7px 24px #0005; }
   body[data-ds-dark-theme] .dcb-sidebar-attention::before { border-color:#595b67; }
-  body[data-ds-dark-theme] .dcb-attention-popover { background:rgba(40,42,48,.98); color:#edf0f5; border-color:#595b67; box-shadow:0 10px 34px #0006; }
+  body[data-ds-dark-theme] .dcb-sidebar-attention { color:#edf0f5; }
   body[data-ds-dark-theme] .dcb-attention-popover-total { color:#b6bbc6; }
   body[data-ds-dark-theme] .dcb-attention-session:hover,body[data-ds-dark-theme] .dcb-attention-session:focus-visible { background:#ffffff10; }
   body[data-ds-dark-theme] .dcb-attention-session[data-kind=done] { --attention-color:#78dba4; }
@@ -70,7 +76,7 @@ export const sidebarAttentionCss=`
   @media(prefers-reduced-motion:reduce),(forced-colors:active) { .dcb-sidebar-attention * { animation:none!important; transition:none!important; } .dcb-attention-check{stroke-dashoffset:0} .dcb-attention-dots circle{opacity:1} .dcb-attention-ring{opacity:0} }
   @media(forced-colors:active) { .dcb-sidebar-attention,.dcb-sidebar-attention::before { background:Canvas; border-color:CanvasText; box-shadow:none; } .dcb-attention-button { color:ButtonText!important; background:ButtonFace!important; border:1px solid ButtonText; } .dcb-attention-count { color:HighlightText; background:Highlight; } }
   @media(prefers-reduced-motion:reduce),(forced-colors:active) { .dcb-attention-popover * { transition:none!important; } }
-  @media(forced-colors:active) { .dcb-attention-popover { background:Canvas!important; color:CanvasText!important; border-color:CanvasText!important; box-shadow:none!important; } .dcb-attention-session-status,.dcb-attention-popover-total { color:CanvasText!important; } .dcb-attention-session-dot { background:CanvasText!important; } }
+  @media(forced-colors:active) { .dcb-attention-popover { color:CanvasText!important; } .dcb-attention-session-status,.dcb-attention-popover-total { color:CanvasText!important; } .dcb-attention-session-dot { background:CanvasText!important; } }
 `
 
 // Read only the host's root status sources and already-retained event tails.
@@ -82,6 +88,7 @@ export function createSidebarAttention(doc,win){
   const watchedMotion=new WeakSet()
   let services=null,unsubscribers=[],root=null,rootAnimation=null,revision=0,frame=0,enabled=true,disposed=false
   let popup=null,popupList=null,popupTotal=null,popupError=null,popupAnimation=null,popupRevision=0,closeTimer=0,hovered=null,popupTrigger=null,suppressFocus=false,opening=null
+  let bubbleAnimation=null,compactAnchor=null
   const rest={opacity:1,transform:'none',filter:'blur(0px)'}
   function schedule(){if(!disposed&&!frame)frame=win.requestAnimationFrame(()=>{frame=0;sync()})}
   function animate(node,frames,id,options={}){
@@ -90,10 +97,21 @@ export function createSidebarAttention(doc,win){
     return animation
   }
   function cancelRoot(){rootAnimation?.cancel();rootAnimation=null}
+  function cancelMorph(){bubbleAnimation?.cancel();bubbleAnimation=null;root?.removeAttribute('data-morphing')}
+  function morphBubble(from,immediate=false){
+    if(!root)return
+    cancelMorph()
+    const target=root.getBoundingClientRect(),box=rect=>({width:rect.width+'px',height:rect.height+'px',left:rect.left+'px',top:rect.top+'px'})
+    if(immediate||['width','height','left','top'].every(key=>Math.abs(from[key]-target[key])<.5))return
+    root.setAttribute('data-morphing','');bubbleAnimation=animate(root,[box(from),box(target)],'dcb-attention-morph')
+    const animation=bubbleAnimation,finish=()=>{if(bubbleAnimation===animation)cancelMorph()}
+    if(animation)animation.finished.then(finish,()=>{});else finish()
+  }
   function cancelClose(){win.clearTimeout(closeTimer);closeTimer=0}
   function popupControls(expanded){
     for(const cell of cells.values()){
       cell.button.setAttribute('aria-expanded',String(expanded))
+      cell.node.inert=expanded
       if(expanded)cell.button.setAttribute('aria-controls',popup.id)
       else cell.button.removeAttribute('aria-controls')
     }
@@ -102,8 +120,10 @@ export function createSidebarAttention(doc,win){
     cancelClose()
     if(!popup||popup.hasAttribute('data-leaving')&&!immediate)return
     const node=popup,token=++popupRevision,current=win.getComputedStyle(node)
+    const bubbleBox=root?.getBoundingClientRect()
     const from={opacity:current.opacity,transform:current.transform,filter:current.filter}
     popupAnimation?.cancel();popupControls(false);node.setAttribute('data-leaving','');node.setAttribute('aria-hidden','true');node.inert=true;node.setAttribute('data-moving','')
+    if(root){root.removeAttribute('data-list-open');root.setAttribute('role','status');root.setAttribute('aria-label','其他会话有新状态，悬停查看会话列表');root.setAttribute('aria-live','polite');root.style.removeProperty('--dcb-attention-list-height');if(compactAnchor){root.style.left=compactAnchor.left+'px';root.style.top=compactAnchor.top+'px'}morphBubble(bubbleBox,immediate)}
     popupAnimation=immediate?null:animate(node,[from,{opacity:0,transform:'translateX(-8px) scale(.9)',filter:'blur(3px)'}],'dcb-attention-popover-out',{duration:200,easing:'cubic-bezier(.4,0,.2,1)'})
     const finish=()=>{
       if(token!==popupRevision)return
@@ -120,18 +140,18 @@ export function createSidebarAttention(doc,win){
     if(event.pointerType==='touch')return
     hovered=event.currentTarget;cancelClose();showPopup()
   }
-  function leavePopup(event){if(hovered===event.currentTarget)hovered=null;queueClose()}
+  function leavePopup(event){if(event.relatedTarget&&root?.contains(event.relatedTarget)){hovered=root;cancelClose();return}if(hovered===event.currentTarget)hovered=null;queueClose()}
   function placePopup(){
     if(!popup||!root||popup.hasAttribute('data-leaving'))return
-    const bounds=root.getBoundingClientRect(),width=popup.offsetWidth
+    const before=root.getBoundingClientRect(),width=Math.min(320,win.innerWidth-16)
     // Measure the unclipped buttons so staggered zero-height rows cannot place
     // a growing panel beyond the viewport during its entrance.
     const rowsHeight=[...popupRows.values()].filter(row=>!row.leaving).reduce((height,row)=>height+row.button.getBoundingClientRect().height,0)
-    const height=Math.min(420,win.innerHeight-16,16+popup.firstElementChild.getBoundingClientRect().height+rowsHeight)
-    const beside=bounds.right+10+width<=win.innerWidth-8
-    const left=beside?bounds.right+10:Math.min(bounds.left,win.innerWidth-width-8)
-    const top=beside?bounds.top:bounds.bottom+8+height<=win.innerHeight-8?bounds.bottom+8:bounds.top-height-8
-    popup.style.maxHeight=height+'px';popup.style.left=Math.max(8,left)+'px';popup.style.top=Math.max(8,Math.min(top,win.innerHeight-height-8))+'px'
+    const height=Math.min(420,win.innerHeight-16,18+popup.firstElementChild.getBoundingClientRect().height+rowsHeight)
+    const anchor=compactAnchor||before,left=Math.max(8,Math.min(anchor.left,win.innerWidth-width-8)),top=Math.max(8,Math.min(anchor.top,win.innerHeight-height-8))
+    const previous=[root.style.getPropertyValue('--dcb-attention-list-height'),root.style.left,root.style.top].join('|')
+    root.style.setProperty('--dcb-attention-list-height',height+'px');root.style.setProperty('--dcb-attention-tip-top',Math.max(12,Math.min(height-20,anchor.top+34-top))+'px');root.style.left=left+'px';root.style.top=top+'px'
+    if(previous!==[height+'px',root.style.left,root.style.top].join('|'))morphBubble(before)
   }
   function selectSession(id){
     const entry=notifications.get(id),workspace=services?.uiWorkspace
@@ -195,15 +215,18 @@ export function createSidebarAttention(doc,win){
     cancelClose()
     if(disposed||!root||root.hasAttribute('data-leaving')||!notifications.size)return
     if(popup&&!popup.hasAttribute('data-leaving'))return
+    const bubbleBox=root.getBoundingClientRect()
+    if(!compactAnchor)compactAnchor={left:bubbleBox.left,top:bubbleBox.top}
+    if(!root.hasAttribute('data-list-open'))for(const cell of cells.values())cell.node.style.setProperty('--dcb-attention-cell-left',cell.node.getBoundingClientRect().left-bubbleBox.left-1+'px')
     let from={opacity:0,transform:'translateX(-8px) scale(.9)',filter:'blur(3px)'}
     if(popup){const style=win.getComputedStyle(popup);from={opacity:style.opacity,transform:style.transform,filter:style.filter};popupAnimation?.cancel()}
     else{
-      popup=doc.createElement('section');popup.className='dcb-attention-popover';popup.id='dcb-attention-sessions-'+Math.random().toString(36).slice(2,9);popup.setAttribute('role','dialog');popup.setAttribute('aria-label','待提醒会话')
+      popup=doc.createElement('section');popup.className='dcb-attention-popover';popup.id='dcb-attention-sessions-'+Math.random().toString(36).slice(2,9);popup.setAttribute('role','group');popup.setAttribute('aria-label','待提醒会话')
       const heading=doc.createElement('h2'),label=doc.createElement('span');heading.className='dcb-attention-popover-heading';label.textContent='待提醒会话';popupTotal=doc.createElement('span');popupTotal.className='dcb-attention-popover-total';heading.append(label,popupTotal)
       popupList=doc.createElement('ul');popupList.className='dcb-attention-session-list';popupError=doc.createElement('p');popupError.className='dcb-attention-popover-error';popupError.setAttribute('role','status');popupError.hidden=true;popup.append(heading,popupList,popupError)
-      popup.addEventListener('pointerenter',enterPopup);popup.addEventListener('pointerleave',leavePopup);popup.addEventListener('focusout',queueClose);doc.body.append(popup)
+      popup.addEventListener('pointerenter',enterPopup);popup.addEventListener('pointerleave',leavePopup);popup.addEventListener('focusout',queueClose);root.append(popup)
     }
-    const token=++popupRevision;popup.removeAttribute('data-leaving');popup.removeAttribute('aria-hidden');popup.inert=false;popup.setAttribute('data-moving','');popupControls(true);renderPopupRows();placePopup()
+    const token=++popupRevision;popup.removeAttribute('data-leaving');popup.removeAttribute('aria-hidden');popup.inert=false;popup.setAttribute('data-moving','');root.setAttribute('data-list-open','');root.setAttribute('role','dialog');root.setAttribute('aria-label','待提醒会话');root.removeAttribute('aria-live');popupControls(true);renderPopupRows();placePopup();morphBubble(bubbleBox)
     popupAnimation=animate(popup,[from,rest],'dcb-attention-popover-in')
     const animation=popupAnimation,finish=()=>{if(token!==popupRevision)return;animation?.cancel();popupAnimation=null;popup?.removeAttribute('data-moving')}
     if(animation)animation.finished.then(finish,()=>{});else finish()
@@ -216,7 +239,7 @@ export function createSidebarAttention(doc,win){
     const start={opacity:current.opacity,transform:current.transform,filter:current.filter}
     cancelRoot();node.dataset.leaving='';node.style.pointerEvents='none';node.setAttribute('aria-hidden','true')
     rootAnimation=immediate?null:animate(node,[start,{opacity:0,transform:'translate(-12px,8px) scale(.84)',filter:'blur(3px)'}],'dcb-attention-out')
-    const finish=()=>{if(token!==revision)return;cancelRoot();for(const cell of cells.values())cell.animation?.cancel();cells.clear();node.remove();root=null}
+    const finish=()=>{if(token!==revision)return;cancelRoot();cancelMorph();compactAnchor=null;for(const cell of cells.values())cell.animation?.cancel();cells.clear();node.remove();root=null}
     if(rootAnimation)rootAnimation.finished.then(finish,()=>{});else finish()
   }
   function acknowledge(){for(const [id,state]of states)if(state.kind)acknowledged.set(id,state.token)}
@@ -229,7 +252,7 @@ export function createSidebarAttention(doc,win){
     }
   }
   function makeRoot(){
-    root=doc.createElement('div');root.className='dcb-sidebar-attention';root.setAttribute('role','status');root.setAttribute('aria-live','polite');root.setAttribute('aria-label','其他会话有新状态，悬停查看会话列表');root.addEventListener('pointerenter',enterPopup);root.addEventListener('pointerleave',leavePopup);root.addEventListener('focusin',event=>{popupTrigger=event.target.closest('button');if(!suppressFocus)showPopup()});root.addEventListener('focusout',queueClose);doc.body.append(root)
+    root=doc.createElement('div');root.className='dcb-sidebar-attention';root.setAttribute('role','status');root.setAttribute('aria-live','polite');root.setAttribute('aria-label','其他会话有新状态，悬停查看会话列表');root.addEventListener('pointerenter',enterPopup);root.addEventListener('pointerleave',leavePopup);root.addEventListener('focusin',event=>{if(!suppressFocus&&event.target.closest('.dcb-attention-button'))popupTrigger=event.target.closest('button')});root.addEventListener('focusout',queueClose);doc.body.append(root)
     rootAnimation=animate(root,[{opacity:0,transform:'translate(-12px,8px) scale(.84)',filter:'blur(3px)'},rest],'dcb-attention-in')
     const animation=rootAnimation;animation?.finished.then(()=>{if(rootAnimation===animation)cancelRoot()},()=>{})
   }
@@ -321,7 +344,7 @@ export function createSidebarAttention(doc,win){
     else{
       render(groups)
       const {edge}=anchor
-      if(edge){const bounds=edge.getBoundingClientRect(),left=Math.min(bounds.left+26,win.innerWidth-root.offsetWidth-8)+'px',top=Math.max(8,bounds.top+bounds.height/2-46)+'px';if(root.style.left!==left)root.style.left=left;if(root.style.top!==top)root.style.top=top}
+      if(edge){const bounds=edge.getBoundingClientRect(),compactWidth=14+[...cells.values()].filter(cell=>!cell.leaving).length*40;compactAnchor={left:Math.max(8,Math.min(bounds.left+26,win.innerWidth-compactWidth-8)),top:Math.max(8,bounds.top+bounds.height/2-46)};if(!root.hasAttribute('data-list-open')){root.style.left=compactAnchor.left+'px';root.style.top=compactAnchor.top+'px'}}
       renderPopupRows();placePopup()
     }
   }
@@ -338,7 +361,7 @@ export function createSidebarAttention(doc,win){
   observer.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-sidebar-collapsed','data-dcb-sidebar-moving','data-conversation-session','data-dcb-focus-frame']})
   const motionEnd=event=>{if(['width','grid-template-columns','left','transform','translate'].includes(event.propertyName)&&event.target.matches(names('frame')+','+names('sidebarCol')+',[data-dcb-sidebar-toggle-right]'))schedule()}
   const visibility=()=>{if(doc.hidden)hide(true);else schedule()}
-  const calm=()=>{if(quiet.matches){if(root?.dataset.leaving!==undefined)hide(true);else cancelRoot();for(const [kind,cell]of cells){cell.animation?.cancel();cell.animation=null;if(cell.leaving){cell.node.remove();cells.delete(kind)}}if(popup?.hasAttribute('data-leaving'))closePopup(true);else{popupAnimation?.cancel();popupAnimation=null;popup?.removeAttribute('data-moving');for(const [id,row]of popupRows){row.animation?.cancel();row.animation=null;row.node.removeAttribute('data-moving');if(row.leaving){row.node.remove();popupRows.delete(id)}}}}schedule()}
+  const calm=()=>{if(quiet.matches){cancelMorph();if(root?.dataset.leaving!==undefined)hide(true);else cancelRoot();for(const [kind,cell]of cells){cell.animation?.cancel();cell.animation=null;if(cell.leaving){cell.node.remove();cells.delete(kind)}}if(popup?.hasAttribute('data-leaving'))closePopup(true);else{popupAnimation?.cancel();popupAnimation=null;popup?.removeAttribute('data-moving');for(const [id,row]of popupRows){row.animation?.cancel();row.animation=null;row.node.removeAttribute('data-moving');if(row.leaving){row.node.remove();popupRows.delete(id)}}}}schedule()}
   const outside=event=>{if(popup&&!root?.contains(event.target)&&!popup.contains(event.target))closePopup()}
   const keyboard=event=>{
     const trigger=event.target.closest?.('.dcb-attention-button')

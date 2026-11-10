@@ -1,6 +1,7 @@
 const names=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const excluded='[data-dcb-sidebar-ghost],[data-dcb-sidebar-layout-probe]'
 const labels={done:'其他会话已完成',waiting:'其他会话等待回答',error:'其他会话执行失败'}
+const statusLabels={done:'已完成',waiting:'等待回答',error:'执行失败'}
 const stopped=new Set(['cancel','cancelled','canceled','abort','aborted','interrupted','stopped','stop'])
 const failed=new Set(['error','failed','failure'])
 
@@ -19,6 +20,26 @@ export const sidebarAttentionCss=`
   .dcb-attention-button[data-kind=error] { --attention-color:#cf424c; --attention-bg:#fcecee; --attention-hover:#f9dce0; }
   .dcb-attention-button svg { width:26px; height:26px; overflow:visible; fill:none; stroke:currentColor; stroke-width:2.3; stroke-linecap:round; stroke-linejoin:round; }
   .dcb-attention-count { position:absolute; top:0; right:0; min-width:15px; height:15px; padding:0 3px; border-radius:8px; background:var(--attention-color); color:white; font:600 10px/15px system-ui,sans-serif; text-align:center; }
+  .dcb-attention-popover { position:fixed; z-index:36; width:min(320px,calc(100vw - 16px)); max-height:calc(100dvh - 16px); display:flex; flex-direction:column; padding:8px; border:1px solid #d8dce5; border-radius:14px; background:rgba(255,255,255,.98); color:#343740; box-shadow:0 10px 34px #25324a2b,0 2px 6px #25324a12; transform-origin:0 24px; }
+  .dcb-attention-popover[data-moving] { will-change:opacity,transform,filter; }
+  .dcb-attention-popover-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0; padding:8px 10px 10px; font:600 13px/20px system-ui,sans-serif; }
+  .dcb-attention-popover-total { color:#737985; font-weight:400; }
+  .dcb-attention-session-list { min-height:0; max-height:360px; margin:0; padding:0; overflow-y:auto; overscroll-behavior:contain; list-style:none; }
+  .dcb-attention-session-item { min-height:0; margin:0; overflow:hidden; }
+  .dcb-attention-session-item[data-moving] { will-change:height,opacity,transform,filter; }
+  .dcb-attention-session { display:flex; align-items:center; gap:10px; width:100%; min-width:0; min-height:52px; padding:9px 10px; border:0; border-radius:9px; background:transparent; color:inherit; text-align:left; font:13px/20px system-ui,sans-serif; cursor:pointer; transition:background-color 180ms cubic-bezier(.4,0,.2,1),transform 180ms cubic-bezier(.4,0,.2,1); }
+  .dcb-attention-session:hover { background:#73798512; }
+  .dcb-attention-session:active { transform:scale(.97); }
+  .dcb-attention-session:focus-visible { outline:2px solid #737985; outline-offset:-2px; background:#73798512; }
+  .dcb-attention-session:disabled { cursor:progress; opacity:.65; }
+  .dcb-attention-session-dot { flex:none; width:8px; height:8px; border-radius:50%; background:var(--attention-color); }
+  .dcb-attention-session-copy { flex:1; min-width:0; }
+  .dcb-attention-session-title { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
+  .dcb-attention-session-status { display:block; color:var(--attention-color); font-size:12px; }
+  .dcb-attention-popover-error { margin:6px 10px; font:12px/18px system-ui,sans-serif; }
+  .dcb-attention-session[data-kind=done] { --attention-color:#218552; }
+  .dcb-attention-session[data-kind=waiting] { --attention-color:#6861c3; }
+  .dcb-attention-session[data-kind=error] { --attention-color:#cf424c; }
   .dcb-attention-check { stroke-dasharray:24; animation:dcb-attention-check 3.2s cubic-bezier(.22,.8,.26,1) infinite; }
   .dcb-attention-orbit { opacity:.35; transform-origin:12px 12px; animation:dcb-attention-orbit 3.2s ease-in-out infinite; }
   .dcb-attention-dots circle { fill:currentColor; stroke:none; }
@@ -36,30 +57,159 @@ export const sidebarAttentionCss=`
   @keyframes dcb-attention-ring { 0%{transform:scale(.86);opacity:.6} 38%{transform:scale(1.18);opacity:0} 100%{transform:scale(1.18);opacity:0} }
   body[data-ds-dark-theme] .dcb-sidebar-attention { background:rgba(40,42,48,.97); border-color:#595b67; box-shadow:0 7px 24px #0005; }
   body[data-ds-dark-theme] .dcb-sidebar-attention::before { border-color:#595b67; }
+  body[data-ds-dark-theme] .dcb-attention-popover { background:rgba(40,42,48,.98); color:#edf0f5; border-color:#595b67; box-shadow:0 10px 34px #0006; }
+  body[data-ds-dark-theme] .dcb-attention-popover-total { color:#b6bbc6; }
+  body[data-ds-dark-theme] .dcb-attention-session:hover,body[data-ds-dark-theme] .dcb-attention-session:focus-visible { background:#ffffff10; }
+  body[data-ds-dark-theme] .dcb-attention-session[data-kind=done] { --attention-color:#78dba4; }
+  body[data-ds-dark-theme] .dcb-attention-session[data-kind=waiting] { --attention-color:#b6adff; }
+  body[data-ds-dark-theme] .dcb-attention-session[data-kind=error] { --attention-color:#ff969e; }
   body[data-ds-dark-theme] .dcb-attention-button[data-kind=done] { --attention-color:#78dba4; --attention-bg:#254536; --attention-hover:#315b44; }
   body[data-ds-dark-theme] .dcb-attention-button[data-kind=waiting] { --attention-color:#b6adff; --attention-bg:#393451; --attention-hover:#49426b; }
   body[data-ds-dark-theme] .dcb-attention-button[data-kind=error] { --attention-color:#ff969e; --attention-bg:#512f36; --attention-hover:#683b43; }
-  [data-dcb-background-only] .dcb-sidebar-attention { visibility:hidden; }
+  [data-dcb-background-only] .dcb-sidebar-attention,[data-dcb-background-only] .dcb-attention-popover { visibility:hidden; }
   @media(prefers-reduced-motion:reduce),(forced-colors:active) { .dcb-sidebar-attention * { animation:none!important; transition:none!important; } .dcb-attention-check{stroke-dashoffset:0} .dcb-attention-dots circle{opacity:1} .dcb-attention-ring{opacity:0} }
   @media(forced-colors:active) { .dcb-sidebar-attention,.dcb-sidebar-attention::before { background:Canvas; border-color:CanvasText; box-shadow:none; } .dcb-attention-button { color:ButtonText!important; background:ButtonFace!important; border:1px solid ButtonText; } .dcb-attention-count { color:HighlightText; background:Highlight; } }
+  @media(prefers-reduced-motion:reduce),(forced-colors:active) { .dcb-attention-popover * { transition:none!important; } }
+  @media(forced-colors:active) { .dcb-attention-popover { background:Canvas!important; color:CanvasText!important; border-color:CanvasText!important; box-shadow:none!important; } .dcb-attention-session-status,.dcb-attention-popover-total { color:CanvasText!important; } .dcb-attention-session-dot { background:CanvasText!important; } }
 `
 
 // Read only the host's root status sources and already-retained event tails.
-// Never open another session, load its transcript, or alter its unread marker.
+// Navigation uses the host only after an explicit session-list activation.
 export function createSidebarAttention(doc,win){
   const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
   const states=new Map(),acknowledged=new Map(),failures=new Map(),tails=new Map(),cells=new Map()
+  const notifications=new Map(),popupRows=new Map()
   const watchedMotion=new WeakSet()
   let services=null,unsubscribers=[],root=null,rootAnimation=null,revision=0,frame=0,enabled=true,disposed=false
+  let popup=null,popupList=null,popupTotal=null,popupError=null,popupAnimation=null,popupRevision=0,closeTimer=0,hovered=null,popupTrigger=null,suppressFocus=false,opening=null
   const rest={opacity:1,transform:'none',filter:'blur(0px)'}
   function schedule(){if(!disposed&&!frame)frame=win.requestAnimationFrame(()=>{frame=0;sync()})}
-  function animate(node,frames,id){
+  function animate(node,frames,id,options={}){
     if(quiet.matches||doc.hidden||typeof node.animate!=='function')return null
-    const animation=node.animate(frames,{duration:260,easing:'cubic-bezier(.22,.8,.26,1)',fill:'both'});animation.id=id
+    const animation=node.animate(frames,{duration:260,easing:'cubic-bezier(.22,.8,.26,1)',fill:'both',...options});animation.id=id
     return animation
   }
   function cancelRoot(){rootAnimation?.cancel();rootAnimation=null}
+  function cancelClose(){win.clearTimeout(closeTimer);closeTimer=0}
+  function popupControls(expanded){
+    for(const cell of cells.values()){
+      cell.button.setAttribute('aria-expanded',String(expanded))
+      if(expanded)cell.button.setAttribute('aria-controls',popup.id)
+      else cell.button.removeAttribute('aria-controls')
+    }
+  }
+  function closePopup(immediate=false){
+    cancelClose()
+    if(!popup||popup.hasAttribute('data-leaving')&&!immediate)return
+    const node=popup,token=++popupRevision,current=win.getComputedStyle(node)
+    const from={opacity:current.opacity,transform:current.transform,filter:current.filter}
+    popupAnimation?.cancel();popupControls(false);node.setAttribute('data-leaving','');node.setAttribute('aria-hidden','true');node.inert=true;node.setAttribute('data-moving','')
+    popupAnimation=immediate?null:animate(node,[from,{opacity:0,transform:'translateX(-8px) scale(.9)',filter:'blur(3px)'}],'dcb-attention-popover-out',{duration:200,easing:'cubic-bezier(.4,0,.2,1)'})
+    const finish=()=>{
+      if(token!==popupRevision)return
+      popupAnimation?.cancel();popupAnimation=null
+      for(const row of popupRows.values())row.animation?.cancel()
+      popupRows.clear();node.remove();popup=null;popupList=null;popupTotal=null;popupError=null;hovered=null;popupTrigger=null
+    }
+    if(popupAnimation)popupAnimation.finished.then(finish,()=>{});else finish()
+  }
+  function queueClose(){
+    cancelClose();closeTimer=win.setTimeout(()=>{closeTimer=0;if(!hovered&&!root?.contains(doc.activeElement)&&!popup?.contains(doc.activeElement))closePopup()},160)
+  }
+  function enterPopup(event){
+    if(event.pointerType==='touch')return
+    hovered=event.currentTarget;cancelClose();showPopup()
+  }
+  function leavePopup(event){if(hovered===event.currentTarget)hovered=null;queueClose()}
+  function placePopup(){
+    if(!popup||!root||popup.hasAttribute('data-leaving'))return
+    const bounds=root.getBoundingClientRect(),width=popup.offsetWidth
+    // Measure the unclipped buttons so staggered zero-height rows cannot place
+    // a growing panel beyond the viewport during its entrance.
+    const rowsHeight=[...popupRows.values()].filter(row=>!row.leaving).reduce((height,row)=>height+row.button.getBoundingClientRect().height,0)
+    const height=Math.min(420,win.innerHeight-16,16+popup.firstElementChild.getBoundingClientRect().height+rowsHeight)
+    const beside=bounds.right+10+width<=win.innerWidth-8
+    const left=beside?bounds.right+10:Math.min(bounds.left,win.innerWidth-width-8)
+    const top=beside?bounds.top:bounds.bottom+8+height<=win.innerHeight-8?bounds.bottom+8:bounds.top-height-8
+    popup.style.maxHeight=height+'px';popup.style.left=Math.max(8,left)+'px';popup.style.top=Math.max(8,Math.min(top,win.innerHeight-height-8))+'px'
+  }
+  function selectSession(id){
+    const entry=notifications.get(id),workspace=services?.uiWorkspace
+    if(!entry||opening||typeof workspace?.openSession!=='function')return
+    const request={id,services};opening=request
+    const row=popupRows.get(id);if(row){row.button.disabled=true;row.button.setAttribute('aria-busy','true')}
+    if(popupError){popupError.hidden=true;popupError.textContent=''}
+    const failed=()=>{
+      if(opening!==request)return
+      opening=null
+      if(disposed)return
+      if(row){row.button.disabled=false;row.button.removeAttribute('aria-busy')}
+      if(popupError){popupError.textContent='未能切换会话，请重试。';popupError.hidden=false}
+    }
+    let result
+    try{result=workspace.openSession(id)}catch{failed();return}
+    Promise.resolve(result).then(()=>{
+      if(opening!==request)return
+      opening=null
+      if(disposed||services!==request.services)return
+      acknowledged.set(id,entry.token);closePopup();schedule()
+    },failed)
+  }
+  function renderPopupRows(){
+    if(!popup||popup.hasAttribute('data-leaving'))return
+    popupTotal.textContent=notifications.size+' 个会话'
+    for(const [id,row]of popupRows)if(!notifications.has(id)&&!row.leaving){
+      const style=win.getComputedStyle(row.node),height=row.node.getBoundingClientRect().height
+      const from={height:height+'px',opacity:style.opacity,transform:style.transform,filter:style.filter}
+      row.animation?.cancel();row.leaving=true;row.node.setAttribute('data-leaving','');row.node.setAttribute('data-moving','');row.node.inert=true
+      row.animation=animate(row.node,[from,{height:'0px',opacity:0,transform:'translateX(-8px)',filter:'blur(2px)'}],'dcb-attention-row-out',{duration:200})
+      const finish=()=>{if(!row.leaving)return;row.animation?.cancel();row.node.remove();popupRows.delete(id)}
+      if(row.animation)row.animation.finished.then(finish,()=>{});else finish()
+    }
+    let index=0
+    for(const [id,entry]of notifications){
+      let row=popupRows.get(id),from=null
+      if(!row){
+        const node=doc.createElement('li'),button=doc.createElement('button'),dot=doc.createElement('span'),copy=doc.createElement('span'),title=doc.createElement('span'),status=doc.createElement('span')
+        node.className='dcb-attention-session-item';button.className='dcb-attention-session';button.type='button';button.dataset.sessionId=id;dot.className='dcb-attention-session-dot';dot.setAttribute('aria-hidden','true');copy.className='dcb-attention-session-copy';title.className='dcb-attention-session-title';status.className='dcb-attention-session-status';copy.append(title,status);button.append(dot,copy);node.append(button);popupList.append(node)
+        button.addEventListener('click',()=>selectSession(id));row={node,button,title,status,animation:null,leaving:false};popupRows.set(id,row)
+        from={height:'0px',opacity:0,transform:'translateX(-8px)',filter:'blur(2px)'}
+      }else if(row.leaving){
+        const style=win.getComputedStyle(row.node);from={height:row.node.getBoundingClientRect().height+'px',opacity:style.opacity,transform:style.transform,filter:style.filter};row.animation?.cancel();row.leaving=false;row.node.inert=false;row.node.removeAttribute('data-leaving')
+      }
+      const title=String(entry.title||id),status=statusLabels[entry.kind]
+      if(row.title.textContent!==title)row.title.textContent=title
+      if(row.status.textContent!==status)row.status.textContent=status
+      row.button.dataset.kind=entry.kind;row.button.title=title;row.button.setAttribute('aria-label',title+'，'+status);row.button.disabled=opening?.id===id
+      if(opening?.id!==id)row.button.removeAttribute('aria-busy')
+      if(from){
+        row.node.setAttribute('data-moving','')
+        row.animation=animate(row.node,[from,{height:row.button.getBoundingClientRect().height+'px',...rest}],'dcb-attention-row-in',{delay:Math.min(index*24,120)})
+        const animation=row.animation,finish=()=>{if(row.animation!==animation)return;animation?.cancel();row.animation=null;row.node.removeAttribute('data-moving')}
+        if(animation)animation.finished.then(finish,()=>{});else finish()
+      }
+      index++
+    }
+  }
+  function showPopup(){
+    cancelClose()
+    if(disposed||!root||root.hasAttribute('data-leaving')||!notifications.size)return
+    if(popup&&!popup.hasAttribute('data-leaving'))return
+    let from={opacity:0,transform:'translateX(-8px) scale(.9)',filter:'blur(3px)'}
+    if(popup){const style=win.getComputedStyle(popup);from={opacity:style.opacity,transform:style.transform,filter:style.filter};popupAnimation?.cancel()}
+    else{
+      popup=doc.createElement('section');popup.className='dcb-attention-popover';popup.id='dcb-attention-sessions-'+Math.random().toString(36).slice(2,9);popup.setAttribute('role','dialog');popup.setAttribute('aria-label','待提醒会话')
+      const heading=doc.createElement('h2'),label=doc.createElement('span');heading.className='dcb-attention-popover-heading';label.textContent='待提醒会话';popupTotal=doc.createElement('span');popupTotal.className='dcb-attention-popover-total';heading.append(label,popupTotal)
+      popupList=doc.createElement('ul');popupList.className='dcb-attention-session-list';popupError=doc.createElement('p');popupError.className='dcb-attention-popover-error';popupError.setAttribute('role','status');popupError.hidden=true;popup.append(heading,popupList,popupError)
+      popup.addEventListener('pointerenter',enterPopup);popup.addEventListener('pointerleave',leavePopup);popup.addEventListener('focusout',queueClose);doc.body.append(popup)
+    }
+    const token=++popupRevision;popup.removeAttribute('data-leaving');popup.removeAttribute('aria-hidden');popup.inert=false;popup.setAttribute('data-moving','');popupControls(true);renderPopupRows();placePopup()
+    popupAnimation=animate(popup,[from,rest],'dcb-attention-popover-in')
+    const animation=popupAnimation,finish=()=>{if(token!==popupRevision)return;animation?.cancel();popupAnimation=null;popup?.removeAttribute('data-moving')}
+    if(animation)animation.finished.then(finish,()=>{});else finish()
+  }
   function hide(immediate=false){
+    closePopup(immediate)
     if(!root)return
     if(root.hasAttribute('data-leaving')&&!immediate)return
     const node=root,token=++revision,current=win.getComputedStyle(node)
@@ -79,13 +229,14 @@ export function createSidebarAttention(doc,win){
     }
   }
   function makeRoot(){
-    root=doc.createElement('div');root.className='dcb-sidebar-attention';root.setAttribute('role','status');root.setAttribute('aria-live','polite');root.setAttribute('aria-label','其他会话有新状态，点击展开侧栏查看');doc.body.append(root)
+    root=doc.createElement('div');root.className='dcb-sidebar-attention';root.setAttribute('role','status');root.setAttribute('aria-live','polite');root.setAttribute('aria-label','其他会话有新状态，悬停查看会话列表');root.addEventListener('pointerenter',enterPopup);root.addEventListener('pointerleave',leavePopup);root.addEventListener('focusin',event=>{popupTrigger=event.target.closest('button');if(!suppressFocus)showPopup()});root.addEventListener('focusout',queueClose);doc.body.append(root)
     rootAnimation=animate(root,[{opacity:0,transform:'translate(-12px,8px) scale(.84)',filter:'blur(3px)'},rest],'dcb-attention-in')
     const animation=rootAnimation;animation?.finished.then(()=>{if(rootAnimation===animation)cancelRoot()},()=>{})
   }
   function addCell(kind){
     const node=doc.createElement('div'),button=doc.createElement('button'),count=doc.createElement('span')
-    node.className='dcb-attention-cell';node.dataset.kind=kind;button.className='dcb-attention-button';button.type='button';button.dataset.kind=kind
+    node.className='dcb-attention-cell';node.dataset.kind=kind;button.className='dcb-attention-button';button.type='button';button.dataset.kind=kind;button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-expanded',String(!!popup&&!popup.hasAttribute('data-leaving')))
+    if(popup&&!popup.hasAttribute('data-leaving'))button.setAttribute('aria-controls',popup.id)
     const shape=kind==='done'?'<circle class="dcb-attention-orbit" cx="12" cy="12" r="9.2" stroke-width="1.4"/><path class="dcb-attention-check" d="m6.5 12 3.5 3.6 7.5-7.4"/>':kind==='waiting'?'<g class="dcb-attention-dots"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></g>':'<circle class="dcb-attention-ring" cx="12" cy="12" r="9.3" stroke-width="1.4"/><g class="dcb-attention-alert"><path d="M12 5v8"/><circle cx="12" cy="18" r="1.3" fill="currentColor" stroke="none"/></g>'
     button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+shape+'</svg>';count.className='dcb-attention-count';count.setAttribute('aria-hidden','true');button.append(count);node.append(button);button.addEventListener('click',open);root.append(node)
     const cell={node,button,count,animation:null,leaving:false};cells.set(kind,cell);return cell
@@ -99,7 +250,7 @@ export function createSidebarAttention(doc,win){
         const cell=previous||addCell(kind)
         if(cell.leaving){cell.animation?.cancel();cell.animation=null;cell.leaving=false}
         if(!previous){cell.animation=animate(cell.node,[{width:'0px',opacity:0,transform:'scale(.8)',filter:'blur(2px)'},{width:'40px',...rest}],'dcb-attention-cell-in');const animation=cell.animation;animation?.finished.then(()=>{if(cell.animation===animation){animation.cancel();cell.animation=null}},()=>{})}
-        const label=`${labels[kind]}（${total}），点击展开侧栏查看`;cell.button.setAttribute('aria-label',label);cell.button.title=label;cell.count.hidden=total<2;cell.count.textContent=total>99?'99+':String(total)
+        const label=`${labels[kind]}（${total}），悬停查看会话，点击展开侧栏`;cell.button.setAttribute('aria-label',label);cell.count.hidden=total<2;cell.count.textContent=total>99?'99+':String(total)
       }else if(previous&&!previous.leaving){
         previous.leaving=true;previous.animation?.cancel();previous.animation=animate(previous.node,[{width:'40px',...rest},{width:'0px',opacity:0,transform:'scale(.8)',filter:'blur(2px)'}],'dcb-attention-cell-out')
         const finish=()=>{if(!previous.leaving)return;previous.animation?.cancel();previous.node.remove();cells.delete(kind)}
@@ -134,6 +285,7 @@ export function createSidebarAttention(doc,win){
     const list=services?.sessions?.list?.getSnapshot(),statuses=services?.uiSession?.sessionStatus?.getSnapshot()
     if(!list||!statuses){hide(true);return}
     const ids=new Set(Object.keys(list.byId||{})),groups={}
+    notifications.clear()
     for(const [id,tail]of tails)if(!ids.has(id)){tail.off();tails.delete(id)}
     for(const id of states.keys())if(!ids.has(id)){states.delete(id);acknowledged.delete(id);failures.delete(id)}
     for(const id of failures.keys())if(!ids.has(id))failures.delete(id)
@@ -154,12 +306,14 @@ export function createSidebarAttention(doc,win){
         tail.seq=latest
       }
       const reason=tail?.reason||'',isOther=!visible.has(id)&&!(row.retainedBy?.mainView>0),topLevel=row.origin!=='subagent'&&!row.parentSessionId
-      const kind=topLevel&&isOther?(status.pendingInteraction?'waiting':!running&&(failures.has(id)||status.completionUnread&&failed.has(reason))?'error':!running&&status.completionUnread&&!stopped.has(reason)?'done':null):null
+      // Keep the occurrence token stable when a session becomes visible. A
+      // later switch away must not re-announce the same pending question.
+      const kind=topLevel?(status.pendingInteraction?'waiting':!running&&(failures.has(id)||status.completionUnread&&failed.has(reason))?'error':!running&&status.completionUnread&&!stopped.has(reason)?'done':null):null
       const interaction=status.pendingInteraction,pending=interaction&&(interaction.key??interaction.id??interaction.requestId??interaction)
       const changed=kind!==previous.kind||previous.running!==running||(kind==='waiting'&&previous.pending!==pending)||(kind==='error'&&previous.failure!==failures.get(id))
       const state={generation:previous.generation,kind,running,pending,failure:failures.get(id),token:changed?{}:previous.token};states.set(id,state)
       if(expanded||!enabled||!isOther)acknowledged.set(id,state.token)
-      if(kind&&acknowledged.get(id)!==state.token)groups[kind]=(groups[kind]||0)+1
+      if(kind&&isOther&&acknowledged.get(id)!==state.token){groups[kind]=(groups[kind]||0)+1;notifications.set(id,{id,kind,token:state.token,title:row.displayTitle||row.title||id})}
     }
     const collapsed=frames.find(node=>node.getAttribute('data-sidebar-collapsed')==='true')
     const anchor=enabled&&!doc.hidden&&!expanded&&Object.keys(groups).length?collapsedAnchor(collapsed):null
@@ -168,9 +322,10 @@ export function createSidebarAttention(doc,win){
       render(groups)
       const {edge}=anchor
       if(edge){const bounds=edge.getBoundingClientRect(),left=Math.min(bounds.left+26,win.innerWidth-root.offsetWidth-8)+'px',top=Math.max(8,bounds.top+bounds.height/2-46)+'px';if(root.style.left!==left)root.style.left=left;if(root.style.top!==top)root.style.top=top}
+      renderPopupRows();placePopup()
     }
   }
-  function disconnect(){for(const off of unsubscribers)off?.();unsubscribers=[];for(const tail of tails.values())tail.off();tails.clear();services=null}
+  function disconnect(){for(const off of unsubscribers)off?.();unsubscribers=[];for(const tail of tails.values())tail.off();tails.clear();notifications.clear();opening=null;closePopup(true);services=null}
   function connect(value){
     disconnect();services=value
     if(value?.sessions?.list&&value?.uiSession?.sessionStatus){
@@ -179,12 +334,28 @@ export function createSidebarAttention(doc,win){
     }
     schedule();return()=>{if(services===value){disconnect();hide(true)}}
   }
-  const observer=new win.MutationObserver(records=>{if(records.some(record=>!record.target.closest?.('.dcb-sidebar-attention')&&(record.type==='attributes'||[...record.addedNodes,...record.removedNodes].some(node=>node.nodeType===1&&(node.matches(names('frame')+', [data-conversation-content]')||node.querySelector(names('frame')+', [data-conversation-content]'))))))schedule()})
+  const observer=new win.MutationObserver(records=>{if(records.some(record=>!record.target.closest?.('.dcb-sidebar-attention,.dcb-attention-popover')&&(record.type==='attributes'||[...record.addedNodes,...record.removedNodes].some(node=>node.nodeType===1&&(node.matches(names('frame')+', [data-conversation-content]')||node.querySelector(names('frame')+', [data-conversation-content]'))))))schedule()})
   observer.observe(doc.body,{childList:true,subtree:true,attributes:true,attributeFilter:['data-sidebar-collapsed','data-dcb-sidebar-moving','data-conversation-session','data-dcb-focus-frame']})
   const motionEnd=event=>{if(['width','grid-template-columns','left','transform','translate'].includes(event.propertyName)&&event.target.matches(names('frame')+','+names('sidebarCol')+',[data-dcb-sidebar-toggle-right]'))schedule()}
   const visibility=()=>{if(doc.hidden)hide(true);else schedule()}
-  const calm=()=>{if(quiet.matches){if(root?.dataset.leaving!==undefined)hide(true);else cancelRoot();for(const [kind,cell]of cells){cell.animation?.cancel();cell.animation=null;if(cell.leaving){cell.node.remove();cells.delete(kind)}}}schedule()}
+  const calm=()=>{if(quiet.matches){if(root?.dataset.leaving!==undefined)hide(true);else cancelRoot();for(const [kind,cell]of cells){cell.animation?.cancel();cell.animation=null;if(cell.leaving){cell.node.remove();cells.delete(kind)}}if(popup?.hasAttribute('data-leaving'))closePopup(true);else{popupAnimation?.cancel();popupAnimation=null;popup?.removeAttribute('data-moving');for(const [id,row]of popupRows){row.animation?.cancel();row.animation=null;row.node.removeAttribute('data-moving');if(row.leaving){row.node.remove();popupRows.delete(id)}}}}schedule()}
+  const outside=event=>{if(popup&&!root?.contains(event.target)&&!popup.contains(event.target))closePopup()}
+  const keyboard=event=>{
+    const trigger=event.target.closest?.('.dcb-attention-button')
+    if(event.key==='Escape'&&popup&&!popup.hasAttribute('data-leaving')){
+      event.preventDefault();event.stopPropagation()
+      const restoreFocus=popup.contains(doc.activeElement),target=popupTrigger||root?.querySelector('button');closePopup()
+      if(restoreFocus){suppressFocus=true;target?.focus({preventScroll:true});suppressFocus=false}
+    }else if((event.key==='ArrowDown'||event.key==='ArrowUp')&&(trigger||popup?.contains(event.target))){
+      event.preventDefault();if(trigger)popupTrigger=trigger;showPopup()
+      const buttons=[...popupRows.values()].filter(row=>!row.leaving&&!row.button.disabled).map(row=>row.button),index=buttons.indexOf(doc.activeElement)
+      const next=index<0?(event.key==='ArrowDown'?0:buttons.length-1):(index+(event.key==='ArrowDown'?1:buttons.length-1))%buttons.length
+      buttons[next]?.focus({preventScroll:true})
+      doc.activeElement?.scrollIntoView({block:'nearest'})
+    }
+  }
   doc.addEventListener('visibilitychange',visibility);quiet.addEventListener('change',calm)
+  doc.addEventListener('pointerdown',outside,true);doc.addEventListener('keydown',keyboard,true)
   doc.addEventListener('transitionend',motionEnd,true);doc.addEventListener('transitioncancel',motionEnd,true);win.addEventListener('resize',schedule)
-  return{connect,sync,dispose(){disposed=true;disconnect();observer.disconnect();win.cancelAnimationFrame(frame);doc.removeEventListener('visibilitychange',visibility);doc.removeEventListener('transitionend',motionEnd,true);doc.removeEventListener('transitioncancel',motionEnd,true);win.removeEventListener('resize',schedule);quiet.removeEventListener('change',calm);hide(true);states.clear();acknowledged.clear();failures.clear()}}
+  return{connect,sync,dispose(){disposed=true;disconnect();observer.disconnect();win.cancelAnimationFrame(frame);doc.removeEventListener('visibilitychange',visibility);doc.removeEventListener('pointerdown',outside,true);doc.removeEventListener('keydown',keyboard,true);doc.removeEventListener('transitionend',motionEnd,true);doc.removeEventListener('transitioncancel',motionEnd,true);win.removeEventListener('resize',schedule);quiet.removeEventListener('change',calm);hide(true);states.clear();acknowledged.clear();failures.clear()}}
 }

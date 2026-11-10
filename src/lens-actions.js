@@ -57,6 +57,7 @@ export {createConversationSearch,conversationSearchCss} from './conversation-sea
 export {copyFileToClipboard,fileApplications,openFileWith,renameFile,recycleFile} from './file-context-actions.js'
 export {createStatPopoverMotion,statPopoverCss} from './stat-popover-motion.js'
 export {createHeaderMenuMotion,headerMenuMotionCss} from './header-menu-motion.js'
+export {createImagePreviewMotion,imagePreviewMotionCss} from './image-preview-motion.js'
 export {motion} from './motion.js'
 export {messageImageLayoutCss,createMessageImageLayout} from './message-image-layout.js'
 export {fileOpenHitTargetCss} from './file-open-hit-target.js'

@@ -2,6 +2,11 @@ export const RUNNING_BUILTIN='builtin-whale'
 export const RUNNING_BASE='/dsh-ui-beautify/running'
 export const RUNNING_LIMITS={files:100,entries:128,fileBytes:8*1024*1024,totalBytes:96*1024*1024,zipBytes:100*1024*1024,manifestBytes:65536,frames:240}
 export const RUNNING_LABEL_LIMIT={lines:20,lineChars:40,chars:1200}
+export const RUNNING_CSS_LIMIT=12000
+export function legacyRunningCss(value){
+  const labels=runningLabelLines(value?.runningAnimationLabel)
+  return labels.length?`.thinking {\n  --thinking-text: ${JSON.stringify(labels)};\n  --thinking-random: ${value.runningAnimationLabelRandom!==false};\n}`:''
+}
 const number=(value,fallback,min,max)=>Number.isFinite(Number(value))?Math.max(min,Math.min(max,Number(value))):fallback
 export function normalizeRunningAnimation(value={}){
   value=value&&typeof value==='object'?value:{}
@@ -10,7 +15,8 @@ export function normalizeRunningAnimation(value={}){
     runningAnimationRandom:value.runningAnimationRandom!==false,runningAnimationSize:number(value.runningAnimationSize,32,16,80),runningAnimationGap:number(value.runningAnimationGap,6,0,24),runningAnimationOpacity:number(value.runningAnimationOpacity,1,.2,1),
     // Keep the raw text while editing: trimming here would swallow new lines.
     runningAnimationLabel:typeof value.runningAnimationLabel==='string'?value.runningAnimationLabel.replace(/\r\n?/g,'\n').slice(0,RUNNING_LABEL_LIMIT.chars):'',
-    runningAnimationLabelRandom:value.runningAnimationLabelRandom!==false}
+    runningAnimationLabelRandom:value.runningAnimationLabelRandom!==false,
+    runningAnimationCss:typeof value.runningAnimationCss==='string'?value.runningAnimationCss.slice(0,RUNNING_CSS_LIMIT):legacyRunningCss(value)}
 }
 export function runningLabelLines(value){
   if(typeof value!=='string')return []

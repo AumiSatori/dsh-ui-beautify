@@ -9,7 +9,7 @@ import { chromium } from '@playwright/test'
 const project = fileURLToPath(new URL('..', import.meta.url))
 const output = resolve(process.env.DSH_CLAUDE_OUTPUT_DIR || resolve(project, '..', '.scratch', 'claude-beautify'))
 const presentationSettingKeys = [
-  'iconStyle', 'runningAnimationLabel', 'runningAnimationLabelRandom', 'toolbar', 'userBubbleThemes', 'welcomeThemes', 'welcomeWindowScale',
+  'iconStyle', 'runningAnimationLabel', 'runningAnimationLabelRandom', 'runningAnimationCss', 'toolbar', 'userBubbleThemes', 'welcomeThemes', 'welcomeWindowScale',
   'runningAnimationEnabled','runningAnimationPack','runningAnimationActions','runningAnimationRandom','runningAnimationSize','runningAnimationGap','runningAnimationOpacity',
   'backgroundBlur', 'backgroundEnabled', 'backgroundFit', 'backgroundInk', 'backgroundName', 'backgroundOpacity', 'backgroundPosition', 'backgroundRevision', 'backgroundSound', 'backgroundThemes',
   'cardStyle', 'chatUnderComposer', 'composerButtonGlass', 'composerStyle', 'detailMotion', 'enabled', 'headerCentered',

@@ -12,10 +12,11 @@ const fd=openSync(archive,'r'),header=Buffer.alloc(16);readSync(fd,header,0,16,0
 const bytes=Buffer.alloc(header.readUInt32LE(12));readSync(fd,bytes,0,bytes.length,16)
 const tree=JSON.parse(bytes),base=8+header.readUInt32LE(4)
 function source(path){let item=tree;for(const name of path.split('/'))item=item.files[name];const bytes=Buffer.alloc(item.size);readSync(fd,bytes,0,bytes.length,base+Number(item.offset));return bytes.toString()}
-let conversation,opener,sessionExport,frontend,nativeCss
+let conversation,opener,sessionExport,subagent,jobs,frontend,nativeCss
 try{
  const pkg=name=>`dsh/node_modules/@deepseek-ai/${name}`
  conversation=source(pkg('dsh-client-ui-conversation')+'/lib/client.js');opener=source(pkg('dsh-client-ui-open-in-app')+'/lib/client.js');sessionExport=source(pkg('dsh-session-log-export')+'/lib/client.js')
+ subagent=source(pkg('dsh-client-ui-subagent')+'/lib/client.js');jobs=source(pkg('dsh-client-ui-jobs')+'/lib/client.js')
  const assets=tree.files.dsh.files.node_modules.files['@deepseek-ai'].files['dsh-web-frontend'].files.dist.files.assets.files
  frontend=source(pkg('dsh-web-frontend')+'/dist/assets/'+Object.keys(assets).find(name=>/^index-.+\.js$/.test(name)))
  nativeCss=source(pkg('dsh-web-frontend')+'/dist/assets/'+Object.keys(assets).find(name=>/^index-.+\.css$/.test(name)))
@@ -23,15 +24,21 @@ try{
 function region(text,anchor,end='//#endregion'){const start=text.indexOf(anchor);assert.ok(start>=0,'native anchor '+anchor);return text.slice(start,text.indexOf(end,start))}
 function sheet(text,name){const start=text.indexOf(name+'.module.css.mjs'),code=text.slice(text.lastIndexOf('//#region',start),text.indexOf('//#endregion',start));return JSON.parse(code.match(/const css\$?\d* = ("(?:[^"\\]|\\.)*");/)[1])}
 function classes(text,name){const start=text.indexOf("var "+name+"_module_css_default = ");assert.ok(start>=0);return text.slice(start,text.indexOf("};",start)+2)}
-const primitives=nativeFrontendModule(frontend,['Menu'])
+const primitives=nativeFrontendModule(frontend,['Menu','MenuSurface','useAnchoredPosition','useDismissOnOutsidePointer'])
 const demo=`import React from 'react';import * as jsx from 'react/jsx-runtime';import * as dom from 'react-dom';import {createRoot}from'react-dom/client';import{createHeaderMenuMotion,headerMenuMotionCss}from'./src/header-menu-motion.js';
-const react=React,react_jsx_runtime=jsx,jsxRuntime=jsx,ReactDOM=dom,clsx=(...values)=>values.filter(Boolean).join(' ');
+const react=React,react_jsx_runtime=jsx,react_dom=dom,jsxRuntime=jsx,ReactDOM=dom,clsx=(...values)=>values.filter(Boolean).join(' ');
 ${primitives.code}
 const NativeMenu=${primitives.names.Menu};
 ${classes(opener,'OpenTargetButton')}
 ${classes(conversation,'ConversationRoot')}
 ${classes(sessionExport,'HeaderAction')}
-const _deepseek_ai_dsh_client_ui_primitives={Menu:NativeMenu,Tooltip:({children})=>children,Button:({size,variant,...props})=><button {...props}/>,IconEllipsisOutlineRegular:()=> <span>…</span>,IconCopyOutlineRegular:()=> <span>⧉</span>,IconDownloadOutlineRegular:()=> <span>↓</span>,IconPaperPlaneOutlineRegular:()=> <span>➤</span>,IconChevronDownOutlineRegular:()=> <span>⌄</span>,IconFolderOpenOutlineRegular:()=> <span>▣</span>};
+const _deepseek_ai_dsh_client_ui_primitives=new Proxy({Menu:NativeMenu,MenuSurface:${primitives.names.MenuSurface},useAnchoredPosition:${primitives.names.useAnchoredPosition},useDismissOnOutsidePointer:${primitives.names.useDismissOnOutsidePointer},Tooltip:({children})=>children,Button:({size,variant,...props})=><button {...props}/>,IconEllipsisOutlineRegular:()=> <span>…</span>,IconCopyOutlineRegular:()=> <span>⧉</span>,IconDownloadOutlineRegular:()=> <span>↓</span>,IconPaperPlaneOutlineRegular:()=> <span>➤</span>,IconChevronDownOutlineRegular:()=> <span>⌄</span>,IconFolderOpenOutlineRegular:()=> <span>▣</span>},{get:(target,key)=>target[key]||(({className})=><span className={className}>•</span>)});
+const NativeSubagent=(()=>{${classes(subagent,'SubagentHeaderLineage')};${region(subagent,'function treeItems(')};return SubagentCatalogAction})();
+const NativeJobs=(()=>{${classes(jobs,'JobListAction')};${region(jobs,'const NO_JOBS =')};return JobListAction})();
+const child={id:'child',label:'合成子智能体',mode:'one-shot',activity:'inactive'};
+const sessions={byId:{root:{id:'root'},child:{id:'child'}},projectionsBySession:{root:{state:'idle',values:{subagentCatalog:[child]}},child:{state:'idle',values:{subagentCatalog:[]}}}};
+const statuses=new Map(),jobRows={rows:{root:[{id:'demo-job',label:'合成后台任务',title:'合成后台任务',status:'running',startedAt:Date.now(),output:{total:0},detail:'合成输出'}]},observed:{}};
+const useSessions=selector=>selector(sessions),useJobs=selector=>selector(jobRows),watchRows=()=>()=>{},observe=()=>()=>{};
 function useOpenTargetGesture(execute){return{pending:false,toast:null,act:operation=>execute(operation)}}function ApplicationIcon(){return <span>▣</span>}
 ${region(opener,'function OpenTargetButton(')}
 ${region(conversation,'function ViewsMoreMenu(').split('/** Approximate')[0]}
@@ -48,14 +55,16 @@ function App(){
   <span data-dcb-toolbar-item={marked?'folder':undefined}><OpenTargetButton applications={[{id:'explorer',name:'文件资源管理器',icon:null},{id:'editor',name:'编辑器',icon:null}]} defaultId="explorer" kind="directory" loading={loading} refresh={refresh} execute={op=>window.chosen=op} t={t}/></span>
   <span data-dcb-toolbar-item={marked?'more':undefined}><SessionLogDownloadHeaderAction sessionId="synthetic" useSessionLogDownload={selector=>selector({bySession:{}})} useSessionMarkdownCopy={selector=>selector({copying:false})} copyMarkdown={()=>{}} useFeedbackAvailable={selector=>selector(true)} request={()=>window.chosen='download'} openFeedback={()=>window.chosen='feedback'} t={t}/></span>
   <ViewsMoreMenu label="更多会话视图" entries={[]} renderSlot={()=> <><button role="menuitem" onClick={()=>window.chosen='trace'}>轨迹</button><button role="menuitem">上下文</button></>}/>
+  <NativeSubagent sessionId="root" useSessions={useSessions} useSessionStatus={selector=>selector(statuses)} openChild={()=>window.chosen='subagent'} openChildAside={()=>{}} refreshProjection={()=>{}} t={(key,values)=>key.startsWith('count.')?'1 个子智能体':key==='tree.aria'?'合成子智能体列表':values?.label||key}/>
+  <NativeJobs sessionId="root" useJobs={useJobs} watchRows={watchRows} observe={observe} killJob={async()=>true} t={(key,values)=>key.startsWith('count.')?'1 个后台任务':key==='list.aria'?'合成后台任务列表':values?.count||key}/>
  </>}</header><main><textarea aria-label="草稿" defaultValue="保持草稿"/><button id="outside">外部区域</button></main>
  <section><header id="preview"><OpenTargetButton applications={[{id:'viewer',name:'查看器',icon:null}]} defaultId="viewer" kind="file" execute={()=>{}} t={key=>key==='path.more'?'预览打开方式':t(key)}/></header></section>
  <NativeMenu open={other} portal autoFocus onClose={()=>setOther(false)} items={[{id:'unrelated',label:'无关菜单'}]} anchor={<button id="other" aria-haspopup="menu" onClick={()=>setOther(v=>!v)}>其他菜单</button>}/></>
 }
 createRoot(document.getElementById('root')).render(<App/>);`
 const built=await build({stdin:{contents:demo,loader:'jsx',resolveDir:project},bundle:true,write:false,format:'iife'})
-const css=sheet(opener,'OpenTargetButton')+sheet(conversation,'ConversationRoot')
-const html=`<!doctype html><meta charset="utf-8"><html data-platform="win32"><style>${nativeCss}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-open-in-app/OpenTargetButton.module.css">${sheet(opener,'OpenTargetButton')}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-conversation/ConversationRoot.module.css">${sheet(conversation,'ConversationRoot')}</style><style data-plugin-css="@deepseek-ai/dsh-session-log-export/HeaderAction.module.css">${sheet(sessionExport,'HeaderAction')}</style><style>${css}${sheet(sessionExport,'HeaderAction')}
+const css=sheet(opener,'OpenTargetButton')+sheet(conversation,'ConversationRoot')+sheet(subagent,'SubagentHeaderLineage')+sheet(jobs,'JobListAction')
+const html=`<!doctype html><meta charset="utf-8"><html data-platform="win32"><style>${nativeCss}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-open-in-app/OpenTargetButton.module.css">${sheet(opener,'OpenTargetButton')}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-conversation/ConversationRoot.module.css">${sheet(conversation,'ConversationRoot')}</style><style data-plugin-css="@deepseek-ai/dsh-session-log-export/HeaderAction.module.css">${sheet(sessionExport,'HeaderAction')}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-subagent/SubagentHeaderLineage.module.css">${sheet(subagent,'SubagentHeaderLineage')}</style><style data-plugin-css="@deepseek-ai/dsh-client-ui-jobs/JobListAction.module.css">${sheet(jobs,'JobListAction')}</style><style>${css}${sheet(sessionExport,'HeaderAction')}
 :root{--dsw-radius-lg:12px;--dsw-radius-sm:8px;--dsw-radius-md:10px;--dsw-menu-surface-fill:#fbfcfce8;--dsw-menu-backdrop-filter:blur(16px);--dsw-alias-bg-base:#f6f6f6;--dsw-alias-label-primary:#252734;--dsw-alias-label-secondary:#626574;--dsw-alias-border-l1:#8883;--dsw-alias-border-l2:#8882;--dsw-alias-border-l4:#8883;--dsw-alias-interactive-bg-hover:#8882;--dsw-elevation-prominent:0 12px 36px #10182a24,0 0 0 1px #8882}*{box-sizing:border-box}body{margin:0;background:#f7f7f7;color:#252734;font:14px/1.5 system-ui}header{display:flex;justify-content:flex-end;align-items:center;gap:12px;height:72px;padding:16px 28px;border-bottom:1px solid #8882}button{font:inherit;cursor:pointer;color:inherit}main{padding:30px}textarea{width:400px;height:120px;display:block;margin-bottom:20px}body[data-ds-dark-theme]{background:#191b21;color:#eee;--dsw-menu-surface-fill:#24262de8;--dsw-alias-bg-base:#191b21;--dsw-alias-label-primary:#eee;--dsw-alias-label-secondary:#bbb}body[data-ds-dark-theme] textarea{background:#25262c;color:#eee}body>button{margin:20px}</style><div id="root"></div><script src="/demo.js"></script>`
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','..','outputs','dsh-ui-beautify-validation'),'header-menu-motion');mkdirSync(output,{recursive:true})
 const server=createServer((req,res)=>{if(req.url==='/demo.js')res.writeHead(200,{'content-type':'text/javascript'}).end(built.outputFiles[0].text);else res.writeHead(200,{'content-type':'text/html;charset=utf-8'}).end(html)})
@@ -79,6 +88,34 @@ async function mid(locator,time=80){return locator.evaluate((node,time)=>{const 
 async function close(){await page.locator('#outside').click();await finish()}
 try{
  await page.goto(`http://127.0.0.1:${server.address().port}`);await trigger('folder').waitFor()
+ await check('native subagent and background-job lists animate entry and exit and toggle closed on repeated activation',async()=>{
+  assert.deepEqual(errors,[])
+  for(const [kind,name]of [['subagent','1 个子智能体'],['jobs','1 个后台任务']]){
+   const button=page.getByRole('button',{name,exact:true})
+   await button.evaluate(node=>node.click());await expect(active()).toHaveAttribute('data-dcb-header-menu',kind)
+   const entry=await mid(active());assert.ok(entry.opacity>0&&entry.opacity<1);assert.match(entry.filter,/blur\(/);assert.notEqual(entry.transform,'none');await finish()
+   await button.evaluate(node=>node.click());await expect(button).toHaveAttribute('aria-expanded','false');await expect(active()).toHaveCount(0);await expect(ghost()).toHaveCount(1)
+   const exit=await mid(ghost());assert.ok(exit.opacity>0&&exit.opacity<1);assert.match(exit.filter,/blur\(/);assert.equal(await ghost().locator('[id],[role],[tabindex]').count(),0)
+   await page.screenshot({path:resolve(output,kind+'-exit.png')});await finish();await expect(ghost()).toHaveCount(0)
+   await button.focus();await button.press('Enter');await expect(button).toHaveAttribute('aria-expanded','true');await finish()
+   await button.press('Enter');await expect(button).toHaveAttribute('aria-expanded','false');await finish()
+  }
+ })
+ await check('native catalog selection, hover, outside dismissal and reduced motion keep their original behavior',async()=>{
+  const subagentButton=page.getByRole('button',{name:'1 个子智能体',exact:true}),jobsButton=page.getByRole('button',{name:'1 个后台任务',exact:true})
+  await subagentButton.hover();await expect(active()).toHaveAttribute('data-dcb-header-menu','subagent');await finish()
+  await page.getByRole('treeitem').first().click();assert.equal(await page.evaluate(()=>window.chosen),'subagent');await expect(active()).toHaveCount(0);await finish()
+  for(const button of [subagentButton,jobsButton]){
+   await button.evaluate(node=>node.click());await finish();await page.locator('#outside').click();await expect(button).toHaveAttribute('aria-expanded','false');await finish()
+  }
+  await page.emulateMedia({reducedMotion:'reduce'})
+  for(const button of [subagentButton,jobsButton]){
+   await button.evaluate(node=>node.click());assert.equal(await active().evaluate(node=>node.getAnimations().length),0)
+   await button.evaluate(node=>node.click());await expect(active()).toHaveCount(0);await expect(ghost()).toHaveCount(0)
+  }
+  await page.emulateMedia({reducedMotion:'no-preference'})
+  assert.equal(await page.evaluate(()=>window.menuBodySubtreeWatches),0)
+ })
  await check('both native header menus animate actual entry and exit frames without retaining interactive copies',async()=>{
   for(const kind of ['folder','more']){
    await trigger(kind).click();await expect(active()).toHaveAttribute('data-dcb-header-menu',kind)

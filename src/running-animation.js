@@ -1,4 +1,5 @@
-import {normalizeRunningAnimation,chooseRunningAction,chooseRunningLabel,runningLabelLines,RUNNING_BUILTIN} from './running-animation-config.js'
+import {normalizeRunningAnimation,chooseRunningAction,chooseRunningLabel,RUNNING_BUILTIN} from './running-animation-config.js'
+import {compileRunningCss,runningCssLabels} from './running-animation-css.js'
 const native=name=>`:is([class$="_${name}"],[class*="_${name} "])`
 const ROW=`[data-chat-running]:not([data-chat-running="false"])${native('running')}`
 const SELECTOR=`${ROW} > ${native('runningContent')} > ${native('runningIcon')}`
@@ -79,6 +80,7 @@ function readyImage(win,url){return new Promise((resolve,reject)=>{const image=n
 export function createRunningAnimations(doc,win,catalog,initial){
   let options=normalizeRunningAnimation(initial),disposed=false,observer=null,signature='',previous='',previousLabel=''
   const owner=Math.random().toString(36).slice(2,9)
+  const customStyle=doc.createElement('style');customStyle.setAttribute('data-dcb-thinking-css','');doc.head.append(customStyle)
   // More than one copy of this bundle can be alive at once (a stale module plus
   // the fresh one), and each copy draws its own mascot into the same row. Every
   // artwork is tagged with its owner and any foreign artwork is dropped.
@@ -126,18 +128,20 @@ export function createRunningAnimations(doc,win,catalog,initial){
       const decorated=decoratedRun(content)
       if(decorated)decorated.setAttribute('data-shimmer-text',record.hostText)
     }
+    record.labelNode?.removeAttribute('data-dcb-running-label');record.labelNode=null
     record.written='';record.label='';record.hostText=undefined
   }
   function applyLabel(record){
     const content=record.content
     if(!content||record.dead)return
-    if(record.labelKey!==options.runningAnimationLabel){record.labelKey=options.runningAnimationLabel;record.label=''}
     const run=visibleRun(content)
     if(!run)return
+    if(record.labelNode!==run.parentElement){record.labelNode?.removeAttribute('data-dcb-running-label');record.labelNode=run.parentElement;record.labelNode.setAttribute('data-dcb-running-label','')}
     const current=run.nodeValue
     if(current!==record.written)record.hostText=current
-    const labels=runningLabelLines(options.runningAnimationLabel)
-    const label=labels.length?(record.label||(record.label=chooseRunningLabel(labels,{random:options.runningAnimationLabelRandom,previous:previousLabel}))):''
+    const {labels,random}=runningCssLabels(win,content),labelKey=JSON.stringify([labels,random])
+    if(record.labelKey!==labelKey){record.labelKey=labelKey;record.label=''}
+    const label=labels.length?(record.label||(record.label=chooseRunningLabel(labels,{random,previous:previousLabel}))):''
     if(labels.length)previousLabel=label
     const next=composeLabel(record.hostText??current,label)
     if(current!==next){run.nodeValue=next;record.written=next}
@@ -146,14 +150,14 @@ export function createRunningAnimations(doc,win,catalog,initial){
     if(decorated&&decorated.getAttribute('data-shimmer-text')!==next)decorated.setAttribute('data-shimmer-text',next)
   }
   function dimensions(record){
-    record.host.style.setProperty('--dcb-running-size',`${options.runningAnimationSize}px`);record.host.style.setProperty('--dcb-running-opacity',String(options.runningAnimationOpacity));if(record.player){record.player.node.style.opacity=options.runningAnimationOpacity;record.player.setSize(options.runningAnimationSize)}
+    record.host.setAttribute('data-dcb-running-icon','');record.host.style.setProperty('--dcb-running-size',`${options.runningAnimationSize}px`);record.host.style.setProperty('--dcb-running-opacity',String(options.runningAnimationOpacity));if(record.player){record.player.node.style.opacity=options.runningAnimationOpacity;record.player.setSize(options.runningAnimationSize)}
     const content=record.host.closest('[class*="runningContent"]')
     if(content&&record.content!==content){clearLabel(record);record.content=content;record.label=''}
     if(content){content.setAttribute('data-dcb-running-content','');content.style.setProperty('--dcb-running-gap',`${options.runningAnimationGap}px`);applyLabel(record)}
     else{clearLabel(record);record.content=null}
   }
   function remove(record){
-    record.dead=true;intersection.unobserve(record.host);record.player?.dispose();record.host.removeAttribute('data-dcb-running-reserve');record.host.removeAttribute('data-dcb-running-ready');record.host.style.removeProperty('--dcb-running-size');record.host.style.removeProperty('--dcb-running-opacity')
+    record.dead=true;intersection.unobserve(record.host);record.player?.dispose();record.host.removeAttribute('data-dcb-running-reserve');record.host.removeAttribute('data-dcb-running-ready');record.host.removeAttribute('data-dcb-running-icon');record.host.style.removeProperty('--dcb-running-size');record.host.style.removeProperty('--dcb-running-opacity')
     clearLabel(record)
     if(record.content){record.content.removeAttribute('data-dcb-running-content');record.content.style.removeProperty('--dcb-running-gap')}
     records.delete(record.host)
@@ -207,6 +211,8 @@ export function createRunningAnimations(doc,win,catalog,initial){
   }
   function configure(value){
     options=normalizeRunningAnimation(value);const pack=selectedPack(),next=JSON.stringify([options.runningAnimationEnabled,pack?.id,options.runningAnimationActions,options.runningAnimationRandom])
+    const css=options.runningAnimationEnabled?compileRunningCss(win,options.runningAnimationCss).css:''
+    if(customStyle.textContent!==css)customStyle.textContent=css
     if(next!==signature){signature=next;observer?.disconnect();observer=null;for(const record of [...records.values()])remove(record);connect()}
     for(const record of records.values()){if(record.player)dimensions(record);refresh(record)}
   }
@@ -225,5 +231,5 @@ export function createRunningAnimations(doc,win,catalog,initial){
   }catch{}}
   const timers=[win.setTimeout(diagnose,2500),win.setTimeout(diagnose,12000)]
   doc.addEventListener('visibilitychange',visibility);quiet.addEventListener('change',visibility);configure(options);void catalog.load()
-  return {setOptions:configure,status:()=>({records:records.size,playing:[...records.values()].filter(record=>record.player&&record.visible&&!doc.hidden&&!quiet.matches).length}),dispose(){disposed=true;for(const timer of timers)win.clearTimeout(timer);unsubscribe();observer?.disconnect();intersection.disconnect();doc.removeEventListener('visibilitychange',visibility);quiet.removeEventListener('change',visibility);for(const record of [...records.values()])remove(record)}}
+  return {setOptions:configure,status:()=>({records:records.size,playing:[...records.values()].filter(record=>record.player&&record.visible&&!doc.hidden&&!quiet.matches).length}),dispose(){disposed=true;for(const timer of timers)win.clearTimeout(timer);unsubscribe();observer?.disconnect();intersection.disconnect();doc.removeEventListener('visibilitychange',visibility);quiet.removeEventListener('change',visibility);for(const record of [...records.values()])remove(record);customStyle.remove()}}
 }

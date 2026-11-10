@@ -1,5 +1,6 @@
-import {RUNNING_BUILTIN,runningLabelLines,RUNNING_LABEL_LIMIT} from './running-animation-config.js'
+import {RUNNING_BUILTIN,RUNNING_CSS_LIMIT} from './running-animation-config.js'
 import {createRunningPlayer} from './running-animation.js'
+import {compileRunningCss,runningCssLabels,runningCssExamples} from './running-animation-css.js'
 import {motion} from './motion.js'
 import {createPresetDelete,presetDeleteCss} from './preset-delete.js'
 import exampleZip from '../assets/running-example.zip'
@@ -28,10 +29,9 @@ export const runningSettingsCss=`
  .dcb-running-demo { display:flex; align-items:center; justify-content:center; gap:8px; min-height:100px; margin:14px 0; padding:14px; border:1px solid var(--dsh-settings-border); border-radius:12px; background:var(--dsh-settings-subtle); color:var(--dsh-settings-secondary); }
  .dcb-running-search,.dcb-running-number { box-sizing:border-box; min-height:44px; max-width:100%; padding:8px 10px; border:1px solid var(--dsh-settings-border); border-radius:8px; background:var(--dsh-settings-surface); color:var(--dsh-settings-text); font:13px/20px system-ui; }
  .dcb-running-number { width:78px; }
- .dcb-running-label { box-sizing:border-box; flex:1 1 220px; min-width:0; min-height:64px; max-height:200px; padding:9px 10px; border:1px solid var(--dsh-settings-border); border-radius:10px; background:var(--dsh-settings-surface); color:var(--dsh-settings-text); font:13px/20px system-ui; resize:vertical; }
- .dcb-settings-row[data-setting="running-label"] { align-items:stretch; flex-wrap:wrap; }
- .dcb-settings-row[data-setting="running-label"] .dcb-settings-copy { flex:1 1 200px; }
- .dcb-running-search:focus-visible,.dcb-running-number:focus-visible,.dcb-running-label:focus-visible { outline:2px solid var(--dsh-settings-accent); outline-offset:2px; }
+ .dcb-running-css { box-sizing:border-box; width:100%; min-width:0; min-height:180px; padding:12px; border:1px solid var(--dsh-settings-border); border-radius:10px; background:transparent; color:var(--dsh-settings-text); font:12px/1.7 Consolas,monospace; resize:vertical; transition:border-color 180ms ${motion.ease.color},box-shadow 180ms ${motion.ease.color}; }
+ .dcb-running-css:focus-visible { outline:none; border-color:var(--dsh-settings-secondary); box-shadow:0 0 0 3px #80808018; }
+ .dcb-running-search:focus-visible,.dcb-running-number:focus-visible { outline:2px solid var(--dsh-settings-accent); outline-offset:2px; }
  .dcb-running-error { color:var(--dsh-settings-text); overflow-wrap:anywhere; font:13px/20px system-ui; }
  @media(prefers-reduced-motion:reduce) { .dcb-running-buttons button,.dcb-running-download,.dcb-running-choice { transition:none; } }
  @media(forced-colors:active) { .dcb-running-choice[aria-checked=true]::after { background:Highlight; box-shadow:none; } .dcb-running-item[data-selected=true] { border:2px solid Highlight; } .dcb-running-buttons button[aria-pressed=true] { outline:2px solid Highlight; } }
@@ -52,8 +52,9 @@ export function createRunningSettings(React,doc,win,catalog){
   },[pack.id,action.id])
   return h('span',{ref:root,className:'dcb-running-thumb','aria-hidden':true})
  }
- function Preview({pack,action,size,gap,opacity,label}){
-  const seat=React.useRef(null),[error,setError]=React.useState('')
+ function Preview({pack,action,size,gap,opacity,css}){
+  const seat=React.useRef(null),root=React.useRef(null),[error,setError]=React.useState(''),[label,setLabel]=React.useState('')
+  React.useLayoutEffect(()=>{setLabel((runningCssLabels(win,root.current).labels[0]||'深度求索中…').replaceAll('{time}','12秒').replaceAll('{用时}','12秒'))},[css])
   React.useEffect(()=>{
    let live=true,player,asset,visible=false
    const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)'),refresh=()=>{if(quiet.matches)player?.freeze();else player?.setPlaying(visible&&!doc.hidden)}
@@ -62,20 +63,19 @@ export function createRunningSettings(React,doc,win,catalog){
    doc.addEventListener('visibilitychange',refresh);quiet.addEventListener('change',refresh)
    return()=>{live=false;observer.disconnect();doc.removeEventListener('visibilitychange',refresh);quiet.removeEventListener('change',refresh);if(player)player.dispose();else asset?.release()}
   },[pack.id,action.id])
-  return h('div',{className:'dcb-running-demo',style:{gap:gap+'px'},'aria-label':'思考动图预览'},h('span',{ref:seat,style:{display:'inline-block',width:size,height:size,opacity}}),h('span',null,error||label||'深度求索中…'))
+  return h('div',{ref:root,className:'dcb-running-demo','data-dcb-running-preview':'',style:{gap:gap+'px'},'aria-label':'思考动图预览'},h('style',null,css),h('span',{ref:seat,'data-dcb-running-icon':'',style:{display:'inline-block',width:size,height:size,opacity}}),h('span',{'data-dcb-running-label':''},error||label))
  }
  return function RunningSettings({value,onChange}){
   const state=React.useSyncExternalStore(catalog.subscribe,catalog.getSnapshot,catalog.getSnapshot),[busy,setBusy]=React.useState(false),[error,setError]=React.useState(''),[query,setQuery]=React.useState(''),[preview,setPreview]=React.useState(''),input=React.useRef(null),folder=React.useRef(null),mounted=React.useRef(false)
   React.useEffect(()=>{mounted.current=true;return()=>{mounted.current=false}},[])
   const pack=state.packs.find(item=>item.id===value.runningAnimationPack)||state.packs.find(item=>item.id===RUNNING_BUILTIN),chosen=new Set(value.runningAnimationActions??pack?.actions.map(action=>action.id)),action=pack?.actions.find(item=>item.id===preview)||pack?.actions.find(item=>chosen.has(item.id))||pack?.actions[0]
-  const labels=runningLabelLines(value.runningAnimationLabel)
+  const compiled=React.useMemo(()=>compileRunningCss(win,value.runningAnimationCss,true),[value.runningAnimationCss])
   const row=(label,description,control,attrs)=>h('div',{className:'dcb-settings-row',...attrs},h('div',{className:'dcb-settings-copy'},h('span',{className:'dcb-settings-row-title'},label),h('p',{className:'dcb-settings-row-desc'},description)),control)
   const toggle=(label,key)=>h('button',{type:'button',className:'dcb-switch',role:'switch','aria-label':label,'aria-checked':value[key],onClick:()=>onChange({[key]:!value[key]})})
   const choosePack=id=>{setPreview('');onChange({runningAnimationPack:id,runningAnimationActions:null})}
   async function upload(files){if(busy||!files)return;setBusy(true);setError('');try{const added=await catalog.importPack(files);if(mounted.current)choosePack(added.id)}catch(error){if(mounted.current)setError(error.message||'动图包导入失败')}finally{if(mounted.current)setBusy(false)}}
   async function remove(item){if(!item||item.builtin||busy)return;setBusy(true);setError('');try{await catalog.removePack(item.id);if(value.runningAnimationPack===item.id){if(mounted.current)setPreview('');onChange({runningAnimationPack:RUNNING_BUILTIN,runningAnimationActions:null})}}finally{if(mounted.current)setBusy(false)}}
   const number=(label,key,min,max)=>h('input',{className:'dcb-running-number',type:'number',min,max,step:1,'aria-label':label,value:value[key],onChange:event=>{if(event.target.value!=='')onChange({[key]:Math.max(min,Math.min(max,Number(event.target.value)))})}})
-  const labelBox=(label,key)=>h('textarea',{className:'dcb-running-label',rows:2,maxLength:RUNNING_LABEL_LIMIT.chars,'aria-label':label,placeholder:'深度求索中…',value:value[key],onChange:event=>onChange({[key]:event.target.value})})
   return h('section',{className:'dcb-settings-block dcb-settings-card','data-dcb-settings-block':'running'},
    h('div',{className:'dcb-settings-header'},h('div',null,h('h2',null,'思考动图'),h('p',null,'为“深度求索中”挑选动作，也可以导入自己的动图包。'))),
    row('思考动图','关闭恢复宿主原来的图标；已导入的动图包和选择会保留。',toggle('思考动图','runningAnimationEnabled')),
@@ -88,10 +88,12 @@ export function createRunningSettings(React,doc,win,catalog){
     h('input',{ref:input,type:'file',accept:'.zip',hidden:true,'aria-label':'选择动图 ZIP',onChange:event=>{const file=event.target.files[0];event.target.value='';void upload(file)}}),h('input',{ref:folder,type:'file',webkitdirectory:'',multiple:true,hidden:true,'aria-label':'选择动图文件夹',onChange:event=>{const files=Array.from(event.target.files);event.target.value='';void upload(files)}})),
    (error||state.error)&&h('p',{className:'dcb-running-error',role:'status'},error||state.error),state.loading&&h('p',{role:'status'},'正在读取动图包…'),
    pack&&h(React.Fragment,null,
-    action&&h(Preview,{pack,action,size:value.runningAnimationSize,gap:value.runningAnimationGap,opacity:value.runningAnimationOpacity,label:labels[0]}),
+    action&&h(Preview,{pack,action,size:value.runningAnimationSize,gap:value.runningAnimationGap,opacity:value.runningAnimationOpacity,css:compiled.css}),
     row('图标大小','16–80 像素；随时预览当前尺寸。',number('动图大小','runningAnimationSize',16,80)),row('文字间距','图标与后面文字之间的距离。',number('动图间距','runningAnimationGap',0,24)),
-    row('思考文案','替换图标后面的「深度求索中…」。每行一条，可用 {time} 把用时放到任意位置；留空恢复默认。',labelBox('思考文案','runningAnimationLabel'),{'data-setting':'running-label'}),
-    row('随机文案','多条文案时，每次新的思考随机选一条，避免连续重复；关闭后固定使用第一条。',toggle('随机文案','runningAnimationLabelRandom')),
+    h('div',{'data-setting':'running-css'},h('h3',null,'自定义 CSS'),h('p',{className:'dcb-settings-row-desc'},'用 .thinking 设置整行，.thinking .icon 设置图标，.thinking .label 设置文字。可选择下方示例后编辑，留空恢复默认。'),
+     h('div',{className:'dcb-running-buttons','aria-label':'思考 CSS 示例'},h('button',{type:'button',onClick:()=>onChange({runningAnimationCss:runningCssExamples.text})},'示例 · 自定义思考文案'),h('button',{type:'button',onClick:()=>onChange({runningAnimationCss:runningCssExamples.random})},'示例 · 随机思考文案'),h('button',{type:'button',onClick:()=>onChange({runningAnimationCss:''})},'清空 CSS')),
+     h('textarea',{className:'dcb-running-css',rows:8,maxLength:RUNNING_CSS_LIMIT,'aria-label':'思考自定义 CSS',spellCheck:false,placeholder:'.thinking {\n  color: var(--dsw-alias-label-secondary);\n}',value:value.runningAnimationCss,onChange:event=>onChange({runningAnimationCss:event.target.value})}),
+     compiled.error&&h('p',{className:'dcb-running-error',role:'status'},compiled.error)),
     h('div',{className:'dcb-running-buttons'},h('button',{type:'button',onClick:()=>onChange({runningAnimationActions:null})},'全选动作'),h('button',{type:'button',onClick:()=>onChange({runningAnimationActions:[]})},'全部取消'),h('input',{className:'dcb-running-search',type:'search','aria-label':'搜索动作',placeholder:'搜索动作…',value:query,onChange:event=>setQuery(event.target.value)})),
     h('p',{className:'dcb-settings-info',role:'status'},`已选 ${pack.actions.filter(item=>chosen.has(item.id)).length} / ${pack.actions.length} 个动作${chosen.size?'':' · 未选动作时显示原生图标'}`),
     h('div',{className:'dcb-running-grid','aria-label':'可用动作'},pack.actions.filter(item=>item.name.toLowerCase().includes(query.toLowerCase())).map(item=>h('article',{key:`${pack.id}/${item.id}`,className:'dcb-running-item','data-selected':chosen.has(item.id)},

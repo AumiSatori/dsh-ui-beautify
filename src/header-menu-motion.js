@@ -2,10 +2,12 @@ const MARK='data-dcb-header-menu',MOVING='data-dcb-header-menu-moving',GHOST='da
 const resting={opacity:1,transform:'none',filter:'blur(0px)'},folded={opacity:0,transform:'translateY(-8px) scale(.96)',filter:'blur(3px)'}
 const enterEase='cubic-bezier(.22,.8,.26,1)',exitEase='cubic-bezier(.4,0,.2,1)'
 const catalogModules={subagent:'@deepseek-ai/dsh-client-ui-subagent/SubagentHeaderLineage.module.css',jobs:'@deepseek-ai/dsh-client-ui-jobs/JobListAction.module.css'}
+const menuFrames=(kind,from,to)=>Object.hasOwn(catalogModules,kind)?[{transform:from.transform},{transform:to.transform}]:[from,to]
 
 export const headerMenuMotionCss=`
   [${MARK}],[${GHOST}] { transform-origin:50% 0; }
   [${MOVING}] { will-change:opacity,transform,filter; }
+  [${MARK}=subagent][${MOVING}],[${MARK}=jobs][${MOVING}] { will-change:transform; }
   [${GHOST}] { pointer-events:none!important; user-select:none!important; }
 `
 
@@ -93,9 +95,9 @@ export function createHeaderMenuMotion(doc,win,{enabled=true}={}){
     if(previous)endGhost(previous)
     node.setAttribute(MOVING,'')
     try{
-      const animation=node.animate([from,resting],{id:'dcb-header-menu-enter',duration:240,easing:enterEase,fill:'both'})
+      const animation=node.animate(menuFrames(record.kind,from,resting),{id:'dcb-header-menu-enter',duration:240,easing:enterEase,fill:'both'})
       record.animation=animation
-      if(record.backing)record.backingAnimation=record.backing.animate([{opacity:from.opacity},{opacity:1}],{duration:240,easing:enterEase,fill:'both'})
+      if(record.backing&&!Object.hasOwn(catalogModules,record.kind))record.backingAnimation=record.backing.animate([{opacity:from.opacity},{opacity:1}],{duration:240,easing:enterEase,fill:'both'})
       animation.finished.then(()=>{if(record.animation===animation){record.snapshot=null;cancelEntry(record)}},()=>{})
     }catch{cancelEntry(record)}
   }
@@ -134,8 +136,8 @@ export function createHeaderMenuMotion(doc,win,{enabled=true}={}){
     if(backing){backing.style.setProperty('--dsh-menu-anchor',anchor);backing.setAttribute('inert','');backing.setAttribute('aria-hidden','true');backing.style.pointerEvents='none';backing.style.opacity=String(from.opacity);doc.body.append(backing)}
     const exiting={node:ghost,kind:record.kind,backing,animation:null,backingAnimation:null};ghosts.set(record.kind,exiting)
     try{
-      exiting.animation=ghost.animate([from,folded],{id:'dcb-header-menu-exit',duration:200,easing:exitEase,fill:'both'})
-      if(backing)exiting.backingAnimation=backing.animate([{opacity:from.opacity},{opacity:0}],{duration:200,easing:exitEase,fill:'both'})
+      exiting.animation=ghost.animate(menuFrames(record.kind,from,folded),{id:'dcb-header-menu-exit',duration:200,easing:exitEase,fill:'both'})
+      if(backing&&!Object.hasOwn(catalogModules,record.kind))exiting.backingAnimation=backing.animate([{opacity:from.opacity},{opacity:0}],{duration:200,easing:exitEase,fill:'both'})
       exiting.animation.finished.then(()=>endGhost(exiting),()=>{})
     }catch{endGhost(exiting)}
   }

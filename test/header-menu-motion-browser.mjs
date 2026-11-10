@@ -90,12 +90,15 @@ try{
  await page.goto(`http://127.0.0.1:${server.address().port}`);await trigger('folder').waitFor()
  await check('native subagent and background-job lists animate entry and exit and toggle closed on repeated activation',async()=>{
   assert.deepEqual(errors,[])
+  const material=locator=>locator.evaluate(node=>{const style=getComputedStyle(node);return Object.fromEntries(['backgroundColor','borderColor','borderRadius','boxShadow','color','backdropFilter','opacity','filter'].map(key=>[key,style[key]]))})
   for(const [kind,name]of [['subagent','1 个子智能体'],['jobs','1 个后台任务']]){
    const button=page.getByRole('button',{name,exact:true})
+   await page.evaluate(()=>window.motion.sync(false));await button.evaluate(node=>node.click());const original=await material(active());await page.locator('#outside').click();await expect(active()).toHaveCount(0);await page.evaluate(()=>window.motion.sync(true))
    await button.evaluate(node=>node.click());await expect(active()).toHaveAttribute('data-dcb-header-menu',kind)
-   const entry=await mid(active());assert.ok(entry.opacity>0&&entry.opacity<1);assert.match(entry.filter,/blur\(/);assert.notEqual(entry.transform,'none');await finish()
+   const entry=await mid(active());assert.equal(entry.opacity,Number(original.opacity));assert.equal(entry.filter,original.filter);assert.notEqual(entry.transform,'none');assert.equal(entry.willChange,'transform');assert.deepEqual(await material(active()),original)
+   assert.equal(await active().evaluate(node=>node.getAnimations()[0].effect.getKeyframes().some(frame=>Object.hasOwn(frame,'opacity')||Object.hasOwn(frame,'filter'))),false);await finish()
    await button.evaluate(node=>node.click());await expect(button).toHaveAttribute('aria-expanded','false');await expect(active()).toHaveCount(0);await expect(ghost()).toHaveCount(1)
-   const exit=await mid(ghost());assert.ok(exit.opacity>0&&exit.opacity<1);assert.match(exit.filter,/blur\(/);assert.equal(await ghost().locator('[id],[role],[tabindex]').count(),0)
+   const exit=await mid(ghost());assert.equal(exit.opacity,Number(original.opacity));assert.equal(exit.filter,original.filter);assert.deepEqual(await material(ghost()),original);assert.notEqual(exit.transform,'none');assert.equal(await ghost().locator('[id],[role],[tabindex]').count(),0)
    await page.screenshot({path:resolve(output,kind+'-exit.png')});await finish();await expect(ghost()).toHaveCount(0)
    await button.focus();await button.press('Enter');await expect(button).toHaveAttribute('aria-expanded','true');await finish()
    await button.press('Enter');await expect(button).toHaveAttribute('aria-expanded','false');await finish()

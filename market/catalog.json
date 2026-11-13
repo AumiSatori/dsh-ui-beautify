@@ -4,6 +4,31 @@
     {
       "format": "dsh-ui-preset",
       "schemaVersion": 1,
+      "id": "whale-maid-mirror-sea",
+      "version": "1.0.0",
+      "title": "鲸鱼娘 · 镜海",
+      "description": "小鲸鱼女仆整套美化：镜海动态 HTML 背景（日夜）、指尖链接交互开屏（挥手欢迎）、加载短片、自定义 Logo 与粒子立绘。角色为 ZipZipPipe 对上善无形《溟月》的二创，图像由 GPT Image 生成；按 CC BY-NC-SA 4.0 分享，仅限非商业使用。",
+      "author": "AumiSatori",
+      "scope": "full",
+      "tags": [
+        "鲸鱼娘",
+        "镜海",
+        "开屏",
+        "动态背景"
+      ],
+      "license": "CC-BY-NC-SA-4.0",
+      "configSha256": "a2fe724cec6ad7a4401ab937f7e340826ad6985b3511b8745b5aa7498753d55e",
+      "coverFile": "cover.webp",
+      "source": "official",
+      "contributor": "AumiSatori",
+      "archiveUrl": "https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-whale-maid-mirror-sea-v1.0.0/whale-maid-mirror-sea-1.0.0.zip",
+      "sha256": "4d3324c042cd6403e4be82b2af4602bcab6c1914d265d3a5be648ba882e2a767",
+      "publishedAt": "2026-11-13T18:55:17.772Z",
+      "preview": "https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-whale-maid-mirror-sea-v1.0.0/cover.webp"
+    },
+    {
+      "format": "dsh-ui-preset",
+      "schemaVersion": 1,
       "id": "cube-opening",
       "version": "1.0.0",
       "title": "魔方 · 按住复原",

@@ -1,17 +1,16 @@
 import assert from 'node:assert/strict'
-import {readFileSync,writeFileSync,mkdirSync,openSync,readSync,closeSync} from 'node:fs'
+import {writeFileSync,mkdirSync} from 'node:fs'
 import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
+import {hostFile,readableHost} from './host-stylesheet.mjs'
 const root=fileURLToPath(new URL('..',import.meta.url)),out=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(root,'../../.scratch/desktop-underlay-jitter'),'scroll-motion')
 mkdirSync(out,{recursive:true})
-let host
-if(process.env.DSH_ASAR){
- const fd=openSync(process.env.DSH_ASAR,'r')
- try{const head=Buffer.alloc(16);readSync(fd,head,0,16,0);const json=Buffer.alloc(head.readUInt32LE(12));readSync(fd,json,0,json.length,16);let entry=JSON.parse(json);for(const part of 'dsh/node_modules/@deepseek-ai/dsh-client-ui-chat/lib/client.js'.split('/'))entry=entry.files[part];const bytes=Buffer.alloc(entry.size);readSync(fd,bytes,0,bytes.length,8+head.readUInt32LE(4)+Number(entry.offset));host=bytes.toString()}finally{closeSync(fd)}
-}else throw Error('Set DSH_ASAR to verify the installed native follow controller')
-const start=host.indexOf('var ScrollFollow = class ScrollFollow'),end=host.indexOf('function useScrollFollow',start),native=host.slice(start,host.lastIndexOf('/**',end))+';window.NativeFollow=ScrollFollow;'
+const host=readableHost(hostFile('dsh/node_modules/@deepseek-ai/dsh-client-ui-chat/lib/client.js'))
+const start=host.indexOf('var ScrollFollow = class'),end=host.indexOf('function useScrollFollow',start)
+assert.ok(start>=0&&end>start,'Installed native follow controller is discoverable')
+const native=host.slice(start,end)+';window.NativeFollow=ScrollFollow;'
 const built=(await build({entryPoints:[resolve(root,'src/composer-scroll-motion.js')],bundle:true,write:false,format:'iife',globalName:'ScrollMotion'})).outputFiles[0].text
 const browser=await chromium.launch({headless:true,channel:'chrome'}),page=await browser.newPage({viewport:{width:1400,height:1000},deviceScaleFactor:1.25}),errors=[]
 page.on('pageerror',e=>errors.push(e.message));let passed=0

@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import {selectSettingsCategory} from './settings-navigation.mjs'
-import {readFileSync, mkdirSync, openSync, readSync, closeSync} from 'node:fs'
+import {readFileSync, mkdirSync} from 'node:fs'
 import {createServer} from 'node:http'
 import {fileURLToPath} from 'node:url'
 import {resolve} from 'node:path'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
+import {hostFile,hostSheet} from './host-stylesheet.mjs'
 
 const project=fileURLToPath(new URL('..',import.meta.url))
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'..','.scratch','claude-beautify'),'composer')
@@ -15,38 +16,12 @@ let source='portable public-marker fixture'
 let modelCSS='.ms_root{min-width:0;position:relative}.ms_trigger{display:flex;align-items:center;gap:4px;min-width:0;max-width:min(360px,45cqw);height:28px;padding:0 4px 0 8px;border:0;border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-secondary);font:13px/20px system-ui;cursor:pointer}.ms_trigger:disabled{color:var(--dsw-alias-label-caption)}.ms_triggerLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ms_chevron{flex:none;transition:transform .12s}.ms_chevronOpen{transform:rotate(180deg)}'
 let conversationCSS='.cr_body{min-height:0;flex:1;display:flex;flex-direction:column}.cr_scrollBody{flex:1;min-height:0;display:flex;flex-direction:column;overflow-y:auto}.cr_composerSeat{flex:none;position:sticky;bottom:0;z-index:7}'
 if(process.env.DSH_ASAR){
- const fd=openSync(process.env.DSH_ASAR,'r')
- try{
-  const head=Buffer.alloc(16);readSync(fd,head,0,16,0)
-  const json=Buffer.alloc(head.readUInt32LE(12));readSync(fd,json,0,json.length,16)
-  let entry=JSON.parse(json.toString('utf8'))
-  for(const part of 'dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js'.split('/'))entry=entry.files[part]
-  const bytes=Buffer.alloc(entry.size);readSync(fd,bytes,0,bytes.length,8+head.readUInt32LE(4)+Number(entry.offset))
-  const host=bytes.toString('utf8')
-  for(const marker of ['data-composer-seat','data-composer-card','data-composer-input'])assert.ok(host.includes(`"${marker}"`),`Installed host exposes ${marker}`)
-  const at=host.indexOf('InputBar.module.css'),start=host.lastIndexOf('//#region',at),end=host.indexOf('//#endregion',at)
-  const literal=host.slice(start,end).match(/const css\$\d+ = ("(?:[^"\\]|\\.)*");/)
-  assert.ok(literal,'Installed InputBar stylesheet is discoverable')
-  const stylesheet=JSON.parse(literal[1]),prefix=stylesheet.match(/\.([\w-]+)_card\{/)
-  assert.ok(prefix,'Installed card selector is discoverable')
-  inputCSS=stylesheet.replaceAll(prefix[1]+'_','cf_')
-  const rootAt=host.indexOf('ConversationRoot.module.css'),rootStart=host.lastIndexOf('//#region',rootAt),rootEnd=host.indexOf('//#endregion',rootAt)
-  const rootLiteral=host.slice(rootStart,rootEnd).match(/const css\$\d+ = ("(?:[^"\\]|\\.)*");/)
-  assert.ok(rootLiteral,'Installed ConversationRoot stylesheet is discoverable')
-  const rootCSS=JSON.parse(rootLiteral[1]),rootPrefix=rootCSS.match(/\.([\w-]+)_body\{/)
-  assert.ok(rootPrefix,'Installed conversation body selector is discoverable')
-  conversationCSS=rootCSS.replaceAll(rootPrefix[1]+'_','cr_')
-  let modelEntry=JSON.parse(json.toString('utf8'))
-  for(const part of 'dsh/node_modules/@deepseek-ai/dsh-client-ui-model-selection/lib/client.js'.split('/'))modelEntry=modelEntry.files[part]
-  const modelBytes=Buffer.alloc(modelEntry.size);readSync(fd,modelBytes,0,modelBytes.length,8+head.readUInt32LE(4)+Number(modelEntry.offset))
-  const modelHost=modelBytes.toString('utf8'),modelAt=modelHost.indexOf('ModelSelect.module.css')
-  const modelLiteral=modelHost.slice(modelHost.lastIndexOf('//#region',modelAt),modelHost.indexOf('//#endregion',modelAt)).match(/const css(?:\$\d+)? = ("(?:[^"\\]|\\.)*");/)
-  assert.ok(modelLiteral,'Installed ModelSelect stylesheet is discoverable')
-  const modelSheet=JSON.parse(modelLiteral[1]),modelPrefix=modelSheet.match(/\.([\w-]+)_trigger\{/)
-  assert.ok(modelPrefix,'Installed model trigger selector is discoverable')
-  modelCSS=modelSheet.replaceAll(modelPrefix[1]+'_','ms_')
-  source='installed DSH InputBar, ModelSelect and ConversationRoot stylesheets and public DOM markers; synthetic editor and menu behavior'
- }finally{closeSync(fd)}
+ const host=hostFile('dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js')
+ for(const marker of ['data-composer-seat','data-composer-card','data-composer-input'])assert.ok(host.includes('"'+marker+'"'),`Installed host exposes ${marker}`)
+ inputCSS=hostSheet(host,'InputBar','cf')
+ conversationCSS=hostSheet(host,'ConversationRoot','cr')
+ modelCSS=hostSheet(hostFile('dsh/node_modules/@deepseek-ai/dsh-client-ui-model-selection/lib/client.js'),'ModelSelect','ms')
+ source='installed DSH InputBar, ModelSelect and ConversationRoot stylesheets and public DOM markers; synthetic editor and menu behavior'
 }
 const fixtureCSS=`:root{--dsw-specific-input-major:#f4f5f7;--dsw-alias-label-primary:#202124;--dsw-alias-label-secondary:#656d78;--dsw-alias-label-caption:#737982;--dsw-alias-state-business-primary:#4d6bfe;--dsw-alias-button-info-fill:#4d6bfe;--dsw-alias-button-info-hover:#3b53d8;--dsw-specific-selector:#202a3c0d;--dsw-alias-border-l2:#d9dde5;--dsw-radius-panel:20px;--dsw-radius-sm:6px;--dsw-font-family:system-ui,sans-serif;--dsw-elevation-soft:0 1px 5px #0002;--dsh-composer-side-clearance:0px;--dsh-composer-card-max-width:720px;--dsh-composer-text-max-height:180px}body[data-ds-dark-theme]{--dsw-specific-input-major:#25272f;--dsw-alias-label-primary:#f2f4f8;--dsw-alias-label-secondary:#c5cbd5;--dsw-alias-label-caption:#aab0bb;--dsw-alias-state-business-primary:#8b9bff}.cf_card{line-height:24px}.cf_fixture_menu{z-index:30;display:flex;flex-direction:column;overflow:hidden;padding:4px;background:var(--dsw-specific-input-major);box-shadow:0 5px 20px #0003;border-radius:8px}.cf_fixture_menu .ms_search{border:1px solid var(--dsw-alias-border-l2);border-radius:6px}.cf_fixture_menu .ms_search input{width:100%;min-width:0;border:0;outline:none;background:transparent;color:inherit;font:inherit}.cf_fixture_menu .ms_search:focus-within{box-shadow:0 0 0 2px #8882}.cf_fixture_menu .ms_groups{min-height:0;overflow-y:auto}.cf_fixture_menu .ms_option{display:flex;width:100%;min-height:34px}.cf_fixture_files{margin:0;padding:4px 24px;color:var(--dsw-alias-label-primary)}.composer-seat{background:radial-gradient(ellipse at 40% 50%,#7b9bb222,transparent 65%),#e7eaf0!important}body[data-ds-dark-theme] .composer-seat{background:radial-gradient(ellipse at 40% 50%,#7b9bb222,transparent 65%),#141414!important}`
 const built=await build({entryPoints:[resolve(project,'test/fixture.jsx')],bundle:true,write:false,format:'iife'})

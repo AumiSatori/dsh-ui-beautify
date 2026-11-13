@@ -6489,7 +6489,9 @@ ${e}::before,${e}::after{pointer-events:none!important;}
     const MARK = 'data-dcb-task-panel'
     const COMPOSER_FLAG = 'data-dcb-composer-glass'
     const CHAT_UNDER_COMPOSER_FLAG = 'data-dcb-chat-under-composer'
-    const CHAT_UNDER_COMPOSER = `body[${CHAT_UNDER_COMPOSER_FLAG}] [data-conversation-content][data-content-phase="active"] > [data-conversation-scroll]:not(:has([data-conversation-composer-overlay])) > [data-composer-seat]`
+    // The official hero frame now wraps the scroller in display:contents even
+    // in active chats. Only the seat/scroller relationship stays direct.
+    const CHAT_UNDER_COMPOSER = `body[${CHAT_UNDER_COMPOSER_FLAG}] [data-conversation-content][data-content-phase="active"] [data-conversation-scroll]:not(:has([data-conversation-composer-overlay])) > [data-composer-seat]`
     const COMPOSER_CARD = '[data-composer-seat] [data-composer-card]'
     const COMPOSER_MARK = 'data-dcb-composer-style'
     const SIDEBAR_MARK = 'data-dcb-sidebar-style'
@@ -7888,6 +7890,10 @@ ${e}::before,${e}::after{pointer-events:none!important;}
       body [${SIDEBAR_MARK}] { position: relative; isolation: isolate; border-radius: 0 16px 16px 0; outline: 1px solid var(--dcb-surface-border); outline-offset: -1px; }
       body [${SIDEBAR_MARK}][${SIDEBAR_MARK}] { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
       body [${SIDEBAR_MARK}]::before { content: ''; position: absolute; inset: 0; z-index: -2; pointer-events: none; border-radius: 0 16px 16px 0; background-color: var(--dcb-surface-background); background-image: var(--dcb-surface-image); backdrop-filter: var(--dcb-surface-backdrop); -webkit-backdrop-filter: var(--dcb-surface-backdrop); transition: background-color ${MOTION.time.material}ms ${MOTION.ease.color}; }
+      /* Fade the scrolling content into the glass itself. The native overlay
+         ends in an opaque sidebar fill, which leaves a flat strip on glass. */
+      [${SIDEBAR_MARK}] :is([class$="_scrollArea"], [class*="_scrollArea "]) { mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); }
+      [${SIDEBAR_MARK}] :is([class$="_scrollFade"], [class*="_scrollFade "]) { background: transparent !important; }
       .dcb-sidebar-toggle-right { --dcb-sidebar-edge-fill:#111; --dcb-sidebar-edge-ink:#fff; position:absolute; z-index:19; top:50%; display:grid; place-items:center; width:44px; height:64px; padding:0; border:0; border-radius:0 8px 8px 0; background:transparent; color:var(--dcb-sidebar-edge-ink); cursor:pointer; transform:translateY(-50%); }
       body[data-ds-dark-theme] .dcb-sidebar-toggle-right { --dcb-sidebar-edge-fill:#fff; --dcb-sidebar-edge-ink:#111; }
       .dcb-sidebar-toggle-right[data-motion="true"] { transition:left ${MOTION.time.sidebar}ms ${MOTION.ease.smooth}; }
@@ -7927,6 +7933,7 @@ ${e}::before,${e}::after{pointer-events:none!important;}
       @media(prefers-reduced-motion:reduce), (forced-colors:active) { [data-dcb-sidebar-frame-motion] { transition: none !important; } [data-dcb-sidebar-toggle] { transform: none !important; transition: none !important; } }
       @media(prefers-reduced-motion:reduce) { [${SIDEBAR_MARK}], [${SIDEBAR_MARK}]::before, [${SIDEBAR_MARK}] *, .dcb-sidebar-style-track * { transition: none !important; animation: none !important; } }
       @media(forced-colors:active) { [data-dcb-sidebar-column], body [${SIDEBAR_MARK}] { background: Canvas !important; outline-color: CanvasText !important; } body [${SIDEBAR_MARK}]::before { content: none; backdrop-filter: none; -webkit-backdrop-filter: none; } .dcb-sidebar-toggle-right > span { background: ButtonFace; color: ButtonText; border: 1px solid ButtonText; box-shadow:none; opacity:1; } .dcb-sidebar-style-indicator { background: Highlight; outline: 1px solid Highlight; box-shadow: none; } .dcb-sidebar-style-track button[aria-checked="true"] { color: HighlightText; } }
+      @media(forced-colors:active) { [${SIDEBAR_MARK}] :is([class$="_scrollArea"], [class*="_scrollArea "]) { mask-image: none; } }
       /* Glass needs its own foreground palette; the default material keeps its original colors. */
       body ${GLASS_PANEL} {
         --dcb-ink-primary: #20242a; --dcb-ink-body: #414852; --dcb-ink-muted: #59616d; --dcb-ink-active: #16191d;

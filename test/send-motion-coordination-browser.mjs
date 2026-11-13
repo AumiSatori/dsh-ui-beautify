@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict'
-import {readFileSync,writeFileSync,mkdirSync,openSync,readSync,closeSync} from 'node:fs'
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs'
 import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
-const root=fileURLToPath(new URL('..',import.meta.url)),out=resolve(root,'../send-motion-jitter')
+import {hostFile,hostSheet,readableHost} from './host-stylesheet.mjs'
+const root=fileURLToPath(new URL('..',import.meta.url)),out=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(root,'../../outputs/beautify-send-motion'),'send-motion')
 mkdirSync(out,{recursive:true})
-function asarFile(name){const fd=openSync(process.env.DSH_ASAR,'r');try{const head=Buffer.alloc(16);readSync(fd,head,0,16,0);const json=Buffer.alloc(head.readUInt32LE(12));readSync(fd,json,0,json.length,16);let entry=JSON.parse(json);for(const part of name.split('/'))entry=entry.files[part];const bytes=Buffer.alloc(entry.size);readSync(fd,bytes,0,bytes.length,8+head.readUInt32LE(4)+Number(entry.offset));return bytes.toString()}finally{closeSync(fd)}}
-const conversation=asarFile('dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js'),chat=asarFile('dsh/node_modules/@deepseek-ai/dsh-client-ui-chat/lib/client.js')
-function sheet(name,prefix){const at=conversation.indexOf(name+'.module.css'),region=conversation.slice(conversation.lastIndexOf('//#region',at),conversation.indexOf('//#endregion',at)),css=JSON.parse(region.match(/const css\$?\d* = ("(?:[^"\\]|\\.)*");/)[1]),from=css.match(/\.([\w]+)_\w+\{/)[1];return css.replaceAll(from+'_',prefix+'_')}
-const css=sheet('InputBar','ib')+sheet('ConversationRoot','cr'),start=chat.indexOf('var ScrollFollow = class ScrollFollow'),end=chat.indexOf('function useScrollFollow',start),native=chat.slice(start,chat.lastIndexOf('/**',end))+';window.NativeFollow=ScrollFollow;'
+const conversation=hostFile('dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js'),chat=readableHost(hostFile('dsh/node_modules/@deepseek-ai/dsh-client-ui-chat/lib/client.js'))
+const css=hostSheet(conversation,'InputBar','ib')+hostSheet(conversation,'ConversationRoot','cr'),start=chat.indexOf('var ScrollFollow = class'),end=chat.indexOf('function useScrollFollow',start)
+assert.ok(start>=0&&end>start,'Installed native follow controller is discoverable')
+const native=chat.slice(start,end)+';window.NativeFollow=ScrollFollow;'
 const client=readFileSync(process.env.DSH_MESSAGE_CLIENT||resolve(root,'client.js'),'utf8')
 const scrollBuilt=(await build({entryPoints:[process.env.DSH_TAIL_SOURCE||resolve(root,'src/composer-scroll-motion.js')],bundle:true,write:false,format:'iife',globalName:'TailMotion'})).outputFiles[0].text
 const browser=await chromium.launch({channel:'chrome',headless:true}),page=await browser.newPage({viewport:{width:1280,height:850},deviceScaleFactor:1.25}),results=[],errors=[]

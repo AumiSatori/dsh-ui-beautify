@@ -1,4 +1,30 @@
 {
   "schemaVersion": 1,
-  "presets": []
+  "presets": [
+    {
+      "format": "dsh-ui-preset",
+      "schemaVersion": 1,
+      "id": "cube-opening",
+      "version": "1.0.0",
+      "title": "魔方 · 按住复原",
+      "description": "黑白 3×3 魔方开屏：按住逐层复原，松手回弹，复原后露出 DSH 鲸鱼 Logo 再进入聊天；12 秒无操作自动复原，可随时跳过。只含开屏设置，场景随美化插件内置，Logo 运行时取自宿主。",
+      "author": "AumiSatori",
+      "scope": "welcome",
+      "tags": [
+        "魔方",
+        "开屏",
+        "three.js",
+        "交互"
+      ],
+      "license": "MIT",
+      "configSha256": "a35e76f220dc44680cf150f3ed3c7d83cce39b6fa87e1bc43fe086195701f101",
+      "coverFile": "cover.jpg",
+      "source": "official",
+      "contributor": "AumiSatori",
+      "archiveUrl": "https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-cube-opening-v1.0.0/cube-opening-1.0.0.zip",
+      "sha256": "ac713a7ba20adc2c205bb02e7986abd91c669ad83d3bdc9f5c47ec8e42f9c0e8",
+      "publishedAt": "2026-11-13T18:55:05.515Z",
+      "preview": "https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-cube-opening-v1.0.0/cover.jpg"
+    }
+  ]
 }

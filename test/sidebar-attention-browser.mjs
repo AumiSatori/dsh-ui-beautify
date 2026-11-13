@@ -48,7 +48,15 @@ try{
  await check('the edge arrow is always visible and reverses direction with a rendered transition',async()=>{
   const edge=page.locator('.dcb-sidebar-toggle-right'),span=edge.locator('span'),read=()=>span.evaluate(n=>{const s=getComputedStyle(n,'::before');return{transform:s.transform,opacity:s.opacity,width:getComputedStyle(n).width}})
   const collapsed=await read();assert.equal(collapsed.opacity,'1');assert.equal(collapsed.width,'18px')
-  await edge.click();await page.waitForTimeout(70);const middle=await read();await page.waitForTimeout(240);const expanded=await read();assert.notEqual(collapsed.transform,expanded.transform);assert.notEqual(middle.transform,collapsed.transform);assert.notEqual(middle.transform,expanded.transform)
+  await edge.click()
+  await span.evaluate(async node=>{
+   const animation=node.getAnimations({subtree:true}).find(a=>a.transitionProperty==='transform')
+   if(!animation)throw Error('The edge arrow must create a real transform transition')
+   await animation.ready;animation.pause();animation.currentTime=70
+  })
+  const middle=await read()
+  await span.evaluate(node=>{for(const animation of node.getAnimations({subtree:true}))if(animation.transitionProperty==='transform')animation.finish()})
+  const expanded=await read();assert.notEqual(collapsed.transform,expanded.transform);assert.notEqual(middle.transform,collapsed.transform);assert.notEqual(middle.transform,expanded.transform)
   await edge.press('Enter');await page.mouse.move(300,50);await page.waitForTimeout(280);assert.equal((await read()).transform,collapsed.transform)
  })
  await check('a new alert waits for the rendered drawer to fully collapse before entering at the screen edge',async()=>{

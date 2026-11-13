@@ -35,9 +35,11 @@ export function createHeaderMenuMotion(doc,win,{enabled=true}={}){
     if(marked==='folder'||marked==='more')return {kind:marked,button}
     const folderClass=moduleClass('@deepseek-ai/dsh-client-ui-open-in-app/OpenTargetButton.module.css','chevron')
     const moreClass=moduleClass('@deepseek-ai/dsh-client-ui-conversation/ConversationRoot.module.css','viewsMore')
+    const headerActionsClass=moduleClass('@deepseek-ai/dsh-client-ui-conversation/ConversationRoot.module.css','headerMenuButton')
     const actionsClass=moduleClass('@deepseek-ai/dsh-session-log-export/HeaderAction.module.css','moreButton')
     if(folderClass&&button.classList.contains(folderClass)&&button.closest('[data-open-target="directory"]'))return {kind:'folder',button}
     if(moreClass&&button.classList.contains(moreClass))return {kind:'more',button}
+    if(headerActionsClass&&button.hasAttribute('data-context-menu-trigger')&&button.classList.contains(headerActionsClass))return {kind:'more',button}
     if(actionsClass&&button.classList.contains(actionsClass))return {kind:'more',button}
     return null
   }
@@ -50,6 +52,12 @@ export function createHeaderMenuMotion(doc,win,{enabled=true}={}){
     if(node.getAttribute('role')!=='menu'||!node.hasAttribute('data-menu-material'))return null
     const moreClass=moduleClass('@deepseek-ai/dsh-client-ui-conversation/ConversationRoot.module.css','viewsMoreMenu')
     if(moreClass&&node.classList.contains(moreClass))return 'more'
+    // The current host links an open context menu to its owning header button.
+    // Preserve that association when reinstalling presentation on an open menu.
+    if(node.id&&node.hasAttribute('data-context-menu')){
+      const owner=[...doc.querySelectorAll('header button[data-context-menu-trigger][aria-expanded="true"][aria-controls]')].find(button=>button.getAttribute('aria-controls').split(/\s+/).includes(node.id))
+      if(owner)return triggerKind(owner)?.kind||null
+    }
     if(node.closest('header')){
       const button=node.parentElement?.querySelector('button[aria-haspopup="menu"]')
       return button&&!node.contains(button)?triggerKind(button)?.kind:null

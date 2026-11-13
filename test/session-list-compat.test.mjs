@@ -140,14 +140,10 @@ function readNativeController() {
 }
 
 test('installed native controller reproduces the disappearing row and accepts the compatibility fix', {skip: !process.env.DSH_ASAR}, async () => {
+  const {nativePluginDeclarations}=await import('./native-plugin-module.mjs')
   const source = readNativeController()
-  const region = start => {
-    const at = source.indexOf(start)
-    assert.ok(at >= 0, start)
-    return source.slice(at, source.indexOf('//#endregion', at))
-  }
   const NativeManager = new vm.Script(
-    region('function mergeOrderedBaseline(') + region('var SessionManager = class') + '\n;SessionManager',
+    nativePluginDeclarations(source,['mergeOrderedBaseline','applyMutation']) + nativePluginDeclarations(source,['SessionManager'],{dependencies:false}) + '\n;SessionManager',
   ).runInNewContext()
 
   function nativeFixture() {

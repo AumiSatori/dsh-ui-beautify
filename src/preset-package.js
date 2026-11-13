@@ -3,6 +3,10 @@ import {runningCRC32} from './running-pack-zip.js'
 import {PRESET_PACKAGE_LIMIT} from '../server/preset-market-config.js'
 export {PRESET_PACKAGE_LIMIT,MARKET_REPO,MARKET_RAW,MARKET_CDN} from '../server/preset-market-config.js'
 
+// Licenses a market preset may carry. NC-SA covers fan art whose original
+// terms forbid commercial use and require the same license on adaptations.
+export const PRESET_LICENSES=['CC-BY-4.0','CC-BY-SA-4.0','CC-BY-NC-SA-4.0','CC0-1.0','MIT']
+export const presetLicenseNote=license=>license==='CC-BY-NC-SA-4.0'?'仅限非商业使用，改编须以相同许可分享':''
 const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value)
 const safeKey=key=>!['__proto__','constructor','prototype'].includes(key)
 export const sha256=async(blob,win=globalThis)=>Array.from(new Uint8Array(await win.crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),n=>n.toString(16).padStart(2,'0')).join('')
@@ -17,7 +21,7 @@ export function normalizePresetMeta(value){
   const scope=presetScope(value.scope).id
   if(!Array.isArray(value.tags)||value.tags.length>8)throw Error('最多填写 8 个标签。')
   const tags=[...new Set(value.tags.map(tag=>text(tag,20)))]
-  if(!['CC0-1.0','CC-BY-4.0','CC-BY-SA-4.0','MIT'].includes(value.license))throw Error('请选择支持分享的许可。')
+  if(!PRESET_LICENSES.includes(value.license))throw Error('请选择支持分享的许可。')
   if(!/^[a-f0-9]{64}$/.test(value.configSha256||''))throw Error('预设缺少配置校验信息。')
   if(value.coverFile&&!/^cover\.(png|jpg|webp)$/.test(value.coverFile))throw Error('封面文件名无效。')
   const result={format:value.format,schemaVersion:1,id,version,title:text(value.title,60),description:text(value.description,300),author:text(value.author,60),scope,tags,license:value.license,configSha256:value.configSha256,coverFile:value.coverFile||''}

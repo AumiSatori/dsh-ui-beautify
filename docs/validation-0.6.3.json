@@ -1,0 +1,17 @@
+{
+  "version": "0.6.3",
+  "status": "targeted-regression-passed-live-page-unverified",
+  "releaseBase": "3d7ea48e9c0b102d275c97ca357b7596d7d352bc",
+  "host": {"runtime": "0.2.2-rc.1", "browser": "Claude built-in browser; real plugin bundle and the actual interactive code opening on an isolated page"},
+  "clientSha256": "d7f0c6f4354364b6fa16929f8447a1d7e3f0bf9fc97d27089503b5c1e599958b",
+  "checks": {
+    "clientRebuiltFromReleaseSources": {"passed": true},
+    "nodeTests": {"passed": 171, "skipped": 1, "failed": 0},
+    "openingGateUnit": {"passed": 6},
+    "presetMarketLicense": {"passed": 1},
+    "openingGateBrowser": {"passed": true, "cases": ["hidden start", "hidden mid-intro replay", "lasting blur replay", "dispose cleanup", "replayed opening renders auth animation and scene"]},
+    "checkRelease": {"passed": true},
+    "marketCatalog": {"passed": true}
+  },
+  "notRun": ["test/startup-motion-browser.mjs (headless Playwright)", "live DSH page at localhost:8442 (not available on DSH 0.2.2)"]
+}

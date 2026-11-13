@@ -5,6 +5,7 @@ import {createWelcomeMediaPlayer,welcomeMediaCss} from './welcome-media.js'
 import {createWelcomeCodePlayer} from './welcome-code.js'
 import {createCharacterWelcomeArt,playCharacterWelcome} from './welcome-characters.js'
 import {cubeLogo} from './welcome-cube-logo.js'
+import {createOpeningGate} from './opening-visibility.js'
 
 const OPENING=Symbol.for('dsh-ui-beautify.startup-motion.v1')
 const CONTROLLER=Symbol.for('dsh-ui-beautify.startup-controller.v1')
@@ -52,7 +53,7 @@ export function createStartupMotion(doc,win,options,services={}){
   if(win[OPENING]){const current=win[CONTROLLER];if(current){current.adopted=true;current.resume()}return current||noop}
   win[OPENING]=true
   const quiet=win.matchMedia('(prefers-reduced-motion: reduce), (forced-colors: active)')
-  const status={stage:'waiting-visible',reason:null,entrances:0,strokes:0}
+  const status={stage:'waiting-visible',reason:null,entrances:0,strokes:0,replays:0,gate:'waiting',lost:null}
   win[STATUS]=status
   let settings={...options,...normalizeWelcome(options)}
   if(!settings.welcomeEnabled){status.stage='done';status.reason='disabled';return noop}
@@ -60,7 +61,7 @@ export function createStartupMotion(doc,win,options,services={}){
   const active=new Map(),strokeAnimations=[],claimed=new Set(),listeners=[],timers=new Set(),held=new Map()
   let disposed=false,observer=null,raf=0,style=null,overlay=null,copy=null,writing=false,introDone=false,revealing=false,contentEntered=false
   let visibleAt=0,viewReadyAt=0,revealAt=0,deadline=0,settleTimer=0,waitTimer=0,restorationExpected=false,sessionState=null,identity=null,homeReady=false
-  let mediaPlayer=null,codePlayer=null,logo=null,mediaPending=false,codePending=false,mediaLoadTimer=0,codeLoadTimer=0
+  let mediaPlayer=null,codePlayer=null,logo=null,mediaPending=false,codePending=false,mediaLoadTimer=0,codeLoadTimer=0,gate=null,contentGen=0
   const now=()=>win.performance.now()
   const interactive=()=>settings.welcomeCodeInteractive===true||settings.welcomeMode==='cube'
   const setStage=value=>{status.stage=value;doc.documentElement.setAttribute(STAGE,value)}
@@ -83,6 +84,7 @@ export function createStartupMotion(doc,win,options,services={}){
   function finish(reason='complete'){
     if(disposed)return
     disposed=true;status.reason=reason;status.stage='done'
+    gate?.dispose();gate=null
     observer?.disconnect();win.cancelAnimationFrame(raf);raf=0
     for(const id of timers)win.clearTimeout(id);timers.clear()
     for(const remove of listeners)remove();listeners.length=0
@@ -117,7 +119,29 @@ export function createStartupMotion(doc,win,options,services={}){
     on(overlay,'pointerdown',event=>{if(!interactive()||!event.target.closest('[data-dcb-welcome-code]'))finish('skip')})
     on(skip,'click',()=>finish('skip'))
     if(!animate(copy,[{opacity:0,transform:'translateY(10px) scale(.96)'},{opacity:1,transform:'none'}],{duration:300,easing:motion.ease.smooth},'welcome-in')){finish('unsupported');return}
-    deadline=later(()=>finish('loading-timeout'),WAIT)
+    // The veil covers the app at once; the content itself waits until the
+    // window is visible, focused and painting, and replays if that is lost.
+    setStage('waiting-visible')
+    gate=createOpeningGate(doc,win,{onOpen:()=>{status.gate='open';try{startContent()}catch{finish('error')}},onLost:reason=>{status.gate='waiting';pauseContent(reason)}})
+    schedule()
+  }
+  // Content callbacks belong to one playback; a replay invalidates them.
+  function live(gen){return gen===contentGen&&!disposed&&!revealing}
+  function pauseContent(reason){
+    if(disposed||revealing||introDone||!copy)return
+    contentGen++;status.replays++;status.lost=reason
+    cancelTimer(deadline);deadline=0
+    for(const a of strokeAnimations)a.cancel();strokeAnimations.length=0
+    releaseWelcome()
+    for(const child of[...copy.children])if(!child.classList.contains('dcb-welcome-sr'))child.remove()
+    copy.removeAttribute('data-media');copy.removeAttribute('data-code')
+    setStage('waiting-visible')
+  }
+  function startContent(){
+    if(disposed||revealing||introDone||!copy)return
+    const gen=++contentGen
+    cancelTimer(deadline);deadline=later(()=>{if(live(gen))finish('loading-timeout')},WAIT)
+    setStage('writing')
     if(settings.welcomeMode==='media'&&services.mediaStore){
       setStage('loading-media');mediaPending=true
       const fallback=()=>{if(!mediaPending||disposed||revealing)return;mediaPending=false;cancelTimer(mediaLoadTimer);try{showText()}catch{finish('error')}}
@@ -159,6 +183,7 @@ export function createStartupMotion(doc,win,options,services={}){
   }
   function showText(){
     if(disposed||revealing)return
+    const gen=contentGen
     setStage('writing')
     if(services.createLogo){
       logo=services.createLogo()
@@ -167,7 +192,7 @@ export function createStartupMotion(doc,win,options,services={}){
         copy.append(art.svg)
         const caption=doc.createElement('p');caption.setAttribute('data-dcb-welcome-caption','');caption.textContent=settings.welcomeText;copy.append(caption)
         strokeAnimations.push(...playCharacterWelcome(art,settings.welcomeDuration))
-        later(()=>{introDone=true;setStage('waiting-content');schedule()},settings.welcomeDuration+HOLD)
+        later(()=>{if(live(gen)){introDone=true;setStage('waiting-content');schedule()}},settings.welcomeDuration+HOLD)
         return
       }
     }
@@ -177,7 +202,7 @@ export function createStartupMotion(doc,win,options,services={}){
     }
     const art=createWelcomeArt(doc,settings);copy.append(art.svg)
     try{strokeAnimations.push(...playWelcomeInk(art,settings.welcomeDuration));status.strokes=art.strokes.length}catch{finish('unsupported');return}
-    later(()=>{introDone=true;setStage('waiting-content');schedule()},settings.welcomeDuration+HOLD)
+    later(()=>{if(live(gen)){introDone=true;setStage('waiting-content');schedule()}},settings.welcomeDuration+HOLD)
   }
   function candidates(){
     const body=doc.querySelector(`${names('centerCol')} [data-conversation-content]`)||doc.querySelector('[data-conversation-content]')
@@ -257,7 +282,7 @@ export function createStartupMotion(doc,win,options,services={}){
   }
   function reveal(parts,mainReady){
     if(disposed||revealing)return
-    revealing=true;identity={body:parts.body,id:parts.id};revealAt=now();setStage('revealing')
+    revealing=true;gate?.dispose();gate=null;identity={body:parts.body,id:parts.id};revealAt=now();setStage('revealing')
     contentEntered=mainReady
     if(mainReady){cancelTimer(deadline);cancelTimer(waitTimer);later(()=>finish(),1000)}
     else{cancelTimer(deadline);cancelTimer(waitTimer);waitTimer=later(()=>finish('content-timeout'),CONTENT_WAIT)}
@@ -301,7 +326,7 @@ export function createStartupMotion(doc,win,options,services={}){
   on(quiet,'change',()=>{if(quiet.matches)finish('reduced-motion')})
   on(doc,'keydown',event=>{if(!interactive()||event.key==='Escape')finish('keyboard')},true)
   on(doc,'pointerdown',event=>{if(!overlay||!overlay.contains(event.target))finish('interaction')},true)
-  on(doc,'visibilitychange',()=>{if(doc.hidden){if(writing)finish('hidden')}else begin()})
+  on(doc,'visibilitychange',()=>{if(doc.hidden){if(writing&&(introDone||revealing))finish('hidden')}else begin()})
   on(win,'pagehide',()=>finish('pagehide'))
   begin()
   const controller={adopted:false,resume:schedule,dispose:()=>finish('dispose'),setEnabled(enabled){if(!enabled)finish('disabled')},setRestorationTarget(id){if(!disposed&&id){restorationExpected=true;schedule()}},setSessionState(id,state){if(!disposed){sessionState={id,state};schedule()}}}

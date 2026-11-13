@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs'
 import vm from 'node:vm'
 import {createSettingsTransfer} from '../src/settings-transfer.js'
 import {scopeSettings,sharedPresetRecords,settingScope} from '../src/preset-scopes.js'
-import {sha256,normalizePresetMeta,inspectPresetConfig,createPresetZip,inspectPresetZip} from '../src/preset-package.js'
+import {sha256,normalizePresetMeta,inspectPresetConfig,createPresetZip,inspectPresetZip,PRESET_LICENSES,presetLicenseNote} from '../src/preset-package.js'
 import {normalizeMarketCatalog,trustedPresetAsset,createPresetMarket} from '../src/preset-market.js'
 import {presetSubmissionUrl,nextPresetCatalog} from '../scripts/preset-market.mjs'
 import {registerPresetMarket} from '../server/preset-market.js'
@@ -26,6 +26,13 @@ test('package roundtrip validates metadata, CRC, configuration hash and declared
   const bytes=new Uint8Array(await (await pack()).arrayBuffer());bytes[45]^=1
   await assert.rejects(inspectPresetZip(new Blob([bytes])))
   await assert.rejects(inspectPresetZip(await pack(config(),{configSha256:'f'.repeat(64)})),/校验/)
+})
+test('non-commercial share-alike fan art is accepted and labelled; other licenses stay rejected',async()=>{
+  assert.deepEqual(PRESET_LICENSES,['CC-BY-4.0','CC-BY-SA-4.0','CC-BY-NC-SA-4.0','CC0-1.0','MIT'])
+  const result=await inspectPresetZip(await pack(config(),{license:'CC-BY-NC-SA-4.0'}))
+  assert.equal(result.meta.license,'CC-BY-NC-SA-4.0')
+  assert.match(presetLicenseNote('CC-BY-NC-SA-4.0'),/非商业/);assert.equal(presetLicenseNote('MIT'),'')
+  for(const license of['CC-BY-NC-4.0','CC-BY-NC-ND-4.0','All rights reserved',''])await assert.rejects(inspectPresetZip(await pack(config(),{license})),/许可/)
 })
 test('package validation rejects cross-category changes, credentials and local file references',async()=>{
   await assert.rejects(inspectPresetConfig(config('sidebar',{sidebarStyle:'glass',composerStyle:'clear'}),'sidebar'),/分类以外/)

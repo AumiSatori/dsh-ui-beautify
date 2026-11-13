@@ -1,5 +1,6 @@
 import {motion} from './motion.js'
 import {PRESET_SCOPES,presetScope} from './preset-scopes.js'
+import {PRESET_LICENSES,presetLicenseNote} from './preset-package.js'
 
 export const presetMarketCss=`
  .dcb-market { color:var(--dsh-settings-text); min-width:0; container:dcb-market / inline-size; }
@@ -150,7 +151,7 @@ export function createPresetMarketUI(React,win,{createPortal}={}){
         h('label',null,'预设简介',h('textarea',{value:draft.description,rows:3,maxLength:300,disabled:busy,onChange:e=>update('description',e.target.value),placeholder:'介绍风格、使用场景和素材来源'})),
         h('div',null,h('div',{className:'dcb-market-field-title'},'分享范围'),h(Chips,{label:'投稿分类',items:PRESET_SCOPES.map(s=>[s.id,s.name]),value:draft.scope,disabled:busy,onChange:value=>update('scope',value)}),h('p',null,presetScope(draft.scope).description+'。单项预设应用时保留其他分类。')),
         field('tags','标签（用逗号分隔，最多 8 个）',160,'简约, 玻璃, 深色'),
-        h('div',null,h('div',{className:'dcb-market-field-title'},'分享许可'),h(Chips,{label:'分享许可',items:['CC-BY-4.0','CC-BY-SA-4.0','CC0-1.0','MIT'].map(s=>[s,s]),value:draft.license,disabled:busy,onChange:value=>update('license',value)})),
+        h('div',null,h('div',{className:'dcb-market-field-title'},'分享许可'),h(Chips,{label:'分享许可',items:PRESET_LICENSES.map(s=>[s,s]),value:draft.license,disabled:busy,onChange:value=>update('license',value)})),
         h('div',null,h('div',{className:'dcb-market-field-title'},'封面（可选，PNG / JPG / WebP，最多 4 MB）'),h('div',{className:'dcb-market-actions'},h('button',{type:'button',disabled:busy,onClick:()=>coverInput.current?.click()},cover?'更换封面':'选择封面'),h('p',null,cover?.name||'未选择封面')),h('input',{ref:coverInput,type:'file',hidden:true,accept:'image/png,image/jpeg,image/webp','aria-label':'选择投稿封面',disabled:busy,onChange:e=>{setCover(e.target.files?.[0]||null);setSubmission(null)}})),
         h('div',{className:'dcb-market-consent'},h('p',null,'我有权分享这些素材，已检查投稿内容不含凭据、私人信息和聊天记录。'),h('button',{type:'button',className:'dcb-switch',role:'switch','aria-label':'确认投稿内容与分享权限','aria-checked':consent,disabled:busy,onClick:()=>setConsent(v=>!v)})),
         h('div',{className:'dcb-market-actions'},h('button',{type:'button','data-primary':'',disabled:busy||!consent,onClick:submit},busy?'正在打包…':'导出投稿包'),submission&&h('a',{className:'dcb-market-link',href:submission.url,target:'_blank',rel:'noopener noreferrer'},'打开 GitHub 投稿页'),h('a',{className:'dcb-market-link',href:'https://github.com/AumiSatori/dsh-ui-beautify/actions/workflows/preset-market.yml',target:'_blank',rel:'noopener noreferrer'},'官方发布入口')),h('p',null,'投稿包最多 64 MB，仅包含所选分类及使用中的素材。投稿后仍需上传 ZIP，不会自动上架。'))),
@@ -162,7 +163,7 @@ export function createPresetMarketUI(React,win,{createPortal}={}){
         if(e.key==='Tab'&&modal.current){const nodes=[...modal.current.querySelectorAll('button:not(:disabled),a[href]')],first=nodes[0],last=nodes.at(-1);if(e.shiftKey&&win.document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&win.document.activeElement===last){e.preventDefault();first?.focus()}}
       }},h('div',{className:'dcb-market-modal',ref:modal,role:'dialog','aria-modal':true,'aria-label':item?'预设详情：'+item.title:'预设详情'},
         h('div',{className:'dcb-market-modal-head'},h('h3',null,item?.title||'预设详情'),h('button',{ref:close,type:'button',disabled:busy&&!!prepared,'aria-label':'关闭预设详情',onClick:dismiss},'关闭')),
-        item&&h(Preview,{item}),item&&h('p',null,item.description),item&&h('p',null,`${item.author} · v${item.version} · ${item.source==='official'?'官方':'社区已审核'} · ${item.license}`),
+        item&&h(Preview,{item}),item&&h('p',null,item.description),item&&h('p',null,`${item.author} · v${item.version} · ${item.source==='official'?'官方':'社区已审核'} · ${item.license}${presetLicenseNote(item.license)?'（'+presetLicenseNote(item.license)+'）':''}`),
         item&&h('p',null,'应用范围：'+presetScope(item.scope).name+(item.scope==='full'?'。将替换整套美化配置。':item.scope==='layout'?'。仅调整窗口与全屏聊天宽度。':'。其他分类和聊天宽度保持不变。')),
         h('p',{role:'status'},busy&&!prepared?'正在校验预设…':prepared?`${prepared.plan.options} 项设置 · ${prepared.plan.records} 条素材记录`:'') ,
         error&&h('p',{role:'alert'},error),notice&&h('p',{role:'status'},notice),h('div',{className:'dcb-market-actions'},h('button',{type:'button','data-primary':'',disabled:busy||!prepared,onClick:apply},'应用预设'),h('button',{type:'button',disabled:busy||!prepared,onClick:save},'保存到本机预设'))))))

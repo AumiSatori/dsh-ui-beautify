@@ -4,7 +4,7 @@ import {resolve,join,dirname,basename} from 'node:path'
 import {tmpdir} from 'node:os'
 import {execFileSync} from 'node:child_process'
 import vm from 'node:vm'
-import {MARKET_REPO,PRESET_PACKAGE_LIMIT,inspectPresetZip,inspectPresetConfig,sha256} from '../src/preset-package.js'
+import {MARKET_REPO,PRESET_PACKAGE_LIMIT,inspectPresetZip,inspectPresetConfig,sha256,presetLicenseNote} from '../src/preset-package.js'
 import {normalizeMarketCatalog} from '../src/preset-market.js'
 import {createSettingsTransfer} from '../src/settings-transfer.js'
 
@@ -90,7 +90,7 @@ async function publish(args){
     const assets=[path]
     if(meta.coverFile){const cover=join(temporary,meta.coverFile);writeFileSync(cover,Buffer.from(await files.get(meta.coverFile).arrayBuffer()));assets.push(cover)}
     // Separate preset assets from plugin releases; never mark a preset Latest.
-    gh('release','create',tag,...assets,'--repo',MARKET_REPO,'--title',meta.title+' '+meta.version,'--notes',`${meta.description}\n\n作者：${meta.author}\n许可：${meta.license}\n分类：${meta.scope}`,'--latest=false','--target',git('rev-parse','HEAD'))
+    gh('release','create',tag,...assets,'--repo',MARKET_REPO,'--title',meta.title+' '+meta.version,'--notes',`${meta.description}\n\n作者：${meta.author}\n许可：${meta.license}${presetLicenseNote(meta.license)?'（'+presetLicenseNote(meta.license)+'）':''}\n分类：${meta.scope}`,'--latest=false','--target',git('rev-parse','HEAD'))
     writeFileSync(catalogPath,JSON.stringify(synchronized.catalog,null,2)+'\n')
     git('add','--','market/catalog.json');git('commit','-m',`market: publish ${meta.id} ${meta.version}`);git('push','origin','HEAD:main')
     console.log(JSON.stringify({published:meta.id,version:meta.version,source,issue:issue||null}))

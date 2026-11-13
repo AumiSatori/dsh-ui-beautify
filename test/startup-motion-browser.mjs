@@ -89,7 +89,9 @@ function composer(){return '<div class="ib_root" data-composer-card><textarea ar
 async function start(options={welcomeFont:'hand',welcomeMode:'text'}){await page.evaluate(({options,logo})=>{
   const services={}
   window.motion=Startup.createStartupMotion(document,window,options,services)
-},{options:{welcomeMode:'text',...options},logo});await tick()}
+},{options:{welcomeMode:'text',...options},logo});await tick();await opened()}
+// The content waits for a few steady frames on a visible, focused page.
+async function opened(){await page.waitForFunction(()=>window.hiddenState||document.documentElement.getAttribute('data-dcb-startup-stage')!=='waiting-visible',null,{timeout:2000}).catch(()=>{})}
 async function clean(){await page.evaluate(()=>window.motion.dispose());await tick()}
 const status=()=>page.evaluate(()=>window[Symbol.for('dsh-ui-beautify.startup-status.v2')])
 async function reveal(){
@@ -186,7 +188,7 @@ try{
   await check('hidden windows start handwriting on first visibility, rather than consuming it during host initialization',async()=>{
     await boot({hidden:true});await start();assert.equal(await page.locator('[data-dcb-welcome]').count(),0)
     assert.equal(await page.evaluate(()=>window.timers.size),0)
-    await page.evaluate(()=>{window.hiddenState=false;document.dispatchEvent(new Event('visibilitychange'))});await tick()
+    await page.evaluate(()=>{window.hiddenState=false;document.dispatchEvent(new Event('visibilitychange'))});await tick();await opened()
     assert.equal((await status()).stage,'writing')
     assert.equal(await page.locator('[data-dcb-welcome]').count(),1)
     await clean()
@@ -239,8 +241,14 @@ try{
       assert.equal(await page.locator('[data-composer-card]').evaluate(el=>getComputedStyle(el).opacity),'1');await clean()
     }
     await boot();await start();await page.emulateMedia({reducedMotion:'reduce'});await tick();assert.equal(await page.locator('[data-dcb-welcome]').count(),0)
+    // Hidden before the intro ends: the content is released and replayed on
+    // return instead of finishing unseen (fullscreen apps, minimized windows).
     await boot();await start();await page.evaluate(()=>{window.hiddenState=true;document.dispatchEvent(new Event('visibilitychange'))});await tick()
-    assert.equal(await page.locator('[data-dcb-welcome]').count(),0)
+    assert.equal(await page.locator('[data-dcb-welcome-copy] svg').count(),0)
+    assert.equal((await status()).stage,'waiting-visible');assert.equal((await status()).replays,1)
+    await page.evaluate(()=>{window.hiddenState=false;document.dispatchEvent(new Event('visibilitychange'))});await tick();await opened()
+    assert.equal((await status()).stage,'writing');assert.ok(await page.locator('[data-dcb-welcome-copy] svg').count()>0)
+    await clean();assert.equal(await page.locator('[data-dcb-welcome]').count(),0)
   })
   await check('animation API and SVG measurement failures release the welcome and every temporary resource',async()=>{
     for(const failure of['copy','ink','measure','veil']){

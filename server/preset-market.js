@@ -1,4 +1,4 @@
-import {MARKET_RAW,MARKET_CDN,MARKET_REPO,PRESET_PACKAGE_LIMIT} from './preset-market-config.js'
+import {MARKET_RAW,MARKET_CDN,MARKET_RAW_V2,MARKET_CDN_V2,MARKET_REPO,PRESET_PACKAGE_LIMIT} from './preset-market-config.js'
 
 // Only public catalog reads and immutable, catalog-listed downloads are
 // exposed locally. Publication and review use GitHub's own permissions.
@@ -7,7 +7,8 @@ export function registerPresetMarket(root,{fetcher=fetch}={}){
   return root.inject(['webServer'],scope=>{
     const server=scope.get?.('webServer')||scope.webServer
     if(!server?.register)return
-    let cached=null,loading=null,live=true
+    const caches={legacy:{cached:null,loading:null,urls:[MARKET_RAW,MARKET_CDN]},v2:{cached:null,loading:null,urls:[MARKET_RAW_V2,MARKET_CDN_V2]}}
+    let live=true
     const controllers=new Set(),disposers=[]
     async function download(url,limit){
       const controller=new AbortController();controllers.add(controller)
@@ -21,14 +22,15 @@ export function registerPresetMarket(root,{fetcher=fetch}={}){
         return Buffer.concat(chunks)
       }finally{clearTimeout(timeout);controllers.delete(controller)}
     }
-    async function catalog(){
-      if(cached&&Date.now()-cached.at<60000)return cached.data
-      if(!loading)loading=Promise.any([MARKET_RAW,MARKET_CDN].map(async url=>{
+    async function catalog(kind='legacy'){
+      const state=caches[kind]
+      if(state.cached&&Date.now()-state.cached.at<60000)return state.cached.data
+      if(!state.loading)state.loading=Promise.any(state.urls.map(async url=>{
         const bytes=await download(url,2*1024*1024),data=JSON.parse(bytes)
         if(data?.schemaVersion!==1||!Array.isArray(data.presets)||data.presets.length>1000)throw Error('市场目录格式无效。')
         return data
-      })).then(data=>{cached={data,at:Date.now()};return data}).finally(()=>{loading=null})
-      return loading
+      })).then(data=>{state.cached={data,at:Date.now()};return data}).finally(()=>{state.loading=null})
+      return state.loading
     }
     function route(path,handler){
       const disposer=server.register({kind:'exact',path:'/dsh-ui-beautify/preset-market/'+path,handler:async(req,res)=>{
@@ -44,10 +46,13 @@ export function registerPresetMarket(root,{fetcher=fetch}={}){
       if(typeof disposer==='function')disposers.push(disposer);else if(disposer?.dispose)disposers.push(()=>disposer.dispose())
     }
     route('catalog',async()=>({body:Buffer.from(JSON.stringify(await catalog())),type:'application/json; charset=utf-8'}))
+    route('catalog-v2',async()=>({body:Buffer.from(JSON.stringify(await catalog('v2'))),type:'application/json; charset=utf-8'}))
     route('package',async req=>{
       const params=new URL(req.url,'http://localhost').searchParams,id=params.get('id'),version=params.get('version')
       if(!/^[a-z0-9][a-z0-9-]{0,59}$/.test(id||'')||!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(version||''))throw Object.assign(Error('预设标识无效。'),{status:400})
-      const item=(await catalog()).presets.find(p=>p.id===id&&p.version===version)
+      // catalog-v2 is a superset; fall back to the legacy list if it is unreachable.
+      const find=data=>data.presets.find(p=>p?.id===id&&p.version===version)
+      const item=await catalog('v2').then(find,()=>null)||find(await catalog())
       let url;try{url=new URL(item?.archiveUrl)}catch{}
       if(!item||!url||url.origin!=='https://github.com'||!url.pathname.startsWith('/'+MARKET_REPO+'/releases/download/')||url.username||url.password||url.search||url.hash||!/^[a-f0-9]{64}$/.test(item.sha256||''))throw Object.assign(Error('预设不在已审核的下载目录中。'),{status:404})
       const body=await download(url.href,PRESET_PACKAGE_LIMIT)

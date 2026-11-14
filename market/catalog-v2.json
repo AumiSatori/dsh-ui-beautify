@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "presets": [
+    {
+      "format": "dsh-ui-preset",
+      "schemaVersion": 1,
+      "id": "whale-maid-mirror-sea",
+      "version": "1.0.0",
+      "title": "鲸鱼娘 · 镜海",
+      "description": "小鲸鱼女仆整套美化：镜海动态 HTML 背景（日夜）、指尖链接交互开屏（挥手欢迎）、加载短片、自定义 Logo 与粒子立绘。角色为 ZipZipPipe 对上善无形《溟月》的二创，图像由 GPT Image 生成；按 CC BY-NC-SA 4.0 分享，仅限非商业使用。",
+      "author": "AumiSatori",
+      "scope": "full",
+      "tags": [
+        "鲸鱼娘",
+        "镜海",
+        "开屏",
+        "动态背景"
+      ],
+      "license": "CC-BY-NC-SA-4.0",
+      "configSha256": "a2fe724cec6ad7a4401ab937f7e340826ad6985b3511b8745b5aa7498753d55e",
+      "coverFile": "cover.webp",
+      "source": "official",
+      "contributor": "AumiSatori",
+      "archiveUrl": "https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-whale-maid-mirror-sea-v1.0.0/whale-maid-mirror-sea-1.0.0.zip",
+      "sha256": "4d3324c042cd6403e4be82b2af4602bcab6c1914d265d3a5be648ba882e2a767",
+      "publishedAt": "2026-11-13T18:55:17.772Z",
+      "preview": "https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-whale-maid-mirror-sea-v1.0.0/cover.webp"
+    },
+    {
+      "format": "dsh-ui-preset",
+      "schemaVersion": 1,
+      "id": "cube-opening",
+      "version": "1.0.0",
+      "title": "魔方 · 按住复原",
+      "description": "黑白 3×3 魔方开屏：按住逐层复原，松手回弹，复原后露出 DSH 鲸鱼 Logo 再进入聊天；12 秒无操作自动复原，可随时跳过。只含开屏设置，场景随美化插件内置，Logo 运行时取自宿主。",
+      "author": "AumiSatori",
+      "scope": "welcome",
+      "tags": [
+        "魔方",
+        "开屏",
+        "three.js",
+        "交互"
+      ],
+      "license": "MIT",
+      "configSha256": "a35e76f220dc44680cf150f3ed3c7d83cce39b6fa87e1bc43fe086195701f101",
+      "coverFile": "cover.jpg",
+      "source": "official",
+      "contributor": "AumiSatori",
+      "archiveUrl": "https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-cube-opening-v1.0.0/cube-opening-1.0.0.zip",
+      "sha256": "ac713a7ba20adc2c205bb02e7986abd91c669ad83d3bdc9f5c47ec8e42f9c0e8",
+      "publishedAt": "2026-11-13T18:55:05.515Z",
+      "preview": "https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-cube-opening-v1.0.0/cover.jpg"
+    }
+  ],
+  "licenses": [
+    "CC-BY-4.0",
+    "CC-BY-SA-4.0",
+    "CC-BY-NC-SA-4.0",
+    "CC0-1.0",
+    "MIT"
+  ]
+}

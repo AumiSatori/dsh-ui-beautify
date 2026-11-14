@@ -1,0 +1,15 @@
+{
+  "version": "0.6.4",
+  "status": "targeted-regression-passed-live-page-unverified",
+  "releaseBase": "c577443450a4dbbad3e6a6d73b78a4e43fa2a6b2",
+  "clientSha256": "7413ac0285f4e65fd55cd88836111fb1ac4d70a251cc73807368ffb2b3f5b736",
+  "checks": {
+    "clientRebuiltFromReleaseSources": {"passed": true},
+    "nodeTests": {"passed": 175, "skipped": 1, "failed": 0},
+    "marketCatalog": {"passed": true, "presets": 2, "legacyPresets": 1},
+    "checkRelease": {"passed": true},
+    "legacyCompatibility": {"passed": true, "versions": ["0.6.0", "0.6.1", "0.6.2", "0.6.3"], "result": "legacy catalog.json parses and lists cube-opening"},
+    "forwardCompatibility": {"passed": true, "cases": ["unknown settings skipped", "unknown asset groups and stores skipped", "minPluginVersion marked", "licenses read from catalog", "invalid entries skipped without losing the catalog", "server catalog-v2 route and v2-only download"]}
+  },
+  "notRun": ["test:preset-market headless browser flow", "live DSH page at localhost:8442 (not available on DSH 0.2.2)"]
+}

@@ -24,9 +24,25 @@
 
 包格式由插件生成，不是通用 ZIP 导入接口：根目录固定为 `manifest.json`、`config.dshui`，以及可选 `cover.png` / `cover.jpg` / `cover.webp`。配置和二进制素材校验 SHA-256，ZIP 条目校验 CRC32，禁止额外文件、目录路径、重复条目、压缩炸弹及分类越界。
 
+## 不更新插件也能上传预设（0.6.4 起）
+
+上架规则放在仓库里，不放在已安装的插件里。上传新预设只更新目录和预设 Release，不需要发布插件新版本：
+
+- **许可由仓库决定**：可接受的许可列表是 `scripts/preset-market.mjs` 中的 `PUBLISH_LICENSES`，写入 `catalog-v2.json` 的 `licenses`。插件从目录读取这份列表作为投稿选项；读取预设时只要求许可标识格式正确。新增许可只改仓库，不发插件。
+- **单个条目不再拖垮整个市场**：读取目录时跳过本版本无法识别的条目（未知分类、字段格式不符、重复 ID），其余预设照常显示。维护者校验和发布仍逐条严格检查。
+- **新版设置自动跳过**：用更新的插件导出的预设，如果含当前版本不认识的设置或素材分组，安装时跳过这些部分，并在详情里显示“跳过本版本不支持的 N 项设置、N 组素材”；已知设置越过所选分类仍会被拒绝。
+- **版本要求**：确实依赖新功能的预设，发布时加 `--min-version x.y.z`。低于该版本的插件仍显示它，卡片标注“需要 x.y.z+”，查看时提示先更新插件，不会报错或影响其他预设。
+
+### 两份目录
+
+- `market/catalog-v2.json`：完整目录，0.6.4 及以后读取（本机后端 `/dsh-ui-beautify/preset-market/catalog-v2`、raw 与 jsDelivr）。
+- `market/catalog.json`：只保留 0.6.0–0.6.3 能识别的条目（原四种许可，且没有版本要求）。旧版本遇到任何不认识的条目都会丢弃整个目录，所以这份必须保持兼容。
+
+两份由发布脚本同时写入；`npm run market:validate` 检查 `catalog.json` 恰好等于 `catalog-v2.json` 中旧版可识别的部分。CC BY-NC-SA 等新许可的预设只出现在 v2 中，旧版本用户更新到 0.6.4 后可见。
+
 ## 维护者审核与官方上传
 
-市场目录位于 `market/catalog.json`，包体托管在本仓库 GitHub Releases。目录与源码使用同一个仓库的权限边界。官方标识由发布身份生成，用户上传包不能自封「官方」。
+市场目录位于 `market/catalog-v2.json`（另生成兼容旧版的 `market/catalog.json`），包体托管在本仓库 GitHub Releases。目录与源码使用同一个仓库的权限边界。官方标识由发布身份生成，用户上传包不能自封「官方」。
 
 审核社区投稿：
 
@@ -47,6 +63,7 @@
   ```sh
   node scripts/preset-market.mjs publish --official --file /path/to/preset.zip --dry-run
   node scripts/preset-market.mjs publish --official --file /path/to/preset.zip
+  # 依赖新功能时：--min-version 0.6.4
   ```
 
 第二条命令才会上传预设 Release、提交并推送目录。`--dry-run` 只验证并展示计划。`GH_PATH` 可指定 `gh` 可执行文件。预设 Release 使用 `preset-<id>-v<version>`，不会成为插件的 Latest Release，也不会发布 npm 包。

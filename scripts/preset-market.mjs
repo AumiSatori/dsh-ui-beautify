@@ -4,11 +4,18 @@ import {resolve,join,dirname,basename} from 'node:path'
 import {tmpdir} from 'node:os'
 import {execFileSync} from 'node:child_process'
 import vm from 'node:vm'
-import {MARKET_REPO,PRESET_PACKAGE_LIMIT,inspectPresetZip,inspectPresetConfig,sha256,presetLicenseNote} from '../src/preset-package.js'
+import {MARKET_REPO,PRESET_PACKAGE_LIMIT,PRESET_LICENSES,LEGACY_PRESET_LICENSES,inspectPresetZip,inspectPresetConfig,sha256,presetLicenseNote} from '../src/preset-package.js'
 import {normalizeMarketCatalog} from '../src/preset-market.js'
 import {createSettingsTransfer} from '../src/settings-transfer.js'
 
-const root=fileURLToPath(new URL('..',import.meta.url)),catalogPath=resolve(root,'market/catalog.json')
+const root=fileURLToPath(new URL('..',import.meta.url)),catalogPath=resolve(root,'market/catalog-v2.json'),legacyPath=resolve(root,'market/catalog.json')
+// The repository, not the installed plugin, decides which licenses are
+// accepted. Edit this list to allow a new one; no plugin release is needed.
+export const PUBLISH_LICENSES=PRESET_LICENSES
+// 0.6.0-0.6.3 read catalog.json and drop the whole market on any entry they
+// cannot parse, so it only carries entries those versions understand.
+export function legacyCatalog(catalog){return{schemaVersion:1,presets:catalog.presets.filter(item=>LEGACY_PRESET_LICENSES.includes(item.license)&&!item.minPluginVersion)}}
+const writeCatalogs=catalog=>{writeFileSync(catalogPath,JSON.stringify({...catalog,licenses:PUBLISH_LICENSES},null,2)+'\n');writeFileSync(legacyPath,JSON.stringify(legacyCatalog(catalog),null,2)+'\n')}
 const gh=(...args)=>execFileSync(process.env.GH_PATH||'gh',args,{cwd:root,encoding:'utf8',windowsHide:true}).trim()
 const git=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8',windowsHide:true}).trim()
 function normalizer(){let registration;vm.runInNewContext(readFileSync(resolve(root,'client.js'),'utf8'),{window:{navigator:{userAgent:'market-validator'},__ModuleLoader__:{load:value=>{registration=value}}},document:{documentElement:{hasAttribute:()=>false}}});return registration.factory(()=>({})).__test.normalize}
@@ -18,7 +25,9 @@ export function presetSubmissionUrl(body){
   if(urls.length!==1)throw Error('请在「投稿 ZIP」中上传一份插件导出的 ZIP。')
   return urls[0]
 }
-export function nextPresetCatalog(catalog,meta,{source,actor,issue,sha,archiveUrl,preview='',now=new Date().toISOString()}){
+export function nextPresetCatalog(catalog,meta,{source,actor,issue,sha,archiveUrl,preview='',minPluginVersion='',now=new Date().toISOString()}){
+  if(!PUBLISH_LICENSES.includes(meta.license))throw Error('市场暂不接受该许可：'+meta.license)
+  if(minPluginVersion&&!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(minPluginVersion))throw Error('最低插件版本格式无效。')
   if(!['official','community'].includes(source)||!/^[A-Za-z0-9-]{1,39}$/.test(actor||''))throw Error('发布身份无效。')
   const previous=catalog.presets.find(item=>item.id===meta.id)
   if(previous){
@@ -29,9 +38,9 @@ export function nextPresetCatalog(catalog,meta,{source,actor,issue,sha,archiveUr
     if(source==='community'&&previous.contributor!==actor)throw Error('不能更新其他投稿者的预设 ID。')
   }
   if(source==='community'&&(!Number.isSafeInteger(issue)||issue<1))throw Error('社区投稿必须关联已审核的 issue。')
-  const entry={...meta,source,contributor:actor,archiveUrl,sha256:sha,publishedAt:now,...(preview?{preview}:{}),...(issue?{reviewIssue:`https://github.com/${MARKET_REPO}/issues/${issue}`}:{})}
+  const entry={...meta,source,contributor:actor,archiveUrl,sha256:sha,publishedAt:now,...(preview?{preview}:{}),...(minPluginVersion?{minPluginVersion}:{}),...(issue?{reviewIssue:`https://github.com/${MARKET_REPO}/issues/${issue}`}:{})}
   const next={schemaVersion:1,presets:previous?catalog.presets.map(item=>item.id===meta.id?entry:item):[entry,...catalog.presets]}
-  normalizeMarketCatalog(next)
+  normalizeMarketCatalog(next,{strict:true})
   return {catalog:next,entry}
 }
 async function readRemoteZip(url){
@@ -43,16 +52,20 @@ async function readRemoteZip(url){
   return new Blob(parts)
 }
 async function validateCatalog(){
-  const catalog=JSON.parse(readFileSync(catalogPath,'utf8')),items=normalizeMarketCatalog(catalog),normalize=normalizer(),keys=normalize(null)
+  const catalog=JSON.parse(readFileSync(catalogPath,'utf8')),items=normalizeMarketCatalog(catalog,{strict:true}),normalize=normalizer(),keys=normalize(null)
   for(const item of items)if(item.settings){
     for(const key of Object.keys(item.settings))if(!Object.hasOwn(keys,key))throw Error('未识别的设置：'+key)
     await inspectPresetConfig(new Blob([JSON.stringify({format:'dsh-ui-beautify-config',version:1,scope:item.scope,settings:item.settings})]),item.scope)
   }
-  console.log(JSON.stringify({catalog:'valid',presets:items.length}))
+  for(const item of items)if(!PUBLISH_LICENSES.includes(item.license))throw Error('目录含未接受的许可：'+item.id)
+  if(JSON.stringify(catalog.licenses)!==JSON.stringify(PUBLISH_LICENSES))throw Error('catalog-v2.json 的许可列表与发布规则不一致。')
+  const legacy=JSON.parse(readFileSync(legacyPath,'utf8'))
+  if(JSON.stringify(legacy)!==JSON.stringify(legacyCatalog(catalog)))throw Error('catalog.json 必须等于 catalog-v2.json 中旧版可识别的条目。')
+  console.log(JSON.stringify({catalog:'valid',presets:items.length,legacyPresets:legacy.presets.length}))
 }
 async function publish(args){
   const value=name=>args[args.indexOf(name)+1],has=name=>args.includes(name)
-  const dry=has('--dry-run')
+  const dry=has('--dry-run'),minPluginVersion=has('--min-version')?value('--min-version'):''
   let source=has('--official')?'official':'community',actor,issue,blob
   if(has('--event')){
     const event=JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'))
@@ -77,13 +90,13 @@ async function publish(args){
   for(const key of Object.keys(inspected.data.settings))if(!Object.hasOwn(known,key))throw Error('未识别的设置：'+key)
   await createSettingsTransfer(globalThis,{normalize}).inspect(files.get('config.dshui'))
   const tag=`preset-${meta.id}-v${meta.version}`,filename=`${meta.id}-${meta.version}.zip`,archiveUrl=`https://github.com/${MARKET_REPO}/releases/download/${tag}/${filename}`
-  const next=nextPresetCatalog(JSON.parse(readFileSync(catalogPath,'utf8')),meta,{source,actor,issue,sha:await sha256(blob),archiveUrl,preview:meta.coverFile?`https://github.com/${MARKET_REPO}/releases/download/${tag}/${meta.coverFile}`:''})
-  if(dry){console.log(JSON.stringify({dryRun:true,entry:next.entry,records:inspected.records},null,2));return}
+  const next=nextPresetCatalog(JSON.parse(readFileSync(catalogPath,'utf8')),meta,{source,actor,issue,sha:await sha256(blob),archiveUrl,minPluginVersion,preview:meta.coverFile?`https://github.com/${MARKET_REPO}/releases/download/${tag}/${meta.coverFile}`:''})
+  if(dry){console.log(JSON.stringify({dryRun:true,entry:next.entry,records:inspected.records,ignored:inspected.ignored,legacyCatalog:legacyCatalog(next.catalog).presets.some(item=>item.id===meta.id)},null,2));return}
   if(git('status','--porcelain'))throw Error('发布前请先提交工作树中的改动。')
   if(git('branch','--show-current')!=='main')throw Error('请从 main 发布预设。')
   git('fetch','origin','main');git('merge','--ff-only','origin/main')
   // Re-read after synchronization so publication cannot erase another approval.
-  const synchronized=nextPresetCatalog(JSON.parse(readFileSync(catalogPath,'utf8')),meta,{source,actor,issue,sha:next.entry.sha256,archiveUrl,preview:next.entry.preview})
+  const synchronized=nextPresetCatalog(JSON.parse(readFileSync(catalogPath,'utf8')),meta,{source,actor,issue,sha:next.entry.sha256,archiveUrl,minPluginVersion,preview:next.entry.preview})
   const base=resolve(process.env.RUNNER_TEMP||tmpdir()),temporary=mkdtempSync(join(base,'dsh-preset-'))
   try{
     const path=join(temporary,filename);writeFileSync(path,Buffer.from(await blob.arrayBuffer()))
@@ -91,8 +104,8 @@ async function publish(args){
     if(meta.coverFile){const cover=join(temporary,meta.coverFile);writeFileSync(cover,Buffer.from(await files.get(meta.coverFile).arrayBuffer()));assets.push(cover)}
     // Separate preset assets from plugin releases; never mark a preset Latest.
     gh('release','create',tag,...assets,'--repo',MARKET_REPO,'--title',meta.title+' '+meta.version,'--notes',`${meta.description}\n\n作者：${meta.author}\n许可：${meta.license}${presetLicenseNote(meta.license)?'（'+presetLicenseNote(meta.license)+'）':''}\n分类：${meta.scope}`,'--latest=false','--target',git('rev-parse','HEAD'))
-    writeFileSync(catalogPath,JSON.stringify(synchronized.catalog,null,2)+'\n')
-    git('add','--','market/catalog.json');git('commit','-m',`market: publish ${meta.id} ${meta.version}`);git('push','origin','HEAD:main')
+    writeCatalogs(synchronized.catalog)
+    git('add','--','market/catalog.json','market/catalog-v2.json');git('commit','-m',`market: publish ${meta.id} ${meta.version}`);git('push','origin','HEAD:main')
     console.log(JSON.stringify({published:meta.id,version:meta.version,source,issue:issue||null}))
   }finally{
     if(dirname(temporary)===base&&basename(temporary).startsWith('dsh-preset-'))rmSync(temporary,{recursive:true,force:true})

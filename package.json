@@ -1,7 +1,7 @@
 {
   "name": "dsh-ui-beautify",
   "displayName": "dsh-UI美化",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "type": "module",
   "description": "DSH UI appearance settings: glass surfaces, task and Artifact cards, custom message bubbles, backgrounds, particles and focus mode. 界面材质、任务与产物卡片、消息气泡和背景动效。",
   "author": "AumiSatori",
@@ -60,6 +60,7 @@
     "CHANGELOG.md",
     "server/",
     "market/catalog.json",
+    "market/catalog-v2.json",
     "assets/running-whale/",
     "docs/RUNNING-ANIMATION-PACKS.md",
     "scripts/build-animation-pack.mjs",
@@ -96,7 +97,9 @@
     "docs/RELEASE-0.6.2.md",
     "docs/validation-0.6.2.json",
     "docs/RELEASE-0.6.3.md",
-    "docs/validation-0.6.3.json"
+    "docs/validation-0.6.3.json",
+    "docs/RELEASE-0.6.4.md",
+    "docs/validation-0.6.4.json"
   ],
   "scripts": {
     "build:lens": "node scripts/build-lens.mjs",

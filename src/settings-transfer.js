@@ -108,9 +108,11 @@ export function createSettingsTransfer(win,{normalize,getSettings,getWidths,onAp
     const header=new Uint8Array(12);header.set(new TextEncoder().encode(MAGIC));new DataView(header.buffer).setUint32(8,json.length,true)
     return{blob:new win.Blob([header,json,...blobs],{type:'application/octet-stream'}),name:`dsh-ui-backup-${date().slice(0,10)}.dshui`,records:count}
   })}
-  async function inspect(file){return exclusive(async()=>{
+  // lenient: market presets made by newer versions may carry asset groups or
+  // stores this version lacks; skip those instead of refusing the preset.
+  async function inspect(file,{lenient=false}={}){return exclusive(async()=>{
     if(!file?.size||file.size>MAX_ARCHIVE)throw Error('配置文件为空或超过 512 MB。')
-    let parsed,blobs=[],hasAssets=false
+    let parsed,blobs=[],hasAssets=false,skipped=0
     const head=new Uint8Array(await file.slice(0,12).arrayBuffer())
     if(new TextDecoder().decode(head.slice(0,8))===MAGIC){
       if(head.length!==12)throw Error('备份文件不完整。')
@@ -135,12 +137,14 @@ export function createSettingsTransfer(win,{normalize,getSettings,getWidths,onAp
     const scope=presetScope(parsed.scope||'full').id
     const settings=scope==='layout'&&plain(parsed.settings)?{}:scopeSettings(validateSettings(parsed.settings,normalize),scope),databases=[],seen=new Set();let records=0
     if(hasAssets){
-      if(!Array.isArray(parsed.databases)||parsed.databases.length>DBS.length)throw Error('备份素材分组无效。')
+      if(!Array.isArray(parsed.databases)||parsed.databases.length>(lenient?64:DBS.length))throw Error('备份素材分组无效。')
       for(const source of parsed.databases){
         const spec=DBS.find(item=>item.name===source?.name)
+        if(!spec&&lenient&&typeof source?.name==='string'&&!seen.has(source.name)){seen.add(source.name);skipped++;continue}
         if(!spec||scope!=='full'&&databaseScope(spec.name)!==scope||seen.has(spec.name)||!Array.isArray(source.records))throw Error('备份包含不受支持的存储分组。');seen.add(spec.name)
         const keys=new Set(),items=[]
         for(const record of source.records){
+          if(lenient&&typeof record?.store==='string'&&!Object.hasOwn(spec.stores,record.store)){skipped++;continue}
           if(++records>MAX_RECORDS||!Object.hasOwn(spec.stores,record?.store)||typeof record.key!=='string'||!record.key||record.key.length>512)throw Error('备份素材条目无效。')
           const unique=record.store+'\0'+record.key;if(keys.has(unique))throw Error('备份含重复素材条目。');keys.add(unique)
           const value=unpackValue(record.value,blobs),keyPath=spec.stores[record.store]
@@ -151,7 +155,8 @@ export function createSettingsTransfer(win,{normalize,getSettings,getWidths,onAp
       }
     }
     cancelled()
-    return{scope,settings,layout:{widths:widths(parsed.layout?.widths)},navigation:navigation(parsed.navigation),databases,hasAssets,records,size:file.size,name:file.name,createdAt:typeof parsed.createdAt==='string'?parsed.createdAt:'',options:Object.keys(settings).length}
+    const known=normalize(null),unknownSettings=plain(parsed.settings)?Object.keys(parsed.settings).filter(key=>!Object.hasOwn(known,key)).length:0
+    return{ignored:{settings:unknownSettings,assets:skipped},scope,settings,layout:{widths:widths(parsed.layout?.widths)},navigation:navigation(parsed.navigation),databases,hasAssets,records,size:file.size,name:file.name,createdAt:typeof parsed.createdAt==='string'?parsed.createdAt:'',options:Object.keys(settings).length}
   })}
   async function writeGroup(spec,records,{rollback=false}={}){
     const db=await openDB(win,spec,true),before=[]

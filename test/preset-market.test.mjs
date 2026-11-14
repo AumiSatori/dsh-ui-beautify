@@ -4,9 +4,9 @@ import {readFileSync} from 'node:fs'
 import vm from 'node:vm'
 import {createSettingsTransfer} from '../src/settings-transfer.js'
 import {scopeSettings,sharedPresetRecords,settingScope} from '../src/preset-scopes.js'
-import {sha256,normalizePresetMeta,inspectPresetConfig,createPresetZip,inspectPresetZip,PRESET_LICENSES,presetLicenseNote} from '../src/preset-package.js'
-import {normalizeMarketCatalog,trustedPresetAsset,createPresetMarket} from '../src/preset-market.js'
-import {presetSubmissionUrl,nextPresetCatalog} from '../scripts/preset-market.mjs'
+import {sha256,normalizePresetMeta,inspectPresetConfig,createPresetZip,inspectPresetZip,PRESET_LICENSES,LEGACY_PRESET_LICENSES,presetLicenseNote} from '../src/preset-package.js'
+import {normalizeMarketCatalog,trustedPresetAsset,createPresetMarket,marketLicenses,compareVersions} from '../src/preset-market.js'
+import {presetSubmissionUrl,nextPresetCatalog,legacyCatalog,PUBLISH_LICENSES} from '../scripts/preset-market.mjs'
 import {registerPresetMarket} from '../server/preset-market.js'
 
 let registration
@@ -32,7 +32,12 @@ test('non-commercial share-alike fan art is accepted and labelled; other license
   const result=await inspectPresetZip(await pack(config(),{license:'CC-BY-NC-SA-4.0'}))
   assert.equal(result.meta.license,'CC-BY-NC-SA-4.0')
   assert.match(presetLicenseNote('CC-BY-NC-SA-4.0'),/非商业/);assert.equal(presetLicenseNote('MIT'),'')
-  for(const license of['CC-BY-NC-4.0','CC-BY-NC-ND-4.0','All rights reserved',''])await assert.rejects(inspectPresetZip(await pack(config(),{license})),/许可/)
+  assert.match(presetLicenseNote('CC-BY-NC-ND-4.0'),/不得改编/)
+  // Readers accept any well-formed license id; the repository decides which are published.
+  assert.equal((await inspectPresetZip(await pack(config(),{license:'CC-BY-NC-4.0'}))).meta.license,'CC-BY-NC-4.0')
+  for(const license of['All rights reserved','',42])await assert.rejects(inspectPresetZip(await pack(config(),{license})),/许可/)
+  assert.throws(()=>normalizePresetMeta({...result.meta,license:'CC-BY-NC-4.0'},{licenses:PRESET_LICENSES}),/许可/)
+  assert.throws(()=>nextPresetCatalog({schemaVersion:1,presets:[]},{...result.meta,license:'CC-BY-NC-4.0'},{source:'official',actor:'a',sha:'a'.repeat(64),archiveUrl:'https://github.com/AumiSatori/dsh-ui-beautify/releases/download/x/x.zip'}),/许可/)
 })
 test('package validation rejects cross-category changes, credentials and local file references',async()=>{
   await assert.rejects(inspectPresetConfig(config('sidebar',{sidebarStyle:'glass',composerStyle:'clear'}),'sidebar'),/分类以外/)
@@ -42,13 +47,15 @@ test('package validation rejects cross-category changes, credentials and local f
 })
 test('catalog constrains origins, official badges, unique IDs and trusted URLs',()=>{
   const catalog=JSON.parse(readFileSync(new URL('./fixtures/preset-market-catalog.json',import.meta.url)))
-  assert.throws(()=>normalizeMarketCatalog({...catalog,presets:[catalog.presets[0],catalog.presets[0]]}),/重复/)
-  assert.throws(()=>normalizeMarketCatalog({schemaVersion:1,presets:[{...catalog.presets[0],source:'community'}]}),/已审核/)
+  assert.throws(()=>normalizeMarketCatalog({...catalog,presets:[catalog.presets[0],catalog.presets[0]]},{strict:true}),/重复/)
+  assert.throws(()=>normalizeMarketCatalog({schemaVersion:1,presets:[{...catalog.presets[0],source:'community'}]},{strict:true}),/已审核/)
+  // Readers drop only the bad entry, never the whole market.
+  assert.equal(normalizeMarketCatalog({...catalog,presets:[catalog.presets[0],catalog.presets[0]]}).length,1)
+  assert.deepEqual(normalizeMarketCatalog({schemaVersion:1,presets:[{...catalog.presets[0],source:'community'},null,{id:'x'},{...catalog.presets[0],id:'other-preset',scope:'future-scope'},catalog.presets[0]]}).map(item=>item.id),[catalog.presets[0].id])
   assert.equal(trustedPresetAsset('https://github.com/AumiSatori/dsh-ui-beautify/releases/download/a/demo.zip'),true)
   for(const url of ['http://127.0.0.1/secret','https://github.com.evil.test/AumiSatori/dsh-ui-beautify/x','https://github.com/other/repo/releases/download/a/a.zip','file:///C:/a'])assert.equal(trustedPresetAsset(url),false)
 })
-test('production catalog is empty and retired bundled examples cannot reappear through stale mirrors',()=>{
-  assert.deepEqual(normalizeMarketCatalog(JSON.parse(readFileSync(new URL('../market/catalog.json',import.meta.url)))),[])
+test('retired bundled examples cannot reappear through stale mirrors',()=>{
   const item=JSON.parse(readFileSync(new URL('./fixtures/preset-market-catalog.json',import.meta.url))).presets[0]
   const old={...item,id:'official-soft-glass'}
   assert.deepEqual(normalizeMarketCatalog({schemaVersion:1,presets:[old]}),[])
@@ -104,5 +111,58 @@ test('local market routes reject cross-site requests, POST and unlisted download
   assert.equal((await call('catalog')).code,200)
   assert.equal((await call('package',{url:'/package?id=unknown&version=1.0.0'})).code,404)
   assert.equal((await call('package',{url:'/package?id=../x&version=1'})).code,400)
+  dispose();assert.equal(routes.size,0)
+})
+
+// Forward compatibility: presets and catalogs can grow without a plugin release.
+const binaryConfig=(settings,databases,blobs=[])=>{
+  const json=new TextEncoder().encode(JSON.stringify({format:'dsh-ui-beautify-config',version:1,scope:'full',settings,layout:{widths:{version:1,window:null,fullscreen:null}},databases,blobs:[]}))
+  const header=new Uint8Array(12);header.set(new TextEncoder().encode('DSHUI01\n'));new DataView(header.buffer).setUint32(8,json.length,true)
+  return new Blob([header,json,...blobs])
+}
+test('settings and asset groups from a newer plugin are skipped instead of refusing the preset',async()=>{
+  const future=binaryConfig({sidebarStyle:'glass',holoFutureFeature:{x:1}},[{name:'dsh-ui-beautify-future-store',records:[{store:'x',key:'k',value:'v'}]},{name:'dsh-ui-beautify-background',records:[{store:'future-store',key:'k',value:'v'}]}])
+  const result=await inspectPresetConfig(future,'full')
+  assert.deepEqual(result.ignored,{settings:['holoFutureFeature'],databases:['dsh-ui-beautify-future-store','dsh-ui-beautify-background/future-store']})
+  // Known settings that belong to another category are still refused.
+  await assert.rejects(inspectPresetConfig(config('sidebar',{sidebarStyle:'glass',composerStyle:'clear',holoFutureFeature:1}),'sidebar'),/分类以外/)
+  const storage=new Map(),localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)}
+  const transfer=createSettingsTransfer({...globalThis,Blob,crypto,localStorage},{normalize,getSettings:()=>normalize(null),getWidths:()=>({version:1,window:null,fullscreen:null})})
+  await assert.rejects(transfer.inspect(future),/不受支持/)
+  const plan=await transfer.inspect(future,{lenient:true})
+  assert.equal(plan.settings.sidebarStyle,'glass');assert.equal(Object.hasOwn(plan.settings,'holoFutureFeature'),false)
+  assert.deepEqual(plan.ignored,{settings:1,assets:2});assert.equal(plan.databases.length,1)
+})
+test('catalog entries can require a newer plugin; this version marks them instead of failing',async()=>{
+  const item=JSON.parse(readFileSync(new URL('./fixtures/preset-market-catalog.json',import.meta.url))).presets[0]
+  const raw={schemaVersion:1,licenses:['MIT','CC-BY-ND-4.0','bad license',''],presets:[{...item,minPluginVersion:'9.0.0'},{...item,id:'now-preset',minPluginVersion:'0.6.4'},{...item,id:'bad-min',minPluginVersion:'next'}]}
+  const items=normalizeMarketCatalog(raw,{version:'0.6.4'})
+  assert.deepEqual(items.map(x=>[x.id,x.requiresUpdate||'']),[[item.id,'9.0.0'],['now-preset','']])
+  assert.equal(normalizeMarketCatalog(raw).every(x=>!x.requiresUpdate),true)
+  assert.deepEqual(marketLicenses(raw),['MIT','CC-BY-ND-4.0']);assert.deepEqual(marketLicenses({}),PRESET_LICENSES)
+  assert.equal(compareVersions('0.6.10','0.6.9'),1);assert.equal(compareVersions('0.6.4','0.6.4'),0)
+  const win={Blob,crypto,AbortController,setTimeout,clearTimeout,fetch:async()=>new Response(JSON.stringify(raw)),localStorage:{getItem:()=>null,setItem(){}}}
+  const manager=createPresetMarket(win,{inspect:async()=>({})},{sources:['https://example.invalid/catalog-v2'],version:'0.6.4'})
+  const result=await manager.catalog();assert.deepEqual(result.licenses,['MIT','CC-BY-ND-4.0']);assert.deepEqual(manager.licenses,['MIT','CC-BY-ND-4.0'])
+  await assert.rejects(manager.inspect(result.items[0]),/9\.0\.0 或以上版本/)
+  manager.dispose()
+})
+test('catalog.json only keeps entries 0.6.0-0.6.3 can read; catalog-v2.json lists everything',()=>{
+  const v2=JSON.parse(readFileSync(new URL('../market/catalog-v2.json',import.meta.url))),legacy=JSON.parse(readFileSync(new URL('../market/catalog.json',import.meta.url)))
+  assert.deepEqual(legacy,legacyCatalog(v2));assert.deepEqual(v2.licenses,PUBLISH_LICENSES)
+  assert.equal(normalizeMarketCatalog(v2,{strict:true}).length,v2.presets.length)
+  for(const item of legacy.presets){assert.ok(LEGACY_PRESET_LICENSES.includes(item.license));assert.equal(item.minPluginVersion,undefined)}
+  const item={...v2.presets[0],license:'MIT'}
+  assert.deepEqual(legacyCatalog({schemaVersion:1,presets:[item,{...item,id:'nc',license:'CC-BY-NC-SA-4.0'},{...item,id:'future',minPluginVersion:'0.7.0'}]}).presets.map(x=>x.id),[item.id])
+})
+test('local server exposes catalog-v2 and downloads presets listed only there',async()=>{
+  const routes=new Map(),zip=Buffer.from('zip-bytes'),{createHash}=await import('node:crypto'),sha=createHash('sha256').update(zip).digest('hex')
+  const entry={id:'v2-only',version:'1.0.0',archiveUrl:'https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-v2-only-v1.0.0/v2-only-1.0.0.zip',sha256:sha}
+  const fetcher=async url=>new Response(String(url).endsWith('.zip')?zip:JSON.stringify({schemaVersion:1,presets:String(url).includes('catalog-v2')?[entry]:[]}))
+  const dispose=registerPresetMarket({inject:(_names,run)=>run({webServer:{register:route=>{routes.set(route.path,route.handler);return()=>routes.delete(route.path)}}})},{fetcher})
+  const call=async(path,req={})=>{let code,body;await routes.get('/dsh-ui-beautify/preset-market/'+path)({method:'GET',headers:{},url:'/dsh-ui-beautify/preset-market/'+path,...req},{writeHead(status){code=status;return this},end(value){body=value;return this}});return{code,body}}
+  assert.equal(JSON.parse((await call('catalog')).body).presets.length,0)
+  assert.equal(JSON.parse((await call('catalog-v2')).body).presets[0].id,'v2-only')
+  const download=await call('package',{url:'/package?id=v2-only&version=1.0.0'});assert.equal(download.code,200);assert.equal(Buffer.compare(download.body,zip),0)
   dispose();assert.equal(routes.size,0)
 })

@@ -1,12 +1,22 @@
 import {presetScope,settingScope,databaseScope} from './preset-scopes.js'
 import {runningCRC32} from './running-pack-zip.js'
 import {PRESET_PACKAGE_LIMIT} from '../server/preset-market-config.js'
-export {PRESET_PACKAGE_LIMIT,MARKET_REPO,MARKET_RAW,MARKET_CDN} from '../server/preset-market-config.js'
+export {PRESET_PACKAGE_LIMIT,MARKET_REPO,MARKET_RAW,MARKET_CDN,MARKET_RAW_V2,MARKET_CDN_V2} from '../server/preset-market-config.js'
 
-// Licenses a market preset may carry. NC-SA covers fan art whose original
-// terms forbid commercial use and require the same license on adaptations.
+// Licenses offered by default. The repository's publication script owns the
+// list that is actually accepted and announces it in catalog-v2.json, so a new
+// license never needs a plugin release. Readers only require an SPDX-like id.
 export const PRESET_LICENSES=['CC-BY-4.0','CC-BY-SA-4.0','CC-BY-NC-SA-4.0','CC0-1.0','MIT']
-export const presetLicenseNote=license=>license==='CC-BY-NC-SA-4.0'?'仅限非商业使用，改编须以相同许可分享':''
+// 0.6.0-0.6.3 reject every other license, and with it the whole catalog.
+export const LEGACY_PRESET_LICENSES=['CC0-1.0','CC-BY-4.0','CC-BY-SA-4.0','MIT']
+export const presetLicensePattern=/^[A-Za-z0-9][A-Za-z0-9.+-]{1,39}$/
+export function presetLicenseNote(license){
+  const id=String(license||'').toUpperCase(),terms=[]
+  if(/(^|-)NC(-|$)/.test(id))terms.push('仅限非商业使用')
+  if(/(^|-)ND(-|$)/.test(id))terms.push('不得改编')
+  else if(/(^|-)SA(-|$)/.test(id)&&terms.length)terms.push('改编须以相同许可分享')
+  return terms.join('，')
+}
 const plain=value=>value!==null&&typeof value==='object'&&!Array.isArray(value)
 const safeKey=key=>!['__proto__','constructor','prototype'].includes(key)
 export const sha256=async(blob,win=globalThis)=>Array.from(new Uint8Array(await win.crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),n=>n.toString(16).padStart(2,'0')).join('')
@@ -14,14 +24,14 @@ function text(value,max,required=true){
   if(typeof value!=='string'||value.length>max||required&&!value.trim()||/[\u0000-\u001f\u007f]/.test(value))throw Error('预设资料缺失或格式无效。')
   return value.trim()
 }
-export function normalizePresetMeta(value){
+export function normalizePresetMeta(value,{licenses=null}={}){
   if(!plain(value)||value.format!=='dsh-ui-preset'||value.schemaVersion!==1)throw Error('不是支持的市场预设包。')
   const id=text(value.id,60),version=text(value.version,32)
   if(!/^[a-z0-9][a-z0-9-]{0,59}$/.test(id)||!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(version))throw Error('预设 ID 或版本号无效。')
   const scope=presetScope(value.scope).id
   if(!Array.isArray(value.tags)||value.tags.length>8)throw Error('最多填写 8 个标签。')
   const tags=[...new Set(value.tags.map(tag=>text(tag,20)))]
-  if(!PRESET_LICENSES.includes(value.license))throw Error('请选择支持分享的许可。')
+  if(typeof value.license!=='string'||!presetLicensePattern.test(value.license)||licenses&&!licenses.includes(value.license))throw Error('请选择支持分享的许可。')
   if(!/^[a-f0-9]{64}$/.test(value.configSha256||''))throw Error('预设缺少配置校验信息。')
   if(value.coverFile&&!/^cover\.(png|jpg|webp)$/.test(value.coverFile))throw Error('封面文件名无效。')
   const result={format:value.format,schemaVersion:1,id,version,title:text(value.title,60),description:text(value.description,300),author:text(value.author,60),scope,tags,license:value.license,configSha256:value.configSha256,coverFile:value.coverFile||''}
@@ -44,8 +54,16 @@ export async function inspectPresetConfig(blob,scope,win=globalThis){
   if(!length||length>8*1024*1024||binary&&12+length>blob.size)throw Error('预设配置目录无效。')
   let data;try{data=JSON.parse(await blob.slice(binary?12:0,binary?12+length:blob.size).text())}catch{throw Error('预设配置已损坏。')}
   if(data?.format!=='dsh-ui-beautify-config'||data.version!==1||(data.scope||'full')!==scope||!plain(data.settings))throw Error('预设分类与配置内容不匹配。')
-  for(const key of Object.keys(data.settings))if(!safeKey(key)||key!=='enabled'&&!settingScope(key)||scope!=='full'&&settingScope(key)!==scope)throw Error('预设含分类以外的设置：'+key)
-  if(scope!=='layout'&&!Object.keys(data.settings).length)throw Error('预设没有可用的设置。')
+  const ignored={settings:[],databases:[]}
+  for(const key of Object.keys(data.settings)){
+    if(!safeKey(key))throw Error('预设包含不安全的字段。')
+    if(key==='enabled')continue
+    const owner=settingScope(key)
+    // A newer plugin may add settings this version does not know; skip them.
+    if(!owner){ignored.settings.push(key);continue}
+    if(scope!=='full'&&owner!==scope)throw Error('预设含分类以外的设置：'+key)
+  }
+  if(scope!=='layout'&&!Object.keys(data.settings).some(key=>key==='enabled'||settingScope(key)))throw Error('预设没有可用的设置。')
   inspectPublicStrings(data)
   let records=0,at=binary?12+length:blob.size
   if(binary){
@@ -66,14 +84,18 @@ export async function inspectPresetConfig(blob,scope,win=globalThis){
       throw Error('素材引用无效。')
     }
     for(const group of data.databases){
-      if(!databaseScope(group?.name)||scope!=='full'&&databaseScope(group.name)!==scope||seen.has(group.name)||!Array.isArray(group.records))throw Error('预设素材分类无效。')
+      if(typeof group?.name!=='string'||!Array.isArray(group.records)||seen.has(group.name))throw Error('预设素材分类无效。')
+      // Asset groups from a newer plugin version are skipped, never applied.
+      if(!databaseScope(group.name)){seen.add(group.name);ignored.databases.push(group.name);continue}
+      if(scope!=='full'&&databaseScope(group.name)!==scope)throw Error('预设素材分类无效。')
       seen.add(group.name);const keys=new Set()
       const stores={background:['wallpaper','assets'],welcome:group.name.endsWith('-code')?['opening']:['media'],hero:['logo'],particles:['artwork'],divider:['art'],running:['packs','assets']}[databaseScope(group.name)]
-      for(const record of group.records){if(++records>5000||!stores.includes(record?.store)||typeof record.key!=='string'||!record.key||record.key.length>512||keys.has(record.store+'\0'+record.key))throw Error('预设素材条目无效。');keys.add(record.store+'\0'+record.key);packed(record.value)}
+      for(const record of group.records){if(record&&typeof record.store==='string'&&!stores.includes(record.store)){ignored.databases.push(group.name+'/'+record.store);continue}if(++records>5000||!stores.includes(record?.store)||typeof record.key!=='string'||!record.key||record.key.length>512||keys.has(record.store+'\0'+record.key))throw Error('预设素材条目无效。');keys.add(record.store+'\0'+record.key);packed(record.value)}
     }
   }
   if(at!==blob.size)throw Error('预设含未识别的数据。')
-  return {data,records}
+  ignored.databases=[...new Set(ignored.databases)]
+  return {data,records,ignored}
 }
 
 // Deliberately tiny STORE-only ZIP: the plugin creates exactly two or three

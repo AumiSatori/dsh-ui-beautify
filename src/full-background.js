@@ -181,8 +181,10 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
   // HTML presets render their own artwork, so the day/night phase has to come
   // from the host theme rather than a clock inside the frame.
   function pushTheme(){if(disposed||assetKind!=='html'||!media)return;media.contentWindow?.postMessage({type:'dcb-background-theme',theme},'*')}
-  const pointer=event=>{if(assetKind!=='html'||!htmlActive||!media||Date.now()-pointerTime<50)return;pointerTime=Date.now();media.contentWindow?.postMessage({type:'dcb-background-pointer',x:event.clientX/win.innerWidth,y:event.clientY/win.innerHeight},'*')}
-  doc.addEventListener('pointermove',pointer,{passive:true});
+  // Moves are throttled to 20Hz; press and release go through at once so a background can tell a drag from a hover.
+  const pointer=event=>{if(assetKind!=='html'||!htmlActive||!media||(event.type==='pointermove'&&Date.now()-pointerTime<50))return;pointerTime=Date.now();media.contentWindow?.postMessage({type:'dcb-background-pointer',x:event.clientX/win.innerWidth,y:event.clientY/win.innerHeight,buttons:event.type==='pointercancel'?0:event.buttons},'*')}
+  const pointerEdges=['pointerdown','pointerup','pointercancel'],pointerEdgeOptions={passive:true,capture:true}
+  doc.addEventListener('pointermove',pointer,{passive:true});for(const type of pointerEdges)doc.addEventListener(type,pointer,pointerEdgeOptions);
   doc.addEventListener('visibilitychange',visibility);forced.addEventListener('change',visibility);reduced.addEventListener('change',visibility)
   return{
     sync,subscribe:listener=>{listeners.add(listener);return()=>listeners.delete(listener)},getSnapshot:()=>snapshot,
@@ -228,6 +230,6 @@ export function createFullBackground(doc,win,{onChange=()=>{}}={}){
       publish({recent:state.recent,hasPrevious:!!(sourceSettings.backgroundThemes?settings.previousRevision:state.previous),notice:'背景已从本机素材库删除。'})
     },
     async clear(){importSequence++;await store.clear();publish({hasPrevious:false,preview:''})},
-    dispose(){doc.removeEventListener('pointermove',pointer);disposed=true;generation++;importSequence++;structure.disconnect();themeObserver.disconnect();win.cancelAnimationFrame(surfaceFrame);ink.dispose();releaseMedia();store.dispose();listeners.clear();doc.removeEventListener('visibilitychange',visibility);forced.removeEventListener('change',visibility);reduced.removeEventListener('change',visibility)},
+    dispose(){doc.removeEventListener('pointermove',pointer);for(const type of pointerEdges)doc.removeEventListener(type,pointer,pointerEdgeOptions);disposed=true;generation++;importSequence++;structure.disconnect();themeObserver.disconnect();win.cancelAnimationFrame(surfaceFrame);ink.dispose();releaseMedia();store.dispose();listeners.clear();doc.removeEventListener('visibilitychange',visibility);forced.removeEventListener('change',visibility);reduced.removeEventListener('change',visibility)},
   }
 }

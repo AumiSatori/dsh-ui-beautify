@@ -1,0 +1,15 @@
+{
+  "version": "0.6.5",
+  "status": "targeted-regression-passed-live-page-unverified",
+  "releaseBase": "8ad4cf4e07e04565307c498d8409adc576e8fd3b",
+  "clientSha256": "c1fd318a2d1154d112d6f664f84799711fb26c5da9dc66e125e008adb2c77cf5",
+  "checks": {
+    "clientRebuiltFromReleaseSources": {"passed": true},
+    "nodeTests": {"passed": 175, "skipped": 1, "failed": 0},
+    "marketTagsBrowser": {"passed": true, "cases": ["card tag filter and clear", "tag row filter", "detail tags", "pressed style"]},
+    "backgroundPointerButtons": {"passed": true, "observed": "move 0 | down 1 | throttled drag 1 | up 0 | down 1 | cancel 0", "afterDispose": "no messages, iframe removed"},
+    "checkRelease": {"passed": true},
+    "marketCatalog": {"passed": true}
+  },
+  "notRun": ["headless browser suites (Playwright)", "live DSH page at localhost:8442"]
+}

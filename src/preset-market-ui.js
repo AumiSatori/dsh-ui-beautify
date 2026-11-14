@@ -52,7 +52,13 @@ export const presetMarketCss=`
  .dcb-market-badge[data-update] { color:var(--dsh-settings-text); border-color:var(--dsh-settings-secondary); }
  .dcb-market-card-copy p { font-size:11px; }
  .dcb-market-card-meta { font:10px/1.6 system-ui,sans-serif; color:var(--dsh-settings-secondary); overflow-wrap:anywhere; }
- .dcb-market-card-copy button { margin-top:auto; width:100%; }
+ .dcb-market-card-copy > button { margin-top:auto; width:100%; }
+ .dcb-market-tags { display:flex; flex-wrap:wrap; gap:5px; }
+ .dcb-market .dcb-market-tags > * { min-height:26px; padding:2px 9px; border:1px solid var(--dsh-settings-border); border-radius:999px; background:transparent; color:var(--dsh-settings-secondary); font:11px/1.5 system-ui,sans-serif; display:inline-flex; align-items:center; }
+ .dcb-market .dcb-market-tags > button:hover:enabled { color:var(--dsh-settings-text); background:var(--dsh-settings-subtle); }
+ .dcb-market .dcb-market-tags > button[aria-pressed=true],.dcb-market .dcb-market-tags > button[aria-pressed=true]:hover:enabled { color:var(--dsh-settings-surface); background:var(--dsh-settings-text); border-color:transparent; }
+ @media(pointer:coarse) { .dcb-market .dcb-market-tags > button { min-height:44px; } }
+ @media(forced-colors:active) { .dcb-market .dcb-market-tags > button[aria-pressed=true] { background:Highlight; color:HighlightText; } }
  .dcb-market-empty { border:1px dashed var(--dsh-settings-border); border-radius:14px; text-align:center; padding:36px 16px; grid-column:1 / -1; }
  .dcb-market-notice { padding:12px 0 16px; }.dcb-market [role=alert] { color:var(--dsw-alias-state-error-primary,#bd6262); }
  .dcb-market-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
@@ -83,7 +89,7 @@ export function createPresetMarketUI(React,win,{createPortal}={}){
   function Fold({open,children}){return h('div',{className:'dcb-market-fold','data-open':String(open),'aria-hidden':!open,inert:!open},h('div',null,children))}
   function Preview({item}){return h('div',{className:'dcb-market-preview',style:{'--market-a':item.palette[0],'--market-b':item.palette[1],'--market-c':item.palette[2]},'aria-hidden':true},item.preview?h('img',{src:item.preview,alt:'',loading:'lazy',referrerPolicy:'no-referrer',onError:e=>{e.currentTarget.style.visibility='hidden'}}):null,h('div',{className:'dcb-market-demo'},h('div',{className:'dcb-market-demo-nav'}),h('div',{className:'dcb-market-demo-chat'},h('i'),h('i'),h('i'),h('b'))),h('span',{className:'dcb-market-scope'},presetScope(item.scope).name))}
   function Chips({label,items,value,onChange,disabled=false}){return h('div',{className:'dcb-market-chips',role:'group','aria-label':label},items.map(([id,title])=>h('button',{type:'button',key:id,disabled,'aria-pressed':value===id,onClick:()=>onChange(id)},title)))}
-  function Results({items,onSelect,emptyText}){
+  function Results({items,onSelect,emptyText,tag='all',onTag=()=>{}}){
     const [shown,setShown]=React.useState(items),node=React.useRef(null),sequence=React.useRef(0),animations=React.useRef([]),height=React.useRef(null)
     const clear=()=>{for(const animation of animations.current)animation.cancel();animations.current=[];if(node.current){node.current.style.removeProperty('height');node.current.style.removeProperty('overflow')}}
     React.useEffect(()=>{
@@ -103,10 +109,10 @@ export function createPresetMarketUI(React,win,{createPortal}={}){
       const animation=el.animate([{height:from+'px',opacity:0,transform:'translateY(8px)',filter:'blur(3px)'},{height:natural+'px',opacity:1,transform:'translateY(0)',filter:'blur(0)'}],{duration:260,easing:motion.ease.smooth,fill:'both',id:'dcb-market-results-enter'})
       animations.current=[animation];const finish=()=>{if(animations.current.includes(animation))clear()};animation.finished.then(finish,finish)
     },[shown])
-    return h('div',{className:'dcb-market-grid',ref:node},shown.length?shown.map((item,index)=>h('article',{className:'dcb-market-card',key:item.id,style:{'--dcb-market-delay':Math.min(index*25,125)+'ms'}},h(Preview,{item}),h('div',{className:'dcb-market-card-copy'},h('div',{className:'dcb-market-card-title'},h('h3',null,item.title),h('span',{className:'dcb-market-badge'},item.source==='official'?'官方':'社区 · 已审核'),item.requiresUpdate&&h('span',{className:'dcb-market-badge','data-update':''},'需要 '+item.requiresUpdate+'+')),h('p',null,item.description),h('div',{className:'dcb-market-card-meta'},item.author+' · v'+item.version+' · '+item.tags.join(' / ')),h('button',{type:'button','aria-label':'查看预设 '+item.title,onClick:event=>onSelect(item,event.currentTarget)},'查看预设')))):h('div',{className:'dcb-market-empty'},h('p',null,emptyText)))
+    return h('div',{className:'dcb-market-grid',ref:node},shown.length?shown.map((item,index)=>h('article',{className:'dcb-market-card',key:item.id,style:{'--dcb-market-delay':Math.min(index*25,125)+'ms'}},h(Preview,{item}),h('div',{className:'dcb-market-card-copy'},h('div',{className:'dcb-market-card-title'},h('h3',null,item.title),h('span',{className:'dcb-market-badge'},item.source==='official'?'官方':'社区 · 已审核'),item.requiresUpdate&&h('span',{className:'dcb-market-badge','data-update':''},'需要 '+item.requiresUpdate+'+')),h('p',null,item.description),h('div',{className:'dcb-market-card-meta'},item.author+' · v'+item.version),item.tags.length>0&&h('div',{className:'dcb-market-tags',role:'group','aria-label':'标签'},item.tags.map(name=>h('button',{type:'button',key:name,'aria-pressed':tag===name,'aria-label':(tag===name?'取消筛选标签 ':'按标签筛选 ')+name,onClick:()=>onTag(tag===name?'all':name)},'#'+name))),h('button',{type:'button','aria-label':'查看预设 '+item.title,onClick:event=>onSelect(item,event.currentTarget)},'查看预设')))):h('div',{className:'dcb-market-empty'},h('p',null,emptyText)))
   }
   return function PresetMarket({manager,presets,transfer}){
-    const [tab,setTab]=React.useState('discover'),[items,setItems]=React.useState([]),[query,setQuery]=React.useState(''),[scope,setScope]=React.useState('all'),[source,setSource]=React.useState('all'),[loading,setLoading]=React.useState(true),[error,setError]=React.useState(''),[notice,setNotice]=React.useState(''),[catalogNotice,setCatalogNotice]=React.useState('')
+    const [tab,setTab]=React.useState('discover'),[items,setItems]=React.useState([]),[query,setQuery]=React.useState(''),[scope,setScope]=React.useState('all'),[source,setSource]=React.useState('all'),[loading,setLoading]=React.useState(true),[error,setError]=React.useState(''),[notice,setNotice]=React.useState(''),[catalogNotice,setCatalogNotice]=React.useState(''),[tagFilter,setTag]=React.useState('all')
     const [selected,setSelected]=React.useState(null),[prepared,setPrepared]=React.useState(null),[busy,setBusy]=React.useState(false),[draft,setDraft]=React.useState({id:'',version:'1.0.0',title:'',description:'',author:'',scope:'full',tags:'',license:'CC-BY-4.0'}),[consent,setConsent]=React.useState(false),[cover,setCover]=React.useState(null),[submission,setSubmission]=React.useState(null)
     const [transferState,setTransferState]=React.useState(()=>transfer.status()),[licenses,setLicenses]=React.useState(()=>manager.licenses||PRESET_LICENSES)
     const live=React.useRef(false),gate=React.useRef(false),trigger=React.useRef(null),modal=React.useRef(null),download=React.useRef(null),selection=React.useRef(0),last=React.useRef(null),close=React.useRef(null),coverInput=React.useRef(null)
@@ -135,7 +141,10 @@ export function createPresetMarketUI(React,win,{createPortal}={}){
       download.current={url,timer:win.setTimeout(()=>{win.URL.revokeObjectURL(url);download.current=null},30000)}
       setSubmission(result);setNotice('投稿包已导出。打开投稿页，上传 ZIP 后提交；审核通过才会出现在市场。')
     })
-    const visible=React.useMemo(()=>items.filter(item=>(scope==='all'||scope==='components'&&item.scope!=='full'||item.scope===scope)&&(source==='all'||item.source===source)&&query.trim().toLowerCase().split(/\s+/).every(word=>(item.title+' '+item.description+' '+item.author+' '+item.tags.join(' ')).toLowerCase().includes(word))),[items,scope,source,query])
+    // Tags come from the catalog itself; most used first, a bounded row.
+    const tags=React.useMemo(()=>{const count=new Map();for(const item of items)for(const name of item.tags)count.set(name,(count.get(name)||0)+1);return [...count].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'zh')).slice(0,16).map(([name])=>name)},[items])
+    const tag=tagFilter==='all'||items.some(item=>item.tags.includes(tagFilter))?tagFilter:'all'
+    const visible=React.useMemo(()=>items.filter(item=>(tag==='all'||item.tags.includes(tag))&&(scope==='all'||scope==='components'&&item.scope!=='full'||item.scope===scope)&&(source==='all'||item.source===source)&&query.trim().toLowerCase().split(/\s+/).every(word=>(item.title+' '+item.description+' '+item.author+' '+item.tags.join(' ')).toLowerCase().includes(word))),[items,scope,source,query,tag])
     const field=(key,label,max,placeholder)=>h('label',{key},label,h('input',{value:draft[key],maxLength:max,placeholder,disabled:busy,onChange:e=>update(key,e.target.value)}))
     const item=selected||last.current
     return h('section',{className:'dcb-market','aria-label':'预设市场'},
@@ -144,8 +153,9 @@ export function createPresetMarketUI(React,win,{createPortal}={}){
         h('div',{className:'dcb-market-filters'},h('div',{className:'dcb-market-search'},h('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,'aria-hidden':true},h('circle',{cx:10,cy:10,r:6}),h('path',{d:'m15 15 5 5'})),h('input',{'aria-label':'搜索市场预设',placeholder:'搜索名称、作者或标签…',value:query,onChange:e=>setQuery(e.target.value)})),
           h(Chips,{label:'预设类型',value:scope==='all'||scope==='full'?scope:'components',onChange:setScope,items:[['all','全部'],['full','整套预设'],['components','单项预设']]}),
           scope!=='full'&&h(Chips,{label:'预设分类',value:scope,onChange:setScope,items:PRESET_SCOPES.filter(s=>s.id!=='full').map(s=>[s.id,s.name])}),
+          tags.length>0&&h(Chips,{label:'预设标签',value:tag,onChange:setTag,items:[['all','全部标签'],...tags.map(name=>[name,'#'+name])]}),
           h('div',{className:'dcb-market-chips'},h(Chips,{label:'预设来源',value:source,onChange:setSource,items:[['all','全部来源'],['official','官方'],['community','社区']]}),h('span',{className:'dcb-market-count'},loading?'正在更新…':visible.length+' 个预设'),h('button',{type:'button',disabled:loading,onClick:refresh,'aria-label':'刷新预设市场'},'刷新'))),
-        catalogNotice&&h('p',{className:'dcb-market-notice',role:'status'},catalogNotice),h(Results,{items:visible,onSelect:select,emptyText:loading?'正在读取市场预设…':items.length?'没有找到符合条件的预设。':'市场暂时还没有预设，欢迎投稿分享。'}))),
+        catalogNotice&&h('p',{className:'dcb-market-notice',role:'status'},catalogNotice),h(Results,{items:visible,onSelect:select,tag,onTag:setTag,emptyText:loading?'正在读取市场预设…':items.length?'没有找到符合条件的预设。':'市场暂时还没有预设，欢迎投稿分享。'}))),
       h(Fold,{open:tab==='submit'},h('div',{className:'dcb-market-submit'},
         h('div',null,h('h3',null,'分享当前预设'),h('p',null,'导出当前配置和正在使用的素材，在 GitHub 投稿并上传 ZIP。维护者审核通过后收录到市场。官方发布使用维护者发布入口。')),
         h('div',{className:'dcb-market-fields'},field('title','预设名称',60,'为这份风格起个名字'),field('author','作者名称',60,'公开展示的署名'),field('id','预设 ID',60,'例如 quiet-glass（小写字母、数字和短横线）'),field('version','版本号',32,'1.0.0')),
@@ -164,7 +174,7 @@ export function createPresetMarketUI(React,win,{createPortal}={}){
         if(e.key==='Tab'&&modal.current){const nodes=[...modal.current.querySelectorAll('button:not(:disabled),a[href]')],first=nodes[0],last=nodes.at(-1);if(e.shiftKey&&win.document.activeElement===first){e.preventDefault();last?.focus()}else if(!e.shiftKey&&win.document.activeElement===last){e.preventDefault();first?.focus()}}
       }},h('div',{className:'dcb-market-modal',ref:modal,role:'dialog','aria-modal':true,'aria-label':item?'预设详情：'+item.title:'预设详情'},
         h('div',{className:'dcb-market-modal-head'},h('h3',null,item?.title||'预设详情'),h('button',{ref:close,type:'button',disabled:busy&&!!prepared,'aria-label':'关闭预设详情',onClick:dismiss},'关闭')),
-        item&&h(Preview,{item}),item&&h('p',null,item.description),item&&h('p',null,`${item.author} · v${item.version} · ${item.source==='official'?'官方':'社区已审核'} · ${item.license}${presetLicenseNote(item.license)?'（'+presetLicenseNote(item.license)+'）':''}`),
+        item&&h(Preview,{item}),item&&h('p',null,item.description),item?.tags.length>0&&h('div',{className:'dcb-market-tags','aria-label':'标签'},item.tags.map(name=>h('span',{key:name},'#'+name))),item&&h('p',null,`${item.author} · v${item.version} · ${item.source==='official'?'官方':'社区已审核'} · ${item.license}${presetLicenseNote(item.license)?'（'+presetLicenseNote(item.license)+'）':''}`),
         item&&h('p',null,'应用范围：'+presetScope(item.scope).name+(item.scope==='full'?'。将替换整套美化配置。':item.scope==='layout'?'。仅调整窗口与全屏聊天宽度。':'。其他分类和聊天宽度保持不变。')),
         h('p',{role:'status'},busy&&!prepared?'正在校验预设…':prepared?`${prepared.plan.options} 项设置 · ${prepared.plan.records} 条素材记录${prepared.plan.ignored&&(prepared.plan.ignored.settings||prepared.plan.ignored.assets)?` · 跳过本版本不支持的 ${prepared.plan.ignored.settings} 项设置、${prepared.plan.ignored.assets} 组素材`:''}`:'') ,
         error&&h('p',{role:'alert'},error),notice&&h('p',{role:'status'},notice),h('div',{className:'dcb-market-actions'},h('button',{type:'button','data-primary':'',disabled:busy||!prepared,onClick:apply},'应用预设'),h('button',{type:'button',disabled:busy||!prepared,onClick:save},'保存到本机预设'))))))

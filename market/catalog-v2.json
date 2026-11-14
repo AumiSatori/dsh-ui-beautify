@@ -4,6 +4,31 @@
     {
       "format": "dsh-ui-preset",
       "schemaVersion": 1,
+      "id": "fog-glass-whale",
+      "version": "1.0.0",
+      "title": "雾玻璃 · 鲸鱼娘",
+      "description": "起雾的玻璃动态 HTML 背景（日间晨雾 / 夜间夜雨）：水珠凝结、融合、滑落并折射远景，雾后朦胧站着 Q 版小鲸鱼女仆。划过玻璃写字（支持按键转发的插件版本为按住左键拖动），约 16 秒后雾重新盖回。角色为 ZipZipPipe 对上善无形《溟月》的二创；按 CC BY-NC-SA 4.0 分享，仅限非商业使用。",
+      "author": "AumiSatori",
+      "scope": "background",
+      "tags": [
+        "鲸鱼娘",
+        "雾玻璃",
+        "动态背景",
+        "交互"
+      ],
+      "license": "CC-BY-NC-SA-4.0",
+      "configSha256": "6e32b223636e326c9fb7bc1cf60e291b834451e0a0aa519bbf312955e6ae54bc",
+      "coverFile": "cover.webp",
+      "source": "official",
+      "contributor": "AumiSatori",
+      "archiveUrl": "https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-fog-glass-whale-v1.0.0/fog-glass-whale-1.0.0.zip",
+      "sha256": "542cadb11fb72e5802210347fcf174e4a779c3dac0b909bc37aedd3557f65e3f",
+      "publishedAt": "2026-11-14T12:37:44.964Z",
+      "preview": "https://github.com/AumiSatori/dsh-ui-beautify/releases/download/preset-fog-glass-whale-v1.0.0/cover.webp"
+    },
+    {
+      "format": "dsh-ui-preset",
+      "schemaVersion": 1,
       "id": "whale-maid-mirror-sea",
       "version": "1.0.0",
       "title": "鲸鱼娘 · 镜海",

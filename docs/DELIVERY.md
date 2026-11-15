@@ -23,6 +23,12 @@ dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/relea
 - 字体、用户图片/视频、SVG 与 HTML 保存在当前浏览器来源；不随账号自动跨设备同步。
 - 本卡片的 Artifact 阅读器不接管其他插件接口；多个预览窗口可能重叠。需要外部脚本、相邻文件或网络请求的 HTML 请用原生入口打开。
 
+## 0.6.6 发布验证
+
+预设市场目录不再被浏览器缓存的旧镜像覆盖。详见 [发布说明](RELEASE-0.6.6.md) 与 [validation-0.6.6.json](validation-0.6.6.json)。
+
+Release 提供带版本安装包、固定名 `dsh-ui-beautify.tgz` 与 `SHA256SUMS.txt`，市场沿用 latest 下载地址。本版修改了本机后端路由，升级后完整退出 DSH（含托盘）再打开。
+
 ## 0.6.5 发布验证
 
 预设市场标签筛选与 HTML 背景按键转发。详见 [发布说明](RELEASE-0.6.5.md) 与 [validation-0.6.5.json](validation-0.6.5.json)。

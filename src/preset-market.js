@@ -1,5 +1,6 @@
 import builtin from '../market/catalog-v2.json' with {type:'json'}
 import {PRESET_SCOPES,presetScope} from './preset-scopes.js'
+import {catalogFreshness,newestOf} from '../server/preset-market-config.js'
 import {MARKET_REPO,MARKET_RAW_V2,MARKET_CDN_V2,PRESET_PACKAGE_LIMIT,PRESET_LICENSES,presetLicensePattern,normalizePresetMeta,inspectPresetConfig,inspectPresetZip,createPresetZip,sha256} from './preset-package.js'
 
 // Remove the original bundled examples even when an old CDN response or
@@ -60,16 +61,17 @@ export function createPresetMarket(win,transfer,{sources=['/dsh-ui-beautify/pres
   let licenses=marketLicenses(builtin)
   let disposed=false
   const check=()=>{if(disposed)throw Error('预设市场已关闭。')}
-  async function request(url,limit){
+  // fresh: bypass the browser HTTP cache (catalogs change; packages never do).
+  async function request(url,limit,{fresh=false}={}){
     check();const controller=new win.AbortController();controllers.add(controller)
     const timer=win.setTimeout(()=>controller.abort(),12000)
-    try{return await boundedResponse(await win.fetch(url,{signal:controller.signal,credentials:'omit',referrerPolicy:'no-referrer'}),limit,win)}finally{win.clearTimeout(timer);controllers.delete(controller)}
+    try{return await boundedResponse(await win.fetch(url,{signal:controller.signal,credentials:'omit',referrerPolicy:'no-referrer',...(fresh?{cache:'no-store'}:{})}),limit,win)}finally{win.clearTimeout(timer);controllers.delete(controller)}
   }
   async function catalog(){
     check()
     // Race trusted mirrors; a slow endpoint cannot hold up the other one.
     try{
-      const result=await Promise.any(sources.map(async url=>{const blob=await request(url,2*1024*1024);const raw=JSON.parse(await blob.text());return {raw,items:normalizeMarketCatalog(raw,{version})}}))
+      const result=await newestOf(sources.map(async url=>{const blob=await request(url,2*1024*1024,{fresh:true});const raw=JSON.parse(await blob.text());return {raw,items:normalizeMarketCatalog(raw,{version})}}),{freshness:result=>catalogFreshness(result.raw)})
       check();try{win.localStorage.setItem(cacheKey,JSON.stringify({at:Date.now(),catalog:result.raw}))}catch{}
       licenses=marketLicenses(result.raw)
       return {items:result.items,licenses,cached:false,builtin:false,error:''}

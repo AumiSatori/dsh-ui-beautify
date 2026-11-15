@@ -1,4 +1,4 @@
-import {MARKET_RAW,MARKET_CDN,MARKET_RAW_V2,MARKET_CDN_V2,MARKET_REPO,PRESET_PACKAGE_LIMIT} from './preset-market-config.js'
+import {MARKET_RAW,MARKET_CDN,MARKET_RAW_V2,MARKET_CDN_V2,MARKET_REPO,PRESET_PACKAGE_LIMIT,catalogFreshness,newestOf} from './preset-market-config.js'
 
 // Only public catalog reads and immutable, catalog-listed downloads are
 // exposed locally. Publication and review use GitHub's own permissions.
@@ -25,11 +25,11 @@ export function registerPresetMarket(root,{fetcher=fetch}={}){
     async function catalog(kind='legacy'){
       const state=caches[kind]
       if(state.cached&&Date.now()-state.cached.at<60000)return state.cached.data
-      if(!state.loading)state.loading=Promise.any(state.urls.map(async url=>{
+      if(!state.loading)state.loading=newestOf(state.urls.map(async url=>{
         const bytes=await download(url,2*1024*1024),data=JSON.parse(bytes)
         if(data?.schemaVersion!==1||!Array.isArray(data.presets)||data.presets.length>1000)throw Error('市场目录格式无效。')
         return data
-      })).then(data=>{state.cached={data,at:Date.now()};return data}).finally(()=>{state.loading=null})
+      }),{freshness:catalogFreshness}).then(data=>{state.cached={data,at:Date.now()};return data}).finally(()=>{state.loading=null})
       return state.loading
     }
     function route(path,handler){

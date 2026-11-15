@@ -1,0 +1,17 @@
+{
+  "version": "0.6.6",
+  "status": "targeted-regression-passed",
+  "releaseBase": "60bdf2e8a7eb4c9412f7d35798fea679b6df9fc3",
+  "clientSha256": "ac630c520ee0d7e9270e9f96425668b75a5076e3746a6402971f836692b0a3d2",
+  "checks": {
+    "clientRebuiltFromReleaseSources": {"passed": true},
+    "nodeTests": {"passed": 177, "skipped": 1, "failed": 0},
+    "staleMirrorLosesToNewest": {"passed": true},
+    "catalogFetchNoStore": {"passed": true},
+    "publishPurgesJsDelivr": {"passed": true},
+    "checkRelease": {"passed": true},
+    "marketCatalog": {"passed": true}
+  },
+  "rootCause": "jsDelivr serves @main with Cache-Control max-age=604800; the market used Promise.any, so a browser-cached stale catalog always won",
+  "notRun": ["headless browser suites (Playwright)", "desktop market screenshot"]
+}

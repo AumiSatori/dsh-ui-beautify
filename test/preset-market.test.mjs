@@ -166,3 +166,27 @@ test('local server exposes catalog-v2 and downloads presets listed only there',a
   const download=await call('package',{url:'/package?id=v2-only&version=1.0.0'});assert.equal(download.code,200);assert.equal(Buffer.compare(download.body,zip),0)
   dispose();assert.equal(routes.size,0)
 })
+
+// A browser-cached or lagging mirror must not hide newly published presets.
+test('the newest catalog wins over the fastest; the client bypasses the HTTP cache',async()=>{
+  const {newestOf,catalogFreshness}=await import('../server/preset-market-config.js')
+  const item=JSON.parse(readFileSync(new URL('./fixtures/preset-market-catalog.json',import.meta.url))).presets[0]
+  const stale={schemaVersion:1,presets:[{...item,publishedAt:'2026-11-14T09:00:00Z'}]}
+  const fresh={schemaVersion:1,presets:[{...item,id:'new-preset',publishedAt:'2026-11-14T12:37:44Z'},{...item,publishedAt:'2026-11-14T09:00:00Z'}]}
+  assert.ok(catalogFreshness(fresh)>catalogFreshness(stale));assert.equal(catalogFreshness({}),0)
+  const later=(value,ms)=>new Promise(done=>setTimeout(()=>done(value),ms))
+  assert.equal(await newestOf([later(stale,1),later(fresh,40)],{freshness:catalogFreshness,grace:500}),fresh)
+  assert.equal(await newestOf([Promise.reject(Error('down')),later(stale,1)],{freshness:catalogFreshness}),stale)
+  await assert.rejects(newestOf([Promise.reject(Error('a')),Promise.reject(Error('b'))]))
+  const options=[]
+  const win={Blob,crypto,AbortController,setTimeout,clearTimeout,localStorage:{getItem:()=>null,setItem(){}},fetch:async(url,init)=>{options.push(init.cache);return url.includes('stale')?new Response(JSON.stringify(stale)):later(new Response(JSON.stringify(fresh)),40)}}
+  const manager=createPresetMarket(win,{inspect:async()=>({})},{sources:['https://example.invalid/stale','https://example.invalid/fresh'],version:'0.6.6'})
+  const result=await manager.catalog();assert.deepEqual(result.items.map(x=>x.id),['new-preset',item.id]);assert.deepEqual(options,['no-store','no-store'])
+  manager.dispose()
+})
+test('publication refreshes the jsDelivr copies of both catalogs',async()=>{
+  const {purgeMirrors}=await import('../scripts/preset-market.mjs'),urls=[]
+  assert.equal(await purgeMirrors(async url=>{urls.push(url);return new Response('{}')}),2)
+  assert.deepEqual(urls.map(url=>url.split('/').pop()),['catalog.json','catalog-v2.json'])
+  assert.equal(await purgeMirrors(async()=>{throw Error('offline')}),0)
+})

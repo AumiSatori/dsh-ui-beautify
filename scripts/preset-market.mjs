@@ -43,6 +43,11 @@ export function nextPresetCatalog(catalog,meta,{source,actor,issue,sha,archiveUr
   normalizeMarketCatalog(next,{strict:true})
   return {catalog:next,entry}
 }
+export async function purgeMirrors(fetcher=fetch){
+  let purged=0
+  for(const file of['catalog.json','catalog-v2.json'])try{const response=await fetcher(`https://purge.jsdelivr.net/gh/${MARKET_REPO}@main/market/${file}`,{signal:AbortSignal.timeout(15000)});if(response.ok)purged++}catch{}
+  return purged
+}
 async function readRemoteZip(url){
   if(!/^https:\/\/github\.com\/(?:user-attachments\/files\/\d+\/|AumiSatori\/dsh-ui-beautify\/releases\/download\/)[A-Za-z0-9._/-]+\.zip$/.test(url))throw Error('只接受 GitHub 投稿附件或本仓库 Release ZIP。')
   const response=await fetch(url,{signal:AbortSignal.timeout(60000),credentials:'omit'})
@@ -106,7 +111,9 @@ async function publish(args){
     gh('release','create',tag,...assets,'--repo',MARKET_REPO,'--title',meta.title+' '+meta.version,'--notes',`${meta.description}\n\n作者：${meta.author}\n许可：${meta.license}${presetLicenseNote(meta.license)?'（'+presetLicenseNote(meta.license)+'）':''}\n分类：${meta.scope}`,'--latest=false','--target',git('rev-parse','HEAD'))
     writeCatalogs(synchronized.catalog)
     git('add','--','market/catalog.json','market/catalog-v2.json');git('commit','-m',`market: publish ${meta.id} ${meta.version}`);git('push','origin','HEAD:main')
-    console.log(JSON.stringify({published:meta.id,version:meta.version,source,issue:issue||null}))
+    // jsDelivr keeps @main for hours; refresh its copies so readers see the new entry now.
+    const purged=await purgeMirrors()
+    console.log(JSON.stringify({published:meta.id,version:meta.version,source,issue:issue||null,purged}))
   }finally{
     if(dirname(temporary)===base&&basename(temporary).startsWith('dsh-preset-'))rmSync(temporary,{recursive:true,force:true})
   }

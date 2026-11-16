@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import {openSync,readSync,closeSync,readFileSync,mkdirSync} from 'node:fs'
 import {fileURLToPath} from 'node:url'
+import {resolve} from 'node:path'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
 import {imagePreviewMotionCss} from '../src/image-preview-motion.js'
 import {nativeFrontendModule} from './native-frontend.mjs'
 
-const root=fileURLToPath(new URL('..',import.meta.url)),output=fileURLToPath(new URL('../../../outputs/image-preview-motion-20261110/',import.meta.url))
+const root=fileURLToPath(new URL('..',import.meta.url)),output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||fileURLToPath(new URL('../../../outputs/image-preview-motion/',import.meta.url)))
 mkdirSync(output,{recursive:true})
 // Exercise the installed native React portal and the installed meme listener,
 // with synthetic images in an isolated browser and no running DSH connection.
@@ -53,7 +54,7 @@ async function frame(){
   })
 }
 async function resume(){await page.evaluate(()=>{for(const a of document.getAnimations())if(a.id.startsWith('dcb-image-preview'))a.play()});await settle()}
-async function assertClean(){assert.equal(await page.locator('[data-dcb-image-preview-moving]').count(),0)}
+async function assertClean(){await settle();assert.equal(await page.locator('[data-dcb-image-preview-moving]').count(),0)}
 try{
   await page.setContent(`<!doctype html><style>${css}${imagePreviewMotionCss}body{margin:32px;background:#eef1f3;font:16px system-ui}#content{width:220px;height:auto;border-radius:12px}</style><div id=root></div><article data-slot="conversation.chat.node"><img id=content alt="合成图片" src="${image}"></article>`)
   await page.addScriptTag({content:fixture})
@@ -65,7 +66,7 @@ try{
   assert.ok(nativeFrame.scale>.9&&nativeFrame.scale<1)
   assert.match(nativeFrame.filter,/blur\((?!0px)/)
   assert.ok(parseFloat(nativeFrame.translate.split(' ')[1])>0)
-  await page.screenshot({path:output+'native-opening-midframe.png'})
+  await page.screenshot({path:resolve(output,'native-opening-midframe.png')})
   await resume();await assertClean()
   const nativeImage=page.locator('[role=dialog] img'),resting=await nativeImage.evaluate(img=>({width:img.getBoundingClientRect().width,scale:getComputedStyle(img).scale,filter:getComputedStyle(img).filter,willChange:getComputedStyle(img).willChange}))
   assert.ok(resting.width>nativeFrame.width);assert.equal(resting.scale,'none');assert.equal(resting.filter,'none');assert.equal(resting.willChange,'auto')
@@ -76,7 +77,7 @@ try{
   await page.locator('#content').click()
   await page.waitForFunction(()=>document.getAnimations().some(a=>a.id==='dcb-image-preview-enter'))
   const memeFrame=await frame();assert.ok(memeFrame.scale>.9&&memeFrame.scale<1)
-  await page.screenshot({path:output+'meme-opening-midframe.png'})
+  await page.screenshot({path:resolve(output,'meme-opening-midframe.png')})
   await page.locator('[data-meme-zoom]').dispatchEvent('wheel',{deltaY:-100})
   assert.equal(await page.locator('[data-meme-zoom-img]').evaluate(img=>img.style.transform),'scale(1.15)')
   await resume();await assertClean()
@@ -96,9 +97,20 @@ try{
   assert.equal(await page.locator('[data-meme-zoom]').isVisible(),false)
   console.log('PASS repeated meme openings animate again; fast close/reopen and background closing leave no effects')
 
+  await settle()
+  for(const kind of ['native','meme']){
+    if(kind==='native')await page.evaluate(()=>openNative());else await page.locator('#content').click()
+    await settle();await page.keyboard.press('Escape')
+    await page.waitForFunction(()=>{const animations=document.getAnimations().filter(a=>a.id.startsWith('dcb-image-preview-exit'));if(!animations.length)return false;for(const a of animations){a.pause();a.currentTime=84}return true})
+    const sample=await frame();assert.ok(sample.opacity>0&&sample.opacity<1);assert.ok(sample.scale>.9&&sample.scale<1)
+    assert.equal(await page.locator('[data-dcb-image-preview-ghost][aria-hidden="true"]').count(),1)
+    await page.screenshot({path:resolve(output,kind+'-closing-midframe.png')});await resume();await assertClean()
+  }
+  console.log('PASS native and meme viewers close immediately while their inert copies paint a real exit frame')
+
   await page.emulateMedia({reducedMotion:'reduce'})
   await page.evaluate(()=>openNative());assert.deepEqual(await animations(),[])
-  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape');await settle()
   await page.locator('#content').click();assert.deepEqual(await animations(),[]);await page.keyboard.press('Escape')
   await page.emulateMedia({reducedMotion:'no-preference'})
   await page.locator('#content').click();await page.emulateMedia({reducedMotion:'reduce'})
@@ -113,9 +125,9 @@ try{
   await page.setViewportSize({width:360,height:740});await page.evaluate(()=>document.body.setAttribute('data-ds-dark-theme',''))
   await page.evaluate(()=>openNative());await settle()
   const box=await nativeImage.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=361)
-  await page.keyboard.press('Escape');await page.locator('#content').click();await settle()
+  await page.keyboard.press('Escape');await settle();await page.locator('#content').click();await settle()
   const memeBox=await page.locator('[data-meme-zoom-img]').boundingBox();assert.ok(memeBox.x>=0&&memeBox.x+memeBox.width<=361)
-  await page.screenshot({path:output+'meme-dark-narrow.png'});await page.keyboard.press('Escape')
+  await page.screenshot({path:resolve(output,'meme-dark-narrow.png')});await page.keyboard.press('Escape');await settle()
   await page.evaluate(()=>{const dialog=document.createElement('div');dialog.setAttribute('role','dialog');dialog.setAttribute('aria-modal','true');dialog.innerHTML='<img src="'+document.querySelector('#content').src+'"><button>普通设置</button>';document.body.append(dialog)})
   assert.deepEqual(await animations(),[])
   await page.locator('#content').click();await page.evaluate(()=>motion.dispose());await assertClean();assert.deepEqual(await animations(),[])

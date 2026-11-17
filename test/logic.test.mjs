@@ -496,6 +496,19 @@ test('turn-aware activity sources preserve reference on token appends and refres
   assert.equal(first.turns[0].todos[0].content, 'old plan')
   assert.equal(updated.turns[0].todos[0].content, 'new plan')
 })
+test('stopped plans keep recorded states without presenting unfinished work as live or completed', () => {
+  const { todoPresentation } = exports.__test
+  for (const running of [true, false]) {
+    for (const [status, label] of [['completed', '已完成'], ['pending', '待处理']]) {
+      assert.deepEqual(Object.entries(todoPresentation({ status }, running)), [['status', status], ['label', label]])
+    }
+  }
+  const active = Object.freeze({ content: 'Recorded active task', status: 'in_progress' })
+  assert.deepEqual(Object.entries(todoPresentation(active, true)), [['status', 'in_progress'], ['label', '进行中']])
+  assert.deepEqual(Object.entries(todoPresentation(active, false)), [['status', 'unfinished'], ['label', '未完成']])
+  assert.equal(active.status, 'in_progress')
+})
+
 test('progress windows keep the current step visible with separate previous and future groups', () => {  const todos = ['completed', 'completed', 'completed', 'in_progress'].map((status, index) => ({ status, content: `step${index}` }))
   assert.equal(exports.__test.progressItems(todos).previous.length, 1)
   assert.equal(exports.__test.progressItems(todos).items.length, 3)

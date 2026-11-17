@@ -118,6 +118,7 @@
     "test:panel-modules": "node test/task-panel-modules-browser.mjs",
     "test:summary-entry": "node test/summary-entry-browser.mjs",
     "test:progress-liquid": "node test/progress-liquid-browser.mjs",
+    "test:progress-status": "node test/progress-status-browser.mjs",
     "test:skills": "node test/skills-browser.mjs",
     "test:scope": "node test/summary-scope-browser.mjs",
     "test:artifact": "node test/artifact-browser.mjs",

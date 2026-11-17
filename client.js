@@ -6826,12 +6826,13 @@ ${e}::before,${e}::after{pointer-events:none!important;}
     }
     // Compare the displayed payload, not scope/turn labels or event sequence IDs.
     // Collapsed modules keep their heading without replaying hidden changes.
-    function summaryContentKey({ sessionId, todos, groups, files, resources, modules, running, incomplete }) {
+    function summaryContentKey({ sessionId, todos, groups, files, resources, modules, running, incomplete, unfinished = 0 }) {
       const plans = groups || (todos.length ? [{ todos }] : [])
       return JSON.stringify([
         sessionId,
         plans.length ? ['progress', modules.progress ? plans.map(group => group.todos.map(item => [item.content, item.status])) : null,
-          modules.progress && running && todos.some(item => item.status === 'in_progress')] : null,
+          modules.progress && running && todos.some(item => item.status === 'in_progress'),
+          modules.progress && !groups ? unfinished : 0] : null,
         files.length ? ['outputs', modules.outputs ? files.map(file => [file.path, file.description || '']) : null] : null,
         resources.length ? ['resources', modules.resources ? resources.map(item => [item.kind, item.label, item.detail || '', item.path || '',
           item.count || 0, item.failed || 0, item.running || 0, running ? item.activeRunning ?? item.running ?? 0 : 0]) : null] : null,
@@ -6987,6 +6988,12 @@ ${e}::before,${e}::after{pointer-events:none!important;}
         return () => { preference.removeEventListener('change', changed); stop() }
       }, [])
       return { viewport, body }
+    }
+    function todoPresentation(item, running) {
+      // A stopped turn does not prove its recorded tasks finished. Keep the
+      // stored plan intact, but never present a stale active item as live work.
+      const status = item.status === 'in_progress' && !running ? 'unfinished' : item.status
+      return { status, label: { completed: '已完成', in_progress: '进行中', pending: '待处理', unfinished: '未完成' }[status] || status }
     }
     function progressItems(todos, count = 3, offset) {
       const active = todos.findIndex(item => item.status === 'in_progress')
@@ -7644,6 +7651,7 @@ ${e}::before,${e}::after{pointer-events:none!important;}
       .dcb-plan-group .dcb-step > span:nth-child(2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
       .dcb-plan-state { margin-left: auto; flex: none; color: var(--dcb-ink-muted, #95918a); font-size: 11px; }
       .dcb-scope-note { margin: 8px 0 0; color: var(--dcb-ink-muted, #95918a); font-size: 11px; }
+      .dcb-progress-note { margin: 0 0 10px; line-height: 1.6; }
       @media(prefers-reduced-motion:reduce), (forced-colors:active) { .dcb-turn-navigation button { transition: none; } }
       .dcb-summary { box-sizing: border-box; position: absolute; top: calc(100% + 12px); right: 0; width: min(var(--dcb-card-width, 320px), calc(100vw - 24px)); max-height: var(--dcb-card-height, calc(100vh - 100px)); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; border: 1px solid #e4e3df; border-radius: 14px; background: #fff; color: #242424; box-shadow: 0 2px 4px #0000000a; padding: 16px; text-align: left; font: 13px/1.6 system-ui, sans-serif; }
       .dcb-summary section + section { border-top: 1px solid #eee; margin-top: 14px; padding-top: 14px; }
@@ -7675,7 +7683,7 @@ ${e}::before,${e}::after{pointer-events:none!important;}
       .dcb-history::before { top: 5px; bottom: 0; }
       .dcb-future::before { top: 0; bottom: 9px; }
       .dcb-future[aria-expanded="true"]::before { bottom: 0; }
-      .dcb-step[data-status="completed"], .dcb-step[data-status="pending"] { color: #9a9a9a; }
+      .dcb-step[data-status="completed"], .dcb-step[data-status="pending"], .dcb-step[data-status="unfinished"] { color: #9a9a9a; }
       .dcb-step[data-status="in_progress"] { color: #202020; font-weight: 700; }
       .dcb-status { position: relative; z-index: 1; display: grid; place-items: center; flex: 0 0 20px; width: 20px; height: 21px; }
       .dcb-status > .dcb-status-dot { position: absolute; display: block; width: 24px; height: 24px; left: 50%; top: 50%; transform: translate(-50%, -50%); overflow: visible; shape-rendering: geometricPrecision; }
@@ -7959,7 +7967,7 @@ ${e}::before,${e}::after{pointer-events:none!important;}
       }
       body ${GLASS_PANEL} section + section { border-color: var(--dcb-content-separator); }
       body ${GLASS_PANEL} :is(.dcb-step, .dcb-output, .dcb-resource, .dcb-resource-summary) { color: var(--dcb-ink-body); }
-      body ${GLASS_PANEL} :is(.dcb-step[data-status="completed"], .dcb-step[data-status="pending"], .dcb-history, .dcb-follow,
+      body ${GLASS_PANEL} :is(.dcb-step[data-status="completed"], .dcb-step[data-status="pending"], .dcb-step[data-status="unfinished"], .dcb-history, .dcb-follow,
         .dcb-resource-detail, .dcb-file-type, .dcb-tool-count, .dcb-tool-category, .dcb-tool-chevron, .dcb-note, .dcb-context-empty) { color: var(--dcb-ink-muted); }
       body ${GLASS_PANEL} .dcb-history .dcb-status { color: var(--dcb-timeline-line); }
       body ${GLASS_PANEL} :is(.dcb-step[data-status="in_progress"], .dcb-resource-summary[data-working="true"], .dcb-tool-row[data-working="true"]) {
@@ -9159,11 +9167,11 @@ ${e}::before,${e}::after{pointer-events:none!important;}
             h('span', { className: 'dcb-plan-count' }, `${group.completed}/${group.todos.length}`), h('span', { className: 'dcb-tool-chevron', 'aria-hidden': true }, h(Icon, { kind: 'chevron', size: 12 }))),
           h('div', { id, className: 'dcb-plan-disclosure', ref: disclosure.viewport, role: 'group', 'aria-label': `${label}任务`, 'aria-hidden': !expanded, inert: !expanded },
             h('ol', { className: 'dcb-timeline', ref: disclosure.body, 'data-working': active }, group.todos.map((item, index) => {
-              const state = item.status === 'completed' ? '已完成' : active && item.status === 'in_progress' ? '进行中' : item.status === 'in_progress' ? '未完成' : '待处理'
-              return h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-step-index': index, 'data-status': item.status, 'data-link-before': index ? 'solid' : undefined, 'data-link-after': index < group.todos.length - 1 ? 'solid' : undefined },
-                h('span', { className: 'dcb-status', role: 'img', 'aria-label': state }, h('svg', { className: 'dcb-status-dot', width: 24, height: 24, viewBox: '0 0 24 24', 'aria-hidden': true },
+              const state = todoPresentation(item, active)
+              return h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-step-index': index, 'data-status': state.status, 'data-link-before': index ? 'solid' : undefined, 'data-link-after': index < group.todos.length - 1 ? 'solid' : undefined },
+                h('span', { className: 'dcb-status', role: 'img', 'aria-label': state.label }, h('svg', { className: 'dcb-status-dot', width: 24, height: 24, viewBox: '0 0 24 24', 'aria-hidden': true },
                   h('circle', { className: 'dcb-status-core', cx: 12, cy: 12, r: 3.5 }))),
-                h('span', null, item.content), h('span', { className: 'dcb-plan-state' }, state))
+                h('span', null, item.content), h('span', { className: 'dcb-plan-state' }, state.label))
             })), h('div', { className: 'dcb-progress-liquid-layer', ref: liquid, 'aria-hidden': true, inert: true })),
           group.complete === false && h('p', { className: 'dcb-scope-note' }, '本轮记录未完整加载'))
       }
@@ -9232,6 +9240,7 @@ ${e}::before,${e}::after{pointer-events:none!important;}
         const visible = settings.enabled
         const ownsNative = settings.enabled && enabledModules.progress && (hasContent || selectedTurn !== null)
         const working = running && (allTurns ? all.groups.some(group => group.turn === latestTurn && !group.ended && group.todos.some(item => item.status === 'in_progress')) : todos.length > 0)
+        const unfinished = turnSnapshot?.ended ? todos.filter(item => item.status !== 'completed').length : 0
         const planRevision = JSON.stringify(todos.map(item => item.content))
         const livePlanRevision = JSON.stringify(liveTodos.map(item => item.content))
         // Keep the live turn's deliverables separate from the viewed turn. A
@@ -9257,8 +9266,9 @@ ${e}::before,${e}::after{pointer-events:none!important;}
         const incomplete = allTurns ? all.partial : !hasContent && selectedTurn !== null ? !turnSnapshot?.complete :
           turnSnapshot?.complete === false || activity.resources.length > 0 && modules.resources && activity.hasMore && selectedTurn === null
         const contentKey = visible && open ? summaryContentKey({ sessionId, todos, groups: allTurns ? all.groups : null, files: activity.files,
-          resources: activity.resources, modules, running, incomplete: !!incomplete }) : null
-        const transition = useContextTransition(contextKey, visible && open, contentKey)
+          resources: activity.resources, modules, running, incomplete: !!incomplete, unfinished }) : null
+        const transitionContext = `${contextKey}:${!allTurns && unfinished > 0 ? 'unfinished' : 'normal'}`
+        const transition = useContextTransition(transitionContext, visible && open, contentKey)
         const entryValue = DcbLens.summaryEntryState({ ...status, completed: status.completed || status.native === 'unknown' && (hasContent || latestTurn !== null) })
         // Appearance previews are temporary and never rewrite the per-chat pin state.
         React.useEffect(() => {
@@ -9420,15 +9430,16 @@ ${e}::before,${e}::after{pointer-events:none!important;}
           h('div', { id, className: `dcb-collapse ${className}`, 'aria-hidden': !expanded, inert: !expanded },
             h('div', { className: 'dcb-collapse-inner' }, children))
         const step = (item, index) => {
+          const state = todoPresentation(item, working)
           const hasPrevious = progress.previous.length > 0
           const hasFuture = progress.future.length > 0
           const dashedBefore = index === 0 || (index === progress.start && hasPrevious && !settings.progressView.previous) || (index === progress.end && hasFuture)
           const before = index > 0 || hasPrevious ? (dashedBefore ? 'dashed' : 'solid') : undefined
           const after = index < todos.length - 1 ? (index === progress.end - 1 && hasFuture ? 'dashed' : 'solid') : undefined
-          return h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-step-index': index, 'data-status': item.status, 'data-link-before': before, 'data-link-after': after, 'aria-current': item.status === 'in_progress' ? 'step' : undefined },
-          h('span', { className: 'dcb-status', role: 'img', 'aria-label': { completed: '已完成', in_progress: '进行中', pending: '待处理' }[item.status] || item.status },
+          return h('li', { key: `${index}:${item.content}`, className: 'dcb-step', 'data-step-index': index, 'data-status': state.status, 'data-link-before': before, 'data-link-after': after, 'aria-current': state.status === 'in_progress' ? 'step' : undefined },
+          h('span', { className: 'dcb-status', role: 'img', 'aria-label': state.label },
             h('svg', { className: 'dcb-status-dot', width: 24, height: 24, viewBox: '0 0 24 24', 'aria-hidden': true, focusable: false },
-              item.status === 'in_progress' && h(React.Fragment, null,
+              state.status === 'in_progress' && h(React.Fragment, null,
                 h('circle', { className: 'dcb-status-ripple', cx: 12, cy: 12, r: 6, strokeWidth: 1 }),
                 h('g', { className: 'dcb-status-orbit' },
                   h('circle', { cx: 12, cy: 12, r: 7.5, pathLength: 100, strokeWidth: 1.4, strokeDasharray: '36 64' }))),
@@ -9488,6 +9499,7 @@ ${e}::before,${e}::after{pointer-events:none!important;}
               all.groups.map((group, index) => h(TurnTaskGroup, { key: `${sessionId}:${group.turn ?? 'live'}`, group, sessionId, current: group.turn === latestTurn, running, defaultOpen: index === all.groups.length - 1, id: `${cardId}-plan-${group.turn ?? 'live'}` }))), true),
             !allTurns && todos.length > 0 && section('progress', '进度',
               h(React.Fragment, null,
+                unfinished > 0 && h('p', { className: 'dcb-scope-note dcb-progress-note', role: 'status' }, `本轮已结束，仍有 ${unfinished} 项未标记完成`),
                 stepGroup('previous', '先前步骤', progress.previous, 0),
                 h('div', { className: 'dcb-step-window', ref: roll.viewport, tabIndex: 0, role: 'group', 'aria-label': '任务步骤，可上下滚动查看', 'aria-keyshortcuts': 'ArrowUp ArrowDown Home End' },
                   h('ol', { className: 'dcb-timeline dcb-recent-steps', ref: roll.list, 'data-working': working, start: progress.start + 1 }, progress.items.map((item, index) => step(item, index + progress.start))),
@@ -9696,6 +9708,6 @@ ${e}::before,${e}::after{pointer-events:none!important;}
         stylePreviewListeners.clear()
       }, `${NAME}: presentation`)
     }
-    return { apply, inject: ['slots'], __test: { normalize, placement, activityFrom, activitySource, turnActivityFrom, allTurnView, toolSummary, toolCategory, createLiquidNormalMap, createMessageMotion, createComposerSubmitMotion, progressItems, fileAddress, imageExtension, tileLabel, mimeFor } }
+    return { apply, inject: ['slots'], __test: { normalize, placement, activityFrom, activitySource, turnActivityFrom, allTurnView, toolSummary, toolCategory, createLiquidNormalMap, createMessageMotion, createComposerSubmitMotion, todoPresentation, progressItems, fileAddress, imageExtension, tileLabel, mimeFor } }
   },
 })

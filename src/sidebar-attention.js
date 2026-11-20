@@ -4,6 +4,10 @@ const labels={done:'其他会话已完成',waiting:'其他会话等待回答',er
 const statusLabels={done:'已完成',waiting:'等待回答',error:'执行失败'}
 const stopped=new Set(['cancel','cancelled','canceled','abort','aborted','interrupted','stopped','stop'])
 const failed=new Set(['error','failed','failure'])
+// Mnemon uses these persisted IDs for internal agents. On activation-owned
+// hosts they are ordinary roots, so origin alone cannot identify them. Never
+// filter by their editable display titles: a real conversation may share one.
+const internalSessionId=/^mnemon-(?:task|run|review)-v1-[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i
 
 export const sidebarAttentionCss=`
   .dcb-sidebar-attention { position:fixed; left:26px; top:calc(50% - 46px); z-index:35; display:flex; align-items:center; padding:6px; border:1px solid #d8dce5; border-radius:15px; background:rgba(255,255,255,.96); box-shadow:0 7px 24px #25324a24,0 2px 5px #25324a0d; isolation:isolate; }
@@ -29,7 +33,13 @@ export const sidebarAttentionCss=`
   .dcb-attention-popover { box-sizing:border-box; position:absolute; inset:0; width:100%; height:100%; display:flex; flex-direction:column; padding:8px; border:0; border-radius:inherit; background:transparent; color:inherit; transform-origin:0 24px; }
   .dcb-attention-popover[data-moving] { will-change:opacity,transform,filter; }
   .dcb-attention-popover-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0; padding:8px 10px 10px; font:600 13px/20px system-ui,sans-serif; }
+  .dcb-attention-popover-heading > span:first-child { flex:1; min-width:0; }
   .dcb-attention-popover-total { color:#737985; font-weight:400; }
+  .dcb-attention-close { flex:none; display:grid; place-items:center; width:26px; height:26px; padding:4px; border:0; border-radius:7px; background:transparent; color:inherit; cursor:pointer; transition:background-color 180ms cubic-bezier(.4,0,.2,1),transform 180ms cubic-bezier(.4,0,.2,1); }
+  .dcb-attention-close:hover { background:#73798512; }
+  .dcb-attention-close:active { transform:scale(.9); }
+  .dcb-attention-close:focus-visible { outline:2px solid #737985; outline-offset:1px; }
+  .dcb-attention-close svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; }
   .dcb-attention-session-list { min-height:0; max-height:360px; margin:0; padding:0; overflow-y:auto; overscroll-behavior:contain; list-style:none; }
   .dcb-attention-session-item { min-height:0; margin:0; overflow:hidden; }
   .dcb-attention-session-item[data-moving] { will-change:height,opacity,transform,filter; }
@@ -65,7 +75,7 @@ export const sidebarAttentionCss=`
   body[data-ds-dark-theme] .dcb-sidebar-attention::before { border-color:#595b67; }
   body[data-ds-dark-theme] .dcb-sidebar-attention { color:#edf0f5; }
   body[data-ds-dark-theme] .dcb-attention-popover-total { color:#b6bbc6; }
-  body[data-ds-dark-theme] .dcb-attention-session:hover,body[data-ds-dark-theme] .dcb-attention-session:focus-visible { background:#ffffff10; }
+  body[data-ds-dark-theme] .dcb-attention-session:hover,body[data-ds-dark-theme] .dcb-attention-session:focus-visible,body[data-ds-dark-theme] .dcb-attention-close:hover { background:#ffffff10; }
   body[data-ds-dark-theme] .dcb-attention-session[data-kind=done] { --attention-color:#78dba4; }
   body[data-ds-dark-theme] .dcb-attention-session[data-kind=waiting] { --attention-color:#b6adff; }
   body[data-ds-dark-theme] .dcb-attention-session[data-kind=error] { --attention-color:#ff969e; }
@@ -87,7 +97,7 @@ export function createSidebarAttention(doc,win){
   const notifications=new Map(),popupRows=new Map()
   const watchedMotion=new WeakSet()
   let services=null,unsubscribers=[],root=null,rootAnimation=null,revision=0,frame=0,enabled=true,disposed=false
-  let popup=null,popupList=null,popupTotal=null,popupError=null,popupAnimation=null,popupRevision=0,closeTimer=0,hovered=null,popupTrigger=null,suppressFocus=false,opening=null
+  let popup=null,popupList=null,popupTotal=null,popupError=null,popupClose=null,popupAnimation=null,popupRevision=0,popupTrigger=null,opening=null
   let bubbleAnimation=null,compactAnchor=null
   const rest={opacity:1,transform:'none',filter:'blur(0px)'}
   function schedule(){if(!disposed&&!frame)frame=win.requestAnimationFrame(()=>{frame=0;sync()})}
@@ -107,7 +117,6 @@ export function createSidebarAttention(doc,win){
     const animation=bubbleAnimation,finish=()=>{if(bubbleAnimation===animation)cancelMorph()}
     if(animation)animation.finished.then(finish,()=>{});else finish()
   }
-  function cancelClose(){win.clearTimeout(closeTimer);closeTimer=0}
   function popupControls(expanded){
     for(const cell of cells.values()){
       cell.button.setAttribute('aria-expanded',String(expanded))
@@ -117,30 +126,30 @@ export function createSidebarAttention(doc,win){
     }
   }
   function closePopup(immediate=false){
-    cancelClose()
     if(!popup||popup.hasAttribute('data-leaving')&&!immediate)return
     const node=popup,token=++popupRevision,current=win.getComputedStyle(node)
     const bubbleBox=root?.getBoundingClientRect()
     const from={opacity:current.opacity,transform:current.transform,filter:current.filter}
     popupAnimation?.cancel();popupControls(false);node.setAttribute('data-leaving','');node.setAttribute('aria-hidden','true');node.inert=true;node.setAttribute('data-moving','')
-    if(root){root.removeAttribute('data-list-open');root.setAttribute('role','status');root.setAttribute('aria-label','其他会话有新状态，悬停查看会话列表');root.setAttribute('aria-live','polite');root.style.removeProperty('--dcb-attention-list-height');if(compactAnchor){root.style.left=compactAnchor.left+'px';root.style.top=compactAnchor.top+'px'}morphBubble(bubbleBox,immediate)}
+    if(root){root.removeAttribute('data-list-open');root.setAttribute('role','status');root.setAttribute('aria-label','其他会话有新状态，点击查看会话详情');root.setAttribute('aria-live','polite');root.style.removeProperty('--dcb-attention-list-height');if(compactAnchor){root.style.left=compactAnchor.left+'px';root.style.top=compactAnchor.top+'px'}morphBubble(bubbleBox,immediate)}
     popupAnimation=immediate?null:animate(node,[from,{opacity:0,transform:'translateX(-8px) scale(.9)',filter:'blur(3px)'}],'dcb-attention-popover-out',{duration:200,easing:'cubic-bezier(.4,0,.2,1)'})
     const finish=()=>{
       if(token!==popupRevision)return
       popupAnimation?.cancel();popupAnimation=null
       for(const row of popupRows.values())row.animation?.cancel()
-      popupRows.clear();node.remove();popup=null;popupList=null;popupTotal=null;popupError=null;hovered=null;popupTrigger=null
+      popupRows.clear();node.remove();popup=null;popupList=null;popupTotal=null;popupError=null;popupClose=null;popupTrigger=null
     }
     if(popupAnimation)popupAnimation.finished.then(finish,()=>{});else finish()
   }
-  function queueClose(){
-    cancelClose();closeTimer=win.setTimeout(()=>{closeTimer=0;if(!hovered&&!root?.contains(doc.activeElement)&&!popup?.contains(doc.activeElement))closePopup()},160)
+  function dismissDetails(){
+    const restoreFocus=popup?.contains(doc.activeElement),target=popupTrigger||root?.querySelector('.dcb-attention-button')
+    closePopup()
+    if(restoreFocus)target?.focus({preventScroll:true})
   }
-  function enterPopup(event){
-    if(event.pointerType==='touch')return
-    hovered=event.currentTarget;cancelClose();showPopup()
+  function toggleDetails(event){
+    if(popup&&!popup.hasAttribute('data-leaving')){dismissDetails();return}
+    popupTrigger=event.currentTarget;showPopup();popupClose?.focus({preventScroll:true})
   }
-  function leavePopup(event){if(event.relatedTarget&&root?.contains(event.relatedTarget)){hovered=root;cancelClose();return}if(hovered===event.currentTarget)hovered=null;queueClose()}
   function placePopup(){
     if(!popup||!root||popup.hasAttribute('data-leaving'))return
     const before=root.getBoundingClientRect(),width=Math.min(320,win.innerWidth-16)
@@ -212,7 +221,6 @@ export function createSidebarAttention(doc,win){
     }
   }
   function showPopup(){
-    cancelClose()
     if(disposed||!root||root.hasAttribute('data-leaving')||!notifications.size)return
     if(popup&&!popup.hasAttribute('data-leaving'))return
     const bubbleBox=root.getBoundingClientRect()
@@ -222,9 +230,10 @@ export function createSidebarAttention(doc,win){
     if(popup){const style=win.getComputedStyle(popup);from={opacity:style.opacity,transform:style.transform,filter:style.filter};popupAnimation?.cancel()}
     else{
       popup=doc.createElement('section');popup.className='dcb-attention-popover';popup.id='dcb-attention-sessions-'+Math.random().toString(36).slice(2,9);popup.setAttribute('role','group');popup.setAttribute('aria-label','待提醒会话')
-      const heading=doc.createElement('h2'),label=doc.createElement('span');heading.className='dcb-attention-popover-heading';label.textContent='待提醒会话';popupTotal=doc.createElement('span');popupTotal.className='dcb-attention-popover-total';heading.append(label,popupTotal)
+      const heading=doc.createElement('h2'),label=doc.createElement('span');heading.className='dcb-attention-popover-heading';label.textContent='待提醒会话';popupTotal=doc.createElement('span');popupTotal.className='dcb-attention-popover-total'
+      popupClose=doc.createElement('button');popupClose.type='button';popupClose.className='dcb-attention-close';popupClose.setAttribute('aria-label','收起会话详情');popupClose.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';popupClose.addEventListener('click',dismissDetails);heading.append(label,popupTotal,popupClose)
       popupList=doc.createElement('ul');popupList.className='dcb-attention-session-list';popupError=doc.createElement('p');popupError.className='dcb-attention-popover-error';popupError.setAttribute('role','status');popupError.hidden=true;popup.append(heading,popupList,popupError)
-      popup.addEventListener('pointerenter',enterPopup);popup.addEventListener('pointerleave',leavePopup);popup.addEventListener('focusout',queueClose);root.append(popup)
+      root.append(popup)
     }
     const token=++popupRevision;popup.removeAttribute('data-leaving');popup.removeAttribute('aria-hidden');popup.inert=false;popup.setAttribute('data-moving','');root.setAttribute('data-list-open','');root.setAttribute('role','dialog');root.setAttribute('aria-label','待提醒会话');root.removeAttribute('aria-live');popupControls(true);renderPopupRows();placePopup();morphBubble(bubbleBox)
     popupAnimation=animate(popup,[from,rest],'dcb-attention-popover-in')
@@ -242,17 +251,8 @@ export function createSidebarAttention(doc,win){
     const finish=()=>{if(token!==revision)return;cancelRoot();cancelMorph();compactAnchor=null;for(const cell of cells.values())cell.animation?.cancel();cells.clear();node.remove();root=null}
     if(rootAnimation)rootAnimation.finished.then(finish,()=>{});else finish()
   }
-  function acknowledge(){for(const [id,state]of states)if(state.kind)acknowledged.set(id,state.token)}
-  function open(){
-    acknowledge();hide()
-    if(services?.layout?.toggleSidebar)services.layout.toggleSidebar()
-    else{
-      const button=[...doc.querySelectorAll('[data-dcb-sidebar-toggle-right],'+names('sidebarCol')+' button'+names('toggle'))].find(node=>!node.closest(excluded))
-      button?.click()
-    }
-  }
   function makeRoot(){
-    root=doc.createElement('div');root.className='dcb-sidebar-attention';root.setAttribute('role','status');root.setAttribute('aria-live','polite');root.setAttribute('aria-label','其他会话有新状态，悬停查看会话列表');root.addEventListener('pointerenter',enterPopup);root.addEventListener('pointerleave',leavePopup);root.addEventListener('focusin',event=>{if(!suppressFocus&&event.target.closest('.dcb-attention-button'))popupTrigger=event.target.closest('button')});root.addEventListener('focusout',queueClose);doc.body.append(root)
+    root=doc.createElement('div');root.className='dcb-sidebar-attention';root.setAttribute('role','status');root.setAttribute('aria-live','polite');root.setAttribute('aria-label','其他会话有新状态，点击查看会话详情');doc.body.append(root)
     rootAnimation=animate(root,[{opacity:0,transform:'translate(-12px,8px) scale(.84)',filter:'blur(3px)'},rest],'dcb-attention-in')
     const animation=rootAnimation;animation?.finished.then(()=>{if(rootAnimation===animation)cancelRoot()},()=>{})
   }
@@ -261,7 +261,7 @@ export function createSidebarAttention(doc,win){
     node.className='dcb-attention-cell';node.dataset.kind=kind;button.className='dcb-attention-button';button.type='button';button.dataset.kind=kind;button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-expanded',String(!!popup&&!popup.hasAttribute('data-leaving')))
     if(popup&&!popup.hasAttribute('data-leaving'))button.setAttribute('aria-controls',popup.id)
     const shape=kind==='done'?'<circle class="dcb-attention-orbit" cx="12" cy="12" r="9.2" stroke-width="1.4"/><path class="dcb-attention-check" d="m6.5 12 3.5 3.6 7.5-7.4"/>':kind==='waiting'?'<g class="dcb-attention-dots"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></g>':'<circle class="dcb-attention-ring" cx="12" cy="12" r="9.3" stroke-width="1.4"/><g class="dcb-attention-alert"><path d="M12 5v8"/><circle cx="12" cy="18" r="1.3" fill="currentColor" stroke="none"/></g>'
-    button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+shape+'</svg>';count.className='dcb-attention-count';count.setAttribute('aria-hidden','true');button.append(count);node.append(button);button.addEventListener('click',open);root.append(node)
+    button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+shape+'</svg>';count.className='dcb-attention-count';count.setAttribute('aria-hidden','true');button.append(count);node.append(button);button.addEventListener('click',toggleDetails);root.append(node)
     const cell={node,button,count,animation:null,leaving:false};cells.set(kind,cell);return cell
   }
   function render(groups){
@@ -273,7 +273,7 @@ export function createSidebarAttention(doc,win){
         const cell=previous||addCell(kind)
         if(cell.leaving){cell.animation?.cancel();cell.animation=null;cell.leaving=false}
         if(!previous){cell.animation=animate(cell.node,[{width:'0px',opacity:0,transform:'scale(.8)',filter:'blur(2px)'},{width:'40px',...rest}],'dcb-attention-cell-in');const animation=cell.animation;animation?.finished.then(()=>{if(cell.animation===animation){animation.cancel();cell.animation=null}},()=>{})}
-        const label=`${labels[kind]}（${total}），悬停查看会话，点击展开侧栏`;cell.button.setAttribute('aria-label',label);cell.count.hidden=total<2;cell.count.textContent=total>99?'99+':String(total)
+        const label=`${labels[kind]}（${total}），点击查看会话详情`;cell.button.setAttribute('aria-label',label);cell.count.hidden=total<2;cell.count.textContent=total>99?'99+':String(total)
       }else if(previous&&!previous.leaving){
         previous.leaving=true;previous.animation?.cancel();previous.animation=animate(previous.node,[{width:'40px',...rest},{width:'0px',opacity:0,transform:'scale(.8)',filter:'blur(2px)'}],'dcb-attention-cell-out')
         const finish=()=>{if(!previous.leaving)return;previous.animation?.cancel();previous.node.remove();cells.delete(kind)}
@@ -307,7 +307,9 @@ export function createSidebarAttention(doc,win){
     enabled=nextEnabled;if(disposed)return
     const list=services?.sessions?.list?.getSnapshot(),statuses=services?.uiSession?.sessionStatus?.getSnapshot()
     if(!list||!statuses){hide(true);return}
-    const ids=new Set(Object.keys(list.byId||{})),groups={}
+    // byId also contains catalog-only children. ids is the host's actual
+    // conversation list; older hosts may provide only byId.
+    const ids=new Set((Array.isArray(list.ids)?list.ids:Object.keys(list.byId||{})).filter(id=>list.byId?.[id]&&list.byId[id].origin!=='subagent'&&!internalSessionId.test(id))),groups={}
     notifications.clear()
     for(const [id,tail]of tails)if(!ids.has(id)){tail.off();tails.delete(id)}
     for(const id of states.keys())if(!ids.has(id)){states.delete(id);acknowledged.delete(id);failures.delete(id)}
@@ -328,10 +330,10 @@ export function createSidebarAttention(doc,win){
         for(let i=entries.length-1;i>=0;i--){const event=entries[i]?.event;if(!event)continue;const seq=event.seq??i;if(seq<=tail.seq)break;latest=Math.max(latest,seq);if(event.type==='turn/end'){const reason=event.data?.reason;tail.reason=typeof reason==='string'?reason:reason?.kind||reason?.type||'';break}if(event.type==='turn/start'){tail.reason='';break}}
         tail.seq=latest
       }
-      const reason=tail?.reason||'',isOther=!visible.has(id)&&!(row.retainedBy?.mainView>0),topLevel=row.origin!=='subagent'&&!row.parentSessionId
+      const reason=tail?.reason||'',isOther=!visible.has(id)&&!(row.retainedBy?.mainView>0)
       // Keep the occurrence token stable when a session becomes visible. A
       // later switch away must not re-announce the same pending question.
-      const kind=topLevel?(status.pendingInteraction?'waiting':!running&&(failures.has(id)||status.completionUnread&&failed.has(reason))?'error':!running&&status.completionUnread&&!stopped.has(reason)?'done':null):null
+      const kind=status.pendingInteraction?'waiting':!running&&(failures.has(id)||status.completionUnread&&failed.has(reason))?'error':!running&&status.completionUnread&&!stopped.has(reason)?'done':null
       const interaction=status.pendingInteraction,pending=interaction&&(interaction.key??interaction.id??interaction.requestId??interaction)
       const changed=kind!==previous.kind||previous.running!==running||(kind==='waiting'&&previous.pending!==pending)||(kind==='error'&&previous.failure!==failures.get(id))
       const state={generation:previous.generation,kind,running,pending,failure:failures.get(id),token:changed?{}:previous.token};states.set(id,state)
@@ -367,8 +369,7 @@ export function createSidebarAttention(doc,win){
     const trigger=event.target.closest?.('.dcb-attention-button')
     if(event.key==='Escape'&&popup&&!popup.hasAttribute('data-leaving')){
       event.preventDefault();event.stopPropagation()
-      const restoreFocus=popup.contains(doc.activeElement),target=popupTrigger||root?.querySelector('button');closePopup()
-      if(restoreFocus){suppressFocus=true;target?.focus({preventScroll:true});suppressFocus=false}
+      dismissDetails()
     }else if((event.key==='ArrowDown'||event.key==='ArrowUp')&&(trigger||popup?.contains(event.target))){
       event.preventDefault();if(trigger)popupTrigger=trigger;showPopup()
       const buttons=[...popupRows.values()].filter(row=>!row.leaving&&!row.button.disabled).map(row=>row.button),index=buttons.indexOf(doc.activeElement)

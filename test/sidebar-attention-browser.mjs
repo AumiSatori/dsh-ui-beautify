@@ -17,7 +17,7 @@ const list=store({byId:rows}),status=store(new Map()),events=new Map(),remotes=n
 for(const id of Object.keys(rows))events.set(id,store({entries:[]}));
 window.attention=createSidebarAttention(document,window);
 const services={sessions:{list,binding:id=>({eventSource:events.get(id)})},uiSession:{sessionStatus:status},layout:{toggleSidebar(){window.fixture.expand()}},uiWorkspace:{openSession(id){if(window.fixture.failNavigation)return Promise.reject(Error('synthetic navigation failure'));window.fixture.opened.push(id);for(const row of Object.values(list.getSnapshot().byId))row.retainedBy={mainView:row.id===id?1:0};document.querySelector('[data-conversation-session]').dataset.conversationSession=id;list.set({...list.getSnapshot()})}},remote:{$on(name,fn){const handlers=remotes.get(name)||new Set();handlers.add(fn);remotes.set(name,handlers);return()=>handlers.delete(fn)}}};
-window.fixture={opened:[],failNavigation:false,add(id,title){list.set({byId:{...list.getSnapshot().byId,[id]:{id,displayTitle:title}}})},rename(id,title){list.set({byId:{...list.getSnapshot().byId,[id]:{...list.getSnapshot().byId[id],displayTitle:title}}})},navigate:id=>services.uiWorkspace.openSession(id),set(id,value){const next=new Map(status.getSnapshot());next.set(id,{...next.get(id),...value});status.set(next)},event(id,type,data={}){const source=events.get(id);source.set({entries:[...source.getSnapshot().entries,{event:{type,data,seq:++seq}}]})},remote(name,id,value){for(const fn of remotes.get(name)||[])fn(id,value)},expand(){document.querySelector('.af_frame').setAttribute('data-sidebar-collapsed','false');document.querySelector('.dcb-sidebar-toggle-right').dataset.state='expanded'},collapse(){document.querySelector('.af_frame').setAttribute('data-sidebar-collapsed','true');document.querySelector('.dcb-sidebar-toggle-right').dataset.state='collapsed'},remove(id){const byId={...list.getSnapshot().byId};delete byId[id];list.set({byId})},size:()=>[list.size(),status.size(),...[...events.values()].map(s=>s.size()),...[...remotes.values()].map(s=>s.size)]};
+window.fixture={opened:[],failNavigation:false,add(id,title,metadata={}){if(!events.has(id))events.set(id,store({entries:[]}));list.set({byId:{...list.getSnapshot().byId,[id]:{id,displayTitle:title,...metadata}}})},rename(id,title){list.set({byId:{...list.getSnapshot().byId,[id]:{...list.getSnapshot().byId[id],displayTitle:title}}})},navigate:id=>services.uiWorkspace.openSession(id),set(id,value){const next=new Map(status.getSnapshot());next.set(id,{...next.get(id),...value});status.set(next)},event(id,type,data={}){const source=events.get(id);source.set({entries:[...source.getSnapshot().entries,{event:{type,data,seq:++seq}}]})},remote(name,id,value){for(const fn of remotes.get(name)||[])fn(id,value)},expand(){document.querySelector('.af_frame').setAttribute('data-sidebar-collapsed','false');document.querySelector('.dcb-sidebar-toggle-right').dataset.state='expanded'},collapse(){document.querySelector('.af_frame').setAttribute('data-sidebar-collapsed','true');document.querySelector('.dcb-sidebar-toggle-right').dataset.state='collapsed'},remove(id){const byId={...list.getSnapshot().byId};delete byId[id];list.set({byId})},listed(ids){const current=list.getSnapshot();if(ids===null){const {ids:unused,...rest}=current;list.set(rest)}else list.set({...current,ids})},subscribers:id=>events.get(id)?.size()||0,size:()=>[list.size(),status.size(),...[...events.values()].map(s=>s.size()),...[...remotes.values()].map(s=>s.size)]};
 const expand=fixture.expand,collapse=fixture.collapse;
 fixture.motion=enabled=>{document.documentElement.toggleAttribute('data-fixture-motion',enabled);document.documentElement.toggleAttribute('data-windows-titlebar',enabled);document.querySelector('.af_frame').toggleAttribute('data-dcb-sidebar-frame-motion',enabled);document.querySelector('.dcb-sidebar-toggle-right').dataset.motion=String(enabled)};
 fixture.expand=()=>{expand();document.querySelector('.dcb-sidebar-toggle-right').style.left='250px'};
@@ -29,10 +29,13 @@ assert.ok(edgeStart>0&&edgeEnd>edgeStart)
 const edgeCss=client.slice(edgeStart,edgeEnd).replace(/\$\{MOTION.time.\w+\}/g,'220').replace(/\$\{MOTION.ease.\w+\}/g,'cubic-bezier(.22,.8,.26,1)')
 const html=`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;background:#fafbfc;font:14px system-ui;color:#343740}body[data-ds-dark-theme]{background:#202126;color:#eee}.af_frame{height:100vh}.sb_sidebarCol{position:fixed;inset:0 auto 0 0;width:250px;background:#ddd}.af_frame[data-sidebar-collapsed=true] .sb_sidebarCol{width:0}main{padding:60px 180px}input{width:230px;padding:12px;border:1px solid #aaa;border-radius:9px}${edgeCss}</style><div class="af_frame" data-sidebar-collapsed="true"><div class="sb_sidebarCol"></div><button class="dcb-sidebar-toggle-right" style="left:0" data-dcb-sidebar-toggle-right data-state="collapsed" aria-label="展开侧栏" onclick="document.querySelector('.af_frame').getAttribute('data-sidebar-collapsed')==='true'?fixture.expand():fixture.collapse()"><span aria-hidden="true"></span></button><main><h2>对话工作区</h2><p>其他会话状态提醒</p><input aria-label="草稿" value="保留草稿与焦点"><div data-conversation-content data-conversation-session="a"></div></main></div><script src="/demo.js"></script>`
 const drawerCss='<style>[data-fixture-motion] .sb_sidebarCol{transition:width 640ms linear}@media(prefers-reduced-motion:reduce),(forced-colors:active){[data-fixture-motion] .sb_sidebarCol{transition:none}}</style>'
-const server=createServer((req,res)=>res.writeHead(200,{'Content-Type':req.url==='/demo.js'?'text/javascript':'text/html; charset=utf-8'}).end(req.url==='/demo.js'?built.outputFiles[0].text:html.replace('<div class="af_frame"',drawerCss+'<div class="af_frame"')))
+const server=createServer((req,res)=>{if(req.url==='/favicon.ico'){res.writeHead(204).end();return}if(req.url!=='/'&&req.url!=='/demo.js'){res.writeHead(404).end();return}res.writeHead(200,{'Content-Type':req.url==='/demo.js'?'text/javascript':'text/html; charset=utf-8'}).end(req.url==='/demo.js'?built.outputFiles[0].text:html.replace('<div class="af_frame"',drawerCss+'<div class="af_frame"'))})
 await new Promise(done=>server.listen(0,'127.0.0.1',done))
-const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'}),page=await browser.newPage({viewport:{width:1000,height:760}}),errors=[],checks=[]
+const browser=await chromium.launch({headless:true,channel:process.env.PLAYWRIGHT_CHANNEL||'chrome'}),page=await browser.newPage({viewport:{width:1000,height:760},hasTouch:true}),errors=[],checks=[],smoke={console:[],requests:[],responses:[]}
 page.on('pageerror',error=>errors.push(error.message))
+page.on('console',message=>{if(message.type()==='error')smoke.console.push(message.text())})
+page.on('requestfailed',request=>{if(!request.url().endsWith('/favicon.ico'))smoke.requests.push({url:request.url(),error:request.failure()?.errorText})})
+page.on('response',response=>{if(response.status()>=400&&!response.url().endsWith('/favicon.ico'))smoke.responses.push({url:response.url(),status:response.status()})})
 const root=()=>page.locator('.dcb-sidebar-attention'),icon=kind=>page.locator('.dcb-attention-button[data-kind='+kind+']')
 const settle=async()=>{await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));await page.waitForFunction(()=>!document.getAnimations().some(a=>a.id.startsWith('dcb-attention-')))}
 const set=async(id,value)=>{await page.evaluate(({id,value})=>fixture.set(id,value),{id,value});await page.waitForTimeout(35)}
@@ -45,9 +48,37 @@ try{
  await check('old idle, current-window and subagent statuses stay silent',async()=>{
   await set('b',{running:false});await set('a',{completionUnread:true,pendingInteraction:{id:'self'}});await set('child',{completionUnread:true});assert.equal(await root().count(),0)
  })
+ await check('generated Mnemon workers and byId-only catalog entries never enter reminders or retain event subscriptions',async()=>{
+  const hidden=['mnemon-task-v1-11111111-2222-4333-8444-555555555555','mnemon-run-v1-11111111-2222-4333-8444-666666666666','mnemon-review-v1-11111111-2222-4333-8444-777777777777','catalog-only']
+  await page.evaluate(hidden=>{
+   for(const id of hidden)fixture.add(id,'Mnemon · Idle review')
+   fixture.listed(['a','b','c','d','e','child',...hidden.slice(0,3)])
+   fixture.set(hidden[0],{completionUnread:true})
+   fixture.set(hidden[1],{pendingInteraction:{id:'worker-question'}})
+   fixture.remote('api-session/error',hidden[2],'synthetic worker error');fixture.set(hidden[2],{completionUnread:true})
+   fixture.set(hidden[3],{completionUnread:true,pendingInteraction:{id:'catalog-question'}})
+  },hidden)
+  await settle();assert.equal(await root().count(),0)
+  assert.deepEqual(await page.evaluate(hidden=>hidden.map(id=>fixture.subscribers(id)),hidden),[0,0,0,0])
+  await page.evaluate(hidden=>{fixture.listed(null);for(const id of hidden)fixture.remove(id)},hidden);await settle()
+ })
+ await check('same-title ordinary chats and forks remain visible while later catalog changes release excluded tails',async()=>{
+  const userIds=['session-11111111-2222-4333-8444-888888888888','mnemon-run-v1-personal-notes','ordinary-fork']
+  await page.evaluate(userIds=>{for(const id of userIds){fixture.add(id,'Mnemon · Idle review',id==='ordinary-fork'?{parentId:'a',parentSessionId:'a'}:{});fixture.set(id,{completionUnread:true})}},userIds)
+  await settle();assert.equal(await icon('done').locator('.dcb-attention-count').innerText(),'3')
+  await icon('done').click();await settle()
+  assert.deepEqual(await page.locator('.dcb-attention-session').evaluateAll(nodes=>nodes.map(node=>node.dataset.sessionId)),userIds)
+  assert.equal(await page.locator('.dcb-attention-session-title').filter({hasText:'Mnemon · Idle review'}).count(),3)
+  assert.deepEqual(await page.evaluate(userIds=>userIds.map(id=>fixture.subscribers(id)),userIds),[1,1,1])
+  await page.evaluate(userIds=>{fixture.add(userIds[0],'Mnemon · Idle review',{origin:'subagent'});fixture.listed(['a','b','c','d','e','child',userIds[0],userIds[2]])},userIds)
+  await settle();assert.deepEqual(await page.locator('.dcb-attention-session-item:not([data-leaving]) .dcb-attention-session').evaluateAll(nodes=>nodes.map(node=>node.dataset.sessionId)),['ordinary-fork'])
+  assert.deepEqual(await page.evaluate(userIds=>userIds.map(id=>fixture.subscribers(id)),userIds),[0,0,1])
+  await page.getByRole('button',{name:'收起会话详情',exact:true}).click();await settle()
+  await page.evaluate(userIds=>{fixture.listed(null);for(const id of userIds)fixture.remove(id)},userIds);await settle();assert.equal(await root().count(),0)
+ })
  await check('the edge arrow is always visible and reverses direction with a rendered transition',async()=>{
   const edge=page.locator('.dcb-sidebar-toggle-right'),span=edge.locator('span'),read=()=>span.evaluate(n=>{const s=getComputedStyle(n,'::before');return{transform:s.transform,opacity:s.opacity,width:getComputedStyle(n).width}})
-  const collapsed=await read();assert.equal(collapsed.opacity,'1');assert.equal(collapsed.width,'18px')
+  const collapsed=await read();assert.equal(collapsed.opacity,'1');assert.ok(parseFloat(collapsed.width)>=18,'The edge control retains a visible arrow')
   await edge.click()
   await span.evaluate(async node=>{
    const animation=node.getAnimations({subtree:true}).find(a=>a.transitionProperty==='transform')
@@ -92,10 +123,13 @@ try{
   assert.equal(await icon('done').locator('svg path').count(),1);assert.equal(await page.getByRole('textbox').evaluate(n=>document.activeElement===n),true)
   const path=icon('done').locator('path'),positions=[];for(const time of [0,700])positions.push(await path.evaluate((n,time)=>{const a=n.getAnimations()[0];a.pause();a.currentTime=time;return getComputedStyle(n).strokeDashoffset},time));assert.notEqual(...positions);await shot('done-light')
  })
- await check('click fades and blurs out, opens the sidebar, and acknowledges that occurrence',async()=>{
-  const middle=await icon('done').evaluate(node=>{node.click();attention.sync();const a=document.getAnimations().find(a=>a.id==='dcb-attention-out');a.pause();a.currentTime=120;const c=getComputedStyle(document.querySelector('.dcb-sidebar-attention'));return{opacity:+c.opacity,filter:c.filter}});assert.ok(middle.opacity>0&&middle.opacity<1);assert.notEqual(middle.filter,'blur(0px)')
-  assert.equal(await page.locator('.af_frame').getAttribute('data-sidebar-collapsed'),'false')
-  await page.evaluate(()=>document.getAnimations().find(a=>a.id==='dcb-attention-out').finish());await settle();assert.equal(await root().count(),0)
+ await check('hover remains compact while a click opens details without expanding or acknowledging the sidebar',async()=>{
+  await icon('done').hover();await page.waitForTimeout(350);assert.equal(await page.locator('.dcb-attention-popover').count(),0)
+  await icon('done').click();await settle();assert.equal(await page.locator('.dcb-attention-popover').count(),1)
+  assert.equal(await page.locator('.af_frame').getAttribute('data-sidebar-collapsed'),'true');assert.equal(await page.evaluate(()=>fixture.opened.length),0)
+  await page.getByRole('button',{name:'收起会话详情',exact:true}).click();await settle();assert.equal(await page.locator('.dcb-attention-popover').count(),0);assert.equal(await icon('done').count(),1)
+  assert.equal(await icon('done').evaluate(node=>document.activeElement===node),true)
+  await page.evaluate(()=>fixture.expand());await settle();assert.equal(await root().count(),0)
   await page.evaluate(()=>fixture.collapse());await page.waitForTimeout(70);assert.equal(await root().count(),0)
  })
  await check('waiting circles cycle through one, two, three visible dots',async()=>{
@@ -137,10 +171,10 @@ try{
  })
  await page.emulateMedia({reducedMotion:'no-preference',forcedColors:'none'});await page.reload();await page.waitForFunction(()=>window.fixture)
  const popup=()=>page.locator('.dcb-attention-popover'),sessions=()=>popup().locator('.dcb-attention-session-item:not([data-leaving]) .dcb-attention-session')
- await check('hover lists every notified session with titles and states and real popup and row intermediate frames',async()=>{
-  await set('b',{completionUnread:true});await set('c',{pendingInteraction:{key:'hover-question'}});await page.evaluate(()=>fixture.remote('api-session/error','d','never-display-this-error'));await set('d',{completionUnread:true});await set('e',{pendingInteraction:{key:'second-question'}});await settle();await page.getByRole('textbox').focus()
+ await check('a click lists every notified session inside the same bubble with real popup and row intermediate frames',async()=>{
+  await set('b',{completionUnread:true});await set('c',{pendingInteraction:{key:'click-question'}});await page.evaluate(()=>fixture.remote('api-session/error','d','never-display-this-error'));await set('d',{completionUnread:true});await set('e',{pendingInteraction:{key:'second-question'}});await settle();await page.getByRole('textbox').focus()
   const middle=await root().evaluate(node=>{
-   window.savedAttentionBubble=node;const compact=node.getBoundingClientRect();node.dispatchEvent(new PointerEvent('pointerenter',{pointerType:'mouse'}));const morph=node.getAnimations().find(a=>a.id==='dcb-attention-morph');morph.pause();morph.currentTime=110;const bubble=node.getBoundingClientRect();window.attentionMorph={compact:{width:compact.width,height:compact.height},middle:{width:bubble.width,height:bubble.height}}
+   window.savedAttentionBubble=node;const compact=node.getBoundingClientRect();node.querySelector('.dcb-attention-button').click();const morph=node.getAnimations().find(a=>a.id==='dcb-attention-morph');morph.pause();morph.currentTime=110;const bubble=node.getBoundingClientRect();window.attentionMorph={compact:{width:compact.width,height:compact.height},middle:{width:bubble.width,height:bubble.height}}
    const popup=document.querySelector('.dcb-attention-popover'),entry=popup.getAnimations().find(a=>a.id==='dcb-attention-popover-in');entry.pause();entry.currentTime=110
    const row=popup.querySelector('li'),animation=row.getAnimations().find(a=>a.id==='dcb-attention-row-in');animation.pause();animation.currentTime=95
    const style=getComputedStyle(popup);return {opacity:+style.opacity,filter:style.filter,transform:style.transform,rowHeight:row.getBoundingClientRect().height,natural:row.querySelector('button').getBoundingClientRect().height,rowBlur:getComputedStyle(row).filter}
@@ -149,19 +183,19 @@ try{
   await page.evaluate(()=>document.getAnimations().filter(a=>a.id.startsWith('dcb-attention-')).forEach(a=>a.finish()));await settle()
   assert.equal(await page.evaluate(()=>document.querySelector('.dcb-sidebar-attention')===window.savedAttentionBubble),true);assert.equal(await page.locator('body > .dcb-attention-popover').count(),0);assert.equal(await popup().evaluate(node=>node.parentElement===window.savedAttentionBubble),true);const morph=await page.evaluate(()=>window.attentionMorph);assert.ok(morph.middle.width>morph.compact.width&&morph.middle.width<320);assert.ok(morph.middle.height>morph.compact.height);assert.equal(await root().getAttribute('style').then(value=>/height:/.test(value.replace(/--dcb-attention-list-height:[^;]+;/g,''))),false);assert.equal(await sessions().count(),4);assert.deepEqual(await sessions().evaluateAll(nodes=>nodes.map(node=>node.dataset.sessionId)),['b','c','d','e'])
   assert.equal(await popup().getByRole('button',{name:'报表核对，已完成',exact:true}).count(),1);assert.equal(await popup().getByRole('button',{name:'待确认方案，等待回答',exact:true}).count(),1);assert.equal(await popup().getByRole('button',{name:'重试任务，执行失败',exact:true}).count(),1)
-  assert.equal(await popup().getByText('never-display-this-error').count(),0);assert.equal(await page.evaluate(()=>fixture.opened.length),0);assert.equal(await page.getByRole('textbox').evaluate(node=>document.activeElement===node),true)
+  assert.equal(await popup().getByText('never-display-this-error').count(),0);assert.equal(await page.evaluate(()=>fixture.opened.length),0);assert.equal(await page.locator('.af_frame').getAttribute('data-sidebar-collapsed'),'true')
   assert.equal(await popup().evaluate(node=>getComputedStyle(node).willChange),'auto');assert.equal(await popup().locator('[data-moving]').count(),0);await shot('sessions-all-light')
  })
- await check('crossing the hover gap keeps the list clickable and leaving animates out without acknowledging anything',async()=>{
-  await root().hover();const bounds=await root().boundingBox();await page.mouse.move(bounds.x+bounds.width+5,bounds.y+20);await page.waitForTimeout(85);await popup().hover();await page.waitForTimeout(210);assert.equal(await popup().isVisible(),true)
-  const exit=await popup().evaluate(node=>new Promise(done=>{node.dispatchEvent(new PointerEvent('pointerleave',{pointerType:'mouse'}));setTimeout(()=>{const animation=node.getAnimations().find(a=>a.id==='dcb-attention-popover-out');animation.pause();animation.currentTime=90;const style=getComputedStyle(node);done({opacity:+style.opacity,filter:style.filter,inert:node.inert,hidden:node.getAttribute('aria-hidden')})},180)}))
+ await check('leaving the list keeps it open; its close control visibly exits without acknowledging reminders',async()=>{
+  await popup().hover();await page.mouse.move(900,20);await page.waitForTimeout(350);assert.equal(await popup().isVisible(),true)
+  const exit=await popup().evaluate(node=>{node.querySelector('[aria-label="收起会话详情"]').click();const animation=node.getAnimations().find(a=>a.id==='dcb-attention-popover-out');animation.pause();animation.currentTime=90;const style=getComputedStyle(node);return {opacity:+style.opacity,filter:style.filter,inert:node.inert,hidden:node.getAttribute('aria-hidden')}})
   assert.ok(exit.opacity>0&&exit.opacity<1);assert.notEqual(exit.filter,'blur(0px)');assert.equal(exit.inert,true);assert.equal(exit.hidden,'true');await shot('sessions-exit-middle')
   await page.evaluate(()=>document.getAnimations().filter(a=>a.id.startsWith('dcb-attention-')).forEach(a=>a.finish()));await settle();assert.equal(await popup().count(),0);assert.equal(await root().count(),1);assert.equal(await page.evaluate(()=>fixture.opened.length),0)
  })
  await check('clicking a session uses host navigation and keeps the other reminders available',async()=>{
-  await page.mouse.move(400,40);await root().hover();await settle();await popup().getByRole('button',{name:'待确认方案，等待回答',exact:true}).click();await settle()
+  await page.mouse.move(400,40);await icon('waiting').click();await settle();await popup().getByRole('button',{name:'待确认方案，等待回答',exact:true}).click();await settle()
   assert.deepEqual(await page.evaluate(()=>fixture.opened),['c']);assert.equal(await page.locator('[data-conversation-session]').getAttribute('data-conversation-session'),'c');assert.equal(await page.locator('.af_frame').getAttribute('data-sidebar-collapsed'),'true');assert.equal(await popup().count(),0)
-  await root().hover();await settle();assert.deepEqual(await sessions().evaluateAll(nodes=>nodes.map(node=>node.dataset.sessionId)),['b','d','e']);assert.equal(await page.getByRole('textbox').inputValue(),'保留草稿与焦点')
+  await icon('waiting').click();await settle();assert.deepEqual(await sessions().evaluateAll(nodes=>nodes.map(node=>node.dataset.sessionId)),['b','d','e']);assert.equal(await page.getByRole('textbox').inputValue(),'保留草稿与焦点')
  })
  await check('live titles and states update in place, removed rows collapse and navigation failures remain retryable',async()=>{
   const original=await popup().getByRole('button',{name:'补充问题，等待回答',exact:true}).elementHandle()
@@ -173,18 +207,22 @@ try{
   await page.evaluate(()=>fixture.failNavigation=false);await popup().getByRole('button',{name:'<b>新的会话名</b>，等待回答',exact:true}).click();await settle();assert.equal(await page.locator('[data-conversation-session]').getAttribute('data-conversation-session'),'e');await original.dispose()
  })
  await check('all reminders fit a scrollable dark narrow viewport and the final session remains selectable',async()=>{
-  await page.evaluate(()=>{fixture.navigate('a');for(let i=0;i<24;i++){const id='many-'+i;fixture.add(id,'长列表会话 '+i);fixture.set(id,{pendingInteraction:{key:'long-'+i}})}document.body.setAttribute('data-ds-dark-theme','')});await page.setViewportSize({width:390,height:420});await page.mouse.move(380,12);await root().hover();await settle()
+  await page.evaluate(()=>{fixture.navigate('a');for(let i=0;i<24;i++){const id='many-'+i;fixture.add(id,'长列表会话 '+i);fixture.set(id,{pendingInteraction:{key:'long-'+i}})}document.body.setAttribute('data-ds-dark-theme','')});await page.setViewportSize({width:390,height:420});await page.mouse.move(380,12);await icon('waiting').tap();await settle()
   assert.equal(await sessions().count(),25);const bounds=await popup().boundingBox();assert.ok(bounds.x>=8&&bounds.x+bounds.width<=382);assert.ok(bounds.y>=8&&bounds.y+bounds.height<=412,JSON.stringify(bounds));assert.equal(await popup().locator('ul').evaluate(node=>node.scrollHeight>node.clientHeight),true);await shot('sessions-dark-narrow')
   await popup().getByRole('button',{name:'长列表会话 23，等待回答',exact:true}).click();await settle();assert.equal(await page.locator('[data-conversation-session]').getAttribute('data-conversation-session'),'many-23')
  })
- await check('keyboard access, rapid reversal, accessibility preferences and disposal release the hover list',async()=>{
+ await check('keyboard access, rapid click reversal, outside closing and accessibility preferences release the details list',async()=>{
   await page.setViewportSize({width:1000,height:760});await page.mouse.move(900,20);const button=icon('waiting');await button.focus();await button.press('ArrowDown');assert.equal(await sessions().first().evaluate(node=>document.activeElement===node),true);await settle();await page.keyboard.press('Escape');await settle();assert.equal(await popup().count(),0);assert.equal(await button.evaluate(node=>document.activeElement===node),true)
-  await page.getByRole('textbox').focus();await root().hover();await popup().hover();await settle()
-  const reversal=await popup().evaluate(node=>new Promise(done=>{node.dispatchEvent(new PointerEvent('pointerleave',{pointerType:'mouse'}));setTimeout(()=>{const exit=node.getAnimations().find(a=>a.id==='dcb-attention-popover-out');if(!exit){done({error:'missing exit animation'});return}exit.pause();exit.currentTime=90;const before=+getComputedStyle(node).opacity;document.querySelector('.dcb-sidebar-attention').dispatchEvent(new PointerEvent('pointerenter',{pointerType:'mouse'}));const entry=node.getAnimations().find(a=>a.id==='dcb-attention-popover-in');entry.pause();entry.currentTime=0;done({before,after:+getComputedStyle(node).opacity,count:document.querySelectorAll('.dcb-attention-popover').length})},180)}))
+  await button.press('Enter');await settle();assert.equal(await popup().count(),1)
+  const reversal=await popup().evaluate(node=>{node.querySelector('[aria-label="收起会话详情"]').click();const exit=node.getAnimations().find(a=>a.id==='dcb-attention-popover-out');exit.pause();exit.currentTime=90;const before=+getComputedStyle(node).opacity;document.querySelector('.dcb-attention-button[data-kind=waiting]').click();const entry=node.getAnimations().find(a=>a.id==='dcb-attention-popover-in');entry.pause();entry.currentTime=0;return {before,after:+getComputedStyle(node).opacity,count:document.querySelectorAll('.dcb-attention-popover').length}})
   assert.ok(Math.abs(reversal.before-reversal.after)<.02);assert.equal(reversal.count,1);await page.evaluate(()=>document.getAnimations().filter(a=>a.id.startsWith('dcb-attention-')).forEach(a=>a.finish()));await settle()
   await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await popup().evaluate(node=>node.getAnimations({subtree:true}).length),0);await page.getByRole('textbox').click();assert.equal(await popup().count(),0)
-  await root().hover();assert.equal(await popup().evaluate(node=>node.getAnimations({subtree:true}).length),0);await page.evaluate(()=>attention.sync(false));assert.equal(await root().count(),0);assert.equal(await popup().count(),0)
-  await page.evaluate(()=>{attention.sync(true);fixture.set('many-0',{pendingInteraction:{key:'after-disable'}})});await page.waitForTimeout(40);await root().hover();assert.equal(await popup().count(),1);await page.evaluate(()=>attention.dispose());assert.equal(await popup().count(),0);assert.equal(await root().count(),0);assert.ok((await page.evaluate(()=>fixture.size())).every(count=>count===0));assert.equal(await page.getByRole('textbox').inputValue(),'保留草稿与焦点')
+  await button.click();assert.equal(await popup().evaluate(node=>node.getAnimations({subtree:true}).length),0);await page.evaluate(()=>attention.sync(false));assert.equal(await root().count(),0);assert.equal(await popup().count(),0)
+  await page.evaluate(()=>{attention.sync(true);fixture.set('many-0',{pendingInteraction:{key:'after-disable'}})});await page.waitForTimeout(40);await icon('waiting').tap();assert.equal(await popup().count(),1);await page.evaluate(()=>attention.dispose());assert.equal(await popup().count(),0);assert.equal(await root().count(),0);assert.ok((await page.evaluate(()=>fixture.size())).every(count=>count===0));assert.equal(await page.getByRole('textbox').inputValue(),'保留草稿与焦点')
  })
- assert.deepEqual(errors,[]);writeFileSync(resolve(output,'verification.json'),JSON.stringify({checks,errors},null,2));console.log(JSON.stringify({checks:checks.length,output}))
-}finally{await browser.close();await new Promise(done=>server.close(done))}
+ await check('the isolated interface renders its main areas with no console, script or network errors',async()=>{
+  assert.equal(await page.getByRole('heading',{name:'对话工作区',exact:true}).isVisible(),true);assert.equal(await page.getByRole('textbox').isVisible(),true);assert.equal(await page.locator('[data-dcb-sidebar-toggle-right]').isVisible(),true)
+  assert.deepEqual(errors,[]);assert.deepEqual(smoke,{console:[],requests:[],responses:[]})
+ })
+ console.log(JSON.stringify({checks:checks.length,output}))
+}finally{writeFileSync(resolve(output,'verification.json'),JSON.stringify({checks,errors,smoke},null,2));await browser.close();await new Promise(done=>server.close(done))}

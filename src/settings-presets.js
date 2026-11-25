@@ -1,6 +1,27 @@
 import {motion} from './motion.js'
 import {createPresetDelete,presetDeleteCss} from './preset-delete.js'
 
+const builtins = [
+  {id:'builtin-native', name:'接近原生', description:'关闭任务面板、背景、粒子、开屏与聊天动效，保留聊天宽度和本机素材。'},
+  {id:'builtin-light-glass', name:'轻量玻璃', description:'在「接近原生」基础上，仅为输入栏启用轻量玻璃。'},
+  {id:'builtin-default', name:'插件默认', description:'恢复全部美化选项和两种聊天宽度，开启 9600 颗粒子，保留本机素材。'},
+]
+
+function quietAppearance(current, composerStyle) {
+  const patchThemes = (themes, patch) => themes && Object.fromEntries(
+    Object.entries(themes).map(([theme, value]) => [theme, {...value, ...patch}])
+  )
+  return {
+    ...current, enabled:false, composerStyle, composerButtonGlass:false, chatUnderComposer:false,
+    iconStyle:'native', sidebarStyle:'milk', sidebarOverlay:false, sidebarMotion:false, headerCentered:false,
+    cardStyle:'milk', turnGlass:false, messageMotion:false, detailMotion:false, streamReveal:false,
+    runningAnimationEnabled:false, particleEnabled:false, welcomeEnabled:false, backgroundEnabled:false,
+    userBubbleStyle:'default', userBubbleThemes:patchThemes(current.userBubbleThemes,{style:'default'}),
+    welcomeThemes:patchThemes(current.welcomeThemes,{welcomeEnabled:false}),
+    backgroundThemes:patchThemes(current.backgroundThemes,{backgroundEnabled:false}),
+  }
+}
+
 // Presets are independent complete snapshots. They are deliberately not part
 // of settings-transfer's asset whitelist, avoiding recursive backups.
 export function createSettingsPresets(win,transfer){
@@ -29,7 +50,11 @@ export function createSettingsPresets(win,transfer){
     async import(name,blob){name=validName(name);const plan=await transfer.inspect(blob),id=win.crypto.randomUUID();await transaction('readwrite',store=>store.add({id,name,createdAt:Date.now(),scope:plan.scope||'full',blob}));return id},
     async rename(id,name){name=validName(name);const item=await get(id);if(!item)throw Error('预设已不存在，请刷新列表。');await transaction('readwrite',store=>store.put({...item,name}))},
     async remove(id){await transaction('readwrite',store=>store.delete(id))},
-    async apply(id){if(id==='builtin-default')return transfer.applyDefaults();const item=await get(id);if(!item)throw Error('预设已不存在，请刷新列表。');const plan=await transfer.inspect(item.blob);return transfer.apply(plan,{preserveNavigation:true})},
+    async apply(id){if(id==='builtin-default')return transfer.applyDefaults()
+      if(id==='builtin-native'||id==='builtin-light-glass'){
+        return transfer.applyAppearance(current=>quietAppearance(current,id==='builtin-light-glass'?'css':'milk'))
+      }
+      const item=await get(id);if(!item)throw Error('预设已不存在，请刷新列表。');const plan=await transfer.inspect(item.blob);return transfer.apply(plan,{preserveNavigation:true})},
   }
 }
 
@@ -112,9 +137,9 @@ export function createSettingsPresetsUI(React,win){
     return h('section',{className:'dcb-presets','aria-label':'配置预设','aria-busy':busy},
       h('h2',null,'配置预设'),h('p',null,'为当前美化设置和素材保存一份本机预设；切换时会替换当前设置，素材变化可能需要刷新。每份预设最多 512 MB，素材越多占用空间越大。'),
       h('div',{className:'dcb-presets-form'},h('input',{value:name,maxLength:40,placeholder:'为当前配置命名','aria-label':'预设名称',disabled:busy,onChange:e=>setName(e.target.value),onKeyDown:e=>{if(e.key==='Enter')save()}}),h('button',{type:'button','data-primary':'',disabled:busy,onClick:save},busy?'处理中…':'保存当前预设')),
-      h('div',{className:'dcb-preset-list',ref:list},[{id:'builtin-default',name:'默认值',builtin:true},...items].map(item=>h('div',{className:'dcb-preset-item',key:item.id},
-        h('div',{className:'dcb-preset-copy'},editing===item.id?h('input',{value:editName,maxLength:40,'aria-label':'修改预设名称',onChange:e=>setEditName(e.target.value),onKeyDown:e=>{if(e.key==='Enter')rename(item);if(e.key==='Escape')setEditing(null)}}):item.name,h('p',null,item.builtin?'内置默认配置 · 保留已导入素材':new Date(item.createdAt).toLocaleString()+' · '+(item.size>=1048576?(item.size/1048576).toFixed(1)+' MB':Math.ceil(item.size/1024)+' KB'))),
-        h('div',{className:'dcb-preset-actions'},editing===item.id?[h('button',{key:'save',type:'button',disabled:busy,onClick:()=>rename(item)},'保存名称'),h('button',{key:'cancel',type:'button',disabled:busy,onClick:()=>setEditing(null)},'取消')]:[h('button',{key:'apply',type:'button','data-primary':'',disabled:busy,onClick:()=>apply(item),'aria-label':`切换到 ${item.name}`},'切换'),!item.builtin&&h('button',{key:'rename',type:'button',disabled:busy,onClick:()=>{setEditName(item.name);setEditing(item.id)},'aria-label':`重命名 ${item.name}`},'重命名'),!item.builtin&&h(PresetDelete,{key:'delete',name:item.name,kind:'配置预设',disabled:busy,description:'将删除这份配置快照及其备份素材；当前已应用的设置和素材不受影响。',onConfirm:e=>remove(item,e)})])))),
+      h('div',{className:'dcb-preset-list',ref:list},[...builtins,...items].map(item=>h('div',{className:'dcb-preset-item',key:item.id},
+        h('div',{className:'dcb-preset-copy'},editing===item.id?h('input',{value:editName,maxLength:40,'aria-label':'修改预设名称',onChange:e=>setEditName(e.target.value),onKeyDown:e=>{if(e.key==='Enter')rename(item);if(e.key==='Escape')setEditing(null)}}):item.name,h('p',null,item.description || new Date(item.createdAt).toLocaleString()+' · '+(item.size>=1048576?(item.size/1048576).toFixed(1)+' MB':Math.ceil(item.size/1024)+' KB'))),
+        h('div',{className:'dcb-preset-actions'},editing===item.id?[h('button',{key:'save',type:'button',disabled:busy,onClick:()=>rename(item)},'保存名称'),h('button',{key:'cancel',type:'button',disabled:busy,onClick:()=>setEditing(null)},'取消')]:[h('button',{key:'apply',type:'button','data-primary':'',disabled:busy,onClick:()=>apply(item),'aria-label':`切换到 ${item.name}`},'切换'),!item.description&&h('button',{key:'rename',type:'button',disabled:busy,onClick:()=>{setEditName(item.name);setEditing(item.id)},'aria-label':`重命名 ${item.name}`},'重命名'),!item.description&&h(PresetDelete,{key:'delete',name:item.name,kind:'配置预设',disabled:busy,description:'将删除这份配置快照及其备份素材；当前已应用的设置和素材不受影响。',onConfirm:e=>remove(item,e)})])))),
       error&&h('p',{role:'alert'},error),notice&&h('p',{role:'status','aria-live':'polite'},notice),reload&&h('div',{className:'dcb-preset-actions'},h('p',null,'部分素材需要刷新界面后加载。'),h('button',{type:'button',onClick:()=>win.location.reload()},'刷新界面加载素材')))
   }
 }

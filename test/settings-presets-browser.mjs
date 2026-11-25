@@ -35,17 +35,29 @@ async function assertHoverContrast(button){
  assert.ok(contrast>=4.5,`hover contrast ${contrast.toFixed(2)} must be at least 4.5`)
 }
 try{
- await boot();assert.equal(await page.getByRole('button',{name:'全部恢复默认值'}).count(),0);assert.equal(await preset().getByRole('button',{name:'切换到 默认值'}).count(),1)
+ await boot();assert.equal(await page.getByRole('button',{name:'全部恢复默认值'}).count(),0);assert.equal(await preset().getByRole('button',{name:'切换到 插件默认'}).count(),1)
  await setConfig(310,'red');await save('红色');await setConfig(390,'blue');await save('蓝色')
  const config=await page.evaluate(KEY=>({format:'dsh-ui-beautify-config',version:1,settings:JSON.parse(localStorage.getItem(KEY)),layout:{widths:{version:1,window:null,fullscreen:null}}}),KEY)
  await page.getByLabel('选择美化配置文件',{exact:true}).setInputFiles({name:'config.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(config))})
  const importApply=page.getByRole('button',{name:'应用配置',exact:true});await importApply.waitFor()
- for(const dark of [false,true]){await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark);for(const button of [preset().getByRole('button',{name:'保存当前预设'}),preset().getByRole('button',{name:'切换到 默认值'}),preset().getByRole('button',{name:'切换到 红色'}),importApply])await assertHoverContrast(button)}
+ for(const dark of [false,true]){await page.evaluate(dark=>document.body.toggleAttribute('data-ds-dark-theme',dark),dark);for(const button of [preset().getByRole('button',{name:'保存当前预设'}),preset().getByRole('button',{name:'切换到 插件默认'}),preset().getByRole('button',{name:'切换到 红色'}),importApply])await assertHoverContrast(button)}
  await page.getByRole('region',{name:'全局配置导入导出'}).getByRole('button',{name:'取消'}).click();await page.evaluate(()=>document.body.removeAttribute('data-ds-dark-theme'))
  await apply('红色',310,'red');assert.equal((await page.evaluate(WIDTH=>JSON.parse(localStorage.getItem(WIDTH)),WIDTH)).window,620)
  await apply('蓝色',390,'blue');assert.equal((await page.evaluate(KEY=>JSON.parse(localStorage.getItem(KEY)),KEY)).userBubbleThemes.dark.css,'.bubble{color:blue}')
  await page.getByRole('button',{name:'撤销上次应用'}).click();await page.waitForFunction(KEY=>JSON.parse(localStorage.getItem(KEY)).width===310,KEY)
- await preset().getByRole('button',{name:'切换到 默认值'}).click();await page.waitForFunction(KEY=>JSON.parse(localStorage.getItem(KEY)).width===window.plugin.__test.normalize(null).width,KEY)
+ for(const [name,style] of [['接近原生','milk'],['轻量玻璃','css']]){
+   await preset().getByRole('button',{name:'切换到 '+name}).click()
+   await page.waitForFunction(({KEY,style})=>{const s=JSON.parse(localStorage.getItem(KEY));return s.enabled===false&&s.composerStyle===style},{KEY,style})
+   const state=await page.evaluate(({KEY,WIDTH})=>({config:JSON.parse(localStorage.getItem(KEY)),widths:JSON.parse(localStorage.getItem(WIDTH))}),{KEY,WIDTH})
+   for(const key of ['particleEnabled','messageMotion','welcomeEnabled','runningAnimationEnabled','streamReveal','composerButtonGlass'])assert.equal(state.config[key],false,key)
+   assert.equal(state.config.iconStyle,'native')
+   assert.equal(state.config.userBubbleThemes.dark.style,'default')
+   assert.equal(state.config.userBubbleThemes.dark.css,'.bubble{color:red}')
+   assert.deepEqual(state.widths,{version:1,window:620,fullscreen:930})
+   await page.getByRole('button',{name:'撤销上次应用'}).click()
+   await page.waitForFunction(KEY=>JSON.parse(localStorage.getItem(KEY)).enabled,KEY)
+ }
+ await preset().getByRole('button',{name:'切换到 插件默认'}).click();await page.waitForFunction(KEY=>JSON.parse(localStorage.getItem(KEY)).width===window.plugin.__test.normalize(null).width,KEY)
  await page.getByRole('button',{name:'撤销上次应用'}).click();await page.waitForFunction(KEY=>JSON.parse(localStorage.getItem(KEY)).width===310,KEY)
  await preset().getByRole('button',{name:'重命名 红色'}).click();await preset().getByLabel('修改预设名称').fill('红色主题');await preset().getByRole('button',{name:'保存名称'}).click();await preset().getByRole('button',{name:'切换到 红色主题'}).waitFor()
  await boot();await preset().getByRole('button',{name:'切换到 红色主题'}).waitFor();await apply('蓝色',390,'blue')

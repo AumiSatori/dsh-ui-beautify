@@ -207,7 +207,10 @@ export function createSettingsTransfer(win,{normalize,getSettings,getWidths,onAp
     needsReload=needsReload||undo.groups.length>0;undo=null;notify();return{reload:needsReload}
   })}
   const applyDefaults=()=>apply({settings:normalize(null),layout:{widths:widths(null)},databases:[],hasAssets:false,records:0},{preserveNavigation:true})
-  return{exportFile,inspect,apply,applyDefaults,undo:undoImport,status:()=>({canUndo:!!undo,reload:needsReload}),subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener)},dispose(){disposed=true;undo=null;listeners.clear()}}
+  const applyAppearance=transform=>apply({
+    settings:transform(getSettings()),layout:{widths:widths(getWidths())},databases:[],hasAssets:false,records:0
+  },{preserveNavigation:true})
+  return{exportFile,inspect,apply,applyDefaults,applyAppearance,undo:undoImport,status:()=>({canUndo:!!undo,reload:needsReload}),subscribe(listener){listeners.add(listener);return()=>listeners.delete(listener)},dispose(){disposed=true;undo=null;listeners.clear()}}
 }
 
 export const settingsTransferCss=`

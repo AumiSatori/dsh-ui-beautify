@@ -159,7 +159,7 @@ try{
   await page.mouse.move(a.x+a.width/2,a.y+a.height/2);await page.mouse.down();await page.mouse.move(a.x+a.width/2,b.y+b.height/2,{steps:8});await page.mouse.up();await settle();assert.equal((await saved()).toolbar.order[2],'folder')
   await page.getByRole('button',{name:'拖动项目文件夹调整位置',exact:true}).press('ArrowUp');assert.equal((await saved()).toolbar.order[1],'folder')
   await page.getByRole('switch',{name:'显示设置入口',exact:true}).click();const before=(await saved()).toolbar
-  await page.getByRole('tab',{name:'全局配置',exact:true}).click();await page.getByRole('button',{name:'切换到 默认值',exact:true}).click();await page.waitForFunction(()=>document.querySelector('button[data-primary]')&&!document.querySelector('.dcb-presets[aria-busy=true]'));assert.deepEqual((await saved()).toolbar,{order:toolbarDefaultOrder,hidden:[]})
+  await page.getByRole('tab',{name:'全局配置',exact:true}).click();await page.getByRole('button',{name:'切换到 插件默认',exact:true}).click();await page.waitForFunction(()=>document.querySelector('button[data-primary]')&&!document.querySelector('.dcb-presets[aria-busy=true]'));assert.deepEqual((await saved()).toolbar,{order:toolbarDefaultOrder,hidden:[]})
   await page.getByRole('button',{name:'撤销上次应用',exact:true}).click();assert.deepEqual((await saved()).toolbar,before);await select('右上工具栏')
  })
  await check('welcome-page entrances inherit visibility and order when no session utility row exists',async()=>{

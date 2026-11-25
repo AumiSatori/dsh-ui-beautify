@@ -23,6 +23,10 @@ dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/relea
 - 字体、用户图片/视频、SVG 与 HTML 保存在当前浏览器来源；不随账号自动跨设备同步。
 - 本卡片的 Artifact 阅读器不接管其他插件接口；多个预览窗口可能重叠。需要外部脚本、相邻文件或网络请求的 HTML 请用原生入口打开。
 
+## 0.6.7 发布验证
+
+新增两个本机内置预设。参见 [使用方法、性能对照与验证范围](RELEASE-0.6.7.md)。社区市场沿用固定 Release 安装地址。
+
 ## 0.6.6 发布验证
 
 预设市场目录不再被浏览器缓存的旧镜像覆盖。详见 [发布说明](RELEASE-0.6.6.md) 与 [validation-0.6.6.json](validation-0.6.6.json)。

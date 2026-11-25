@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url'
 import {build} from 'esbuild'
 import {chromium} from '@playwright/test'
 import {selectSettingsCategory} from './settings-navigation.mjs'
-import vm from 'node:vm'
+import {formatBundle,moduleCss} from './host-bundle-reader.mjs'
 
 const project=fileURLToPath(new URL('..',import.meta.url))
 const output=resolve(process.env.DSH_CLAUDE_OUTPUT_DIR||resolve(project,'../../outputs/dsh-ui-beautify'),'turn-cards')
@@ -20,10 +20,7 @@ if(process.env.DSH_ASAR){
     let entry=JSON.parse(json)
     for(const part of 'dsh/node_modules/@deepseek-ai/dsh-client-ui-chat/lib/client.js'.split('/'))entry=entry.files[part]
     const bytes=Buffer.alloc(entry.size);readSync(fd,bytes,0,bytes.length,8+head.readUInt32LE(4)+Number(entry.offset))
-    const host=bytes.toString(),at=host.indexOf('ChatView.module.css'),start=host.lastIndexOf('//#region',at),end=host.indexOf('//#endregion',at)
-    const literal=host.slice(start,end).match(/const css\$?\d* = ([^\n]+);/)
-    assert.ok(literal,'Read the installed ChatView stylesheet')
-    const css=new vm.Script(literal[1]).runInNewContext({require:{asset:path=>path}},{timeout:1000}),prefix=css.match(/\.([\w]+)_column\{/)[1]
+    const host=formatBundle(bytes.toString()),css=moduleCss(host,'ChatView'),prefix=css.match(/\.([\w]+)_column\{/)[1]
     hostCss=css.replaceAll(prefix+'_','native_')
     for(const marker of ['data-chat-flow','data-chat-turn','conversation.chat.flow','data-step-process-content'])assert.ok(host.includes(marker))
     source='installed ChatView stylesheet and verified public markers; synthetic messages'

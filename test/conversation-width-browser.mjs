@@ -1,3 +1,4 @@
+import {formatBundle,moduleCss,moduleClasses,componentRegion} from './host-bundle-reader.mjs'
 import assert from 'node:assert/strict'
 import {readFileSync,mkdirSync,writeFileSync,openSync,readSync,closeSync} from 'node:fs'
 import {resolve} from 'node:path'
@@ -17,10 +18,9 @@ try{
   let entry=JSON.parse(json);for(const part of 'dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js'.split('/'))entry=entry.files[part]
   const bytes=Buffer.alloc(entry.size);readSync(fd,bytes,0,bytes.length,8+head.readUInt32LE(4)+Number(entry.offset));source=bytes.toString()
 }finally{closeSync(fd)}
-const at=source.indexOf('ConversationRoot.module.css'),region=source.slice(source.lastIndexOf('//#region',at),source.indexOf('//#endregion',at))
-const css=JSON.parse(region.match(/const css\$?\d* = ("(?:[^"\\]|\\.)*");/)[1])
-const classes=source.match(/var ConversationRoot_module_css_default = (\{[\s\S]*?\n\s*\});/)[1]
-const start=source.indexOf('const WIDTH_PREF_KEY ='),controls=source.slice(start,source.indexOf('//#endregion',start))
+source=formatBundle(source)
+const css=moduleCss(source,'ConversationRoot'),classes=JSON.stringify(moduleClasses(source,'ConversationRoot'))
+const controls=componentRegion(source,'const WIDTH_PREF_KEY =','const CONTENT_SLOTS')
 assert.ok(controls.includes('function ConversationWidthControls(')&&controls.includes('setPointerCapture'))
 const jsx=`import React from'react';import*as jsxRuntime from'react/jsx-runtime';import{createRoot}from'react-dom/client';
 import{createConversationWidth,conversationWidthMode}from'./src/conversation-width.js';import{createSidebarOverlay,sidebarOverlayCss}from'./src/sidebar-overlay.js';import{createHeaderLayout,headerLayoutCss}from'./src/header-layout.js';

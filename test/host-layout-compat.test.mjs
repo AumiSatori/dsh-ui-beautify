@@ -91,6 +91,21 @@ test('overlay drawer follows the published width of a display:contents root whil
   overlay.dispose()
 })
 
+test('an unsupported width leaves the native tracks active and recovers on a valid host width',()=>{
+  const root=element('sidebarRoot',{css:{width:'100%'},rect:{width:280}})
+  const {frame,doc}=layout({root}),overlay=createSidebarOverlay(doc,windowFixture())
+  overlay.sync(true)
+  assert.equal(frame.hasAttribute('data-dcb-sidebar-overlay'),false)
+  frame.style.setProperty('--dsh-windows-sidebar-width','320px')
+  overlay.sync(true)
+  assert.equal(frame.hasAttribute('data-dcb-sidebar-overlay'),true)
+  frame.style.removeProperty('--dsh-windows-sidebar-width')
+  overlay.sync(true)
+  assert.equal(frame.hasAttribute('data-dcb-sidebar-overlay'),false)
+  assert.equal(frame.style.getPropertyValue('--dcb-overlay-left-width'),'')
+  overlay.dispose()
+})
+
 test('collapsed overlay keeps the rail width on both layouts', () => {
   for(const root of [element('sidebarRoot',{css:{width:'300px'}}),element('sidebarRoot')]){
     const {frame,doc}=layout({root,frameCss:{'--dsh-windows-sidebar-width':'360px'},collapsed:true})

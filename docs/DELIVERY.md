@@ -10,7 +10,7 @@
 dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/releases/latest/download/dsh-ui-beautify.tgz
 ```
 
-安装包含预构建 `client.js`，不需要开发依赖、不执行安装期构建。首次安装后按宿主提示重载；客户端更新通常 Ctrl+R 即可。展示设置在 **设置 → dsh-UI美化**。所有样式的默认选项排在前面。
+安装包含预构建 `client.js`，不需要开发依赖、不执行安装期构建。插件管理器确认已应用即可使用，提示需要重启时再重启对应宿主；客户端更新通常 Ctrl+R 即可。展示设置在 **设置 → dsh-UI美化**。所有样式的默认选项排在前面。
 
 本地源码链接版保留现有安装方式；不要在同一 profile 同时登记源码链接和市场包。切换安装来源时，先在插件管理器移除旧登记，再安装新来源；本机偏好与素材保留在浏览器来源中。
 
@@ -22,6 +22,10 @@ dsh plugin --profile web add https://github.com/AumiSatori/dsh-ui-beautify/relea
 - 桌面与 Web 使用同一客户端。未声称已验证所有操作系统或第三方客户端。
 - 字体、用户图片/视频、SVG 与 HTML 保存在当前浏览器来源；不随账号自动跨设备同步。
 - 本卡片的 Artifact 阅读器不接管其他插件接口；多个预览窗口可能重叠。需要外部脚本、相邻文件或网络请求的 HTML 请用原生入口打开。
+
+## 0.6.8 发布验证
+
+见 [热装卸与宿主兼容验证](RELEASE-0.6.8.md)。
 
 ## 0.6.7 发布验证
 

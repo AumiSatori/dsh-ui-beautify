@@ -31,13 +31,13 @@ function Sessions(){
  const open=id=>{setCurrent(id);if(window.fixtureReleaseNextSession){window.fixtureReleaseNextSession=false;setTimeout(()=>window.fixtureSessions.handleSessionRemoved(id),60)}}
  return <div role="tree" aria-label="演示会话" style={{height:'100%',overflow:'auto'}}>{list.ids.map(id=>{
   const node=list.byId[id]
-  return <SessionNodeItem key={node.id} node={node} currentId={current} now={0} onOpen={open} onRenameRequest={()=>{}} renderSlot={()=>null} openSessionMenu={()=>{}} useContextMenu={()=>({getTriggerProps:(_target,props)=>props||{}})} useContextMenuTarget={selector=>selector(null)} useSessionAccess={()=>true} t={key=>key}/>
+  return <SessionNodeItem renderFactorySlot={()=>null} key={node.id} node={node} currentId={current} now={0} onOpen={open} onRenameRequest={()=>{}} renderSlot={()=>null} openSessionMenu={()=>{}} useContextMenu={()=>({getTriggerProps:(_target,props)=>props||{}})} useContextMenuTarget={selector=>selector(null)} useSessionAccess={()=>true} t={key=>key}/>
  })}</div>
 }
 function Header({right,settings,kind,leading}){
  const [view,setView]=React.useState('chat'),tabs=[{id:'chat',label:'对话'},{id:'trace',label:'轨迹'},{id:'context',label:'上下文'}];
  const renderSlot=(name,props)=>{
-  if(name==='conversation.session.header')return <ConversationSessionHeader {...props} sessionId="demo" useContextMenu={()=>({getTriggerProps:()=>({})})} useSessions={selector=>selector({byId:{demo:{id:'demo',displayTitle:'GitHub 仓库能否作 DSH 背景'}}})} useConversationViews={selector=>selector(tabs)} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={selector=>selector({view})} renderSlot={renderSlot} selectView={setView} open={()=>{}} t={key=>key}/>;
+  if(name==='conversation.session.header')return <ConversationSessionHeader renderFactorySlot={()=>null} {...props} sessionId="demo" useContextMenu={()=>({getTriggerProps:()=>({})})} useSessions={selector=>selector({byId:{demo:{id:'demo',displayTitle:'GitHub 仓库能否作 DSH 背景'}}})} useConversationViews={selector=>selector(tabs)} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} useStore={selector=>selector({view})} renderSlot={renderSlot} selectView={setView} open={()=>{}} t={key=>key}/>;
   if(name==='conversation.header.leading')return leading?<button aria-label="返回工作区" onClick={()=>window.headerActions++}>⌂</button>:null;
   if(name==='conversation.session.header.actions')return <><button>标准模式</button><button>6 个智能体⌄</button></>;
   if(name==='conversation.session.header.utilities')return <><button aria-label="打开目录" onClick={()=>window.headerActions++}>📁⌄</button><button className="demo-theme" aria-label="日夜切换">☀︎ ━</button><focus.Button/><span className="dcb-anchor"><button className="dcb-entry" aria-label="全部轮次" onClick={()=>window.headerActions++}>◈ 全部 17 轮</button></span><button aria-label="打开设置" onClick={settings}>设置</button></>;
@@ -54,9 +54,10 @@ function Demo(){
  const right=()=>setLayout(old=>({...old,rightbarShown:!old.rightbarShown,rightbarTrack:!old.rightbarTrack}));
  window.fixture={left,right,settings:setSettings,header:setHeaderKind,leading:setLeading,refresh,panel:setGlobalPanel,remount:()=>setGeneration(n=>n+1),layout:()=>layout,fullscreen:value=>setLayout(old=>({...old,rightbarFullscreen:value})),instant:value=>setLayout(old=>({...old,rightbarInstant:value}))};
  const renderSlot=(name,props)=>{
-  if(name==='sidebar')return <SidebarRoot {...props} toggleSidebar={left} startSession={()=>{}} selectPanel={()=>{}} useRemoteAccess={()=>true} usePanels={selector=>selector([])} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} trackEntryClick={()=>{}} setPinned={()=>{}} useShortcuts={selector=>selector([])} usePanelInfo={selector=>selector({activePanelId:null})} t={key=>key==='toggle.open'?'打开左侧栏':key==='toggle.collapse'?'收起左侧栏':key} renderSlot={(slot)=>['sidebar.sessions','sidebar.workspaces'].includes(slot)?<Sessions/>:null}/>;
+  if(name==='sidebar')return <SidebarRoot renderFactorySlot={()=>null} {...props} toggleSidebar={left} startSession={()=>{}} selectPanel={()=>{}} useRemoteAccess={()=>true} usePanels={selector=>selector([])} useEntryPins={selector=>selector([])} useEntryActions={selector=>selector(false)} trackEntryClick={()=>{}} setPinned={()=>{}} useShortcuts={selector=>selector([])} usePanelInfo={selector=>selector({activePanelId:null})} t={key=>key==='toggle.open'?'打开左侧栏':key==='toggle.collapse'?'收起左侧栏':key} renderSlot={(slot)=>['sidebar.sessions','sidebar.workspaces'].includes(slot)?<Sessions/>:null}/>;
   if(name==='main')return globalPanel?<div data-testid="global-panel">插件页面</div>:<main className="cr_root" data-phase="active"><Header right={right} settings={()=>setSettings(true)} kind={headerKind} leading={leading}/><div className="cr_body" data-conversation-content="" data-conversation-session="demo"><div data-conversation-scroll="" className="chat-scroll"><article data-chat-flow="">{Array.from({length:180},(_,i)=><p key={i} className="message">演示消息 {i+1}：左右侧栏覆盖主屏幕，正文宽度、滚动位置和输入草稿不会随开合改变。保留真实控件和粒子画布。</p>)}</article></div><div data-composer-seat="" className="composer"><textarea aria-label="输入草稿" defaultValue="保留输入草稿和选区"/></div></div></main>;
   if(name==='rightbar')return <div className="rb_panel" data-sidebar-right-panel={layout.rightbarFullscreen?'fullscreen':'push'} data-sidebar-right-open={layout.rightbarShown||undefined} style={{width:layout.rightbarFullscreen?'100vw':props.width,'--dsh-sidebar-width':props.width+'px'}}><div data-dockkit-empty="" className="right-content"><div className="preview-toolbar"><span>preview.html</span><button aria-label="预览布局">▥</button><button aria-label="预览全屏" onClick={()=>window.fixture.fullscreen(!layout.rightbarFullscreen)}>⛶</button><button aria-label="收起右侧栏" onClick={right}><svg className="rb_collapseGlyph" width="16" height="16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor"/></svg></button></div><h2>原生右侧面板</h2><input aria-label="右侧草稿" defaultValue="保留文件面板状态"/></div></div>;
+  if(name==='shell.leading')return <button aria-label="展开原生抽屉" onClick={left}>☰</button>;
   if(name==='shell.bottom')return <div className="bottom">原生底栏</div>;
   if(name==='shell.overlay'&&settings&&window.fixtureSettings)return <div className="settings-dialog" role="dialog"><button aria-label="关闭设置" onClick={()=>setSettings(false)}>×</button><window.fixtureSettings/></div>;
   return null;
@@ -109,7 +110,7 @@ try{
   assert.ok(Math.abs(bounds.top-bounds.expectedTop)<.6,JSON.stringify(bounds))
   assert.ok(Math.abs(bounds.bottom-bounds.expectedBottom)<.6,JSON.stringify(bounds))
   await page.evaluate(()=>{window.savedChat=document.querySelector('[data-conversation-session]');window.savedEditor=document.querySelector('textarea');window.savedMessage=document.querySelector('.message');window.overlayCanvas=document.querySelector('.dcb-particle-layer canvas')})
-  for(const toggle of [page.locator('.sb_toggle'),page.locator('[data-dcb-sidebar-toggle-right]')]){
+  for(const toggle of [page.locator('.sb_toggle:visible'),page.locator('[data-dcb-sidebar-toggle-right]')]){
    for(let i=0;i<2;i++){
     const before=await page.locator('.af_frame').getAttribute('data-sidebar-collapsed')
     await sample(()=>toggle.click())
@@ -190,11 +191,15 @@ try{
   await page.locator('.sb_toggle').click();await page.waitForTimeout(400)
   const row=await page.locator('.cr_titleRow').boundingBox(),tabs=await page.locator('[data-conversation-tabs]').boundingBox()
   const flow=await page.locator('[data-chat-flow]').boundingBox()
-  assert.ok(Math.abs(row.x-flow.x)<.6&&Math.abs(row.width-flow.width)<.6,JSON.stringify({row,flow}))
-  assert.ok(Math.abs(tabs.x-flow.x)<.6&&Math.abs(tabs.width-flow.width)<.6)
+  const drawer=page.locator('[data-dcb-sidebar-overlay]:not([data-sidebar-collapsed=true]) > [data-dcb-sidebar-overlay-part=left]')
+  const visibleDrawer=await drawer.count()?await drawer.evaluate(node=>({x:node.parentElement.getBoundingClientRect().x,width:parseFloat(node.parentElement.style.getPropertyValue('--dcb-overlay-left-width'))})):null
+  const left=Math.max(flow.x,visibleDrawer?visibleDrawer.x+visibleDrawer.width:flow.x)
+  for(const box of [row,tabs]){
+    assert.ok(Math.abs(box.x-left)<.6&&Math.abs(box.x+box.width-flow.x-flow.width)<.6,JSON.stringify({box,flow,visibleDrawer}))
+  }
   const corner=await page.getByRole('button',{name:'切换右侧栏',exact:true}).boundingBox(),tools=await page.locator('.cr_headerUtilities').boundingBox()
   assert.ok(Math.abs(corner.x+corner.width-1428)<.6,'the right-side switch stays at the actual conversation edge')
-  assert.ok(Math.abs(corner.y+corner.height/2-tools.y-tools.height/2)<.6,'the right-side switch and utilities share a baseline')
+  assert.ok(Math.abs(corner.y+corner.height/2-tools.y-tools.height/2)<.6,JSON.stringify({message:'the right-side switch and utilities share a baseline',corner,tools}))
   assert.ok(Math.abs(tools.x+tools.width+8-corner.x)<.6,'the utilities stay beside the right-side switch')
   await page.getByRole('button',{name:'全部轮次',exact:true}).evaluate(el=>{window.savedEntryText=el.textContent;el.textContent='第 12 步，共 128 步'})
   await page.waitForTimeout(100)
@@ -380,12 +385,17 @@ try{
   await sample(()=>page.locator('.sb_toggle').click());await page.screenshot({path:resolve(output,'narrow-dark-overlay.png')})
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false)
  })
- await check('ordinary web windows retain a fixed compact rail while their drawers open over the chat',async()=>{
+ await check('a narrow web window keeps the native drawer and can reopen it from the host leading slot',async()=>{
   await page.evaluate(()=>{document.documentElement.removeAttribute('data-windows-titlebar');window.fixture.refresh()});await page.waitForTimeout(180)
-  assert.equal((await page.locator('.af_centerCol').boundingBox()).width,704)
-  await sample(()=>page.locator('.sb_toggle').click())
-  assert.equal(await page.locator('.sb_toggle').isVisible(),true)
-  await sample(()=>page.locator('.sb_toggle').click())
+  const frame=page.locator('.af_frame')
+  assert.equal(await frame.getAttribute('data-dcb-sidebar-overlay'),null)
+  const before=await frame.getAttribute('data-sidebar-collapsed')
+  const open=()=>page.getByRole('button',{name:'展开原生抽屉'}).click()
+  const close=()=>page.locator('.sb_toggle:visible').click()
+  await (before==='true'?open():close())
+  await page.waitForFunction(before=>document.querySelector('.af_frame').getAttribute('data-sidebar-collapsed')!==before,before)
+  await (before==='true'?close():open())
+  assert.equal(await frame.getAttribute('data-sidebar-collapsed'),before)
   await page.evaluate(()=>{document.documentElement.setAttribute('data-windows-titlebar','');window.fixture.refresh()});await page.waitForTimeout(180)
  })
  await check('remount, global panel changes and uninstall restore native layout without leaving marks or variables',async()=>{

@@ -31,11 +31,16 @@ export function createSidebarOverlay(doc,win,schedule=()=>{}){
   const records=new Map()
   const restore=(el,name,value)=>value===null?el.removeAttribute(name):el.setAttribute(name,value)
   const set=(el,key,value)=>{if(el.style.getPropertyValue(key)!==value)el.style.setProperty(key,value)}
-  function updateWidth(frame,root){
+  function readWidth(frame,root){
     const desktop=doc.documentElement.hasAttribute('data-windows-titlebar')||doc.documentElement.dataset.platform==='darwin',rail=desktop?0:56
     const collapsed=frame.getAttribute('data-sidebar-collapsed')==='true'
-    const width=collapsed?rail:nativeSidebarWidth(frame,root)||280
-    set(frame,RAIL,rail+'px');set(frame,WIDTH,Math.max(0,width)+'px')
+    // The web host owns the narrow drawer, including its mask and inert rail.
+    if(!desktop&&frame.hasAttribute('data-sidebar-drawer'))return null
+    const width=collapsed?rail:nativeSidebarWidth(frame,root,{allowMeasured:false})
+    return width===null?null:{rail,width}
+  }
+  function updateWidth(frame,{rail,width}){
+    set(frame,RAIL,rail+'px');set(frame,WIDTH,width+'px')
   }
   function release(frame,record){
     record.observer.disconnect();record.resize.disconnect()
@@ -52,6 +57,8 @@ export function createSidebarOverlay(doc,win,schedule=()=>{}){
       if(!left||!center){const previous=records.get(frame);if(previous)release(frame,previous);continue}
       let record=records.get(frame)
       if(record&&(record.left!==left||record.center!==center||record.right!==right||record.root!==left.firstElementChild)){release(frame,record);record=null}
+      const measured=readWidth(frame,left.firstElementChild)
+      if(!measured){if(record)release(frame,record);continue}
       if(!record){
         record={left,center,right,root:left.firstElementChild,mark:frame.getAttribute(FRAME),parts:[],variables:[WIDTH,RAIL,TOP,BOTTOM].map(key=>[key,frame.style.getPropertyValue(key),frame.style.getPropertyPriority(key)])}
         record.observer=new win.MutationObserver(entries=>{
@@ -59,7 +66,11 @@ export function createSidebarOverlay(doc,win,schedule=()=>{}){
           // state. Deferring this to the next scan lets the drawer travel in
           // the old direction for another rendered frame on rapid reversal.
           // Newer hosts publish the dragged width only on the frame style.
-          if(entries.some(entry=>entry.type==='attributes'&&((entry.target===frame&&(entry.attributeName==='data-sidebar-collapsed'||entry.attributeName==='style'))||(entry.target===record.root&&entry.attributeName==='style'))))updateWidth(frame,record.root)
+          if(entries.some(entry=>entry.type==='attributes'&&((entry.target===frame&&(entry.attributeName==='data-sidebar-collapsed'||entry.attributeName==='style'))||(entry.target===record.root&&entry.attributeName==='style')))){
+            const next=readWidth(frame,record.root)
+            if(next)updateWidth(frame,next)
+            else release(frame,record)
+          }
           schedule()
         })
         record.observer.observe(frame,{attributes:true,attributeFilter:['style','class','data-sidebar-collapsed','data-rightbar-collapsed','data-dcb-focus-frame'],childList:true})
@@ -71,9 +82,8 @@ export function createSidebarOverlay(doc,win,schedule=()=>{}){
         for(const [node,kind]of [[left,'left'],[center,'center'],[right,'right']])if(node){record.parts.push([node,node.getAttribute(PART)]);node.setAttribute(PART,kind)}
         records.set(frame,record);frame.setAttribute(FRAME,'')
       }
-      const root=left.firstElementChild
       const style=win.getComputedStyle(frame),bottom=children.find(child=>child.hasAttribute('data-shell-bottom'))
-      updateWidth(frame,root);set(frame,TOP,style.paddingTop);set(frame,BOTTOM,(bottom?.getBoundingClientRect().height||0)+'px')
+      updateWidth(frame,measured);set(frame,TOP,style.paddingTop);set(frame,BOTTOM,(bottom?.getBoundingClientRect().height||0)+'px')
     }
   }
   return{sync,dispose(){for(const [frame,record]of records)release(frame,record)}}

@@ -15,7 +15,7 @@ export const headerLayoutCss=`
   header[${MARK}] ${names('titleCluster')} { flex:1 1 320px; min-width:0; margin-inline-end:0; flex-wrap:wrap; gap:6px 10px; }
   header[${MARK}] ${names('crumbs')} { flex:0 1 auto; max-width:100%; }
   header[${MARK}] ${names('headerActions')} { flex-wrap:wrap; }
-  header[${MARK}] ${names('headerUtilities')} { position:absolute; inset-block-start:10px; inset-inline-end:var(${RIGHT},50px); min-width:0; max-width:calc(100% - 96px); min-height:30px; flex-wrap:nowrap; gap:8px; margin:0; }
+  header[${MARK}] ${names('headerUtilities')} { position:absolute; inset-block-start:10px; inset-inline-end:var(${RIGHT},50px); min-width:0; max-width:calc(100% - 96px); height:30px; align-items:center; flex-wrap:nowrap; gap:8px; margin:0; }
   header[${MARK}] ${names('headerCorner')} { position:absolute; inset-block-start:10px; inset-inline-end:12px; height:30px; gap:8px; margin:0; }
   header[${MARK}] ${names('headerUtilities')} .dcb-focus-toggle { margin-left:0; }
   header[${MARK}] ${names('headerUtilities')} .dcb-anchor { align-items:center; height:30px; }
@@ -24,7 +24,7 @@ export const headerLayoutCss=`
   header[${MARK}] [data-conversation-tabs] { width:100%; min-width:0; box-sizing:border-box; flex:1 1 auto; grid-column:1/-1; justify-self:stretch; justify-content:flex-start; max-width:100%; flex-wrap:wrap; gap:24px; padding-left:0; }
   header[${COMPACT}] ${names('titleRow')} { padding-inline-end:0; flex-wrap:wrap; }
   header[${COMPACT}] ${names('titleCluster')} { flex:1 1 100%; max-width:calc(100% - var(${CORNER},30px) - 8px); }
-  header[${COMPACT}] ${names('headerUtilities')} { position:static; flex:1 1 100%; min-width:0; max-width:100%; flex-wrap:wrap; }
+  header[${COMPACT}] ${names('headerUtilities')} { position:static; flex:1 1 100%; min-width:0; max-width:100%; height:auto; min-height:30px; flex-wrap:wrap; }
   .dcb-header-project { display:inline-flex; align-items:center; gap:10px; flex:0 1 auto; min-width:0; max-width:min(40%,260px); color:var(--dsw-alias-label-secondary,#707580); font-size:13px; line-height:22px; }
   .dcb-header-project-label { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .dcb-header-project-separator { flex:none; opacity:.55; }
